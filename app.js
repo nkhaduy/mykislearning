@@ -44,6 +44,7 @@ let employeeDirectorySearch = "";
 let employeeDirectoryFilters = { department: "", position: "", accountStatus: "", cchn: "" };
 let employeeDirectoryPage = 1;
 let employeeDirectorySortAsc = true;
+let employeeDirectoryReviewIssues = false;
 let cchnSearch = "";
 let cchnSortAsc = true;
 let cchnPage = 1;
@@ -515,6 +516,7 @@ function localizedStatus(status) {
 function filteredEmployeeDirectory() {
   return getEmployees().filter((employee) => {
     const searchText = `${employee.fullName} ${employee.email}`.toLowerCase();
+    if (employeeDirectoryReviewIssues && !employee.dataIssue) return false;
     return (!employeeDirectorySearch || searchText.includes(employeeDirectorySearch.toLowerCase()))
       && (!employeeDirectoryFilters.department || employee.department === employeeDirectoryFilters.department)
       && (!employeeDirectoryFilters.position || employee.position === employeeDirectoryFilters.position)
@@ -786,10 +788,10 @@ function bindEvents() {
   });
   document.querySelectorAll("[data-account-search]").forEach((el) => el.addEventListener("input", () => { accountSearch = el.value; render(); }));
   document.querySelectorAll("[data-account-filter]").forEach((el) => el.addEventListener("change", () => { accountFilters[el.dataset.accountFilter] = el.value; render(); }));
-  document.querySelectorAll("[data-employee-search]").forEach((el) => el.addEventListener("input", () => { employeeDirectorySearch = el.value; employeeDirectoryPage = 1; render(); }));
-  document.querySelectorAll("[data-employee-filter]").forEach((el) => el.addEventListener("change", () => { employeeDirectoryFilters[el.dataset.employeeFilter] = el.value; employeeDirectoryPage = 1; render(); }));
+  document.querySelectorAll("[data-employee-search]").forEach((el) => el.addEventListener("input", () => { employeeDirectorySearch = el.value; employeeDirectoryReviewIssues = false; employeeDirectoryPage = 1; render(); }));
+  document.querySelectorAll("[data-employee-filter]").forEach((el) => el.addEventListener("change", () => { employeeDirectoryFilters[el.dataset.employeeFilter] = el.value; employeeDirectoryReviewIssues = false; employeeDirectoryPage = 1; render(); }));
   document.querySelector("[data-sort-employees]")?.addEventListener("click", () => { employeeDirectorySortAsc = !employeeDirectorySortAsc; render(); });
-  document.querySelector("[data-review-issues]")?.addEventListener("click", () => { employeeDirectoryFilters = { department: "", position: "", accountStatus: "", cchn: "" }; employeeDirectorySearch = ""; employeeDirectoryPage = 1; render(); requestAnimationFrame(() => document.querySelector(".hr-employee-directory")?.scrollIntoView({ behavior: "smooth" })); });
+  document.querySelector("[data-review-issues]")?.addEventListener("click", () => { employeeDirectoryFilters = { department: "", position: "", accountStatus: "", cchn: "" }; employeeDirectorySearch = ""; employeeDirectoryReviewIssues = true; employeeDirectoryPage = 1; render(); requestAnimationFrame(() => document.querySelector(".hr-employee-directory")?.scrollIntoView({ behavior: "smooth" })); });
   document.querySelectorAll("[data-page-kind]").forEach((el) => el.addEventListener("click", () => { if (el.dataset.pageKind === "employees") employeeDirectoryPage = Number(el.dataset.page); if (el.dataset.pageKind === "cchn") cchnPage = Number(el.dataset.page); render(); }));
   document.querySelectorAll("[data-account-detail]").forEach((el) => el.addEventListener("click", () => { selectedAccountId = el.dataset.accountDetail; accountDrawerOpen = true; render(); }));
   document.querySelector("[data-close-drawer]")?.addEventListener("click", () => { accountDrawerOpen = false; render(); });
