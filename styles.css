@@ -529,7 +529,7 @@ a {
   height: 100%;
   width: var(--value, 50%);
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--chart-steel), var(--chart-cool));
+  background: var(--chart-steel);
 }
 
 .course-line {
@@ -2272,10 +2272,12 @@ a {
 
 .task {
   padding: 16px;
-  border-left: 4px solid var(--accent);
+  border: 1px solid #cfe0ee;
   background: var(--soft-accent);
   border-radius: 8px;
 }
+
+.learning-notice{padding:12px 24px;color:#24476b;background:#eef5fb;border-bottom:1px solid #cfe0ee;font-size:13px}.course-player{display:grid;grid-template-columns:310px minmax(0,1fr);min-height:calc(100vh - 122px)}.course-outline{padding:22px 16px;border-right:1px solid var(--line);background:#fff}.outline-progress{padding:10px 8px 20px}.outline-progress strong{color:var(--navy);font-size:24px}.outline-progress span{display:block;margin-top:6px;color:var(--muted);font-size:13px}.course-outline ol{padding:0;margin:0;list-style:none}.course-outline li+li{margin-top:5px}.course-outline button{display:flex;width:100%;gap:12px;align-items:flex-start;padding:12px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--ink);text-align:left;cursor:pointer}.course-outline button.active{background:var(--soft-accent);border-color:#cfe0ee}.course-outline button:disabled{cursor:not-allowed;color:#7b8795}.course-outline button span:first-child{display:grid;place-items:center;width:26px;height:26px;color:var(--navy)}.course-outline button span:last-child{min-width:0}.course-outline button strong,.course-outline button small{display:block;overflow-wrap:anywhere}.course-outline button small{margin-top:4px;color:var(--muted)}.lesson-stage{padding:32px;min-width:0}.lesson-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:24px}.lesson-heading h1{margin:10px 0 0;color:var(--navy);font-size:28px;text-wrap:balance}.learning-warning{min-height:24px;margin-bottom:10px;color:#5b4b00;font-weight:700}.slide-canvas{display:grid;align-content:center;min-height:390px;padding:52px;border:1px solid #cbd5e1;border-radius:12px;background:#fff;box-shadow:0 12px 28px rgba(11,31,58,.06)}.slide-canvas h2{max-width:24ch;color:var(--navy);font-size:34px}.slide-canvas p{max-width:65ch;font-size:18px}.slide-controls,.lesson-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px}.lesson-nav{padding-top:20px;border-top:1px solid var(--line)}.lesson-nav span{color:var(--muted);font-size:13px;text-align:center}.video-frame{position:relative;aspect-ratio:16/9;overflow:hidden;border-radius:12px;background:#071a2f}.video-frame iframe,#course-video{width:100%;height:100%;min-height:420px;border:0;background:#071a2f}.media-policy{color:var(--muted);font-size:13px}.transcript{padding:16px;border:1px solid var(--line);border-radius:8px;background:#fff}.transcript summary{cursor:pointer;color:var(--navy);font-weight:800}.video-placeholder{display:grid;place-items:center;min-height:280px;padding:32px;border:1px solid var(--line);border-radius:12px;background:#eef5fb;text-align:center}.integrated-quiz{padding:32px;border:1px solid var(--line);border-radius:12px;background:#fff}.btn:focus-visible,a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #3a7ca5;outline-offset:3px}.btn:disabled{cursor:not-allowed;opacity:.55;transform:none}@media(max-width:980px){.course-player{grid-template-columns:1fr}.course-outline{border-right:0;border-bottom:1px solid var(--line)}.course-outline ol{display:flex;overflow-x:auto;gap:6px}.course-outline li{flex:0 0 240px}.lesson-stage{padding:24px}}@media(max-width:640px){.lesson-stage{padding:18px 14px}.slide-canvas{min-height:320px;padding:28px 22px}.slide-canvas h2{font-size:26px}.lesson-nav{align-items:stretch;flex-direction:column}.lesson-nav .btn{width:100%}.topbar{padding:12px 14px;align-items:flex-start}.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.course-player{min-height:auto}}
 
 .task strong {
   display: block;
@@ -3009,6 +3011,24 @@ tbody tr:hover {
 
 .modal-narrow {
   width: min(520px, 100%);
+}
+
+.modal--large {
+  width: min(1100px, 92vw);
+  max-height: min(88vh, calc(100vh - 40px));
+}
+
+.modal-col-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 24px;
+  margin-top: 20px;
+}
+
+@media (max-width: 768px) {
+  .modal-col-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 .modal-head {
