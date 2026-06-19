@@ -2497,6 +2497,159 @@ a {
   font-weight: 700;
 }
 
+.premium-footer {
+  position: relative;
+  overflow: hidden;
+  padding: 56px 0 0;
+  background: #08111f;
+}
+
+.premium-footer::before {
+  content: "";
+  position: absolute;
+  inset: 24px 0 auto auto;
+  width: 280px;
+  height: 180px;
+  opacity: 0.08;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.7) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.7) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+.footer-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1.5fr 0.8fr 0.9fr 1fr;
+  gap: 42px;
+  padding-bottom: 38px;
+}
+
+.footer-brand strong {
+  display: block;
+  color: #fff;
+  font-size: 24px;
+}
+
+.footer-brand p {
+  max-width: 360px;
+  color: #cbd5e1;
+  line-height: 1.7;
+}
+
+.footer-brand span,
+.footer-column p,
+.footer-bottom span {
+  color: #94a3b8;
+}
+
+.footer-column {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.footer-column h3 {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.footer-column a,
+.footer-link-button {
+  color: #cbd5e1;
+  transition: color 0.18s ease;
+}
+
+.footer-column a:hover,
+.footer-link-button:hover {
+  color: #b9d8ff;
+}
+
+.footer-contact strong {
+  color: #fff;
+}
+
+.footer-contact p {
+  margin: 0;
+}
+
+.footer-bottom {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 0;
+  border-top: 1px solid rgba(203, 213, 225, 0.16);
+}
+
+.footer-bottom .language-switch {
+  border-color: rgba(203, 213, 225, 0.24);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.footer-bottom .language-switch button.active,
+.footer-bottom .language-switch button:hover {
+  color: #fff;
+}
+
+.footer-bottom .language-switch button {
+  color: #94a3b8;
+}
+
+.data-quality-alert {
+  margin-bottom: 18px;
+  border-left: 4px solid #9fb3c8;
+}
+
+.employee-directory-filter {
+  grid-template-columns: minmax(220px, 1.4fr) repeat(4, minmax(140px, 1fr));
+  margin-bottom: 16px;
+}
+
+.employee-directory-table table {
+  min-width: 1320px;
+}
+
+.data-issue {
+  display: block;
+  margin-top: 4px;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.muted-cell {
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.pagination {
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.pagination button {
+  min-width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: #fff;
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.pagination button.active {
+  color: #fff;
+  background: var(--navy);
+}
+
 .auth-page {
   min-height: 100vh;
   display: grid;
