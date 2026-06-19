@@ -571,7 +571,7 @@ function employeeDirectoryTable(rows, offset = 0) {
     <td>${trainingValueLabel(employee.leadershipTraining)}</td>
     <td>${trainingValueLabel(employee.communicationTraining)}</td>
     <td>${employee.certificateType ? "Có" : ""}</td>
-    <td><div class="row-actions">${employee.accountId ? `<button class="btn btn-outline mini-action" data-account-detail="${employee.accountId}">Chi tiết</button><button class="btn btn-outline mini-action" data-reset-account="${employee.accountId}">Reset</button>` : `<button class="btn btn-outline mini-action" disabled>Cần kiểm tra</button>`}<button class="btn btn-outline mini-action">Giao khóa</button></div></td>
+    <td><div class="row-actions">${employee.dataIssue ? `<button class="btn btn-outline mini-action" data-edit-employee-email="${employee.id}">Sửa email</button>` : ""}${employee.accountId ? `<button class="btn btn-outline mini-action" data-account-detail="${employee.accountId}">Chi tiết</button><button class="btn btn-outline mini-action" data-activate-account="${employee.accountId}">Kích hoạt</button><button class="btn btn-outline mini-action" data-reset-account="${employee.accountId}">Reset</button>` : `<button class="btn btn-outline mini-action" disabled>Cần kiểm tra</button>`}<button class="btn btn-outline mini-action">Giao khóa</button></div></td>
   </tr>`).join("")}</tbody></table></div>`;
 }
 
