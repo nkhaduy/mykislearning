@@ -303,14 +303,14 @@ function landingPage() {
             <h2>Hệ thống Đào tạo Hội nhập và Phát triển chuyên môn KIS Việt Nam</h2>
             <p>Nơi lưu trữ tài liệu, khóa học kỹ năng mềm, chuyên môn và kiểm tra tiến độ; giúp nhân viên nhanh chóng hòa nhập và nâng cao năng lực làm việc.</p>
             <p class="hero-subnote">Dành riêng cho nhân viên KIS Việt Nam</p>
-            <div class="hero-actions"><a class="btn btn-primary" href="/login" data-link>${t("landing.cta")}</a><button class="btn btn-outline" data-scroll="courses">Xem các khóa đào tạo</button></div>
+            <div class="hero-actions"><a class="btn btn-primary" href="/login" data-link>${t("landing.cta")}</a><button class="btn btn-outline" data-scroll="featured-courses">Xem các khóa đào tạo</button></div>
             <div class="hero-proof"><div class="proof-item"><strong>${getTotalParticipatingEmployees().toLocaleString("vi-VN")}+</strong><span>Tổng số nhân viên đã tham gia</span></div><div class="proof-item"><strong>${getTotalTrainingCourses()}</strong><span>Số lượng khóa đào tạo</span></div><div class="proof-item"><strong>${getTotalLearningHours().toLocaleString("vi-VN")} giờ</strong><span>Tổng số giờ học</span></div></div>
           </div>
           ${heroMockup()}
         </div>
       </section>
       <section class="section" id="purpose"><div class="container"><h2 class="section-title">${t("landing.purpose")}</h2><p class="section-lead">${t("landing.purposeLead")}</p><div class="grid-4 purpose-grid">${purposes.map(([i, key, desc]) => `<article class="card info-card purpose-card">${icon(i)}<h3>${t(key)}</h3><p>${desc}</p></article>`).join("")}</div></div></section>
-      <section class="section" id="courses"><div class="container"><h2 class="section-title">Khóa đào tạo nổi bật</h2><div class="grid-6">${courses.map(courseCard).join("")}</div>${upcomingCoursesSection()}</div></section>
+      <section class="section" id="featured-courses"><div class="container"><h2 class="section-title">Khóa đào tạo nổi bật</h2><div class="grid-6">${courses.map(courseCard).join("")}</div>${upcomingCoursesSection()}</div></section>
       <section class="section" id="dashboard"><div class="container"><div class="section-head"><div><h2 class="section-title">${t("landing.preview")}</h2><p class="section-lead">Employee / HR control view</p></div><div class="preview-tabs"><button class="tab ${previewTab === "employee" ? "active" : ""}" data-preview="employee">${t("roles.employee")}</button><button class="tab ${previewTab === "hr" ? "active" : ""}" data-preview="hr">HR</button></div></div>${previewTab === "employee" ? employeeDashboard(true) : adminDashboard(true)}</div></section>
       <section class="section alt" id="support"><div class="container"><div class="support-panel card"><div><h2>${t("nav.support")}</h2><p>Liên hệ hỗ trợ đào tạo, tài khoản và phân quyền nội bộ.</p></div><strong>${hrContact}</strong></div></div></section>
       ${hrAnnouncementsSection()}
