@@ -774,7 +774,7 @@ function bindEvents() {
 function render() {
   const path = window.location.pathname.replace(/\/$/, "") || "/";
   const hash = window.location.hash.replace("#", "");
-  if (path === "/about-kis") app.innerHTML = AboutKisPage();
+  if (path === "/about-kis" || path === "/about-kis/index.html") app.innerHTML = AboutKisPage();
   else if (hash === "login") app.innerHTML = LoginPage();
   else app.innerHTML = LandingPage();
   bindEvents();
