@@ -12,6 +12,7 @@ FAT_SECTOR = 0xFFFFFFFD
 INPUT_DEFAULT = "/Users/khaduy/Downloads/Hộ chiếu nv.xls"
 OUTPUT_EMPLOYEES = Path("data/employees.json")
 OUTPUT_SUMMARY = Path("data/import-summary.json")
+OUTPUT_MODULE = Path("data/employees.js")
 
 
 def u16(data, offset):
@@ -337,6 +338,14 @@ def main():
     OUTPUT_EMPLOYEES.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_EMPLOYEES.write_text(json.dumps(employees, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     OUTPUT_SUMMARY.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    OUTPUT_MODULE.write_text(
+        "export const importedEmployees = "
+        + json.dumps(employees, ensure_ascii=False, indent=2)
+        + ";\n\nexport const importSummary = "
+        + json.dumps(summary, ensure_ascii=False, indent=2)
+        + ";\n",
+        encoding="utf-8",
+    )
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
