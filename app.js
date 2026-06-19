@@ -736,6 +736,7 @@ function render() {
   else if (route === "/change-password") app.innerHTML = changePasswordPage();
   else app.innerHTML = landingPage();
   bindEvents();
+  if (location.hash) requestAnimationFrame(() => document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" }));
 }
 
 function bindEvents() {
