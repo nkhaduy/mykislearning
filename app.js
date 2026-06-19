@@ -135,6 +135,22 @@ function t(path) {
   return path.split(".").reduce((obj, key) => obj?.[key], d()) ?? path;
 }
 
+function uiText(key) {
+  const labels = {
+    announcements: { vi: "Thông báo", en: "Announcements", kr: "공지사항" },
+    quickLinks: { vi: "Liên kết nhanh", en: "Quick Links", kr: "빠른 링크" },
+    support: { vi: "Hỗ trợ", en: "Support", kr: "지원" },
+    contactPerson: { vi: "Liên hệ phụ trách", en: "Contact Person", kr: "담당자 연락처" },
+    employeeOnly: { vi: "Dành riêng cho nhân viên KIS Việt Nam", en: "Exclusively for KIS Vietnam employees", kr: "KIS 베트남 임직원 전용" },
+    internalOnly: { vi: "Chỉ sử dụng nội bộ", en: "Internal Use Only", kr: "내부 전용" },
+    cchnTitle: { vi: "Danh sách nhân viên sở hữu Chứng chỉ hành nghề", en: "Employees Holding Professional Certificates", kr: "전문 자격증 보유 임직원 명단" },
+    no: { vi: "STT", en: "No.", kr: "번호" },
+    fullName: { vi: "Họ và tên", en: "Full Name", kr: "성명" },
+    searchName: { vi: "Tìm kiếm theo tên", en: "Search by name", kr: "이름 검색" },
+  };
+  return labels[key]?.[language] || labels[key]?.vi || key;
+}
+
 function navigate(path) {
   history.pushState({}, "", path);
   route = location.pathname;
@@ -149,6 +165,15 @@ function scrollToId(id) {
   else {
     navigate("/");
     requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+}
+
+function goAnnouncements() {
+  if (location.pathname.replace(/\/$/, "") === "" || location.pathname.replace(/\/$/, "") === "/") {
+    scrollToId("hr-announcements");
+  } else {
+    navigate("/#hr-announcements");
+    requestAnimationFrame(() => document.getElementById("hr-announcements")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 }
 
@@ -185,8 +210,8 @@ function header() {
         <nav class="nav">
           <a href="/" data-link>${t("nav.home")}</a>
           <a href="/about-kis" data-link>${t("nav.about")}</a>
-          <button class="nav-button" data-scroll="courses">${t("nav.courses")}</button>
-          <button class="nav-button" data-dashboard-link>${t("nav.dashboard")}</button>
+          <button class="nav-button" data-scroll="featured-courses">${t("nav.courses")}</button>
+          <button class="nav-button" data-announcements-link>${uiText("announcements")}</button>
           <button class="nav-button" data-scroll="support">${t("nav.support")}</button>
         </nav>
         <div class="header-actions">
@@ -201,15 +226,39 @@ function header() {
 
 function footer() {
   return `
-    <footer class="footer">
-      <div class="container footer-inner">
-        <div><strong>${t("brand")}</strong><p>${t("landing.footer")}</p><p>${t("landing.eyebrow")}</p><p>${t("nav.support")}: ${hrContact}</p></div>
-        <div class="footer-links">
-          <a href="/about-kis" data-link>${t("nav.about")}</a>
-          <a href="#">${language === "kr" ? "내부 정책" : language === "en" ? "Internal Policy" : "Chính sách nội bộ"}</a>
-          <button class="footer-link-button" data-scroll="support">${t("nav.support")}</button>
-          <button class="footer-link-button" data-scroll="support">${language === "kr" ? "HR 문의" : language === "en" ? "Contact HR" : "Liên hệ HR"}</button>
+    <footer class="footer premium-footer">
+      <div class="container footer-grid">
+        <div class="footer-brand">
+          <strong>${t("brand")}</strong>
+          <p>Hệ thống Đào tạo Hội nhập và Phát triển chuyên môn KIS Việt Nam</p>
+          <span>${uiText("employeeOnly")}</span>
         </div>
+        <nav class="footer-column">
+          <h3>${uiText("quickLinks")}</h3>
+          <a href="/" data-link>${t("nav.home")}</a>
+          <a href="/about-kis" data-link>${t("nav.about")}</a>
+          <a href="/#featured-courses" data-link>${t("nav.courses")}</a>
+          <a href="/#hr-announcements" data-link>${uiText("announcements")}</a>
+        </nav>
+        <nav class="footer-column">
+          <h3>${uiText("support")}</h3>
+          <a href="#support" data-scroll="support">Hướng dẫn sử dụng</a>
+          <a href="mailto:thanh.ntc@kisvn.vn">Liên hệ HR</a>
+          <a href="#">Chính sách bảo mật</a>
+          <a href="/change-password" data-link>Đổi mật khẩu</a>
+        </nav>
+        <div class="footer-column footer-contact">
+          <h3>${uiText("contactPerson")}</h3>
+          <strong>${hrContact}</strong>
+          <p>Assistant Manager</p>
+          <p>Human Resources</p>
+          <a href="mailto:thanh.ntc@kisvn.vn">thanh.ntc@kisvn.vn</a>
+        </div>
+      </div>
+      <div class="container footer-bottom">
+        <span>© 2026 KIS Vietnam. All rights reserved.</span>
+        <span>${uiText("internalOnly")}</span>
+        ${languageSwitcher()}
       </div>
     </footer>
   `;
