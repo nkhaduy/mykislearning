@@ -22,5 +22,6 @@ export {
   setSession,
   unlockAccount,
   updateAccount,
+  updateEmployeeProfile,
   verifyPassword,
 } from "./mockDatabase.js";
