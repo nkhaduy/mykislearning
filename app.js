@@ -23,6 +23,8 @@ import {
   resetDemoHrAccount,
   resetPassword,
   unlockAccount,
+  updateAccount,
+  updateEmployeeProfile,
 } from "./lib/mockDatabase.js";
 import { validatePassword } from "./lib/auth/passwordPolicy.js";
 
