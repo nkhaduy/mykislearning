@@ -327,7 +327,7 @@ def main():
     matrix = parse_workbook(input_path, "Total")
     employees = build_employees(matrix)
     summary = {
-        "totalRows": max(len(matrix) - 2, 0),
+        "totalRows": len(employees),
         "validEmployees": len(employees),
         "invalidEmails": sum(1 for employee in employees if employee.get("dataIssue") == "invalid_email"),
         "duplicateEmails": sum(1 for employee in employees if employee.get("dataIssue") == "duplicate_email"),
