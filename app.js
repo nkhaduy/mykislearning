@@ -688,11 +688,11 @@ function auditTable() {
 
 function employeesPage() {
   if (!hasAdminAccess()) return restrictedPage();
-  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("Admin", t("admin.employees"), "hr")}<div class="content"><section class="card panel"><h3>${t("admin.employees")}</h3>${employeeTable()}</section></div></main></div>`;
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("Admin", t("admin.employees"), "hr")}<div class="content">${hrEmployeeDirectory()}</div></main></div>`;
 }
 
 function employeeTable() {
-  return `<div class="table-wrap"><table><thead><tr><th>${t("table.fullName")}</th><th>${t("table.department")}</th><th>${t("table.status")}</th><th>Progress</th><th>Course</th></tr></thead><tbody>${employees.map((e) => `<tr><td><strong>${e[0]}</strong></td><td>${e[1]}</td><td>${badge(e[2])}</td><td>${e[3]}%${progress(e[3])}</td><td>${e[4]}</td></tr>`).join("")}</tbody></table></div>`;
+  return employeeDirectoryTable(filteredEmployeeDirectory().slice(0, 15));
 }
 
 function reportsPage() {
