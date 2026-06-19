@@ -808,6 +808,15 @@ function bindEvents() {
   document.querySelector("[data-close-drawer]")?.addEventListener("click", () => { accountDrawerOpen = false; render(); });
   document.querySelectorAll("[data-reset-account]").forEach((el) => el.addEventListener("click", () => { resetTargetId = el.dataset.resetAccount; resetModalOpen = true; temporaryPasswordResult = ""; render(); }));
   document.querySelectorAll("[data-force-account]").forEach((el) => el.addEventListener("click", () => { forcePasswordChange(el.dataset.forceAccount); toast("success"); render(); }));
+  document.querySelectorAll("[data-activate-account]").forEach((el) => el.addEventListener("click", () => { updateAccount(el.dataset.activateAccount, { accountStatus: "active" }); toast("success"); render(); }));
+  document.querySelectorAll("[data-edit-employee-email]").forEach((el) => el.addEventListener("click", () => {
+    const employee = getEmployees().find((item) => item.id === el.dataset.editEmployeeEmail);
+    const nextEmail = prompt(`Email mới cho ${employee?.fullName || "nhân viên"}`, employee?.email || "");
+    if (nextEmail === null) return;
+    updateEmployeeProfile(el.dataset.editEmployeeEmail, { email: nextEmail });
+    toast("success");
+    render();
+  }));
   document.querySelectorAll("[data-unlock-account]").forEach((el) => el.addEventListener("click", () => { if (confirm(t("admin.unlock"))) { unlockAccount(el.dataset.unlockAccount); toast("success"); render(); } }));
   document.querySelectorAll("[data-disable-account]").forEach((el) => el.addEventListener("click", () => { if (confirm(t("admin.disable"))) { disableAccount(el.dataset.disableAccount, "HR action"); toast("success"); render(); } }));
   document.querySelectorAll("[data-resend-account]").forEach((el) => el.addEventListener("click", () => { resendActivationEmail(el.dataset.resendAccount); toast("success"); render(); }));
