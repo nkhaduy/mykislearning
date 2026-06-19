@@ -608,12 +608,15 @@ function employeeDashboard(compact = false) {
   const employee = getEmployeeByAccountId(session?.accountId) || getEmployees()[0];
   const courseRows = employeeTrainingRows(employee);
   const certificate = employee.certificateType || "Chưa có dữ liệu";
+  const courseList = courseRows.length
+    ? courseRows.map(([title, value]) => `<div class="course-line"><div><strong>${title}</strong><small>${trainingValueLabel(value)}</small></div>${trainingValueBadge(value)}</div>`).join("")
+    : `<div class="course-line"><strong>Chưa có dữ liệu khóa học</strong>${badge("notStarted")}</div>`;
   return `
     <div class="${compact ? "dashboard-preview" : "app-layout"}">
       ${compact ? sideNav("employee") : sideNav("employee")}
       <main class="app-main">${topbar("Employee Dashboard", `Xin chào, ${employee.fullName}`, "employee")}<div class="content">
         <div class="kpi-grid"><div class="card kpi"><span class="label">Phòng ban</span><strong>${employee.department || "-"}</strong></div><div class="card kpi"><span class="label">Chức danh</span><strong>${employee.position || "-"}</strong></div><div class="card kpi"><span class="label">Email</span><strong>${employee.email || "Cần cập nhật"}</strong></div><div class="card kpi"><span class="label">CCHN</span><strong>${certificate}</strong></div></div>
-        <div class="dashboard-grid"><section class="card panel"><h3>Khóa đào tạo từ hồ sơ</h3>${courseRows.map(([title, value]) => `<div class="course-line"><div><strong>${title}</strong><small>${trainingValueLabel(value)}</small></div>${trainingValueBadge(value)}</div>`).join("")}</section><aside class="card panel"><h3>Thông tin cá nhân</h3><div class="task"><strong>${employee.fullName}</strong><span>${employee.department || "-"} · ${employee.position || "-"}</span></div><h3 style="margin-top:22px">Lưu ý</h3><p class="label">Dashboard nhân viên chỉ hiển thị dữ liệu của tài khoản đang đăng nhập.</p></aside></div>
+        <div class="dashboard-grid"><section class="card panel"><h3>Khóa đào tạo từ hồ sơ</h3>${courseList}</section><aside class="card panel"><h3>Thông tin cá nhân</h3><div class="task"><strong>${employee.fullName}</strong><span>${employee.department || "-"} · ${employee.position || "-"}</span></div><h3 style="margin-top:22px">Lưu ý</h3><p class="label">Dashboard nhân viên chỉ hiển thị dữ liệu của tài khoản đang đăng nhập.</p></aside></div>
       </div></main>
     </div>
   `;
