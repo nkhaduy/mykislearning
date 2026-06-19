@@ -38,6 +38,7 @@ let resetModalOpen = false;
 let resetTargetId = "";
 let temporaryPasswordResult = "";
 let cchnSearch = "";
+let cchnSortAsc = true;
 let cchnFilters = { department: "", certificate: "", year: "", status: "" };
 let activeTimelineYear = "2015";
 
@@ -46,12 +47,44 @@ initMockDatabase();
 const hrContact = "Nguyễn Thị Cẩm Thanh";
 
 const courses = [
-  ["building", "Tổng quan KIS", "Tìm hiểu lịch sử hình thành, năng lực tài chính, mạng lưới toàn cầu và định hướng phát triển của KIS Việt Nam.", 4, ["Về KIS", "Onboarding"]],
-  ["file", "Chính sách nhân sự", "Nắm các quy định nội bộ, quy trình làm việc, chính sách phúc lợi và hướng dẫn dành cho nhân viên.", 6, ["HR", "Quy định"]],
+  ["users", "Leadership Training Course", "Chương trình phát triển năng lực lãnh đạo, quản lý đội ngũ, ra quyết định và thúc đẩy hiệu suất làm việc.", 1, ["Khóa đào tạo Kỹ năng Lãnh đạo", "리더십 교육 과정", "Đã diễn ra"], "/images/leadership-training-course.png"],
+  ["message", "Communication Training Course", "Chương trình thực hành kỹ năng giao tiếp, lắng nghe, phản hồi, phối hợp nội bộ và trao đổi với khách hàng.", 1, ["Khóa đào tạo Kỹ năng Giao tiếp", "커뮤니케이션 교육 과정", "Đã diễn ra"], "/images/communication-training-course.png"],
   ["chart", "Kiến thức chứng khoán cơ bản", "Củng cố kiến thức nền tảng về thị trường chứng khoán, sản phẩm dịch vụ và vận hành trong ngành.", 8, ["Nghiệp vụ", "Nền tảng"]],
   ["award", "Chứng chỉ hành nghề Môi giới chứng khoán", "Lộ trình ôn tập, tài liệu chuyên đề, bộ câu hỏi luyện tập và nội dung trọng tâm hỗ trợ nhân viên chuẩn bị cho kỳ thi chứng chỉ hành nghề.", 5, ["Tài liệu ôn tập trọng tâm", "Bộ đề luyện tập", "Theo dõi tiến độ ôn thi", "Chuẩn bị cho kỳ thi UBCKNN"]],
   ["message", "Kỹ năng mềm", "Phát triển các kỹ năng thực chiến như giao tiếp, phối hợp nội bộ, phản hồi, trình bày và chăm sóc khách hàng.", 7, ["Communication", "FAB"]],
   ["grid", "Báo cáo & trình bày công việc", "Chuẩn hóa kỹ năng báo cáo, sắp xếp vấn đề, trình bày mạch lạc và phối hợp với cấp quản lý.", 6, ["Báo cáo", "Quản trị"]],
+];
+
+const allTrainingCourses = [
+  ...courses,
+  ...Array.from({ length: 26 }, (_, index) => [`file`, `KIS Training Archive ${index + 1}`, "Khóa đào tạo nội bộ đã ghi nhận trên hệ thống.", 1, ["Internal"]]),
+];
+
+const trainingEnrollments = [
+  { employeeId: "E001", courseId: "leadership", trainingHours: 16 },
+  { employeeId: "E002", courseId: "communication", trainingHours: 12 },
+  { employeeId: "E003", courseId: "communication", trainingHours: 12 },
+  { employeeId: "E004", courseId: "leadership", trainingHours: 16 },
+  { employeeId: "E001", courseId: "communication", trainingHours: 12 },
+  ...Array.from({ length: 424 }, (_, index) => ({
+    employeeId: `ED${String(index + 1).padStart(3, "0")}`,
+    courseId: index % 2 ? "communication" : "leadership",
+    trainingHours: index < 54 ? 2 : 3,
+  })),
+];
+
+const upcomingCourses = [
+  ["chart", "Kiến thức chứng khoán cơ bản", "Chuyên môn", "Trực tuyến", "Sắp mở đăng ký"],
+  ["award", "Ôn tập Chứng chỉ hành nghề Môi giới chứng khoán", "Chứng chỉ chuyên môn", "Kết hợp", "Sắp diễn ra"],
+  ["grid", "Excel nâng cao cho báo cáo", "Công cụ làm việc", "Trực tiếp", "Đang lên kế hoạch"],
+  ["message", "Kỹ năng báo cáo và trình bày vấn đề", "Kỹ năng mềm", "Trực tuyến", "Sắp mở đăng ký"],
+];
+
+const hrAnnouncements = [
+  ["Onboarding", "Lịch đào tạo hội nhập dành cho nhân viên mới", "Nhân viên mới vui lòng hoàn thành các nội dung đào tạo hội nhập bắt buộc theo thời hạn được giao."],
+  ["Chứng chỉ chuyên môn", "Kế hoạch ôn tập Chứng chỉ hành nghề Môi giới chứng khoán", "HR sẽ cập nhật tài liệu, lịch ôn tập và danh sách nhân viên tham gia trong thời gian tới."],
+  ["Kỹ năng mềm", "Cập nhật tài liệu Communication Training", "Tài liệu đào tạo và nội dung thực hành đã được cập nhật trên MyKIS Learning."],
+  ["Đánh giá", "Nhắc hoàn thành bài kiểm tra sau đào tạo", "Nhân viên vui lòng kiểm tra deadline và hoàn thành bài đánh giá đúng thời hạn."],
 ];
 
 const courseProgress = [
@@ -182,6 +215,18 @@ function progress(value) {
   return `<div class="progress"><span style="--value:${value}%"></span></div>`;
 }
 
+function getTotalParticipatingEmployees() {
+  return new Set(trainingEnrollments.map((item) => item.employeeId).filter(Boolean)).size;
+}
+
+function getTotalTrainingCourses() {
+  return allTrainingCourses.filter((course) => course[1]).length;
+}
+
+function getTotalLearningHours() {
+  return trainingEnrollments.reduce((total, item) => total + Number(item.trainingHours || item.durationHours || 0), 0);
+}
+
 function landingPage() {
   const purposes = [
     ["building", "purpose.onboarding", "Giúp nhân viên mới nắm rõ lịch sử công ty, văn hóa doanh nghiệp, quy trình nội bộ và các chính sách nhân sự bắt buộc."],
@@ -195,20 +240,22 @@ function landingPage() {
       <section class="hero">
         <div class="container hero-grid">
           <div>
-            <span class="eyebrow">${t("landing.eyebrow")}</span>
-            <h1>${t("landing.title")}</h1>
-            <h2>${t("landing.subtitle")}</h2>
-            <p>${t("landing.desc")}</p>
-            <div class="hero-actions"><a class="btn btn-primary" href="/login" data-link>${t("landing.cta")}</a><button class="btn btn-outline" data-scroll="dashboard">${t("landing.cta2")}</button></div>
-            <div class="hero-proof"><div class="proof-item"><strong>3</strong><span>Role</span></div><div class="proof-item"><strong>8</strong><span>Module</span></div><div class="proof-item"><strong>68%</strong><span>Progress</span></div></div>
+            <span class="eyebrow">${language === "kr" ? "Welcome to" : "Welcome to"}</span>
+            <h1>MyKIS Learning</h1>
+            <h2>Hệ thống Đào tạo Hội nhập và Phát triển chuyên môn KIS Việt Nam</h2>
+            <p>Nơi lưu trữ tài liệu, khóa học kỹ năng mềm, chuyên môn và kiểm tra tiến độ; giúp nhân viên nhanh chóng hòa nhập và nâng cao năng lực làm việc.</p>
+            <p class="hero-subnote">Dành riêng cho nhân viên KIS Việt Nam</p>
+            <div class="hero-actions"><a class="btn btn-primary" href="/login" data-link>${t("landing.cta")}</a><button class="btn btn-outline" data-scroll="courses">Xem các khóa đào tạo</button></div>
+            <div class="hero-proof"><div class="proof-item"><strong>${getTotalParticipatingEmployees().toLocaleString("vi-VN")}+</strong><span>Tổng số nhân viên đã tham gia</span></div><div class="proof-item"><strong>${getTotalTrainingCourses()}</strong><span>Số lượng khóa đào tạo</span></div><div class="proof-item"><strong>${getTotalLearningHours().toLocaleString("vi-VN")} giờ</strong><span>Tổng số giờ học</span></div></div>
           </div>
           ${heroMockup()}
         </div>
       </section>
       <section class="section" id="purpose"><div class="container"><h2 class="section-title">${t("landing.purpose")}</h2><p class="section-lead">${t("landing.purposeLead")}</p><div class="grid-4 purpose-grid">${purposes.map(([i, key, desc]) => `<article class="card info-card purpose-card">${icon(i)}<h3>${t(key)}</h3><p>${desc}</p></article>`).join("")}</div></div></section>
-      <section class="section" id="courses"><div class="container"><h2 class="section-title">${t("landing.categories")}</h2><div class="grid-6">${courses.map((c) => `<article class="card info-card course-category ${c[1].includes("Chứng chỉ") ? "featured-course" : ""}">${icon(c[0])}<h3>${c[1]}</h3><p>${c[2]}</p><div class="tag-row">${c[4].map((tag) => `<span>${tag}</span>`).join("")}</div><span class="card-meta">${c[3]} ${t("nav.courses").toLowerCase()}</span></article>`).join("")}</div></div></section>
+      <section class="section" id="courses"><div class="container"><h2 class="section-title">Khóa đào tạo nổi bật</h2><div class="grid-6">${courses.map(courseCard).join("")}</div>${upcomingCoursesSection()}</div></section>
       <section class="section" id="dashboard"><div class="container"><div class="section-head"><div><h2 class="section-title">${t("landing.preview")}</h2><p class="section-lead">Employee / HR control view</p></div><div class="preview-tabs"><button class="tab ${previewTab === "employee" ? "active" : ""}" data-preview="employee">${t("roles.employee")}</button><button class="tab ${previewTab === "hr" ? "active" : ""}" data-preview="hr">HR</button></div></div>${previewTab === "employee" ? employeeDashboard(true) : adminDashboard(true)}</div></section>
       <section class="section alt" id="support"><div class="container"><div class="support-panel card"><div><h2>${t("nav.support")}</h2><p>Liên hệ hỗ trợ đào tạo, tài khoản và phân quyền nội bộ.</p></div><strong>${hrContact}</strong></div></div></section>
+      ${hrAnnouncementsSection()}
       ${footer()}
     </div>
   `;
@@ -216,13 +263,21 @@ function landingPage() {
 
 function heroMockup() {
   return `
-    <div class="mock-shell"><div class="mock-window"><div class="mock-topbar"><div class="dots"><i></i><i></i><i></i></div><span class="badge learning">Onboarding Control</span></div><div class="mock-body"><aside class="mock-side"><span></span><span></span><span></span><span></span></aside><main class="mock-main">
-      <div class="metric-row"><div class="mini-card"><span class="mini-label">Progress</span><strong class="mini-value">68%</strong>${progress(68)}</div><div class="mini-card"><span class="mini-label">Certificates</span><strong class="mini-value">02</strong>${badge("completed")}</div></div>
-      ${courseProgress.map(([title, status, value]) => `<div class="course-line"><div><strong>${title}</strong><small>${value}%</small>${progress(value)}</div>${badge(status)}</div>`).join("")}
-      <div class="course-line"><div><strong>Bài kiểm tra sắp đến hạn</strong><small>Kiến thức chứng khoán - 29/06/2026</small></div>${badge("overdue")}</div>
-      <div class="mini-card contact-card"><span class="mini-label">Người phụ trách đào tạo</span><strong>${hrContact}</strong><small>HR/L&D - KIS Việt Nam</small></div>
-    </main></div></div></div>
+    <div class="mock-shell hero-learning-image"><img src="/images/mykis-learning-hero.png" alt="Nhân viên tham gia đào tạo nội bộ KIS"></div>
   `;
+}
+
+function courseCard(c) {
+  const image = c[5];
+  return `<article class="card info-card course-category ${c[1].includes("Chứng chỉ") ? "featured-course" : ""}">${image ? `<img class="course-card-image" src="${image}" alt="${c[1]}">` : icon(c[0])}<h3>${c[1]}</h3><p>${c[2]}</p><div class="tag-row">${c[4].map((tag) => `<span>${tag}</span>`).join("")}</div><span class="card-meta">${c[3]} ${t("nav.courses").toLowerCase()}</span></article>`;
+}
+
+function upcomingCoursesSection() {
+  return `<div class="upcoming-course-block"><div class="section-head"><div><h3>Khóa học sắp diễn ra</h3><p class="section-lead">Cập nhật các chương trình đào tạo dự kiến trong thời gian tới.</p></div></div><div class="grid-4">${upcomingCourses.map(([i, title, category, format, status]) => `<article class="card info-card upcoming-course-card">${icon(i)}<h3>${title}</h3><p>Dự kiến Quý III/2026</p><div class="tag-row"><span>${category}</span><span>${format}</span><span>${status}</span></div><button class="btn btn-outline mini-course-btn">Xem thông tin</button></article>`).join("")}</div></div>`;
+}
+
+function hrAnnouncementsSection() {
+  return `<section class="section alt" id="hr-announcements"><div class="container"><div class="section-head"><div><h2 class="section-title">Thông báo từ HR</h2><p class="section-lead">Cập nhật các thông tin quan trọng về đào tạo, hội nhập và phát triển nhân sự.</p></div></div><div class="grid-4">${hrAnnouncements.map(([category, title, desc]) => `<article class="card info-card hr-announcement-card">${icon("file")}<span class="badge new">${category}</span><h3>${title}</h3><p>${desc}</p><button class="btn btn-outline mini-course-btn">Xem chi tiết</button></article>`).join("")}</div></div></section>`;
 }
 
 function aboutPage() {
@@ -241,6 +296,7 @@ function aboutPage() {
         ${kisTimelineSection()}
         ${ceoMessageSection()}
         ${corporatePhilosophySection()}
+        ${coreValuesMissionSection()}
         ${cchnHonorSection()}
       </main>
       ${footer()}
@@ -278,19 +334,30 @@ function corporatePhilosophySection() {
   return `<section class="section"><div class="container"><h2 class="section-title">Triết lý tập đoàn</h2><div class="grid-3">${cards.map(([no,title,bullets]) => `<article class="card philosophy-premium philosophy-list-card">${icon("check")}<span>${no}</span><h3>${title}</h3><ul>${bullets.map((b) => `<li>${b}</li>`).join("")}</ul></article>`).join("")}</div></div></section>`;
 }
 
+function coreValuesMissionSection() {
+  const title = language === "kr" ? "핵심 가치 및 미션" : language === "en" ? "Core Values & Mission" : "Giá trị cốt lõi & Sứ mệnh";
+  const subtitle = language === "kr"
+    ? "KIS가 조직을 구축하고 변화를 추진하며 고객을 위한 지속 가능한 가치를 창출하는 방향을 제시합니다."
+    : language === "en"
+      ? "Guiding how KIS builds its organization, drives transformation, and creates sustainable value for customers."
+      : "Định hướng cách KIS xây dựng tổ chức, thúc đẩy đổi mới và tạo ra giá trị bền vững cho khách hàng.";
+  const cards = [
+    ["01", "target", { vi: "Tổ chức hướng đến mục tiêu", en: "Goal-Oriented Organization", kr: "목표 지향적 조직" }, { vi: "Xác lập mục tiêu rõ ràng, phối hợp hiệu quả và tập trung nguồn lực để tạo ra kết quả đo lường được.", en: "Setting clear objectives, coordinating effectively, and focusing resources to deliver measurable results.", kr: "명확한 목표를 설정하고 효과적으로 협업하며 자원을 집중하여 측정 가능한 성과를 창출합니다." }],
+    ["02", "check", { vi: "Tổ chức thúc đẩy chuyển đổi", en: "A Transformative Organization", kr: "변화를 주도하는 조직" }, { vi: "Không ngừng đổi mới phương thức làm việc, ứng dụng công nghệ và phát triển năng lực để thích ứng với thay đổi.", en: "Continuously improving ways of working, adopting technology, and building capabilities to adapt to change.", kr: "업무 방식을 지속적으로 개선하고 기술을 도입하며 변화에 대응할 수 있는 역량을 강화합니다." }],
+    ["03", "users", { vi: "Công ty lấy khách hàng làm trọng tâm", en: "A Customer-Focused Company", kr: "고객 중심 기업" }, { vi: "Thấu hiểu nhu cầu khách hàng, nâng cao trải nghiệm và tạo ra giải pháp tài chính có giá trị lâu dài.", en: "Understanding customer needs, improving experiences, and delivering financial solutions with long-term value.", kr: "고객의 요구를 이해하고 경험을 향상시키며 장기적인 가치를 제공하는 금융 솔루션을 제공합니다." }],
+  ];
+  return `<section class="section alt"><div class="container"><div class="section-head"><div><h2 class="section-title">${title}</h2><p class="section-lead">${subtitle}</p></div></div><div class="grid-3">${cards.map(([no, i, names, descriptions]) => `<article class="card philosophy-premium philosophy-list-card core-value-card">${icon(i)}<span>${no}</span><h3>${names[language] || names.vi}</h3><p>${descriptions[language] || descriptions.vi}</p></article>`).join("")}</div></div></section>`;
+}
+
 function cchnRows() {
   return cchnMock;
 }
 
 function filteredCchnRows() {
   return cchnRows().filter((row) => {
-    const text = `${row.fullName} ${row.employeeCode}`.toLowerCase();
-    return (!cchnSearch || text.includes(cchnSearch.toLowerCase()))
-      && (!cchnFilters.department || row.department === cchnFilters.department)
-      && (!cchnFilters.certificate || row.certificateType === cchnFilters.certificate)
-      && (!cchnFilters.year || row.year === cchnFilters.year)
-      && (!cchnFilters.status || row.status === cchnFilters.status);
-  });
+    const text = row.fullName.toLowerCase();
+    return !cchnSearch || text.includes(cchnSearch.toLowerCase());
+  }).sort((a, b) => cchnSortAsc ? a.fullName.localeCompare(b.fullName, "vi") : b.fullName.localeCompare(a.fullName, "vi"));
 }
 
 function uniqueValues(rows, key) {
@@ -300,19 +367,14 @@ function uniqueValues(rows, key) {
 function cchnHonorSection() {
   const rows = filteredCchnRows();
   const allRows = cchnRows();
-  const topDept = mostCommon(allRows.map((row) => row.department));
-  const topYear = mostCommon(allRows.map((row) => row.year));
   return `
     <section class="section cchn-section" id="cchn-honor">
       <div class="container">
         <div class="cchn-table-shell card">
           <div class="section-head"><div><span class="eyebrow">CCHN</span><h2 class="section-title">${t("about.honorTitle")}</h2><p class="section-lead">${t("about.honorSubtitle")}</p></div></div>
-          <div class="cchn-stats table-stats">${[[t("about.totalPeople"), allRows.length], [t("about.totalCerts"), allRows.length], ["Phòng ban có nhiều CCHN nhất", topDept || "--"], ["Năm cấp gần nhất", topYear || "--"]].map(([l, v]) => `<div class="stat-card compact-stat"><span>${l}</span><strong>${v}</strong></div>`).join("")}</div>
         <div class="cchn-filter table-only-filter">
-          <input data-cchn-search placeholder="${language === "kr" ? "이름/사번 검색" : language === "en" ? "Search name/employee ID" : "Tìm họ tên/mã nhân viên"}" value="${cchnSearch}">
-          ${selectFilter("department", t("table.department"), uniqueValues(allRows, "department"), cchnFilters.department)}
-          ${selectFilter("certificate", t("table.certificate"), uniqueValues(allRows, "certificateType"), cchnFilters.certificate)}
-          ${selectFilter("year", t("table.year"), uniqueValues(allRows, "year"), cchnFilters.year)}
+          <input data-cchn-search placeholder="${language === "kr" ? "이름 검색" : language === "en" ? "Search by name" : "Tìm kiếm theo tên"}" value="${cchnSearch}">
+          <button class="btn btn-outline" data-cchn-sort type="button">A-Z</button>
         </div>
         ${rows.length ? cchnTableView(rows) : emptyCchnState()}
         </div>
@@ -326,7 +388,7 @@ function selectFilter(name, label, values, selected) {
 }
 
 function cchnTableView(rows) {
-  return `<div class="table-wrap cchn-table polished-table"><table><thead><tr><th>STT</th>${["fullName", "code", "department", "position", "certificate", "certNo", "issueDate", "year", "status"].map((k) => `<th>${t(`table.${k}`)}</th>`).join("")}</tr></thead><tbody>${rows.map((r, index) => `<tr><td>${index + 1}</td><td><strong>${r.fullName}</strong></td><td>${r.employeeCode || ""}</td><td>${r.department || ""}</td><td>${r.position || ""}</td><td>${r.certificateType || ""}</td><td>${r.certificateNo || ""}</td><td>${r.issueDate || ""}</td><td>${r.year || ""}</td><td>${cchnStatusBadge(r.status)}</td></tr>`).join("")}</tbody></table></div>`;
+  return `<div class="cchn-name-grid">${rows.map((r, index) => `<article class="cchn-name-card"><span>${String(index + 1).padStart(2, "0")}</span><strong>${r.fullName}</strong>${icon("award")}</article>`).join("")}</div>`;
 }
 
 function cchnStatusBadge(status = "Còn hiệu lực") {
