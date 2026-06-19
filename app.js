@@ -10,6 +10,9 @@ import {
   generateTemporaryPassword,
   getAccountById,
   getAccounts,
+  getEmployeeByAccountId,
+  getEmployees,
+  getImportSummary,
   getSecurityAuditLog,
   getSession,
   initMockDatabase,
@@ -37,8 +40,13 @@ let accountDrawerOpen = false;
 let resetModalOpen = false;
 let resetTargetId = "";
 let temporaryPasswordResult = "";
+let employeeDirectorySearch = "";
+let employeeDirectoryFilters = { department: "", position: "", accountStatus: "", cchn: "" };
+let employeeDirectoryPage = 1;
+let employeeDirectorySortAsc = true;
 let cchnSearch = "";
 let cchnSortAsc = true;
+let cchnPage = 1;
 let cchnFilters = { department: "", certificate: "", year: "", status: "" };
 let activeTimelineYear = "2015";
 
