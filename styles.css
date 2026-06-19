@@ -1468,6 +1468,32 @@ a {
   margin: 0;
 }
 
+@media (max-width: 980px) {
+  .footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .employee-directory-filter {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .footer-grid,
+  .employee-directory-filter {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-grid {
+    gap: 26px;
+  }
+
+  .footer-bottom {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .preview-tabs.compact {
   white-space: nowrap;
 }
