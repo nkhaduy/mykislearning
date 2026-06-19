@@ -740,7 +740,7 @@ function bindEvents() {
   document.querySelectorAll("[data-link]").forEach((el) => el.addEventListener("click", (event) => { event.preventDefault(); navigate(el.getAttribute("href")); }));
   document.querySelectorAll("[data-language]").forEach((el) => el.addEventListener("click", () => { language = el.dataset.language; saveLanguage(language); render(); }));
   document.querySelectorAll("[data-scroll]").forEach((el) => el.addEventListener("click", () => scrollToId(el.dataset.scroll)));
-  document.querySelector("[data-dashboard-link]")?.addEventListener("click", () => navigate(session ? (session.role === "hr" || session.role === "superAdmin" ? "/admin" : "/dashboard") : "/login"));
+  document.querySelector("[data-announcements-link]")?.addEventListener("click", goAnnouncements);
   document.querySelector("[data-hr-link]")?.addEventListener("click", () => navigate(session?.role === "hr" || session?.role === "superAdmin" ? "/admin" : "/login?role=hr"));
   document.querySelectorAll("[data-preview]").forEach((el) => el.addEventListener("click", () => { previewTab = el.dataset.preview; render(); document.getElementById("dashboard")?.scrollIntoView({ behavior: "smooth" }); }));
   document.querySelectorAll("[data-login-role]").forEach((el) => el.addEventListener("click", () => { selectedLoginRole = el.dataset.loginRole; render(); }));
@@ -786,6 +786,11 @@ function bindEvents() {
   });
   document.querySelectorAll("[data-account-search]").forEach((el) => el.addEventListener("input", () => { accountSearch = el.value; render(); }));
   document.querySelectorAll("[data-account-filter]").forEach((el) => el.addEventListener("change", () => { accountFilters[el.dataset.accountFilter] = el.value; render(); }));
+  document.querySelectorAll("[data-employee-search]").forEach((el) => el.addEventListener("input", () => { employeeDirectorySearch = el.value; employeeDirectoryPage = 1; render(); }));
+  document.querySelectorAll("[data-employee-filter]").forEach((el) => el.addEventListener("change", () => { employeeDirectoryFilters[el.dataset.employeeFilter] = el.value; employeeDirectoryPage = 1; render(); }));
+  document.querySelector("[data-sort-employees]")?.addEventListener("click", () => { employeeDirectorySortAsc = !employeeDirectorySortAsc; render(); });
+  document.querySelector("[data-review-issues]")?.addEventListener("click", () => { employeeDirectoryFilters = { department: "", position: "", accountStatus: "", cchn: "" }; employeeDirectorySearch = ""; employeeDirectoryPage = 1; render(); requestAnimationFrame(() => document.querySelector(".hr-employee-directory")?.scrollIntoView({ behavior: "smooth" })); });
+  document.querySelectorAll("[data-page-kind]").forEach((el) => el.addEventListener("click", () => { if (el.dataset.pageKind === "employees") employeeDirectoryPage = Number(el.dataset.page); if (el.dataset.pageKind === "cchn") cchnPage = Number(el.dataset.page); render(); }));
   document.querySelectorAll("[data-account-detail]").forEach((el) => el.addEventListener("click", () => { selectedAccountId = el.dataset.accountDetail; accountDrawerOpen = true; render(); }));
   document.querySelector("[data-close-drawer]")?.addEventListener("click", () => { accountDrawerOpen = false; render(); });
   document.querySelectorAll("[data-reset-account]").forEach((el) => el.addEventListener("click", () => { resetTargetId = el.dataset.resetAccount; resetModalOpen = true; temporaryPasswordResult = ""; render(); }));
@@ -805,8 +810,8 @@ function bindEvents() {
   });
   document.querySelector("[data-copy-temp]")?.addEventListener("click", async () => { await navigator.clipboard?.writeText(temporaryPasswordResult); toast("copied"); });
   document.querySelectorAll("[data-timeline-year]").forEach((el) => el.addEventListener("click", () => { activeTimelineYear = el.dataset.timelineYear; render(); document.getElementById("kis-history")?.scrollIntoView({ behavior: "smooth", block: "start" }); }));
-  document.querySelector("[data-cchn-search]")?.addEventListener("input", (event) => { cchnSearch = event.target.value; render(); });
-  document.querySelector("[data-cchn-sort]")?.addEventListener("click", () => { cchnSortAsc = !cchnSortAsc; render(); });
+  document.querySelector("[data-cchn-search]")?.addEventListener("input", (event) => { cchnSearch = event.target.value; cchnPage = 1; render(); });
+  document.querySelector("[data-cchn-sort]")?.addEventListener("click", () => { cchnSortAsc = !cchnSortAsc; cchnPage = 1; render(); });
   document.querySelectorAll("[data-cchn-filter]").forEach((el) => el.addEventListener("change", () => { cchnFilters[el.dataset.cchnFilter] = el.value; render(); }));
 }
 
