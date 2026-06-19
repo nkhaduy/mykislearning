@@ -430,6 +430,11 @@ function uniqueValues(rows, key) {
 function cchnHonorSection() {
   const rows = filteredCchnRows();
   const allRows = cchnRows();
+  const totalText = language === "kr"
+    ? `${allRows.length}명의 임직원이 전문 자격증을 보유하고 있습니다`
+    : language === "en"
+      ? `${allRows.length} employees holding professional certificates`
+      : `${allRows.length} nhân viên sở hữu Chứng chỉ hành nghề`;
   const pageSize = 24;
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   cchnPage = Math.min(cchnPage, totalPages);
@@ -438,7 +443,7 @@ function cchnHonorSection() {
     <section class="section cchn-section" id="cchn-honor">
       <div class="container">
         <div class="cchn-table-shell card">
-          <div class="section-head"><div><span class="eyebrow">CCHN</span><h2 class="section-title">${uiText("cchnTitle")}</h2><p class="section-lead">${allRows.length} nhân viên sở hữu Chứng chỉ hành nghề</p></div></div>
+          <div class="section-head"><div><span class="eyebrow">CCHN</span><h2 class="section-title">${uiText("cchnTitle")}</h2><p class="section-lead">${totalText}</p></div></div>
         <div class="cchn-filter table-only-filter">
           <input data-cchn-search placeholder="${uiText("searchName")}" value="${cchnSearch}">
           <button class="btn btn-outline" data-cchn-sort type="button">A-Z</button>
