@@ -165,20 +165,21 @@ a {
 }
 
 .language-switch {
-  display: inline-grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 12px;
   border: 1px solid var(--silver);
-  border-radius: 9px;
+  border-radius: 999px;
   background: #fff;
 }
 
 .language-switch button {
-  min-width: 36px;
-  min-height: 30px;
+  min-width: auto;
+  min-height: auto;
+  padding: 0;
   border: 0;
-  border-radius: 6px;
   color: var(--muted);
   background: transparent;
   cursor: pointer;
@@ -187,8 +188,15 @@ a {
 }
 
 .language-switch button.active {
-  color: #fff;
-  background: var(--navy);
+  color: var(--navy);
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+
+.language-switch span {
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 850;
 }
 
 .btn {
@@ -343,6 +351,13 @@ a {
   max-width: 640px;
 }
 
+.hero-subnote {
+  margin-top: 14px !important;
+  color: var(--navy) !important;
+  font-size: 14px !important;
+  font-weight: 850;
+}
+
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
@@ -451,6 +466,19 @@ a {
 .mock-main {
   padding: 18px;
   background: #f8fafc;
+}
+
+.hero-learning-image {
+  overflow: hidden;
+  min-height: 462px;
+}
+
+.hero-learning-image img {
+  display: block;
+  width: 100%;
+  height: 462px;
+  object-fit: cover;
+  border-radius: 10px;
 }
 
 .metric-row {
@@ -676,6 +704,40 @@ a {
 
 .course-category {
   min-height: 292px;
+}
+
+.course-card-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  margin: -4px 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.upcoming-course-block {
+  margin-top: 34px;
+}
+
+.upcoming-course-block h3 {
+  margin: 0 0 8px;
+  color: var(--navy);
+  font-size: 24px;
+}
+
+.mini-course-btn {
+  width: 100%;
+  margin-top: 18px;
+}
+
+.hr-announcement-card .badge {
+  margin: -4px 0 14px;
+}
+
+.core-value-card p {
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .featured-course {
@@ -1355,7 +1417,7 @@ a {
 }
 
 .cchn-filter {
-  grid-template-columns: 1.4fr repeat(4, 1fr) auto;
+  grid-template-columns: 1fr auto;
 }
 
 .cchn-filter input,
@@ -1365,6 +1427,45 @@ a {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #fff;
+}
+
+.cchn-name-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.cchn-name-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.cchn-name-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(17, 24, 39, 0.06);
+}
+
+.cchn-name-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.cchn-name-card strong {
+  color: var(--navy);
+}
+
+.cchn-name-card .icon {
+  width: 34px;
+  height: 34px;
+  margin: 0;
 }
 
 .preview-tabs.compact {
