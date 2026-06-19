@@ -467,6 +467,105 @@ function emptyCchnState() {
   return `<div class="empty-cchn">${icon("award")}<h3>${t("about.noData")}</h3><p>${t("about.noDataDesc")}</p></div>`;
 }
 
+function pagination(kind, current, total) {
+  return `<div class="pagination ${kind}-pagination">${Array.from({ length: total }, (_, index) => index + 1).map((page) => `<button class="${page === current ? "active" : ""}" data-page-kind="${kind}" data-page="${page}">${page}</button>`).join("")}</div>`;
+}
+
+function trainingValueLabel(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "done") return "Hoàn thành";
+  if (normalized === "x") return "Đã tham gia";
+  return value ? String(value) : "Chưa có dữ liệu";
+}
+
+function trainingValueBadge(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "done") return badge("completed");
+  if (normalized === "x") return badge("inProgress");
+  return badge("notStarted");
+}
+
+function employeeTrainingRows(employee) {
+  const specialization = employee.specializationCourses || {};
+  return [
+    ["Leadership Training", employee.leadershipTraining],
+    ["Communication Training", employee.communicationTraining],
+    ["Basic of Securities", specialization.basicOfSecurities],
+    ["Law of Securities", specialization.lawOfSecurities],
+    ["Analysis and Investment Securities", specialization.analysisAndInvestmentSecurities],
+    ["Brokerage and Investment Advisory", specialization.brokerageAndInvestmentAdvisory],
+    ["Analysis of Financial Statements", specialization.analysisOfFinancialStatements],
+    ["Financial Advisory and Underwriting", specialization.financialAdvisoryAndUnderwriting],
+    ["Assets and Fund Management", specialization.assetsAndFundManagement],
+    ["Derivative Securities", specialization.derivativeSecurities],
+  ].filter(([, value]) => value);
+}
+
+function localizedStatus(status) {
+  const labels = {
+    active: t("status.active"),
+    pendingActivation: t("status.pendingActivation"),
+    temporarilyLocked: t("status.temporarilyLocked"),
+    disabled: t("status.disabled"),
+    pendingReview: "Cần kiểm tra",
+  };
+  return labels[status] || status || "-";
+}
+
+function filteredEmployeeDirectory() {
+  return getEmployees().filter((employee) => {
+    const searchText = `${employee.fullName} ${employee.email}`.toLowerCase();
+    return (!employeeDirectorySearch || searchText.includes(employeeDirectorySearch.toLowerCase()))
+      && (!employeeDirectoryFilters.department || employee.department === employeeDirectoryFilters.department)
+      && (!employeeDirectoryFilters.position || employee.position === employeeDirectoryFilters.position)
+      && (!employeeDirectoryFilters.accountStatus || employee.accountStatus === employeeDirectoryFilters.accountStatus)
+      && (!employeeDirectoryFilters.cchn || (employeeDirectoryFilters.cchn === "yes" ? !!employee.certificateType : !employee.certificateType));
+  }).sort((a, b) => employeeDirectorySortAsc
+    ? a.fullName.localeCompare(b.fullName, "vi", { sensitivity: "base" })
+    : b.fullName.localeCompare(a.fullName, "vi", { sensitivity: "base" }));
+}
+
+function employeeSelect(name, label, values, selected) {
+  return `<select data-employee-filter="${name}"><option value="">${label}</option>${values.map((value) => `<option value="${value}" ${selected === value ? "selected" : ""}>${value}</option>`).join("")}</select>`;
+}
+
+function hrEmployeeDirectory() {
+  const allEmployees = getEmployees();
+  const filtered = filteredEmployeeDirectory();
+  const pageSize = 15;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  employeeDirectoryPage = Math.min(employeeDirectoryPage, totalPages);
+  const pageRows = filtered.slice((employeeDirectoryPage - 1) * pageSize, employeeDirectoryPage * pageSize);
+  return `<section class="card panel hr-employee-directory">
+    <div class="section-head"><div><h3>Danh sách nhân viên</h3><p class="section-lead">Tổng số nhân viên: ${allEmployees.length}</p></div><button class="btn btn-outline" data-sort-employees>Sắp xếp A-Z</button></div>
+    <div class="filter-bar employee-directory-filter">
+      <input data-employee-search placeholder="Tìm theo họ tên hoặc email" value="${employeeDirectorySearch}">
+      ${employeeSelect("department", "Phòng ban", uniqueValues(allEmployees, "department"), employeeDirectoryFilters.department)}
+      ${employeeSelect("position", "Chức danh", uniqueValues(allEmployees, "position"), employeeDirectoryFilters.position)}
+      ${employeeSelect("accountStatus", "Trạng thái tài khoản", uniqueValues(allEmployees, "accountStatus"), employeeDirectoryFilters.accountStatus)}
+      <select data-employee-filter="cchn"><option value="">CCHN</option><option value="yes" ${employeeDirectoryFilters.cchn === "yes" ? "selected" : ""}>Có CCHN</option><option value="no" ${employeeDirectoryFilters.cchn === "no" ? "selected" : ""}>Chưa có CCHN</option></select>
+    </div>
+    ${employeeDirectoryTable(pageRows, (employeeDirectoryPage - 1) * pageSize)}
+    ${totalPages > 1 ? pagination("employees", employeeDirectoryPage, totalPages) : ""}
+  </section>`;
+}
+
+function employeeDirectoryTable(rows, offset = 0) {
+  return `<div class="table-wrap employee-directory-table"><table><thead><tr><th>STT</th><th>Họ tên</th><th>Phòng ban</th><th>Chức danh</th><th>Email</th><th>Role</th><th>Trạng thái tài khoản</th><th>Leadership Training</th><th>Communication Training</th><th>CCHN</th><th>Action</th></tr></thead><tbody>${rows.map((employee, index) => `<tr>
+    <td>${offset + index + 1}</td>
+    <td><strong>${employee.fullName}</strong>${employee.dataIssue ? `<small class="data-issue">${employee.dataIssue === "duplicate_email" ? "Email trùng" : "Email không hợp lệ"}</small>` : ""}</td>
+    <td>${employee.department || ""}</td>
+    <td>${employee.position || ""}</td>
+    <td>${employee.email || "<span class='muted-cell'>Cần cập nhật</span>"}</td>
+    <td>${employee.role}</td>
+    <td>${localizedStatus(employee.accountStatus)}</td>
+    <td>${trainingValueLabel(employee.leadershipTraining)}</td>
+    <td>${trainingValueLabel(employee.communicationTraining)}</td>
+    <td>${employee.certificateType ? "Có" : ""}</td>
+    <td><div class="row-actions">${employee.accountId ? `<button class="btn btn-outline mini-action" data-account-detail="${employee.accountId}">Chi tiết</button><button class="btn btn-outline mini-action" data-reset-account="${employee.accountId}">Reset</button>` : `<button class="btn btn-outline mini-action" disabled>Cần kiểm tra</button>`}<button class="btn btn-outline mini-action">Giao khóa</button></div></td>
+  </tr>`).join("")}</tbody></table></div>`;
+}
+
 function loginPage() {
   return `
     <main class="auth-page">
