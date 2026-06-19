@@ -165,6 +165,79 @@ const announcements = [
   { id: "a4", title: "Nhắc hoàn thành bài kiểm tra sau đào tạo", description: "Nhân viên vui lòng kiểm tra deadline và hoàn thành bài đánh giá đúng thời hạn.", category: "Đánh giá", publishDate: "Cập nhật mới", isPinned: false, status: "published", createdBy: "HR" },
 ];
 
+const localizedText = {
+  leadership: {
+    description: {
+      vi: "Chương trình phát triển năng lực lãnh đạo, quản lý đội ngũ, ra quyết định và thúc đẩy hiệu suất làm việc.",
+      en: "A program to develop leadership capability, team management, decision-making and performance enablement.",
+      kr: "리더십 역량, 팀 관리, 의사결정 및 성과 향상을 개발하는 프로그램입니다.",
+    },
+    audience: { vi: "Cấp quản lý", en: "Management level", kr: "관리자급" },
+    format: { vi: "Đào tạo trực tiếp", en: "In-person training", kr: "대면 교육" },
+    date: { vi: "Đã tổ chức trong năm 2026", en: "Delivered in 2026", kr: "2026년 진행 완료" },
+  },
+  communication: {
+    description: {
+      vi: "Chương trình thực hành kỹ năng giao tiếp, lắng nghe, phản hồi, phối hợp nội bộ và trao đổi với khách hàng.",
+      en: "A practical program for communication, listening, feedback, internal collaboration and customer conversations.",
+      kr: "커뮤니케이션, 경청, 피드백, 내부 협업 및 고객 응대 역량을 실습하는 프로그램입니다.",
+    },
+    audience: { vi: "Nhân viên KIS Việt Nam", en: "KIS Vietnam employees", kr: "KIS 베트남 임직원" },
+    format: { vi: "Offline kết hợp trực tuyến", en: "Offline and online blended", kr: "오프라인 및 온라인 병행" },
+    date: { vi: "Đã tổ chức trong năm 2026", en: "Delivered in 2026", kr: "2026년 진행 완료" },
+  },
+};
+
+const upcomingI18n = {
+  "securities-basic": {
+    name: { vi: "Kiến thức chứng khoán cơ bản", en: "Securities fundamentals", kr: "증권 기초 지식" },
+    category: { vi: "Chuyên môn", en: "Professional knowledge", kr: "전문 지식" },
+    format: { vi: "Trực tuyến", en: "Online", kr: "온라인" },
+    status: { vi: "Sắp mở đăng ký", en: "Registration opening soon", kr: "곧 신청 오픈" },
+  },
+  "broker-certificate": {
+    name: { vi: "Ôn tập Chứng chỉ hành nghề Môi giới chứng khoán", en: "Brokerage professional certificate review", kr: "증권중개 전문 자격 대비" },
+    category: { vi: "Chứng chỉ chuyên môn", en: "Professional certificate", kr: "전문 자격" },
+    format: { vi: "Kết hợp", en: "Blended", kr: "혼합형" },
+    status: { vi: "Sắp diễn ra", en: "Upcoming", kr: "진행 예정" },
+  },
+  "excel-reporting": {
+    name: { vi: "Excel nâng cao cho báo cáo", en: "Advanced Excel for reporting", kr: "보고서를 위한 고급 Excel" },
+    category: { vi: "Công cụ làm việc", en: "Work tools", kr: "업무 도구" },
+    format: { vi: "Trực tiếp", en: "In-person", kr: "대면" },
+    status: { vi: "Đang lên kế hoạch", en: "Planning", kr: "계획 중" },
+  },
+  "reporting-skill": {
+    name: { vi: "Kỹ năng báo cáo và trình bày vấn đề", en: "Reporting and issue presentation skills", kr: "보고 및 이슈 발표 역량" },
+    category: { vi: "Kỹ năng mềm", en: "Soft skills", kr: "소프트 스킬" },
+    format: { vi: "Trực tuyến", en: "Online", kr: "온라인" },
+    status: { vi: "Sắp mở đăng ký", en: "Registration opening soon", kr: "곧 신청 오픈" },
+  },
+};
+
+const announcementI18n = {
+  a1: {
+    title: { vi: "Lịch đào tạo hội nhập dành cho nhân viên mới", en: "Onboarding training schedule for new employees", kr: "신입 임직원 온보딩 교육 일정" },
+    description: { vi: "Nhân viên mới vui lòng hoàn thành các nội dung đào tạo hội nhập bắt buộc theo thời hạn được giao.", en: "New employees are requested to complete mandatory onboarding content by the assigned deadline.", kr: "신입 임직원은 지정된 기한 내 필수 온보딩 과정을 완료해 주시기 바랍니다." },
+    category: { vi: "Onboarding", en: "Onboarding", kr: "온보딩" },
+  },
+  a2: {
+    title: { vi: "Kế hoạch ôn tập Chứng chỉ hành nghề Môi giới chứng khoán", en: "Brokerage professional certificate review plan", kr: "증권중개 전문 자격 대비 계획" },
+    description: { vi: "HR sẽ cập nhật tài liệu, lịch ôn tập và danh sách nhân viên tham gia trong thời gian tới.", en: "HR will update materials, review schedules and participant lists in the coming period.", kr: "HR은 향후 자료, 복습 일정 및 참여자 명단을 업데이트할 예정입니다." },
+    category: { vi: "Chứng chỉ chuyên môn", en: "Professional certificate", kr: "전문 자격" },
+  },
+  a3: {
+    title: { vi: "Cập nhật tài liệu Communication Training", en: "Communication Training materials updated", kr: "커뮤니케이션 교육 자료 업데이트" },
+    description: { vi: "Tài liệu đào tạo và nội dung thực hành đã được cập nhật trên MyKIS Learning.", en: "Training materials and practice content have been updated on MyKIS Learning.", kr: "교육 자료와 실습 콘텐츠가 MyKIS Learning에 업데이트되었습니다." },
+    category: { vi: "Kỹ năng mềm", en: "Soft skills", kr: "소프트 스킬" },
+  },
+  a4: {
+    title: { vi: "Nhắc hoàn thành bài kiểm tra sau đào tạo", en: "Reminder to complete post-training assessments", kr: "교육 후 평가 완료 안내" },
+    description: { vi: "Nhân viên vui lòng kiểm tra deadline và hoàn thành bài đánh giá đúng thời hạn.", en: "Employees are requested to check deadlines and complete assessments on time.", kr: "임직원은 마감일을 확인하고 평가를 기한 내 완료해 주시기 바랍니다." },
+    category: { vi: "Đánh giá", en: "Assessment", kr: "평가" },
+  },
+};
+
 const cchnNames = [
   "Nguyễn Minh Châu", "Trần Quốc Huy", "Lê Thảo Nguyên", "Phạm Hoàng Nam", "Đỗ Khánh Linh", "Võ Anh Tuấn",
   "Bùi Thanh Hà", "Nguyễn Gia Bảo", "Trương Mỹ Duyên", "Hoàng Việt Anh", "Mai Phương Chi", "Đặng Quang Minh",
@@ -186,6 +259,12 @@ const app = document.getElementById("app");
 
 function translate(key) {
   return t[currentLang][key] || t.vi[key] || key;
+}
+
+function pickLocalized(value, fallback = "") {
+  if (!value) return fallback;
+  if (typeof value === "string") return value;
+  return value[currentLang] || value.vi || value.en || fallback;
 }
 
 function pathFor(assetPath) {
