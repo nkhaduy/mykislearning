@@ -406,6 +406,7 @@ function TrainingStatsSection() {
 }
 
 function FeaturedCourseCard(course) {
+  const local = localizedText[course.id] || {};
   return `
     <article class="featured-course-card reveal">
       <div class="course-image">
@@ -417,13 +418,13 @@ function FeaturedCourseCard(course) {
         <h3>${course.name}</h3>
         <p class="course-local-name">${course.viName}</p>
         <p class="course-kr-name">${course.krName}</p>
-        <p>${course.description}</p>
+        <p>${pickLocalized(local.description, course.description)}</p>
         <dl class="course-meta">
-          <div><dt>${translate("audience")}</dt><dd>${course.audience}</dd></div>
-          <div><dt>${translate("format")}</dt><dd>${course.format}</dd></div>
+          <div><dt>${translate("audience")}</dt><dd>${pickLocalized(local.audience, course.audience)}</dd></div>
+          <div><dt>${translate("format")}</dt><dd>${pickLocalized(local.format, course.format)}</dd></div>
         </dl>
         <div class="course-footer">
-          <span>${course.date}</span>
+          <span>${pickLocalized(local.date, course.date)}</span>
           <button class="btn btn-outline">${translate("viewDetail")}</button>
         </div>
       </div>
@@ -449,17 +450,18 @@ function FeaturedCoursesSection() {
 }
 
 function UpcomingCourseCard(course) {
+  const local = upcomingI18n[course.id] || {};
   return `
     <article class="upcoming-card reveal">
-      <img src="${course.image}" alt="${course.name}" />
+      <img src="${course.image}" alt="${pickLocalized(local.name, course.name)}" />
       <div class="upcoming-body">
-        <span class="course-category">${course.category}</span>
-        <h3>${course.name}</h3>
+        <span class="course-category">${pickLocalized(local.category, course.category)}</span>
+        <h3>${pickLocalized(local.name, course.name)}</h3>
         <div class="upcoming-meta">
-          <span>${course.expectedTime || translate("expected")}</span>
-          <span>${course.format}</span>
+          <span>${translate("expected")}</span>
+          <span>${pickLocalized(local.format, course.format)}</span>
         </div>
-        <span class="soft-status">${course.status}</span>
+        <span class="soft-status">${pickLocalized(local.status, course.status)}</span>
         <button class="btn btn-outline">${translate("viewInfo")}</button>
       </div>
     </article>
@@ -484,14 +486,15 @@ function UpcomingCoursesSection() {
 }
 
 function HRAnnouncementCard(item, featured = false) {
+  const local = announcementI18n[item.id] || {};
   return `
     <article class="announcement-card ${featured ? "featured" : ""} reveal">
       <div class="announcement-top">
-        <span class="announcement-category">${item.category}</span>
+        <span class="announcement-category">${pickLocalized(local.category, item.category)}</span>
         ${item.isPinned ? `<span class="new-pill">${translate("new")}</span>` : ""}
       </div>
-      <h3>${item.title}</h3>
-      <p>${item.description}</p>
+      <h3>${pickLocalized(local.title, item.title)}</h3>
+      <p>${pickLocalized(local.description, item.description)}</p>
       <div class="announcement-footer">
         <span>${item.publishDate}</span>
         <button class="text-button">${translate("viewDetail")}</button>
