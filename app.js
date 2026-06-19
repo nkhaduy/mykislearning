@@ -165,7 +165,7 @@ function brand() {
 }
 
 function languageSwitcher() {
-  return `<div class="language-switch">${["vi", "en", "kr"].map((lang) => `<button type="button" class="${language === lang ? "active" : ""}" data-language="${lang}">${dictionaries[lang].lang}</button>`).join("")}</div>`;
+  return `<div class="language-switch">${["vi", "en", "kr"].map((lang, index) => `<button type="button" class="${language === lang ? "active" : ""}" data-language="${lang}">${dictionaries[lang].lang}</button>${index < 2 ? "<span>|</span>" : ""}`).join("")}</div>`;
 }
 
 function header() {
