@@ -408,14 +408,18 @@ function coreValuesMissionSection() {
 }
 
 function cchnRows() {
-  return cchnMock;
+  return getEmployees()
+    .filter((employee) => employee.certificateType && employee.certificateType.trim() !== "")
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, "vi", { sensitivity: "base" }));
 }
 
 function filteredCchnRows() {
   return cchnRows().filter((row) => {
     const text = row.fullName.toLowerCase();
     return !cchnSearch || text.includes(cchnSearch.toLowerCase());
-  }).sort((a, b) => cchnSortAsc ? a.fullName.localeCompare(b.fullName, "vi") : b.fullName.localeCompare(a.fullName, "vi"));
+  }).sort((a, b) => cchnSortAsc
+    ? a.fullName.localeCompare(b.fullName, "vi", { sensitivity: "base" })
+    : b.fullName.localeCompare(a.fullName, "vi", { sensitivity: "base" }));
 }
 
 function uniqueValues(rows, key) {
@@ -425,16 +429,21 @@ function uniqueValues(rows, key) {
 function cchnHonorSection() {
   const rows = filteredCchnRows();
   const allRows = cchnRows();
+  const pageSize = 24;
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  cchnPage = Math.min(cchnPage, totalPages);
+  const pageRows = rows.slice((cchnPage - 1) * pageSize, cchnPage * pageSize);
   return `
     <section class="section cchn-section" id="cchn-honor">
       <div class="container">
         <div class="cchn-table-shell card">
-          <div class="section-head"><div><span class="eyebrow">CCHN</span><h2 class="section-title">${t("about.honorTitle")}</h2><p class="section-lead">${t("about.honorSubtitle")}</p></div></div>
+          <div class="section-head"><div><span class="eyebrow">CCHN</span><h2 class="section-title">${uiText("cchnTitle")}</h2><p class="section-lead">${allRows.length} nhân viên sở hữu Chứng chỉ hành nghề</p></div></div>
         <div class="cchn-filter table-only-filter">
-          <input data-cchn-search placeholder="${language === "kr" ? "이름 검색" : language === "en" ? "Search by name" : "Tìm kiếm theo tên"}" value="${cchnSearch}">
+          <input data-cchn-search placeholder="${uiText("searchName")}" value="${cchnSearch}">
           <button class="btn btn-outline" data-cchn-sort type="button">A-Z</button>
         </div>
-        ${rows.length ? cchnTableView(rows) : emptyCchnState()}
+        ${pageRows.length ? cchnTableView(pageRows, (cchnPage - 1) * pageSize) : emptyCchnState()}
+        ${totalPages > 1 ? pagination("cchn", cchnPage, totalPages) : ""}
         </div>
       </div>
     </section>
@@ -445,8 +454,8 @@ function selectFilter(name, label, values, selected) {
   return `<select data-cchn-filter="${name}"><option value="">${label}</option>${values.map((value) => `<option value="${value}" ${selected === value ? "selected" : ""}>${value}</option>`).join("")}</select>`;
 }
 
-function cchnTableView(rows) {
-  return `<div class="cchn-name-grid">${rows.map((r, index) => `<article class="cchn-name-card"><span>${String(index + 1).padStart(2, "0")}</span><strong>${r.fullName}</strong>${icon("award")}</article>`).join("")}</div>`;
+function cchnTableView(rows, offset = 0) {
+  return `<div class="table-wrap cchn-table polished-table"><table><thead><tr><th>${uiText("no")}</th><th>${uiText("fullName")}</th></tr></thead><tbody>${rows.map((r, index) => `<tr><td>${offset + index + 1}</td><td><strong>${r.fullName}</strong></td></tr>`).join("")}</tbody></table></div>`;
 }
 
 function cchnStatusBadge(status = "Còn hiệu lực") {
@@ -490,22 +499,28 @@ function loginPage() {
 }
 
 function employeeDashboard(compact = false) {
+  const employee = getEmployeeByAccountId(session?.accountId) || getEmployees()[0];
+  const courseRows = employeeTrainingRows(employee);
+  const certificate = employee.certificateType || "Chưa có dữ liệu";
   return `
     <div class="${compact ? "dashboard-preview" : "app-layout"}">
       ${compact ? sideNav("employee") : sideNav("employee")}
-      <main class="app-main">${topbar("Employee Dashboard", "Xin chào, Nguyễn Văn An", "employee")}<div class="content">
-        <div class="kpi-grid"><div class="card kpi"><span class="label">Progress</span><strong>68%</strong>${progress(68)}</div><div class="card kpi"><span class="label">Deadline</span><strong>29/06</strong></div><div class="card kpi"><span class="label">Certificates</span><strong>02</strong></div><div class="card kpi"><span class="label">HR owner</span><strong>${hrContact}</strong></div></div>
-        <div class="dashboard-grid"><section class="card panel"><h3>Khóa đang học</h3>${courseProgress.map(([title, status, value]) => `<div class="course-line"><div><strong>${title}</strong><small>${value}%</small>${progress(value)}</div>${badge(status)}</div>`).join("")}</section><aside class="card panel"><h3>Việc cần hoàn thành</h3><div class="task"><strong>Bài test kiến thức chứng khoán trước 29/06/2026</strong><span>${hrContact}</span></div><h3 style="margin-top:22px">Gợi ý khóa học tiếp theo</h3><div class="course-line"><strong>FAB trong trao đổi với khách hàng</strong>${badge("notStarted")}</div></aside></div>
+      <main class="app-main">${topbar("Employee Dashboard", `Xin chào, ${employee.fullName}`, "employee")}<div class="content">
+        <div class="kpi-grid"><div class="card kpi"><span class="label">Phòng ban</span><strong>${employee.department || "-"}</strong></div><div class="card kpi"><span class="label">Chức danh</span><strong>${employee.position || "-"}</strong></div><div class="card kpi"><span class="label">Email</span><strong>${employee.email || "Cần cập nhật"}</strong></div><div class="card kpi"><span class="label">CCHN</span><strong>${certificate}</strong></div></div>
+        <div class="dashboard-grid"><section class="card panel"><h3>Khóa đào tạo từ hồ sơ</h3>${courseRows.map(([title, value]) => `<div class="course-line"><div><strong>${title}</strong><small>${trainingValueLabel(value)}</small></div>${trainingValueBadge(value)}</div>`).join("")}</section><aside class="card panel"><h3>Thông tin cá nhân</h3><div class="task"><strong>${employee.fullName}</strong><span>${employee.department || "-"} · ${employee.position || "-"}</span></div><h3 style="margin-top:22px">Lưu ý</h3><p class="label">Dashboard nhân viên chỉ hiển thị dữ liệu của tài khoản đang đăng nhập.</p></aside></div>
       </div></main>
     </div>
   `;
 }
 
 function adminDashboard(compact = false) {
+  const employees = getEmployees();
+  const summary = getImportSummary();
   return `
     <div class="${compact ? "dashboard-preview" : "app-layout"}">${sideNav("hr")}<main class="app-main">${topbar("HR Admin Dashboard", "Quản trị đào tạo nội bộ", "hr")}<div class="content">
-      <div class="kpi-grid"><div class="card kpi"><span class="label">Accounts</span><strong>${getAccounts().length}</strong></div><div class="card kpi"><span class="label">New onboarding</span><strong>18</strong></div><div class="card kpi"><span class="label">Overdue</span><strong>05</strong></div><div class="card kpi"><span class="label">Average</span><strong>61%</strong>${progress(61)}</div></div>
-      <div class="dashboard-grid"><section class="card panel"><h3>Completion rate</h3><div class="chart-row"><div class="donut"></div><div class="bar-chart"><span class="bar" style="--h:68%"></span><span class="bar" style="--h:100%"></span><span class="bar" style="--h:45%"></span><span class="bar" style="--h:30%"></span></div></div></section><section class="card panel"><h3>${t("admin.overview")}</h3><p class="label">HR: ${hrContact}</p><div class="table-actions"><a class="btn btn-primary" href="/admin/accounts" data-link>${t("admin.accounts")}</a><a class="btn btn-outline" href="/admin/reports" data-link>${t("admin.reports")}</a></div></section></div>
+      <div class="kpi-grid"><div class="card kpi"><span class="label">Tổng số nhân viên</span><strong>${employees.length}</strong></div><div class="card kpi"><span class="label">Có CCHN</span><strong>${summary.certificateHolders}</strong></div><div class="card kpi"><span class="label">Email không hợp lệ</span><strong>${summary.invalidEmails}</strong></div><div class="card kpi"><span class="label">Email bị trùng</span><strong>${summary.duplicateEmails}</strong></div></div>
+      <section class="card panel data-quality-alert"><h3>Dữ liệu cần HR kiểm tra</h3><p>Email không hợp lệ: <strong>${summary.invalidEmails}</strong> · Email bị trùng: <strong>${summary.duplicateEmails}</strong></p><button class="btn btn-outline" data-review-issues> Xem dữ liệu cần kiểm tra</button></section>
+      ${hrEmployeeDirectory()}
     </div></main></div>
   `;
 }
