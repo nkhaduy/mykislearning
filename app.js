@@ -135,6 +135,16 @@ const trainingCourses = [
   { id: "reporting-skill", name: "Kỹ năng báo cáo và trình bày vấn đề", category: "Kỹ năng mềm", status: "Sắp mở đăng ký", format: "Trực tuyến", durationHours: 6, image: "/images/mykis-learning-hero.png", expectedTime: "Dự kiến Quý III/2026" },
 ];
 
+const allTrainingCourses = [
+  ...trainingCourses,
+  ...Array.from({ length: 26 }, (_, index) => ({
+    id: `archive-course-${index + 1}`,
+    name: `KIS training archive ${index + 1}`,
+    category: "Internal Training",
+    durationHours: 2,
+  })),
+];
+
 const enrollments = [
   { employeeId: "E001", courseId: "leadership", trainingHours: 16 },
   { employeeId: "E002", courseId: "communication", trainingHours: 12 },
@@ -144,7 +154,7 @@ const enrollments = [
   ...Array.from({ length: 424 }, (_, index) => ({
     employeeId: `ED${String(index + 1).padStart(3, "0")}`,
     courseId: index % 2 ? "communication" : "leadership",
-    trainingHours: index % 3 === 0 ? 2 : 3,
+    trainingHours: index < 54 ? 2 : 3,
   })),
 ];
 
@@ -164,7 +174,7 @@ function getTotalParticipatingEmployees(data = enrollments) {
   return new Set(data.filter((item) => item.employeeId).map((item) => item.employeeId)).size;
 }
 
-function getTotalTrainingCourses(data = trainingCourses) {
+function getTotalTrainingCourses(data = allTrainingCourses) {
   return data.filter((course) => course.id && course.name).length;
 }
 
