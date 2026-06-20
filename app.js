@@ -1536,7 +1536,7 @@ function render() {
   else if (route.startsWith("/dashboard/gallery/")) app.innerHTML = galleryPageV2(decodeURIComponent(route.split("/").pop()));
   else if (route === "/dashboard/resources") app.innerHTML = employeeResourcesPage();
   else if (route === "/dashboard/history") app.innerHTML = learningHistoryPage();
-  else if (route === "/dashboard/calendar") app.innerHTML = learningCalendarPage();
+  else if (route === "/dashboard/calendar") app.innerHTML = learningCalendarPageV2();
   else if (route === "/admin") app.innerHTML = hasAdminAccess() ? adminDashboard(false) : session ? restrictedPage() : loginPage();
   else if (route === "/admin/employees") app.innerHTML = employeesPage();
   else if (route === "/admin/accounts") app.innerHTML = accountsPage();
@@ -1580,6 +1580,7 @@ function enhanceEmployeePhotoManager(){if(!accountDrawerOpen||!selectedAccountId
 async function hydrateGalleryMedia(){for(const el of document.querySelectorAll("[data-media-blob]")){if(el.dataset.hydrated)return;try{const blob=await getGalleryMedia(el.dataset.mediaBlob);if(!blob)continue;const url=URL.createObjectURL(blob),node=el.dataset.mediaKind==="video"?document.createElement("video"):document.createElement("img");node.src=url;node.dataset.objectUrl=url;if(node.tagName==="VIDEO"){node.preload="metadata";node.muted=true;}else{node.loading="lazy";node.alt="";}el.replaceChildren(node);el.dataset.hydrated="1";}catch{}}const viewer=document.querySelector("[data-viewer-blob]");if(viewer){try{const blob=await getGalleryMedia(viewer.dataset.viewerBlob);if(blob){const url=URL.createObjectURL(blob);viewer.src=url;viewer.dataset.objectUrl=url;}}catch{}}}
 function revokeGalleryUrls(){document.querySelectorAll("[data-object-url]").forEach(el=>{URL.revokeObjectURL(el.dataset.objectUrl);delete el.dataset.objectUrl;});}
 function bindEvents() {
+  document.querySelectorAll("[data-calendar-view]").forEach(el=>el.addEventListener("click",()=>{calendarView=el.dataset.calendarView;render();}));
   document.querySelector("[data-add-employee]")?.addEventListener("click",()=>{employeeFormOpen=true;employeeCreateResult=null;render();});
   document.querySelectorAll("[data-close-employee-form]").forEach(el=>el.addEventListener("click",()=>{employeeFormOpen=false;employeeCreateResult=null;render();}));
   document.getElementById("newEmployeePhoto")?.addEventListener("change",event=>{const file=event.target.files?.[0],preview=document.querySelector(".employee-photo-preview");if(!file||!preview)return;const url=URL.createObjectURL(file);preview.innerHTML=`<img src="${url}" alt="Xem trước ảnh đại diện">`;preview.querySelector("img").addEventListener("load",()=>URL.revokeObjectURL(url),{once:true});});
@@ -1624,7 +1625,7 @@ function bindEvents() {
     navigate("/login");
     toast(uiText("logoutSuccess"));
   });
-  document.querySelectorAll("[data-language]").forEach((el) => el.addEventListener("click", () => { language = el.dataset.language; saveLanguage(language); render(); }));
+  document.querySelectorAll("[data-language]").forEach((el) => el.addEventListener("click", () => {if(language===el.dataset.language)return;const main=document.querySelector(".app-main,.landing-page,.auth-page");main?.classList.add("i18n-transition");setTimeout(()=>{language=el.dataset.language;saveLanguage(language);render();requestAnimationFrame(()=>document.querySelector(".app-main,.landing-page,.auth-page")?.classList.add("i18n-enter"));},120);}));
   document.querySelector("[data-quiz-create]")?.addEventListener("click",()=>{quizFormOpen=true;selectedQuizId="";quizBuilderQuestions=[];quizBuilderCollapsed={};quizAddingQType=false;render();});
   document.querySelectorAll("[data-quiz-edit]").forEach(el=>el.addEventListener("click",()=>{quizFormOpen=true;selectedQuizId=el.dataset.quizEdit;quizBuilderQuestions=structuredClone(getQuizById(selectedQuizId)?.questions||[]);quizBuilderCollapsed={};quizAddingQType=false;render();}));
   document.querySelectorAll("[data-quiz-close]").forEach(el=>el.addEventListener("click",()=>{quizFormOpen=false;selectedQuizId="";quizAddingQType=false;render();}));
