@@ -50,7 +50,10 @@ import {
   getNotificationHistory, sendNotificationCampaign,
 } from "./lib/mockDatabase.js";
 import { validatePassword } from "./lib/auth/passwordPolicy.js";
-import { saveCourseImage, getCourseImage, saveEmployeePhoto, getEmployeePhoto, deleteEmployeePhoto } from "./lib/blobStore.js";
+import { saveCourseImage, getCourseImage, saveEmployeePhoto, getEmployeePhoto, deleteEmployeePhoto, getGalleryMedia } from "./lib/blobStore.js";
+import {employeeService} from "./lib/services/employeeService.js";
+import {notificationService} from "./lib/services/notificationService.js";
+import {galleryService} from "./lib/services/galleryService.js";
 
 const app = document.getElementById("app");
 
@@ -131,6 +134,16 @@ let notificationComposerOpen = false;
 let gallerySearch = "";
 let galleryYear = "";
 let resourceSearch = "";
+let employeeFormOpen=false;
+let employeeCreateResult=null;
+let notificationModalOpen=false;
+let notificationFilter="all";
+let notificationPage=1;
+let selectedNotificationId="";
+let galleryEditorOpen=false;
+let selectedAlbumId="";
+let mediaViewerIndex=-1;
+let galleryMediaFilter="all";
 
 const GALLERY_KEY = "mykis.galleryAlbums.v1";
 const RESOURCES_KEY = "mykis.courseResources.v1";
