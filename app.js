@@ -81,6 +81,10 @@ let courseFormMode = "";
 let contentBuilderMode = "";
 let selectedContentId = "";
 let contentBuilderType = "slide";
+let contentPickerStep = "type"; // "type"|"slide"|"youtube"|"quiz-pick"|"text"
+let slideDraft = null;
+let youtubeDraft = null;
+let quizPickSearch = "";
 let assignCourseId = "";
 let assignSearch = "";
 let assignFilterDept = "";
@@ -100,6 +104,8 @@ let activeQuizAttempt = null;
 let quizFormOpen = false;
 let selectedQuizId = "";
 let quizBuilderQuestions = [];
+let quizBuilderCollapsed = {};
+let quizAddingQType = false;
 let quizSearch = "";
 let quizCourseFilter = "";
 let quizStatusFilter = "";
@@ -599,7 +605,7 @@ function hrEmployeeDirectory() {
   return `<section class="card panel hr-employee-directory">
     <div class="section-head"><div><h3>${t("admin.employeeList")}</h3><p class="section-lead">${t("admin.totalEmployees")}: ${allEmployees.length}</p></div><button class="btn btn-outline" data-sort-employees>${t("admin.sortAZ")}</button></div>
     <div class="filter-bar employee-directory-filter">
-      <input data-employee-search placeholder="${t("admin.searchEmployee")}" value="${employeeDirectorySearch}">
+      <input id="employeeDirSearch" data-focus-key="employee-dir-search" data-employee-search placeholder="${t("admin.searchEmployee")}" value="${employeeDirectorySearch}">
       ${employeeSelect("department", t("table.department"), uniqueValues(allEmployees, "department"), employeeDirectoryFilters.department)}
       ${employeeSelect("position", t("table.position"), uniqueValues(allEmployees, "position"), employeeDirectoryFilters.position)}
       ${employeeSelect("accountStatus", t("table.accountStatus"), uniqueValues(allEmployees, "accountStatus"), employeeDirectoryFilters.accountStatus)}
@@ -906,14 +912,180 @@ function courseDrawer() {
 }
 
 function contentItemForm() {
+  if (!contentBuilderMode) return "";
   const isEdit = contentBuilderMode === "edit";
   const item = isEdit ? getCourseContent(selectedCourseId).find(x => x.id === selectedContentId) : null;
-  const type = item?.type || contentBuilderType;
-  const quizzes = getQuizzes().filter(q => !q.courseId || q.courseId === selectedCourseId);
-  const slideFields = `<div class="field"><label>${t("content.slideTitle")}</label><input name="slideTitle" value="${escapeHtmlAttribute(item?.slides?.[0]?.title || item?.title || "")}" required></div><div class="field"><label>${t("content.slideContent")}</label><textarea name="slideContent" rows="4">${escapeHtml(item?.slides?.[0]?.content || "")}</textarea></div><div class="field"><label>${t("content.minDuration")}</label><input name="minimumDurationSeconds" type="number" min="0" value="${item?.minimumDurationSeconds || item?.slides?.[0]?.minimumViewSeconds || 8}"></div>`;
-  const videoFields = `<div class="field"><label>${t("content.sourceType")}</label><select name="sourceType" id="sourceTypeSelect"><option value="youtube" ${(item?.sourceType||"youtube")==="youtube"?"selected":""}>YouTube</option><option value="uploaded" ${item?.sourceType==="uploaded"?"selected":""}>${t("content.sourceUrl")}</option></select></div><div class="field"><label>${t("content.youtubeId")} <small>(URL hoặc ID — e.g. dQw4w9WgXcQ hoặc https://youtu.be/dQw4w9WgXcQ)</small></label><input name="youtubeVideoId" id="youtubeVideoIdInput" value="${escapeHtmlAttribute(item?.youtubeVideoId || "")}" placeholder="Paste YouTube URL or Video ID" data-youtube-input>${item?.youtubeVideoId?`<div style="margin-top:8px"><iframe width="320" height="180" src="https://www.youtube-nocookie.com/embed/${escapeHtmlAttribute(item.youtubeVideoId)}" frameborder="0" allowfullscreen loading="lazy" style="border-radius:6px"></iframe></div>`:""}</div><div class="field"><label>${t("content.sourceUrl")}</label><input name="sourceUrl" value="${escapeHtmlAttribute(item?.sourceUrl || "")}" placeholder="https://..."></div><div class="field"><label>${t("content.transcript")}</label><textarea name="transcript" rows="3">${escapeHtml(item?.transcript || "")}</textarea></div><div class="field"><label><input type="checkbox" name="transcriptAlternativeAllowed" ${item?.transcriptAlternativeAllowed!==false?"checked":""}> ${t("content.transcriptAllowed")}</label></div><div class="field"><label>${t("content.requiredPercent")}</label><input name="requiredPercent" type="number" min="0" max="100" value="${item?.completionRule?.requiredPercent ?? 90}"></div>`;
-  const quizFields = `<div class="field"><label>${t("content.selectQuiz")}</label><select name="quizId" required><option value="">—</option>${getQuizzes().map(q=>`<option value="${q.id}" ${item?.quizId===q.id?"selected":""}>${escapeHtml(q.title)}${q.courseId&&q.courseId!==selectedCourseId?" "+t("content.otherCourse"):""}</option>`).join("")}</select></div><div class="field"><label><input type="checkbox" name="requirePass" ${item?.completionRule?.requirePass!==false?"checked":""}> ${t("content.requirePass")}</label></div>`;
-  return `<div class="modal-backdrop open"><form class="card modal" id="contentItemForm"><div class="modal-head"><div><span class="eyebrow">${t("content.title")}</span><h2>${isEdit?t("content.edit"):t("content.addTitle")}</h2></div><button type="button" class="icon-btn" data-content-form-close>×</button></div><div class="field"><label>${t("course.title")}</label><input name="title" value="${escapeHtmlAttribute(item?.title || "")}" required></div>${!isEdit?`<div class="field"><label>${t("content.type")}</label><select name="type"><option value="slide" ${type==="slide"?"selected":""}>${t("content.slideType")}</option><option value="video" ${type==="video"?"selected":""}>${t("content.videoType")}</option><option value="quiz" ${type==="quiz"?"selected":""}>${t("content.quizType")}</option></select></div>`:`<input type="hidden" name="type" value="${type}">`}<div class="field"><label><input type="checkbox" name="required" ${item?.required!==false?"checked":""}> ${t("content.requiredCheck")}</label></div><div class="field"><label>${t("content.weight")}</label><input name="completionWeight" type="number" min="0.1" step="0.1" value="${item?.completionWeight ?? 1}"></div><hr style="margin:12px 0;border:none;border-top:1px solid var(--color-border)"><div id="typeSpecificFields">${type==="slide"?slideFields:type==="video"?videoFields:quizFields}</div><div class="security-actions"><button type="button" class="btn btn-outline" data-content-form-close>${t("content.cancel")}</button><button type="submit" class="btn btn-primary">${t("content.save")}</button></div></form></div>`;
+  if (isEdit && item) {
+    if (item.type === "video") return contentYoutubeForm(item);
+    if (item.type === "quiz") return contentQuizPickForm();
+    return contentSlideOrTextForm(item);
+  }
+  if (contentPickerStep === "type") return contentTypePicker();
+  if (contentPickerStep === "slide") return contentSlideOrTextForm(null);
+  if (contentPickerStep === "youtube") return contentYoutubeForm(null);
+  if (contentPickerStep === "quiz-pick") return contentQuizPickForm();
+  if (contentPickerStep === "text") return contentSlideOrTextForm(null, true);
+  return contentTypePicker();
+}
+
+function updateYtPreview(rawUrl) {
+  const vid = normalizeYoutubeId(rawUrl || "");
+  const errEl = document.getElementById("ytUrlError");
+  const previewWrap = document.getElementById("ytPreviewWrap");
+  const vidIdEl = document.getElementById("ytVideoIdDisplay");
+  if (!rawUrl || !rawUrl.trim()) {
+    if (errEl) { errEl.textContent=""; errEl.classList.remove("show"); }
+    if (previewWrap) previewWrap.innerHTML = `<p style="color:var(--muted);text-align:center;padding:20px;font-size:13px">${t("contentType.preview")}</p>`;
+    if (vidIdEl) vidIdEl.textContent = "";
+    return;
+  }
+  if (!vid || !/^[a-zA-Z0-9_-]{11}$/.test(vid)) {
+    if (errEl) { errEl.textContent = "URL YouTube không hợp lệ"; errEl.classList.add("show"); }
+    if (previewWrap) previewWrap.innerHTML = "";
+    if (vidIdEl) vidIdEl.textContent = "";
+    return;
+  }
+  if (errEl) { errEl.textContent=""; errEl.classList.remove("show"); }
+  if (vidIdEl) vidIdEl.innerHTML = `Video ID: <code style="background:#e8edf3;padding:2px 6px;border-radius:4px">${escapeHtml(vid)}</code>`;
+  if (previewWrap) previewWrap.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${escapeHtml(vid)}" loading="lazy" allowfullscreen></iframe>`;
+}
+
+function renderQuizPickResults() {
+  const container = document.getElementById("quizPickResults");
+  if (!container) return;
+  const allQ = getQuizzes();
+  const q = quizPickSearch.trim().toLowerCase();
+  const filtered = (q ? allQ.filter(x => (x.title||"").toLowerCase().includes(q) || (x.description||"").toLowerCase().includes(q)) : allQ).slice(0, 60);
+  if (!filtered.length) { container.innerHTML = `<p style="color:var(--muted);text-align:center;padding:16px">${t("contentType.noResults")}</p>`; return; }
+  container.innerHTML = filtered.map(quiz => `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)"><div style="flex:1;min-width:0"><strong style="font-size:13px">${escapeHtml(quiz.title)}</strong><div style="font-size:11px;color:var(--muted);margin-top:2px">${(quiz.questions||[]).length} câu · Điểm đạt: ${quiz.passingScore||70}% · ${quiz.timeLimitMinutes||20} phút</div></div><button type="button" class="btn btn-primary mini-action" data-select-quiz-for-content="${escapeHtmlAttribute(quiz.id)}">${t("contentType.select")}</button></div>`).join("");
+  container.querySelectorAll("[data-select-quiz-for-content]").forEach(el => el.addEventListener("click", () => {
+    const quiz = getQuizById(el.dataset.selectQuizForContent);
+    if (!quiz) return toast("error");
+    const payload = { courseId: selectedCourseId, title: quiz.title, type: "quiz", quizId: quiz.id, required: true, completionWeight: 1, completionRule: { requirePass: true } };
+    const result = createCourseContent(payload);
+    if (!result) return toast("error");
+    contentBuilderMode=""; selectedContentId=""; contentPickerStep="type"; quizPickSearch="";
+    toast("success"); render();
+  }));
+}
+
+function contentTypePicker() {
+  const types = [
+    { key:"slide", icon:"📄", label:t("contentType.slide"), desc:t("contentType.slideDesc") },
+    { key:"youtube", icon:"▶️", label:t("contentType.youtube"), desc:t("contentType.youtubeDesc") },
+    { key:"quiz-pick", icon:"❓", label:t("contentType.quiz"), desc:t("contentType.quizDesc") },
+    { key:"text", icon:"📝", label:t("contentType.text"), desc:t("contentType.textDesc") },
+  ];
+  return `<div class="modal-backdrop open"><section class="modal modal--medium modal--structured" role="dialog" aria-modal="true" aria-labelledby="ct-title"><header class="modal__header"><div><span class="eyebrow">${t("content.title")}</span><h2 id="ct-title">${t("contentType.selectType")}</h2></div><button type="button" class="icon-btn" data-content-form-close>×</button></header><div class="modal__body"><div class="content-type-grid">${types.map(tp=>`<button type="button" class="ct-card" data-pick-content-type="${tp.key}"><span class="ct-icon">${tp.icon}</span><span class="ct-label">${tp.label}</span><span class="ct-desc">${tp.desc}</span></button>`).join("")}</div></div></section></div>`;
+}
+
+function contentYoutubeForm(item) {
+  const vid = item?.youtubeVideoId || youtubeDraft?.videoId || "";
+  const titleVal = escapeHtmlAttribute(item?.title || youtubeDraft?.title || "");
+  const urlVal = escapeHtmlAttribute(vid ? `https://youtu.be/${vid}` : youtubeDraft?.url || "");
+  return `<div class="modal-backdrop open"><form class="modal modal--large modal--structured" id="contentYoutubeForm" role="dialog" aria-modal="true" aria-labelledby="yt-title" novalidate><header class="modal__header"><div><span class="eyebrow">${t("content.title")}</span><h2 id="yt-title">${t("contentType.youtube")}</h2></div><button type="button" class="icon-btn" data-content-form-close>×</button></header><div class="modal__body"><div class="field"><label>${t("course.title")} <span style="color:#c0392b">*</span></label><input id="ytTitleInput" name="title" value="${titleVal}" required autocomplete="off" data-focus-key="yt-title" placeholder="Tên bài học..."></div><div class="field"><label>URL YouTube <span style="color:#c0392b">*</span></label><input id="ytUrlInput" name="youtubeUrl" value="${urlVal}" placeholder="https://www.youtube.com/watch?v=... hoặc youtu.be/..." autocomplete="off" data-focus-key="yt-url"><div id="ytUrlError" class="field-error"></div><div id="ytVideoIdDisplay" style="font-size:12px;color:var(--muted);margin-top:4px"></div></div><div id="ytPreviewWrap" class="yt-preview-wrap" style="max-width:480px"><p style="color:var(--muted);text-align:center;padding:20px;font-size:13px">Nhập URL để xem preview</p></div><div class="form-2col" style="margin-top:14px"><div class="field"><label><input type="checkbox" name="required" ${item?.required!==false?"checked":""}> ${t("content.requiredCheck")}</label></div><div class="field"><label>${t("content.weight")}</label><input name="completionWeight" type="number" min="0.1" step="0.1" value="${item?.completionWeight??1}"></div></div><div class="form-2col"><div class="field"><label>${t("content.requiredPercent")} (%)</label><input name="requiredPercent" type="number" min="0" max="100" value="${item?.completionRule?.requiredPercent??90}"></div><div class="field"><label>${t("content.minDuration")} (s)</label><input name="minimumDurationSeconds" type="number" min="0" value="${item?.minimumDurationSeconds||0}"></div></div><div class="field"><label>${t("content.transcript")}</label><textarea name="transcript" rows="2" data-focus-key="yt-transcript">${escapeHtml(item?.transcript||"")}</textarea></div><div class="field"><label><input type="checkbox" name="transcriptAlternativeAllowed" ${item?.transcriptAlternativeAllowed!==false?"checked":""}> ${t("content.transcriptAllowed")}</label></div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-content-form-close>${t("content.cancel")}</button><button type="button" class="btn btn-outline" id="ytUseSample">${t("contentType.useSampleVideo")}</button><button type="submit" class="btn btn-primary">${t("content.save")}</button></footer></form></div>`;
+}
+
+function contentSlideOrTextForm(item, isText) {
+  const sd = slideDraft;
+  const thumbs = sd?.thumbs || [];
+  const showText = isText || (item && !item.blobId && item.slideContent);
+
+  const thumbHtml = thumbs.length ? `<div class="slide-thumb-grid">${thumbs.map((u,i)=>`<div class="slide-thumb"><img src="${escapeHtmlAttribute(u)}" alt="${i+1}"><span class="sn">${i+1}</span></div>`).join("")}</div>` : "";
+
+  const fileSection = !showText ? `<div class="drop-zone" id="slideDropZone" tabindex="0"><span class="drop-zone-icon">📂</span><strong>${t("contentType.dropOrBrowse")}</strong><br><small style="color:var(--muted)">${t("contentType.slideAccept")}</small><input type="file" id="slideFileInput" accept=".pdf,.pptx,.png,.jpg,.jpeg,.webp" multiple style="display:none"></div>${sd?.fileName?`<div class="file-info-box"><span class="fi-icon">📄</span><div><div class="fi-name">${escapeHtml(sd.fileName)}</div><div class="fi-meta">${sd.fileSize} · ${sd.fileType}${sd.pageCount&&sd.pageCount!=="?"?` · ${sd.pageCount} ${t("contentType.pages")}`:""}</div>${sd.pptxWarning?`<div style="color:#e67e22;font-size:12px;margin-top:4px">${t("contentType.pptxNote")}</div>`:""}</div></div>${thumbHtml}`:""}` : "";
+
+  const textSection = showText ? `<div class="field"><label>Nội dung bài đọc</label><textarea name="slideContent" rows="10" data-focus-key="slide-text">${escapeHtml(item?.slideContent||"")}</textarea></div>` : "";
+
+  return `<div class="modal-backdrop open"><form class="modal modal--large modal--structured" id="contentSlideForm" role="dialog" aria-modal="true" aria-labelledby="slide-title" novalidate><header class="modal__header"><div><span class="eyebrow">${t("content.title")}</span><h2 id="slide-title">${showText?t("contentType.text"):t("contentType.slide")}</h2></div><button type="button" class="icon-btn" data-content-form-close>×</button></header><div class="modal__body"><div class="field"><label>${t("course.title")} <span style="color:#c0392b">*</span></label><input id="slideTitleInput" name="title" value="${escapeHtmlAttribute(item?.title||sd?.title||"")}" required autocomplete="off" data-focus-key="slide-title-inp" placeholder="Tên bài học..."><input type="hidden" name="type" value="slide"><input type="hidden" name="isText" value="${showText?'1':'0'}"></div><div class="field"><label>${t("course.description")}</label><textarea name="description" rows="2" data-focus-key="slide-desc">${escapeHtml(item?.slideContent&&!showText?item.slideContent:"")}</textarea></div>${fileSection}${textSection}<div id="slideError" class="field-error"></div><div class="form-2col" style="margin-top:12px"><div class="field"><label>${t("content.minDuration")} (s)</label><input name="minimumDurationSeconds" type="number" min="0" value="${item?.minimumDurationSeconds||sd?.minDuration||8}"></div><div class="field"><label>${t("content.weight")}</label><input name="completionWeight" type="number" min="0.1" step="0.1" value="${item?.completionWeight||1}"></div></div><div class="field"><label><input type="checkbox" name="required" ${item?.required!==false?"checked":""}> ${t("content.requiredCheck")}</label></div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-content-form-close>${t("content.cancel")}</button><button type="submit" class="btn btn-primary">${t("content.save")}</button></footer></form></div>`;
+}
+
+function contentQuizPickForm() {
+  const allQ = getQuizzes();
+  const filtered = quizPickSearch.trim() ? allQ.filter(x=>(x.title||"").toLowerCase().includes(quizPickSearch.toLowerCase())) : allQ.slice(0,60);
+  return `<div class="modal-backdrop open"><section class="modal modal--large modal--structured" role="dialog" aria-modal="true" aria-labelledby="qpick-title"><header class="modal__header"><div><span class="eyebrow">${t("content.title")}</span><h2 id="qpick-title">${t("contentType.quiz")}</h2></div><button type="button" class="icon-btn" data-content-form-close>×</button></header><div class="modal__body"><div class="quiz-pick-tabs"><button type="button" class="quiz-pick-tab active">${t("contentType.pickExisting")}</button><a href="/admin/quizzes" data-link class="quiz-pick-tab" style="text-decoration:none">${t("contentType.createNew")} →</a></div><div class="field"><input id="quizPickSearchInput" data-focus-key="quiz-pick-search" placeholder="${t("admin.search")}" value="${escapeHtmlAttribute(quizPickSearch)}" autocomplete="off"></div><div id="quizPickResults">${filtered.length?filtered.map(quiz=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)"><div style="flex:1;min-width:0"><strong style="font-size:13px">${escapeHtml(quiz.title)}</strong><div style="font-size:11px;color:var(--muted);margin-top:2px">${(quiz.questions||[]).length} câu · ${quiz.passingScore||70}% · ${quiz.timeLimitMinutes||20} phút</div></div><button type="button" class="btn btn-primary mini-action" data-select-quiz-for-content="${escapeHtmlAttribute(quiz.id)}">${t("contentType.select")}</button></div>`).join("") : `<p style="color:var(--muted);text-align:center;padding:16px">${t("contentType.noResults")}</p>`}</div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-content-form-close>${t("content.cancel")}</button></footer></section></div>`;
+}
+
+async function handleSlideFiles(files) {
+  if (!files || !files.length) return;
+  const errEl = document.getElementById("slideError");
+  const LIMIT = 50 * 1024 * 1024;
+  const file = files[0];
+  const ext = file.name.split(".").pop().toLowerCase();
+
+  if (!["pdf","pptx","png","jpg","jpeg","webp"].includes(ext)) {
+    if (errEl) { errEl.textContent = t("contentType.fileInvalid"); errEl.classList.add("show"); } return;
+  }
+  if (file.size > LIMIT) {
+    if (errEl) { errEl.textContent = t("contentType.fileTooLarge"); errEl.classList.add("show"); } return;
+  }
+  if (errEl) { errEl.textContent=""; errEl.classList.remove("show"); }
+
+  slideDraft = {
+    file, fileName: file.name,
+    fileSize: `${(file.size/1024/1024).toFixed(1)} MB`,
+    fileType: ext.toUpperCase(),
+    pageCount: 1, thumbs: [],
+    title: file.name.replace(/\.[^.]+$/, ""),
+    minDuration: 8, weight: 1,
+  };
+
+  const titleInput = document.getElementById("slideTitleInput");
+  if (titleInput && !titleInput.value) titleInput.value = slideDraft.title;
+
+  if (["png","jpg","jpeg","webp"].includes(ext)) {
+    for (const f of Array.from(files)) {
+      const fext = f.name.split(".").pop().toLowerCase();
+      if (!["png","jpg","jpeg","webp"].includes(fext)) continue;
+      slideDraft.thumbs.push(URL.createObjectURL(f));
+    }
+    slideDraft.pageCount = slideDraft.thumbs.length;
+    if (files.length > 1) slideDraft.fileName = `${files.length} ảnh`;
+    render();
+    return;
+  }
+
+  if (ext === "pptx") {
+    slideDraft.pageCount = "?";
+    slideDraft.pptxWarning = true;
+    render();
+    return;
+  }
+
+  if (ext === "pdf") {
+    render();
+    await renderPdfThumbs(file);
+  }
+}
+
+async function renderPdfThumbs(file) {
+  try {
+    if (!window.pdfjsLib) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js";
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+    }
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    if (slideDraft) { slideDraft.pageCount = pdf.numPages; slideDraft.thumbs = []; }
+    const maxThumbs = Math.min(pdf.numPages, 12);
+    for (let i = 1; i <= maxThumbs; i++) {
+      const page = await pdf.getPage(i);
+      const vp = page.getViewport({ scale: 0.3 });
+      const canvas = document.createElement("canvas");
+      canvas.width = vp.width; canvas.height = vp.height;
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+      if (slideDraft) slideDraft.thumbs.push(canvas.toDataURL("image/jpeg", 0.7));
+    }
+    render();
+  } catch (err) {
+    const errEl = document.getElementById("slideError");
+    if (errEl) { errEl.textContent = t("contentType.fileReadError"); errEl.classList.add("show"); }
+  }
 }
 
 function courseFormModal() {
@@ -921,14 +1093,14 @@ function courseFormModal() {
   if (courseFormMode === "edit" && !course) return "";
   const value = (field, fallback = "") => escapeHtmlAttribute(course?.[field] ?? fallback);
   const option = (field, optionValue, fallback = "") => (course?.[field] ?? fallback) === optionValue ? "selected" : "";
-  return `<div class="modal-backdrop open"><form class="card modal" id="courseForm"><div class="modal-head"><div><span class="eyebrow">Quản lý khóa học</span><h2>${courseFormMode === "edit" ? "Chỉnh sửa khóa học" : "Tạo khóa học"}</h2></div><button type="button" class="icon-btn" data-close-course-form>x</button></div><div class="field"><label>Tên khóa học</label><input name="title" type="text" value="${value("title")}" required></div><div class="field"><label>Mô tả</label><textarea name="description" rows="3">${escapeHtml(course?.description || "")}</textarea></div><div class="field"><label>Danh mục</label><select name="category">${["Kỹ năng mềm", "Chuyên môn", "Chứng chỉ", "Onboarding"].map((item) => `<option value="${escapeHtmlAttribute(item)}" ${option("category", item, "Kỹ năng mềm")}>${item}</option>`).join("")}</select></div><div class="field"><label>Hình thức</label><select name="format">${["Online", "Offline", "Hybrid"].map((item) => `<option value="${item}" ${option("format", item, "Online")}>${item}</option>`).join("")}</select></div><div class="field"><label>Thời lượng (giờ)</label><input name="durationHours" type="number" min="0" step="0.5" value="${value("durationHours", 0)}" required></div><div class="field"><label>Trạng thái</label><select name="status"><option value="draft" ${option("status", "draft", "draft")}>Bản nháp</option><option value="published" ${option("status", "published")}>Đã xuất bản</option></select></div><div class="security-actions"><button type="button" class="btn btn-outline" data-close-course-form>Hủy</button><button type="submit" class="btn btn-primary">Lưu</button></div></form></div>`;
+  return `<div class="modal-backdrop open"><form class="modal modal--medium modal--structured" id="courseForm" role="dialog" aria-modal="true" aria-labelledby="course-form-title"><header class="modal__header"><div><span class="eyebrow">Quản lý khóa học</span><h2 id="course-form-title">${courseFormMode === "edit" ? "Chỉnh sửa khóa học" : "Tạo khóa học"}</h2></div><button type="button" class="icon-btn" data-close-course-form>×</button></header><div class="modal__body"><div class="field"><label>Tên khóa học</label><input name="title" type="text" value="${value("title")}" required></div><div class="field"><label>Mô tả</label><textarea name="description" rows="3">${escapeHtml(course?.description || "")}</textarea></div><div class="field"><label>Danh mục</label><select name="category">${["Kỹ năng mềm", "Chuyên môn", "Chứng chỉ", "Onboarding"].map((item) => `<option value="${escapeHtmlAttribute(item)}" ${option("category", item, "Kỹ năng mềm")}>${item}</option>`).join("")}</select></div><div class="field"><label>Hình thức</label><select name="format">${["Online", "Offline", "Hybrid"].map((item) => `<option value="${item}" ${option("format", item, "Online")}>${item}</option>`).join("")}</select></div><div class="field"><label>Thời lượng (giờ)</label><input name="durationHours" type="number" min="0" step="0.5" value="${value("durationHours", 0)}" required></div><div class="field"><label>Trạng thái</label><select name="status"><option value="draft" ${option("status", "draft", "draft")}>Bản nháp</option><option value="published" ${option("status", "published")}>Đã xuất bản</option></select></div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-close-course-form>Hủy</button><button type="submit" class="btn btn-primary">Lưu</button></footer></form></div>`;
 }
 
 function coursesPage() {
   if (!hasAdminAccess()) return restrictedPage();
   const allCourses = getCourses();
   const categories = [...new Set(allCourses.map((course) => course.category).filter(Boolean))];
-  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", t("course.manage"), "hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h2>${t("course.manage")}</h2><p>${t("course.manageDesc")}</p></div><button type="button" class="btn btn-primary" data-course-create>${t("course.create")}</button></div><div class="filter-bar"><input type="search" placeholder="${t("course.searchPlaceholder")}" value="${escapeHtmlAttribute(courseSearch)}" data-course-search><select data-course-filter-category><option value="">${t("course.allCategories")}</option>${categories.map((category) => `<option value="${escapeHtmlAttribute(category)}" ${courseFilterCategory === category ? "selected" : ""}>${escapeHtml(category)}</option>`).join("")}</select><select data-course-filter-status><option value="">${t("enrollment.allStatuses")}</option><option value="published" ${courseFilterStatus === "published" ? "selected" : ""}>${t("course.published")}</option><option value="draft" ${courseFilterStatus === "draft" ? "selected" : ""}>${t("course.draft")}</option><option value="archived" ${courseFilterStatus === "archived" ? "selected" : ""}>${t("course.archived")}</option></select></div>${courseTable(filteredCourses())}</section></div>${courseDrawerOpen ? courseDrawer() : ""}${courseFormMode ? courseFormModal() : ""}${contentBuilderMode ? contentItemForm() : ""}</main></div>`;
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", t("course.manage"), "hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h2>${t("course.manage")}</h2><p>${t("course.manageDesc")}</p></div><button type="button" class="btn btn-primary" data-course-create>${t("course.create")}</button></div><div class="filter-bar"><input id="courseSearchInput" data-focus-key="course-search" type="search" placeholder="${t("course.searchPlaceholder")}" value="${escapeHtmlAttribute(courseSearch)}" data-course-search><select data-course-filter-category><option value="">${t("course.allCategories")}</option>${categories.map((category) => `<option value="${escapeHtmlAttribute(category)}" ${courseFilterCategory === category ? "selected" : ""}>${escapeHtml(category)}</option>`).join("")}</select><select data-course-filter-status><option value="">${t("enrollment.allStatuses")}</option><option value="published" ${courseFilterStatus === "published" ? "selected" : ""}>${t("course.published")}</option><option value="draft" ${courseFilterStatus === "draft" ? "selected" : ""}>${t("course.draft")}</option><option value="archived" ${courseFilterStatus === "archived" ? "selected" : ""}>${t("course.archived")}</option></select></div>${courseTable(filteredCourses())}</section></div>${courseDrawerOpen ? courseDrawer() : ""}${courseFormMode ? courseFormModal() : ""}${contentBuilderMode ? contentItemForm() : ""}</main></div>`;
 }
 
 function getTodayDateString() {
@@ -994,9 +1166,9 @@ function assignModal() {
   const visible = accounts.filter((a) => (!bulkEmployeeSearch || `${a.fullName} ${a.email}`.toLowerCase().includes(bulkEmployeeSearch.toLowerCase())) && (!bulkDepartmentFilter || a.department === bulkDepartmentFilter));
   const deptEmployees = bulkDepartmentFilter ? accounts.filter(a=>a.department===bulkDepartmentFilter) : [];
   const deptPicker = `<div class="field"><label>${t("bulkAssign.selectDepartments")}</label><select data-bulk-department><option value="">— ${t("bulkAssign.selectDepartments")} —</option>${departments.map(d=>`<option value="${escapeHtmlAttribute(d)}" ${bulkDepartmentFilter===d?"selected":""}>${escapeHtml(d)} (${accounts.filter(a=>a.department===d).length})</option>`).join("")}</select></div>${bulkDepartmentFilter ? `<div style="background:#f0f7ff;border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:8px"><p style="margin:0 0 10px"><strong>${deptEmployees.length}</strong> ${t("table.department")}: <strong>${escapeHtml(bulkDepartmentFilter)}</strong></p><div class="table-wrap" style="max-height:220px;overflow:auto"><table><thead><tr><th>${t("table.fullName")}</th><th>${t("table.email")}</th></tr></thead><tbody>${deptEmployees.map(a=>`<tr><td>${escapeHtml(a.fullName)}</td><td>${escapeHtml(a.email)}</td></tr>`).join("")}</tbody></table></div></div>` : `<p style="color:var(--muted);font-size:14px;margin-top:8px">Chọn phòng ban để xem danh sách nhân viên.</p>`}`;
-  const indivPicker = `<div class="filter-bar"><input type="search" value="${escapeHtmlAttribute(bulkEmployeeSearch)}" placeholder="${t("admin.search")}" data-bulk-search><select data-bulk-department><option value="">${t("bulkAssign.selectDepartments")}</option>${departments.map(d=>`<option value="${escapeHtmlAttribute(d)}" ${bulkDepartmentFilter===d?"selected":""}>${escapeHtml(d)} (${accounts.filter(a=>a.department===d).length})</option>`).join("")}</select></div><div class="security-actions"><button type="button" class="btn btn-outline mini-action" data-select-visible>${t("bulkAssign.selectEmployees")}</button><button type="button" class="btn btn-outline mini-action" data-clear-bulk>${t("bulkAssign.noSelection")}</button></div><div class="table-wrap"><table><thead><tr><th></th><th>${t("table.fullName")}</th><th>${t("table.email")}</th><th>${t("table.department")}</th></tr></thead><tbody>${visible.map(a=>`<tr><td><input type="checkbox" aria-label="${escapeHtmlAttribute(a.fullName)}" data-bulk-account="${a.id}" ${bulkSelectedAccountIds.includes(a.id)?"checked":""}></td><td>${escapeHtml(a.fullName)}</td><td>${escapeHtml(a.email)}</td><td>${escapeHtml(a.department||"")}</td></tr>`).join("")}</tbody></table></div>`;
+  const indivPicker = `<div class="filter-bar"><input id="bulkSearchInput" data-focus-key="bulk-search" type="search" value="${escapeHtmlAttribute(bulkEmployeeSearch)}" placeholder="${t("admin.search")}" data-bulk-search><select data-bulk-department><option value="">${t("bulkAssign.selectDepartments")}</option>${departments.map(d=>`<option value="${escapeHtmlAttribute(d)}" ${bulkDepartmentFilter===d?"selected":""}>${escapeHtml(d)} (${accounts.filter(a=>a.department===d).length})</option>`).join("")}</select></div><div class="security-actions"><button type="button" class="btn btn-outline mini-action" data-select-visible>${t("bulkAssign.selectEmployees")}</button><button type="button" class="btn btn-outline mini-action" data-clear-bulk>${t("bulkAssign.noSelection")}</button></div><div class="table-wrap"><table><thead><tr><th></th><th>${t("table.fullName")}</th><th>${t("table.email")}</th><th>${t("table.department")}</th></tr></thead><tbody>${visible.map(a=>`<tr><td><input type="checkbox" aria-label="${escapeHtmlAttribute(a.fullName)}" data-bulk-account="${a.id}" ${bulkSelectedAccountIds.includes(a.id)?"checked":""}></td><td>${escapeHtml(a.fullName)}</td><td>${escapeHtml(a.email)}</td><td>${escapeHtml(a.department||"")}</td></tr>`).join("")}</tbody></table></div>`;
   const picker = assignMethod === "excel" ? `<div class="field"><label>${t("bulkAssign.uploadFile")}</label><input type="file" accept=".xls,.xlsx" data-bulk-excel></div>${excelPreviewRows.length ? bulkPreviewTable(excelPreviewRows) : ""}` : assignMethod === "department" ? deptPicker : indivPicker;
-  return `<div class="modal-backdrop open"><form class="card modal" id="assignForm"><div class="modal-head"><div><span class="eyebrow">HR / L&D</span><h2>${t("bulkAssign.title")}</h2></div><button type="button" class="icon-btn" aria-label="Close" data-close-assign-modal>×</button></div><div class="detail-tabs" role="tablist">${[["individual","individual"],["department","department"],["excel","excel"]].map(([v,k])=>`<button type="button" class="${assignMethod===v?"active":""}" data-assign-method="${v}" aria-selected="${assignMethod===v}">${t(`bulkAssign.${k}`)}</button>`).join("")}</div><div class="field"><label>${t("bulkAssign.selectCourse")}</label><select name="courseId" required><option value="">${t("bulkAssign.selectCourse")}</option>${publishedCourses.map(c=>`<option value="${c.id}" ${selectedCourseId===c.id?"selected":""}>${escapeHtml(c.title)}</option>`).join("")}</select></div>${picker}<p><strong>${t("bulkAssign.selectedCount")}: ${bulkSelectedAccountIds.length}</strong></p><div class="field"><label>${t("enrollment.deadline")}</label><input name="deadline" type="date" value="${getDefaultAssignmentDeadline()}" required></div><div class="field"><label>${t("table.note")}</label><textarea name="note" rows="3"></textarea></div><div class="security-actions"><button type="button" class="btn btn-outline" data-close-assign-modal>Hủy</button><button type="submit" class="btn btn-primary">${t("bulkAssign.confirm")}</button></div></form></div>`;
+  return `<div class="modal-backdrop open"><form class="modal modal--large modal--structured" id="assignForm" role="dialog" aria-modal="true" aria-labelledby="assign-form-title"><header class="modal__header"><div><span class="eyebrow">HR / L&D</span><h2 id="assign-form-title">${t("bulkAssign.title")}</h2></div><button type="button" class="icon-btn" aria-label="Close" data-close-assign-modal>×</button></header><div class="modal__body"><div class="detail-tabs" role="tablist">${[["individual","individual"],["department","department"],["excel","excel"]].map(([v,k])=>`<button type="button" class="${assignMethod===v?"active":""}" data-assign-method="${v}" aria-selected="${assignMethod===v}">${t(`bulkAssign.${k}`)}</button>`).join("")}</div><div class="field"><label>${t("bulkAssign.selectCourse")}</label><select name="courseId" required><option value="">${t("bulkAssign.selectCourse")}</option>${publishedCourses.map(c=>`<option value="${c.id}" ${selectedCourseId===c.id?"selected":""}>${escapeHtml(c.title)}</option>`).join("")}</select></div>${picker}<p><strong>${t("bulkAssign.selectedCount")}: ${bulkSelectedAccountIds.length}</strong></p><div class="field"><label>${t("enrollment.deadline")}</label><input name="deadline" type="date" value="${getDefaultAssignmentDeadline()}" required></div><div class="field"><label>${t("table.note")}</label><textarea name="note" rows="3"></textarea></div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-close-assign-modal>Hủy</button><button type="submit" class="btn btn-primary">${t("bulkAssign.confirm")}</button></footer></form></div>`;
 }
 
 function bulkPreviewTable(rows) { return `<div class="table-wrap"><table><thead><tr><th>STT</th><th>${t("table.email")}</th><th>${t("table.fullName")}</th><th>${t("table.department")}</th><th>${t("table.status")}</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.email||r.employeeCode||"")}</td><td>${escapeHtml(r.account?.fullName||r.name||"")}</td><td>${escapeHtml(r.account?.department||r.department||"")}</td><td>${r.valid?t("bulkAssign.validRows"):t(`bulkAssign.${r.reason||"unmatched"}`)}</td></tr>`).join("")}</tbody></table></div>`; }
@@ -1014,7 +1186,7 @@ function adminQuizzesPage() {
   if (!hasAdminAccess()) return restrictedPage();
   const quizzes=getQuizzes().filter(q=>(!quizSearch||q.title.toLowerCase().includes(quizSearch.toLowerCase()))&&(!quizCourseFilter||q.courseId===quizCourseFilter)&&(!quizStatusFilter||q.status===quizStatusFilter)); const attempts=getQuizAttempts().filter(a=>a.submittedAt);
   const avg=attempts.length?Math.round(attempts.reduce((s,a)=>s+(a.scorePercent||0),0)/attempts.length):0; const pass=attempts.length?Math.round(attempts.filter(a=>a.passed).length/attempts.length*100):0;
-  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D",t("quiz.quizzes"),"hr")}<div class="content"><div class="kpi-grid"><div class="card kpi"><span>${t("quiz.quizzes")}</span><strong>${quizzes.length}</strong></div><div class="card kpi"><span>${t("quiz.employeesCompleted")}</span><strong>${new Set(attempts.map(a=>a.accountId)).size}</strong></div><div class="card kpi"><span>${t("quiz.averageScore")}</span><strong>${avg}%</strong></div><div class="card kpi"><span>${t("quiz.passRate")}</span><strong>${pass}%</strong></div></div><div class="detail-tabs"><button class="${quizAdminView==="list"?"active":""}" data-quiz-admin-view="list">${t("quiz.quizzes")}</button><button class="${quizAdminView==="results"?"active":""}" data-quiz-admin-view="results">${t("quiz.result")}</button><button class="${quizAdminView==="leaderboard"?"active":""}" data-quiz-admin-view="leaderboard">${t("quiz.leaderboard")}</button><button class="${quizAdminView==="analytics"?"active":""}" data-quiz-admin-view="analytics">${t("quiz.analytics")}</button></div>${quizAdminView==="list"?`<section class="card panel"><div class="panel-head"><h3>${t("quiz.quizzes")}</h3><button class="btn btn-primary" data-quiz-create>${t("quiz.create")}</button></div><div class="filter-bar"><input data-quiz-search placeholder="${t("admin.search")}" value="${escapeHtmlAttribute(quizSearch)}"><select data-quiz-course-filter><option value="">${t("nav.courses")}</option>${getCourses().map(c=>`<option value="${c.id}" ${quizCourseFilter===c.id?"selected":""}>${escapeHtml(c.title)}</option>`).join("")}</select><select data-quiz-status-filter><option value="">${t("course.status")}</option>${["draft","published","archived"].map(s=>`<option value="${s}" ${quizStatusFilter===s?"selected":""}>${t(`course.${s}`)}</option>`).join("")}</select></div>${quizzes.length?`<div class="table-wrap"><table><thead><tr><th>${t("quiz.title")}</th><th>${t("nav.courses")}</th><th>${t("course.status")}</th><th>${t("quiz.questions")}</th><th>${t("admin.action")}</th></tr></thead><tbody>${quizzes.map(q=>`<tr><td><strong>${escapeHtml(q.title)}</strong></td><td>${escapeHtml(getCourseById(q.courseId)?.title||"")}</td><td>${quizStatusBadge(q.status)}</td><td>${q.questions.length}</td><td><button class="btn btn-outline mini-action" data-quiz-edit="${q.id}">${t("quiz.edit")}</button><button class="btn btn-outline mini-action" data-quiz-delete="${q.id}">${t("quiz.delete")}</button></td></tr>`).join("")}</tbody></table></div>`:`<div class="empty-state"><h3>${t("quiz.noQuiz")}</h3></div>`}</section>`:quizAdminView==="results"?quizResultsPanel(attempts):quizAdminView==="leaderboard"?quizLeaderboard(attempts):quizAnalytics(attempts)}</div>${quizFormOpen?quizForm():""}</main></div>`;
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D",t("quiz.quizzes"),"hr")}<div class="content"><div class="kpi-grid"><div class="card kpi"><span>${t("quiz.quizzes")}</span><strong>${quizzes.length}</strong></div><div class="card kpi"><span>${t("quiz.employeesCompleted")}</span><strong>${new Set(attempts.map(a=>a.accountId)).size}</strong></div><div class="card kpi"><span>${t("quiz.averageScore")}</span><strong>${avg}%</strong></div><div class="card kpi"><span>${t("quiz.passRate")}</span><strong>${pass}%</strong></div></div><div class="detail-tabs"><button class="${quizAdminView==="list"?"active":""}" data-quiz-admin-view="list">${t("quiz.quizzes")}</button><button class="${quizAdminView==="results"?"active":""}" data-quiz-admin-view="results">${t("quiz.result")}</button><button class="${quizAdminView==="leaderboard"?"active":""}" data-quiz-admin-view="leaderboard">${t("quiz.leaderboard")}</button><button class="${quizAdminView==="analytics"?"active":""}" data-quiz-admin-view="analytics">${t("quiz.analytics")}</button></div>${quizAdminView==="list"?`<section class="card panel"><div class="panel-head"><h3>${t("quiz.quizzes")}</h3><button class="btn btn-primary" data-quiz-create>${t("quiz.create")}</button></div><div class="filter-bar"><input id="quizSearchInput" data-focus-key="quiz-search" data-quiz-search placeholder="${t("admin.search")}" value="${escapeHtmlAttribute(quizSearch)}"><select data-quiz-course-filter><option value="">${t("nav.courses")}</option>${getCourses().map(c=>`<option value="${c.id}" ${quizCourseFilter===c.id?"selected":""}>${escapeHtml(c.title)}</option>`).join("")}</select><select data-quiz-status-filter><option value="">${t("course.status")}</option>${["draft","published","archived"].map(s=>`<option value="${s}" ${quizStatusFilter===s?"selected":""}>${t(`course.${s}`)}</option>`).join("")}</select></div>${quizzes.length?`<div class="table-wrap"><table><thead><tr><th>${t("quiz.title")}</th><th>${t("nav.courses")}</th><th>${t("course.status")}</th><th>${t("quiz.questions")}</th><th>${t("admin.action")}</th></tr></thead><tbody>${quizzes.map(q=>`<tr><td><strong>${escapeHtml(q.title)}</strong></td><td>${escapeHtml(getCourseById(q.courseId)?.title||"")}</td><td>${quizStatusBadge(q.status)}</td><td>${q.questions.length}</td><td><button class="btn btn-outline mini-action" data-quiz-edit="${q.id}">${t("quiz.edit")}</button><button class="btn btn-outline mini-action" data-quiz-delete="${q.id}">${t("quiz.delete")}</button></td></tr>`).join("")}</tbody></table></div>`:`<div class="empty-state"><h3>${t("quiz.noQuiz")}</h3></div>`}</section>`:quizAdminView==="results"?quizResultsPanel(attempts):quizAdminView==="leaderboard"?quizLeaderboard(attempts):quizAnalytics(attempts)}</div>${quizFormOpen?quizForm():""}</main></div>`;
 }
 
 function quizResultsPanel(attempts){return `<section class="card panel"><div class="panel-head"><h3>${t("quiz.result")}</h3><button class="btn btn-outline" data-quiz-export>${t("quiz.exportCsv")}</button></div><div class="table-wrap"><table><thead><tr><th>${t("table.fullName")}</th><th>${t("quiz.title")}</th><th>${t("quiz.score")}</th><th>${t("quiz.result")}</th><th>${t("admin.action")}</th></tr></thead><tbody>${attempts.map(a=>`<tr><td>${escapeHtml(getAccountById(a.accountId)?.fullName||"")}</td><td>${escapeHtml(getQuizById(a.quizId)?.title||"")}</td><td>${a.scorePercent}%</td><td>${t(a.gradingStatus==="pendingManual"?"quiz.pendingGrading":a.passed?"quiz.passed":"quiz.failed")}</td><td>${a.gradingStatus==="pendingManual"?`<button class="btn btn-outline mini-action" data-grade-attempt="${a.id}">${t("quiz.manualGrade")}</button>`:""}</td></tr>`).join("")}</tbody></table></div></section>`;}
@@ -1023,12 +1195,133 @@ function quizAnalytics(attempts){const rows=[];getQuizzes().forEach(q=>q.questio
 
 function quizForm() {
   const q=selectedQuizId?getQuizById(selectedQuizId):null;
-  return `<div class="modal-backdrop open"><form class="card modal" id="quizForm"><div class="modal-head"><h2>${q?t("quiz.edit"):t("quiz.create")}</h2><button type="button" class="icon-btn" aria-label="${t("quiz.close")}" data-quiz-close>×</button></div><div class="field"><label>${t("quiz.title")}</label><input name="title" required value="${escapeHtmlAttribute(q?.title||"")}"></div><div class="field"><label>${t("nav.courses")}</label><select name="courseId" required>${getCourses().map(c=>`<option value="${c.id}" ${q?.courseId===c.id?"selected":""}>${escapeHtml(c.title)}</option>`).join("")}</select></div><div class="field"><label>${t("course.description")}</label><textarea name="description">${escapeHtml(q?.description||"")}</textarea></div><div class="profile-grid"><div class="field"><label>${t("quiz.passingScore")}</label><input name="passingScore" type="number" min="0" max="100" value="${q?.passingScore??70}" required></div><div class="field"><label>${t("quiz.timeLimit")}</label><input name="timeLimitMinutes" type="number" min="1" value="${q?.timeLimitMinutes??20}" required></div><div class="field"><label>${t("quiz.attemptsAllowed")}</label><input name="attemptsAllowed" type="number" min="1" value="${q?.attemptsAllowed??2}" required></div><div class="field"><label>${t("course.status")}</label><select name="status"><option value="draft">${t("course.draft")}</option><option value="published" ${q?.status==="published"?"selected":""}>${t("course.published")}</option><option value="archived" ${q?.status==="archived"?"selected":""}>${t("course.archived")}</option></select></div></div><label><input type="checkbox" name="requireCourseCompletion" ${q?.requireCourseCompletion?"checked":""}> ${t("quiz.requireCourseCompletion")}</label><div class="field"><label>${t("quiz.prerequisite")}</label><select name="prerequisiteQuizId"><option value="">—</option>${getQuizzes().filter(x=>x.id!==q?.id).map(x=>`<option value="${x.id}" ${q?.prerequisiteQuizId===x.id?"selected":""}>${escapeHtml(x.title)}</option>`).join("")}</select></div><div class="panel-head"><h3>${t("quiz.questions")}</h3><button type="button" class="btn btn-outline" data-add-question>${t("quiz.addQuestion")}</button></div>${quizBuilderQuestions.map(questionEditor).join("")}<details class="card"><summary>${t("quiz.importJson")}</summary><div class="field"><label>${t("quiz.jsonData")}</label><textarea rows="6" data-quiz-json></textarea></div><button type="button" class="btn btn-outline" data-import-quiz-json>${t("quiz.validateImport")}</button></details><button class="btn btn-primary" type="submit">${t("changePassword.submit")}</button></form></div>`;
+  const addQuestionUi = quizAddingQType ? `<div class="q-type-grid">${[
+    ["singleChoice","Single Choice"],["multipleChoice","Multiple Choice"],["trueFalse","True / False"],
+    ["shortAnswer","Short Answer"],["text","Essay"],["fillBlank","Fill in Blank"],
+    ["matching","Matching"],["ordering","Ordering"],["numeric","Numeric"],
+  ].map(([k,l])=>`<button type="button" class="q-type-btn" data-add-q-type="${k}">${l}</button>`).join("")}</div>` : `<button type="button" class="btn btn-outline" data-add-question>${t("contentType.addQuestion")}</button>`;
+  return `<div class="modal-backdrop open"><form class="modal modal--xlarge modal--structured" id="quizForm" role="dialog" aria-modal="true" aria-labelledby="quiz-form-title"><header class="modal__header"><div><span class="eyebrow">${t("quiz.quizzes")}</span><h2 id="quiz-form-title">${q?t("quiz.edit"):t("quiz.create")}</h2></div><button type="button" class="icon-btn" aria-label="${t("quiz.close")}" data-quiz-close>×</button></header><div class="modal__body"><div class="field"><label>${t("quiz.title")}</label><input name="title" required value="${escapeHtmlAttribute(q?.title||"")}"></div><div class="field"><label>${t("nav.courses")}</label><select name="courseId" required>${getCourses().map(c=>`<option value="${c.id}" ${q?.courseId===c.id?"selected":""}>${escapeHtml(c.title)}</option>`).join("")}</select></div><div class="field"><label>${t("course.description")}</label><textarea name="description">${escapeHtml(q?.description||"")}</textarea></div><div class="profile-grid"><div class="field"><label>${t("quiz.passingScore")}</label><input name="passingScore" type="number" min="0" max="100" value="${q?.passingScore??70}" required></div><div class="field"><label>${t("quiz.timeLimit")}</label><input name="timeLimitMinutes" type="number" min="1" value="${q?.timeLimitMinutes??20}" required></div><div class="field"><label>${t("quiz.attemptsAllowed")}</label><input name="attemptsAllowed" type="number" min="1" value="${q?.attemptsAllowed??2}" required></div><div class="field"><label>${t("course.status")}</label><select name="status"><option value="draft">${t("course.draft")}</option><option value="published" ${q?.status==="published"?"selected":""}>${t("course.published")}</option><option value="archived" ${q?.status==="archived"?"selected":""}>${t("course.archived")}</option></select></div></div><label><input type="checkbox" name="requireCourseCompletion" ${q?.requireCourseCompletion?"checked":""}> ${t("quiz.requireCourseCompletion")}</label><div class="field"><label>${t("quiz.prerequisite")}</label><select name="prerequisiteQuizId"><option value="">—</option>${getQuizzes().filter(x=>x.id!==q?.id).map(x=>`<option value="${x.id}" ${q?.prerequisiteQuizId===x.id?"selected":""}>${escapeHtml(x.title)}</option>`).join("")}</select></div><div class="panel-head"><h3>${t("quiz.questions")}</h3></div>${quizBuilderQuestions.map((qq,i)=>questionEditor(qq,i)).join("")}${addQuestionUi}<details class="card" style="margin-top:12px"><summary>${t("quiz.importJson")}</summary><div class="field"><label>${t("quiz.jsonData")}</label><textarea rows="6" data-quiz-json></textarea></div><button type="button" class="btn btn-outline" data-import-quiz-json>${t("quiz.validateImport")}</button></details></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-quiz-close>${t("content.cancel")}</button><button class="btn btn-primary" type="submit">${t("changePassword.submit")}</button></footer></form></div>`;
 }
 
-function questionEditor(question,index){const options=question.options||[];return `<fieldset class="card" data-question-index="${index}"><legend>${index+1}. ${t("quiz.question")}</legend><div class="field"><label>${t("quiz.question")}</label><input data-q-field="text" value="${escapeHtmlAttribute(question.text||"")}" required></div><div class="profile-grid"><div class="field"><label>${t("quiz.questionType")}</label><select data-q-field="type">${[["singleChoice","quiz.singleChoice"],["multipleChoice","quiz.multipleChoice"],["trueFalse","quiz.trueFalse"],["text","quiz.essay"]].map(([v,k])=>`<option value="${v}" ${question.type===v?"selected":""}>${t(k)}</option>`).join("")}</select></div><div class="field"><label>${t("quiz.points")}</label><input data-q-field="points" type="number" min="0.1" step="0.1" value="${question.points||1}"></div></div>${question.type==="text"?"":`<div class="field"><label>${t("quiz.options")}</label><textarea data-q-field="options" rows="3">${escapeHtml(options.map(o=>o.text).join("\n"))}</textarea></div><div class="field"><label>${t("quiz.correctAnswer")}</label><input data-q-field="correct" value="${escapeHtmlAttribute(question.type==="multipleChoice"?(question.correctOptionIds||[]).map(id=>options.findIndex(o=>o.id===id)+1).join(","):String(Math.max(1,options.findIndex(o=>o.id===question.correctOptionId)+1)))}" placeholder="1${question.type==="multipleChoice"?",2":""}"></div>`}<div class="field"><label>${t("quiz.explanation")}</label><textarea data-q-field="explanation">${escapeHtml(question.explanation||"")}</textarea></div><button type="button" class="btn btn-outline mini-action" data-remove-question="${index}">${t("quiz.delete")}</button></fieldset>`;}
+const _QTYPES = {
+  singleChoice:"Single Choice",multipleChoice:"Multiple Choice",trueFalse:"True / False",
+  text:"Essay",single_choice:"Single Choice",multiple_choice:"Multiple Choice",true_false:"True / False",
+  essay:"Essay",shortAnswer:"Short Answer",short_answer:"Short Answer",
+  fillBlank:"Fill in the Blank",fill_blank:"Fill in the Blank",
+  matching:"Matching",ordering:"Ordering",numeric:"Numeric",
+};
 
-function readQuestionEditors(){return [...document.querySelectorAll("[data-question-index]")].map((el,index)=>{const get=n=>el.querySelector(`[data-q-field="${n}"]`)?.value||"";const type=get("type");const id=quizBuilderQuestions[index]?.id||`question-${Date.now()}-${index}`;const texts=type==="text"?[]:type==="trueFalse"?[t("quiz.trueLabel"),t("quiz.falseLabel")]:get("options").split("\n").map(x=>x.trim()).filter(Boolean);const options=texts.map((text,i)=>({id:`${id}-option-${i+1}`,text}));const correct=get("correct").split(",").map(x=>Number(x.trim())-1).filter(i=>i>=0&&i<options.length).map(i=>options[i].id);return{id,text:get("text").trim(),type,options,correctOptionId:type==="multipleChoice"||type==="text"?undefined:correct[0],correctOptionIds:type==="multipleChoice"?correct:undefined,explanation:get("explanation").trim(),points:Number(get("points"))};});}
+function questionEditor(question, index) {
+  const collapsed = quizBuilderCollapsed[index] === true;
+  const type = question.type || "singleChoice";
+  const typeLabel = _QTYPES[type] || type;
+  const preview = (question.text || "").replace(/<[^>]*>/g,"").substring(0,55) || "(Chưa nhập)";
+  const pts = question.points || 1;
+
+  const opts = question.options || [];
+  const isChoice = ["singleChoice","single_choice","multipleChoice","multiple_choice"].includes(type);
+  const isMulti = ["multipleChoice","multiple_choice"].includes(type);
+  const isTF = ["trueFalse","true_false"].includes(type);
+  const isEssay = ["text","essay"].includes(type);
+  const isSA = ["shortAnswer","short_answer"].includes(type);
+  const isFB = ["fillBlank","fill_blank"].includes(type);
+  const isMatch = type === "matching";
+  const isOrder = type === "ordering";
+  const isNum = type === "numeric";
+
+  const headHtml = `<div class="question-card__head" data-q-toggle="${index}"><span class="question-card__num">Câu ${index+1}</span><span class="question-card__typebadge">${typeLabel}</span><span class="question-card__preview">${escapeHtml(preview)}</span><span style="font-size:12px;color:var(--muted);margin-left:4px">${pts} điểm</span><div class="question-card__acts" onclick="event.stopPropagation()"><button type="button" class="btn btn-outline mini-action" data-q-move-up="${index}" ${index===0?"disabled":""} title="Lên">↑</button><button type="button" class="btn btn-outline mini-action" data-q-move-down="${index}" title="Xuống">↓</button><button type="button" class="btn btn-outline mini-action" data-q-duplicate="${index}" title="Nhân bản">⊕</button><button type="button" class="btn btn-outline mini-action" data-q-delete="${index}" title="Xóa">🗑</button></div><span style="color:var(--muted);margin-left:4px;font-size:14px">${collapsed?"▾":"▴"}</span></div>`;
+
+  if (collapsed) return `<div class="question-card" data-q-idx="${index}">${headHtml}</div>`;
+
+  const baseTextArea = `<div class="field"><label>Nội dung câu hỏi <span style="color:#c0392b">*</span></label><textarea name="q_${index}_text" rows="3" data-focus-key="q-${index}-text">${escapeHtml(question.text||"")}</textarea></div>`;
+  const baseScoreExp = `<div class="form-2col"><div class="field"><label>Điểm</label><input type="number" name="q_${index}_points" min="0" step="0.5" value="${pts}"></div><div class="field"><label>Giải thích</label><input type="text" name="q_${index}_explanation" value="${escapeHtmlAttribute(question.explanation||"")}" data-focus-key="q-${index}-exp"></div></div>`;
+
+  let bodyHtml = "";
+
+  if (isChoice) {
+    const optHtml = opts.map((opt, oi) => {
+      const checked = isMulti ? (question.correctOptionIds||[]).includes(opt.id) : question.correctOptionId === opt.id;
+      return `<div class="q-option-row"><input type="${isMulti?"checkbox":"radio"}" name="${isMulti?`q_${index}_correct[]`:`q_${index}_correct`}" value="${escapeHtmlAttribute(opt.id)}" ${checked?"checked":""}><input type="text" name="q_${index}_opt_${oi}_text" value="${escapeHtmlAttribute(opt.text||"")}" placeholder="Lựa chọn ${oi+1}" data-focus-key="q-${index}-opt-${oi}"><input type="hidden" name="q_${index}_opt_${oi}_id" value="${escapeHtmlAttribute(opt.id)}"><button type="button" class="btn btn-outline mini-action" data-q-del-opt="${index}-${oi}" ${opts.length<=2?"disabled":""}>×</button></div>`;
+    }).join("");
+    bodyHtml = `${baseTextArea}<div class="field"><label>${isMulti?"Đáp án đúng (chọn nhiều)":"Đáp án đúng (chọn một)"}</label><div class="q-option-list" id="q-opts-${index}">${optHtml}</div><button type="button" class="btn btn-outline mini-action" style="margin-top:6px" data-q-add-opt="${index}">+ Thêm lựa chọn</button></div>${baseScoreExp}`;
+  } else if (isTF) {
+    const tfVal = question.correctAnswer;
+    bodyHtml = `${baseTextArea}<div class="field"><label>Đáp án</label><div style="display:flex;gap:20px"><label><input type="radio" name="q_${index}_correct" value="true" ${tfVal===true?"checked":""}> Đúng</label><label><input type="radio" name="q_${index}_correct" value="false" ${tfVal===false?"checked":""}> Sai</label></div></div>${baseScoreExp}`;
+  } else if (isEssay) {
+    bodyHtml = `${baseTextArea}<div class="form-2col"><div class="field"><label>Ký tự tối thiểu</label><input type="number" name="q_${index}_minChars" min="0" value="${question.minChars||0}"></div><div class="field"><label>Ký tự tối đa (0=không giới hạn)</label><input type="number" name="q_${index}_maxChars" min="0" value="${question.maxChars||0}"></div></div><div class="field"><label>Rubric chấm điểm</label><textarea name="q_${index}_rubric" rows="2" data-focus-key="q-${index}-rubric">${escapeHtml(question.rubric||"")}</textarea></div>${baseScoreExp}`;
+  } else if (isSA) {
+    const accepted = question.acceptedAnswers || [""];
+    const accHtml = accepted.map((a,ai)=>`<div class="q-option-row"><input type="text" name="q_${index}_acc_${ai}" value="${escapeHtmlAttribute(a)}" placeholder="Đáp án ${ai+1}" data-focus-key="q-${index}-acc-${ai}"><button type="button" class="btn btn-outline mini-action" data-q-del-acc="${index}-${ai}" ${accepted.length<=1?"disabled":""}>×</button></div>`).join("");
+    bodyHtml = `${baseTextArea}<div class="field"><label>Đáp án chấp nhận</label><div class="q-option-list" id="q-acc-${index}">${accHtml}</div><button type="button" class="btn btn-outline mini-action" style="margin-top:6px" data-q-add-acc="${index}">+ Thêm đáp án</button></div><div class="field"><label><input type="checkbox" name="q_${index}_ignoreCase" ${question.ignoreCase!==false?"checked":""}> Không phân biệt hoa thường</label></div>${baseScoreExp}`;
+  } else if (isFB) {
+    bodyHtml = `<div class="field"><label>Câu hỏi (dùng ____ cho chỗ trống) <span style="color:#c0392b">*</span></label><textarea name="q_${index}_text" rows="2" data-focus-key="q-${index}-text">${escapeHtml(question.text||"")}</textarea><small style="color:var(--muted)">Ví dụ: KIS được thành lập năm ____.</small></div><div class="field"><label>Đáp án chấp nhận (cách nhau bằng |)</label><input type="text" name="q_${index}_blanks" value="${escapeHtmlAttribute((question.blanks||[""]).join("|"))}" data-focus-key="q-${index}-blanks" placeholder="2012|hai nghìn mười hai"></div><div class="field"><label><input type="checkbox" name="q_${index}_ignoreCase" ${question.ignoreCase!==false?"checked":""}> Không phân biệt hoa thường</label></div>${baseScoreExp}`;
+  } else if (isMatch) {
+    const pairs = question.pairs || [{ left:"", right:"" }];
+    const pairHtml = pairs.map((p,pi)=>`<div class="q-pair-row"><input type="text" name="q_${index}_left_${pi}" value="${escapeHtmlAttribute(p.left||"")}" placeholder="Cột A" data-focus-key="q-${index}-l-${pi}"><span style="color:var(--muted)">→</span><input type="text" name="q_${index}_right_${pi}" value="${escapeHtmlAttribute(p.right||"")}" placeholder="Cột B" data-focus-key="q-${index}-r-${pi}"><button type="button" class="btn btn-outline mini-action" data-q-del-pair="${index}-${pi}" ${pairs.length<=1?"disabled":""}>×</button></div>`).join("");
+    bodyHtml = `${baseTextArea}<div class="field"><label>Các cặp ghép</label><div id="q-pairs-${index}">${pairHtml}</div><button type="button" class="btn btn-outline mini-action" style="margin-top:6px" data-q-add-pair="${index}">+ Thêm cặp</button></div>${baseScoreExp}`;
+  } else if (isOrder) {
+    const items = question.items || [""];
+    const itemHtml = items.map((it,ii)=>`<div class="q-order-row"><span style="font-weight:700;color:var(--muted);min-width:20px">${ii+1}.</span><input type="text" name="q_${index}_item_${ii}" value="${escapeHtmlAttribute(it||"")}" placeholder="Bước ${ii+1}" data-focus-key="q-${index}-item-${ii}"><button type="button" class="btn btn-outline mini-action" data-q-del-item="${index}-${ii}" ${items.length<=2?"disabled":""}>×</button></div>`).join("");
+    bodyHtml = `${baseTextArea}<div class="field"><label>Các bước (thứ tự đúng)</label><div id="q-items-${index}">${itemHtml}</div><button type="button" class="btn btn-outline mini-action" style="margin-top:6px" data-q-add-item="${index}">+ Thêm bước</button></div>${baseScoreExp}`;
+  } else if (isNum) {
+    bodyHtml = `${baseTextArea}<div class="form-2col"><div class="field"><label>Đáp án số <span style="color:#c0392b">*</span></label><input type="number" step="any" name="q_${index}_numAnswer" value="${question.numericAnswer??""}" data-focus-key="q-${index}-num"></div><div class="field"><label>Sai số cho phép (±)</label><input type="number" step="any" min="0" name="q_${index}_tolerance" value="${question.tolerance||0}"></div></div><div class="field"><label>Đơn vị</label><input type="text" name="q_${index}_unit" value="${escapeHtmlAttribute(question.unit||"")}"></div>${baseScoreExp}`;
+  }
+
+  return `<div class="question-card" data-q-idx="${index}">${headHtml}<div class="question-card__body">${bodyHtml}</div></div>`;
+}
+
+function readQuestionEditors() {
+  return [...document.querySelectorAll("[data-q-idx]")].map((el, index) => {
+    const g = n => el.querySelector(`[name="q_${index}_${n}"]`)?.value ?? "";
+    const type = quizBuilderQuestions[index]?.type || "singleChoice";
+    const id = quizBuilderQuestions[index]?.id || `q-${Date.now()}-${index}`;
+    const text = g("text").trim();
+    const points = Number(g("points")) || 1;
+    const explanation = g("explanation").trim();
+
+    const isChoice = ["singleChoice","single_choice","multipleChoice","multiple_choice"].includes(type);
+    const isMulti = ["multipleChoice","multiple_choice"].includes(type);
+    const isTF = ["trueFalse","true_false"].includes(type);
+
+    let extra = {};
+
+    if (isChoice) {
+      const optEls = [...el.querySelectorAll(`[name^="q_${index}_opt_"][name$="_text"]`)];
+      const options = optEls.map((inp, oi) => ({
+        id: el.querySelector(`[name="q_${index}_opt_${oi}_id"]`)?.value || `${id}-o${oi+1}`,
+        text: inp.value.trim(),
+      }));
+      if (isMulti) {
+        const checked = [...el.querySelectorAll(`[name="q_${index}_correct[]"]:checked`)].map(x=>x.value);
+        extra = { options, correctOptionIds: checked };
+      } else {
+        const checked = el.querySelector(`[name="q_${index}_correct"]:checked`)?.value || "";
+        extra = { options, correctOptionId: checked };
+      }
+    } else if (isTF) {
+      const val = el.querySelector(`[name="q_${index}_correct"]:checked`)?.value;
+      extra = { correctAnswer: val === "true" ? true : val === "false" ? false : null };
+    } else if (["text","essay"].includes(type)) {
+      extra = { minChars: Number(g("minChars"))||0, maxChars: Number(g("maxChars"))||0, rubric: g("rubric") };
+    } else if (["shortAnswer","short_answer"].includes(type)) {
+      const accEls = [...el.querySelectorAll(`[name^="q_${index}_acc_"]`)];
+      extra = { acceptedAnswers: accEls.map(x=>x.value.trim()).filter(Boolean), ignoreCase: el.querySelector(`[name="q_${index}_ignoreCase"]`)?.checked !== false };
+    } else if (["fillBlank","fill_blank"].includes(type)) {
+      extra = { blanks: g("blanks").split("|").map(x=>x.trim()).filter(Boolean), ignoreCase: el.querySelector(`[name="q_${index}_ignoreCase"]`)?.checked !== false };
+    } else if (type === "matching") {
+      const leftEls = [...el.querySelectorAll(`[name^="q_${index}_left_"]`)];
+      const rightEls = [...el.querySelectorAll(`[name^="q_${index}_right_"]`)];
+      extra = { pairs: leftEls.map((l,i) => ({ left: l.value.trim(), right: rightEls[i]?.value.trim()||"" })) };
+    } else if (type === "ordering") {
+      const itemEls = [...el.querySelectorAll(`[name^="q_${index}_item_"]`)];
+      extra = { items: itemEls.map(x=>x.value.trim()) };
+    } else if (type === "numeric") {
+      extra = { numericAnswer: Number(g("numAnswer")), tolerance: Number(g("tolerance"))||0, unit: g("unit") };
+    }
+
+    return { id, type, text, points, explanation, ...extra };
+  });
+}
 
 function employeeQuizzesPage() {
   if (!hasEmployeeAccess()) return session?restrictedPage():loginPage();
@@ -1057,7 +1350,7 @@ function assignPage() {
   const inProgress = allEnrollments.filter((item) => item.displayStatus === "inProgress").length;
   const overdue = allEnrollments.filter((item) => item.displayStatus === "overdue").length;
   const completionRate = allEnrollments.length ? Math.round((completed / allEnrollments.length) * 100) : 0;
-  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", t("enrollment.assign"), "hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h2>${t("enrollment.assign")}</h2><p>${t("enrollment.description")}</p></div><button type="button" class="btn btn-primary" data-assign-new>${t("enrollment.assign")}</button></div>${selectedCourse ? `<div class="card"><strong>${t("enrollment.filteringByCourse")}:</strong> ${escapeHtml(selectedCourse.title)} <button type="button" class="btn btn-outline mini-action" data-clear-assign-course>${t("enrollment.clearFilter")}</button></div>` : ""}<div class="kpi-grid"><div class="card kpi"><span>${t("enrollment.totalAssigned")}</span><strong>${allEnrollments.length}</strong></div><div class="card kpi"><span>${t("status.completed")}</span><strong>${completed}</strong>${progress(completionRate)}</div><div class="card kpi"><span>${t("status.inProgress")}</span><strong>${inProgress}</strong></div><div class="card kpi"><span>${t("status.overdue")}</span><strong>${overdue}</strong></div></div><div class="filter-bar"><input type="search" placeholder="${t("enrollment.searchPlaceholder")}" value="${escapeHtmlAttribute(assignSearch)}" data-assign-search><select data-assign-filter-course><option value="">${t("enrollment.allCourses")}</option>${allCourses.map((course) => `<option value="${escapeHtmlAttribute(course.id)}" ${assignCourseId === course.id ? "selected" : ""}>${escapeHtml(course.title || course.id)}</option>`).join("")}</select><select data-assign-filter-dept><option value="">${t("enrollment.allDepts")}</option>${departments.map((department) => `<option value="${escapeHtmlAttribute(department)}" ${assignFilterDept === department ? "selected" : ""}>${escapeHtml(department)}</option>`).join("")}</select><select data-assign-filter-status><option value="">${t("enrollment.allStatuses")}</option><option value="notStarted" ${assignFilterStatus === "notStarted" ? "selected" : ""}>${t("status.notStarted")}</option><option value="inProgress" ${assignFilterStatus === "inProgress" ? "selected" : ""}>${t("status.inProgress")}</option><option value="completed" ${assignFilterStatus === "completed" ? "selected" : ""}>${t("status.completed")}</option><option value="overdue" ${assignFilterStatus === "overdue" ? "selected" : ""}>${t("status.overdue")}</option></select></div>${enrollmentTable(filteredAssignments())}</section></div>${assignModalOpen ? assignModal() : ""}</main></div>`;
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", t("enrollment.assign"), "hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h2>${t("enrollment.assign")}</h2><p>${t("enrollment.description")}</p></div><button type="button" class="btn btn-primary" data-assign-new>${t("enrollment.assign")}</button></div>${selectedCourse ? `<div class="card"><strong>${t("enrollment.filteringByCourse")}:</strong> ${escapeHtml(selectedCourse.title)} <button type="button" class="btn btn-outline mini-action" data-clear-assign-course>${t("enrollment.clearFilter")}</button></div>` : ""}<div class="kpi-grid"><div class="card kpi"><span>${t("enrollment.totalAssigned")}</span><strong>${allEnrollments.length}</strong></div><div class="card kpi"><span>${t("status.completed")}</span><strong>${completed}</strong>${progress(completionRate)}</div><div class="card kpi"><span>${t("status.inProgress")}</span><strong>${inProgress}</strong></div><div class="card kpi"><span>${t("status.overdue")}</span><strong>${overdue}</strong></div></div><div class="filter-bar"><input id="assignSearchInput" data-focus-key="assign-search" type="search" placeholder="${t("enrollment.searchPlaceholder")}" value="${escapeHtmlAttribute(assignSearch)}" data-assign-search><select data-assign-filter-course><option value="">${t("enrollment.allCourses")}</option>${allCourses.map((course) => `<option value="${escapeHtmlAttribute(course.id)}" ${assignCourseId === course.id ? "selected" : ""}>${escapeHtml(course.title || course.id)}</option>`).join("")}</select><select data-assign-filter-dept><option value="">${t("enrollment.allDepts")}</option>${departments.map((department) => `<option value="${escapeHtmlAttribute(department)}" ${assignFilterDept === department ? "selected" : ""}>${escapeHtml(department)}</option>`).join("")}</select><select data-assign-filter-status><option value="">${t("enrollment.allStatuses")}</option><option value="notStarted" ${assignFilterStatus === "notStarted" ? "selected" : ""}>${t("status.notStarted")}</option><option value="inProgress" ${assignFilterStatus === "inProgress" ? "selected" : ""}>${t("status.inProgress")}</option><option value="completed" ${assignFilterStatus === "completed" ? "selected" : ""}>${t("status.completed")}</option><option value="overdue" ${assignFilterStatus === "overdue" ? "selected" : ""}>${t("status.overdue")}</option></select></div>${enrollmentTable(filteredAssignments())}</section></div>${assignModalOpen ? assignModal() : ""}</main></div>`;
 }
 
 function reportsPage() {
@@ -1094,6 +1387,11 @@ document.addEventListener("visibilitychange",()=>{const stage=document.querySele
 window.addEventListener("blur",()=>{blurStartedAt=Date.now();document.getElementById("course-video")?.pause();});
 
 function render() {
+  const _af = document.activeElement;
+  const _afId = _af?.id || "";
+  const _afKey = _af?.dataset?.focusKey || "";
+  const _afSel = [_af?.selectionStart ?? null, _af?.selectionEnd ?? null];
+
   route = location.pathname.replace(/\/$/, "") || "/";
   session = getSession();
   const routeParams = new URLSearchParams(location.search);
@@ -1124,9 +1422,17 @@ function render() {
   else if (route === "/change-password") app.innerHTML = changePasswordPage();
   else app.innerHTML = landingPage();
   bindEvents();
+  document.body.classList.toggle("modal-open", !!(contentBuilderMode || quizFormOpen || courseDrawerOpen || accountDrawerOpen || assignModalOpen || resetModalOpen || courseFormMode));
   setupLearningTracking();
   if (activeQuizAttempt) startQuizCountdown();
   if (location.hash) requestAnimationFrame(() => document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  // Restore focus after re-render so search/form inputs keep cursor position
+  if (_afId || _afKey) requestAnimationFrame(() => {
+    const el = (_afId && document.getElementById(_afId)) || (_afKey && document.querySelector(`[data-focus-key="${_afKey}"]`));
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    if (_afSel[0] != null && el.setSelectionRange) try { el.setSelectionRange(_afSel[0], _afSel[1]); } catch {}
+  });
 }
 
 function bindEvents() {
@@ -1138,19 +1444,22 @@ function bindEvents() {
     toast(uiText("logoutSuccess"));
   });
   document.querySelectorAll("[data-language]").forEach((el) => el.addEventListener("click", () => { language = el.dataset.language; saveLanguage(language); render(); }));
-  document.querySelector("[data-quiz-create]")?.addEventListener("click",()=>{quizFormOpen=true;selectedQuizId="";quizBuilderQuestions=[];render();});
-  document.querySelectorAll("[data-quiz-edit]").forEach(el=>el.addEventListener("click",()=>{quizFormOpen=true;selectedQuizId=el.dataset.quizEdit;quizBuilderQuestions=structuredClone(getQuizById(selectedQuizId)?.questions||[]);render();}));
-  document.querySelector("[data-quiz-close]")?.addEventListener("click",()=>{quizFormOpen=false;selectedQuizId="";render();});
+  document.querySelector("[data-quiz-create]")?.addEventListener("click",()=>{quizFormOpen=true;selectedQuizId="";quizBuilderQuestions=[];quizBuilderCollapsed={};quizAddingQType=false;render();});
+  document.querySelectorAll("[data-quiz-edit]").forEach(el=>el.addEventListener("click",()=>{quizFormOpen=true;selectedQuizId=el.dataset.quizEdit;quizBuilderQuestions=structuredClone(getQuizById(selectedQuizId)?.questions||[]);quizBuilderCollapsed={};quizAddingQType=false;render();}));
+  document.querySelectorAll("[data-quiz-close]").forEach(el=>el.addEventListener("click",()=>{quizFormOpen=false;selectedQuizId="";quizAddingQType=false;render();}));
   document.querySelectorAll("[data-quiz-delete]").forEach(el=>el.addEventListener("click",()=>{if(deleteQuiz(el.dataset.quizDelete,session?.accountId)){toast("success");render();}else toast("error");}));
   document.querySelectorAll("[data-quiz-admin-view]").forEach(el=>el.addEventListener("click",()=>{quizAdminView=el.dataset.quizAdminView;render();}));
-  document.querySelector("[data-quiz-search]")?.addEventListener("input",e=>{quizSearch=e.target.value;render();});
+  { let _qsc = false;
+    const el = document.getElementById("quizSearchInput");
+    el?.addEventListener("compositionstart", () => { _qsc = true; });
+    el?.addEventListener("compositionend", debounce((e) => { _qsc = false; quizSearch = e.target.value; render(); }, 30));
+    el?.addEventListener("input", debounce((e) => { if (_qsc) return; quizSearch = e.target.value; render(); }, 180));
+  }
   document.querySelector("[data-quiz-course-filter]")?.addEventListener("change",e=>{quizCourseFilter=e.target.value;render();});
   document.querySelector("[data-quiz-status-filter]")?.addEventListener("change",e=>{quizStatusFilter=e.target.value;render();});
-  document.querySelector("[data-add-question]")?.addEventListener("click",()=>{quizBuilderQuestions=readQuestionEditors();quizBuilderQuestions.push({id:`question-${Date.now()}`,text:"",type:"singleChoice",options:[{id:`option-${Date.now()}-1`,text:""},{id:`option-${Date.now()}-2`,text:""}],correctOptionId:"",explanation:"",points:1});render();});
-  document.querySelectorAll("[data-remove-question]").forEach(el=>el.addEventListener("click",()=>{quizBuilderQuestions=readQuestionEditors().filter((_,i)=>i!==Number(el.dataset.removeQuestion));render();}));
-  document.querySelectorAll("[data-q-field=type]").forEach(el=>el.addEventListener("change",()=>{quizBuilderQuestions=readQuestionEditors();render();}));
+  document.querySelector("[data-add-question]")?.addEventListener("click",()=>{quizBuilderQuestions=readQuestionEditors();quizAddingQType=true;render();});
   document.querySelector("[data-import-quiz-json]")?.addEventListener("click",()=>{try{const value=JSON.parse(document.querySelector("[data-quiz-json]")?.value||"");if(!Array.isArray(value))throw new Error();const valid=value.every(q=>q&&typeof q.text==="string"&&["singleChoice","multipleChoice","trueFalse","text"].includes(q.type)&&Number(q.points)>0&&(q.type==="text"||(Array.isArray(q.options)&&q.options.length>=2&&q.options.every(o=>typeof o==="string"||typeof o?.text==="string")&&(q.type==="multipleChoice"?Array.isArray(q.correctOptionIds)&&q.correctOptionIds.length>0:Boolean(q.correctOptionId)))));if(!valid)throw new Error();quizBuilderQuestions=value.map((q,i)=>({...q,id:q.id||`import-q-${Date.now()}-${i}`,options:(q.options||[]).map((o,j)=>typeof o==="string"?{id:`import-q-${Date.now()}-${i}-o${j+1}`,text:o}:o)}));toast("success");render();}catch{toast(t("quiz.invalidJson"));}});
-  document.getElementById("quizForm")?.addEventListener("submit",(event)=>{event.preventDefault();if(!hasAdminAccess())return toast("error");quizBuilderQuestions=readQuestionEditors();const d=new FormData(event.currentTarget);const payload={courseId:String(d.get("courseId")),title:String(d.get("title")).trim(),description:String(d.get("description")||""),status:String(d.get("status")),passingScore:Number(d.get("passingScore")),timeLimitMinutes:Number(d.get("timeLimitMinutes")),attemptsAllowed:Number(d.get("attemptsAllowed")),shuffleQuestions:false,requireCourseCompletion:d.get("requireCourseCompletion")==="on",prerequisiteQuizId:String(d.get("prerequisiteQuizId")||""),createdBy:session.accountId,updatedBy:session.accountId,questions:quizBuilderQuestions};const result=selectedQuizId?updateQuiz(selectedQuizId,payload):createQuiz(payload);if(!result)return toast(t("quiz.invalidQuiz"));quizFormOpen=false;selectedQuizId="";quizBuilderQuestions=[];toast("success");render();});
+  document.getElementById("quizForm")?.addEventListener("submit",(event)=>{event.preventDefault();if(!hasAdminAccess())return toast("error");quizBuilderQuestions=readQuestionEditors();const d=new FormData(event.currentTarget);const payload={courseId:String(d.get("courseId")),title:String(d.get("title")).trim(),description:String(d.get("description")||""),status:String(d.get("status")),passingScore:Number(d.get("passingScore")),timeLimitMinutes:Number(d.get("timeLimitMinutes")),attemptsAllowed:Number(d.get("attemptsAllowed")),shuffleQuestions:false,requireCourseCompletion:d.get("requireCourseCompletion")==="on",prerequisiteQuizId:String(d.get("prerequisiteQuizId")||""),createdBy:session.accountId,updatedBy:session.accountId,questions:quizBuilderQuestions};const result=selectedQuizId?updateQuiz(selectedQuizId,payload):createQuiz(payload);if(!result)return toast(t("quiz.invalidQuiz"));quizFormOpen=false;selectedQuizId="";quizBuilderQuestions=[];quizBuilderCollapsed={};quizAddingQType=false;toast("success");render();});
   document.querySelectorAll("[data-grade-attempt]").forEach(el=>el.addEventListener("click",()=>{const attempt=getQuizAttempts().find(a=>a.id===el.dataset.gradeAttempt);const quiz=getQuizById(attempt?.quizId);const question=quiz?.questions.find(q=>q.type==="text"&&!attempt.answers.find(a=>a.questionId===q.id&&Number.isFinite(a.awardedPoints)));if(!question)return;const answer=attempt.answers.find(a=>a.questionId===question.id)?.textAnswer||"";const value=window.prompt(`${t("quiz.manualGrade")}: ${answer}\n0-${question.points}`);if(value===null)return;const result=gradeQuizEssay({attemptId:attempt.id,questionId:question.id,points:Number(value),gradedBy:session.accountId});toast(result?"success":"error");render();}));
   document.querySelector("[data-quiz-export]")?.addEventListener("click",exportQuizCsv);
   document.querySelectorAll("[data-quiz-start]").forEach(el=>el.addEventListener("click",()=>{if(!hasEmployeeAccess())return toast("error");activeQuizAttempt=startQuizAttempt({quizId:el.dataset.quizStart,accountId:session.accountId});if(!activeQuizAttempt)return toast("error");quizCurrentQuestion=0;quizAnswers=Object.fromEntries((activeQuizAttempt.answers||[]).map(a=>[a.questionId,a.textAnswer??a.selectedOptionIds??a.selectedOptionId]));quizBookmarks=activeQuizAttempt.bookmarks||[];const started=new Date(activeQuizAttempt.startedAt.replace(" ","T")).getTime();quizSecondsRemaining=Math.max(0,activeQuizAttempt.quiz.timeLimitMinutes*60-Math.floor((Date.now()-started)/1000));render();}));
@@ -1244,7 +1553,12 @@ function bindEvents() {
   });
   document.querySelectorAll("[data-account-search]").forEach((el) => el.addEventListener("input", () => { accountSearch = el.value; render(); }));
   document.querySelectorAll("[data-account-filter]").forEach((el) => el.addEventListener("change", () => { accountFilters[el.dataset.accountFilter] = el.value; render(); }));
-  document.querySelectorAll("[data-employee-search]").forEach((el) => el.addEventListener("input", () => { employeeDirectorySearch = el.value; employeeDirectoryReviewIssues = false; employeeDirectoryPage = 1; render(); }));
+  { let _esc = false;
+    const el = document.getElementById("employeeDirSearch");
+    el?.addEventListener("compositionstart", () => { _esc = true; });
+    el?.addEventListener("compositionend", debounce((e) => { _esc = false; employeeDirectorySearch = e.target.value; employeeDirectoryPage = 1; render(); }, 30));
+    el?.addEventListener("input", debounce((e) => { if (_esc) return; employeeDirectorySearch = e.target.value; employeeDirectoryPage = 1; render(); }, 180));
+  }
   document.querySelectorAll("[data-employee-filter]").forEach((el) => el.addEventListener("change", () => { employeeDirectoryFilters[el.dataset.employeeFilter] = el.value; employeeDirectoryReviewIssues = false; employeeDirectoryPage = 1; render(); }));
   document.querySelector("[data-sort-employees]")?.addEventListener("click", () => { employeeDirectorySortAsc = !employeeDirectorySortAsc; render(); });
   document.querySelector("[data-review-issues]")?.addEventListener("click", () => { employeeDirectoryFilters = { department: "", position: "", accountStatus: "", cchn: "" }; employeeDirectorySearch = ""; employeeDirectoryReviewIssues = true; employeeDirectoryPage = 1; render(); requestAnimationFrame(() => document.querySelector(".hr-employee-directory")?.scrollIntoView({ behavior: "smooth" })); });
@@ -1280,16 +1594,12 @@ function bindEvents() {
   document.querySelector("[data-cchn-search]")?.addEventListener("input", (event) => { cchnSearch = event.target.value; cchnPage = 1; render(); });
   document.querySelector("[data-cchn-sort]")?.addEventListener("click", () => { cchnSortAsc = !cchnSortAsc; cchnPage = 1; render(); });
   document.querySelectorAll("[data-cchn-filter]").forEach((el) => el.addEventListener("change", () => { cchnFilters[el.dataset.cchnFilter] = el.value; render(); }));
-  document.querySelector("[data-course-search]")?.addEventListener("input", (event) => {
-    courseSearch = event.target.value;
-    const caret = event.target.selectionStart;
-    render();
-    requestAnimationFrame(() => {
-      const input = document.querySelector("[data-course-search]");
-      input?.focus();
-      input?.setSelectionRange(caret, caret);
-    });
-  });
+  { let _csc = false;
+    const el = document.getElementById("courseSearchInput");
+    el?.addEventListener("compositionstart", () => { _csc = true; });
+    el?.addEventListener("compositionend", debounce((e) => { _csc = false; courseSearch = e.target.value; render(); }, 30));
+    el?.addEventListener("input", debounce((e) => { if (_csc) return; courseSearch = e.target.value; render(); }, 180));
+  }
   document.querySelector("[data-course-filter-category]")?.addEventListener("change", (event) => { courseFilterCategory = event.target.value; render(); });
   document.querySelector("[data-course-filter-status]")?.addEventListener("change", (event) => { courseFilterStatus = event.target.value; render(); });
   document.querySelector("[data-course-create]")?.addEventListener("click", () => { courseFormMode = "create"; selectedCourseId = ""; courseDrawerOpen = false; render(); });
@@ -1306,12 +1616,238 @@ function bindEvents() {
   }));
   document.querySelector("[data-close-course-drawer]")?.addEventListener("click", () => { courseDrawerOpen = false; contentBuilderMode = ""; selectedContentId = ""; render(); });
   document.querySelectorAll("[data-close-course-form]").forEach((el) => el.addEventListener("click", () => { courseFormMode = ""; render(); }));
-  document.querySelector("[data-content-add]")?.addEventListener("click", () => { contentBuilderMode = "add"; selectedContentId = ""; contentBuilderType = "slide"; render(); });
+  document.querySelector("[data-content-add]")?.addEventListener("click", () => { contentBuilderMode = "add"; selectedContentId = ""; contentPickerStep = "type"; slideDraft = null; youtubeDraft = null; render(); });
   document.querySelectorAll("[data-content-edit]").forEach(el => el.addEventListener("click", () => { const item = getCourseContent(selectedCourseId).find(x=>x.id===el.dataset.contentEdit); if(!item)return; contentBuilderMode = "edit"; selectedContentId = item.id; contentBuilderType = item.type; render(); }));
   document.querySelectorAll("[data-content-delete]").forEach(el => el.addEventListener("click", () => { if(!window.confirm("Xóa nội dung này? Tiến trình học liên quan sẽ không bị xóa."))return; deleteCourseContent(el.dataset.contentDelete); toast("success"); render(); }));
   document.querySelectorAll("[data-content-move-up]").forEach(el => el.addEventListener("click", () => { const items = getCourseContent(selectedCourseId); const i = items.findIndex(x=>x.id===el.dataset.contentMoveUp); if(i<=0)return; const ids=items.map(x=>x.id); [ids[i-1],ids[i]]=[ids[i],ids[i-1]]; reorderCourseContent(selectedCourseId,ids); render(); }));
   document.querySelectorAll("[data-content-move-down]").forEach(el => el.addEventListener("click", () => { const items = getCourseContent(selectedCourseId); const i = items.findIndex(x=>x.id===el.dataset.contentMoveDown); if(i<0||i>=items.length-1)return; const ids=items.map(x=>x.id); [ids[i],ids[i+1]]=[ids[i+1],ids[i]]; reorderCourseContent(selectedCourseId,ids); render(); }));
-  document.querySelectorAll("[data-content-form-close]").forEach(el => el.addEventListener("click", () => { contentBuilderMode = ""; selectedContentId = ""; render(); }));
+  document.querySelectorAll("[data-content-form-close]").forEach(el => el.addEventListener("click", () => { contentBuilderMode = ""; selectedContentId = ""; contentPickerStep = "type"; slideDraft = null; youtubeDraft = null; quizPickSearch = ""; render(); }));
+  // Content type picker
+  document.querySelectorAll("[data-pick-content-type]").forEach(el => el.addEventListener("click", () => { contentPickerStep = el.dataset.pickContentType; render(); }));
+  // YouTube form submit
+  document.getElementById("contentYoutubeForm")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!hasAdminAccess()) return toast("error");
+    const fd = new FormData(e.currentTarget);
+    const rawUrl = String(fd.get("youtubeUrl")||"").trim();
+    const vid = normalizeYoutubeId(rawUrl);
+    if (!vid || !/^[a-zA-Z0-9_-]{11}$/.test(vid)) { const errEl = document.getElementById("ytUrlError"); if (errEl) { errEl.style.display=""; errEl.textContent="URL YouTube không hợp lệ"; } return; }
+    const title = String(fd.get("title")||"").trim();
+    if (!title) return toast("error");
+    const payload = { courseId: selectedCourseId, title, type: "video", sourceType: "youtube", youtubeVideoId: vid, required: fd.get("required")==="on", completionWeight: Number(fd.get("completionWeight"))||1, minimumDurationSeconds: Number(fd.get("minimumDurationSeconds"))||0, transcript: String(fd.get("transcript")||""), transcriptAlternativeAllowed: fd.get("transcriptAlternativeAllowed")==="on", completionRule: { requiredPercent: Number(fd.get("requiredPercent"))||90 } };
+    const result = contentBuilderMode==="edit"&&selectedContentId ? updateCourseContent(selectedContentId,payload) : createCourseContent(payload);
+    if (!result) return toast("error");
+    contentBuilderMode=""; selectedContentId=""; contentPickerStep="type"; youtubeDraft=null;
+    toast("success"); render();
+  });
+  // YouTube URL live preview (no full render)
+  { const ytInput = document.getElementById("ytUrlInput");
+    if (ytInput) { let _ytc = false;
+      ytInput.addEventListener("compositionstart", () => { _ytc = true; });
+      ytInput.addEventListener("compositionend", debounce((e) => { _ytc=false; updateYtPreview(e.target.value); }, 30));
+      ytInput.addEventListener("input", debounce((e) => { if (_ytc) return; updateYtPreview(e.target.value); }, 500));
+    }
+  }
+  // Quiz pick search (no full render)
+  { let _qps = false;
+    const el = document.getElementById("quizPickSearchInput");
+    el?.addEventListener("compositionstart", () => { _qps = true; });
+    el?.addEventListener("compositionend", debounce((e) => { _qps=false; quizPickSearch=e.target.value; renderQuizPickResults(); }, 30));
+    el?.addEventListener("input", debounce((e) => { if (_qps) return; quizPickSearch=e.target.value; renderQuizPickResults(); }, 180));
+  }
+  // Select existing quiz for content
+  document.querySelectorAll("[data-select-quiz-for-content]").forEach(el => el.addEventListener("click", () => {
+    const quiz = getQuizById(el.dataset.selectQuizForContent);
+    if (!quiz) return toast("error");
+    const payload = { courseId: selectedCourseId, title: quiz.title, type: "quiz", quizId: quiz.id, required: true, completionWeight: 1, completionRule: { requirePass: true } };
+    const result = createCourseContent(payload);
+    if (!result) return toast("error");
+    contentBuilderMode=""; selectedContentId=""; contentPickerStep="type"; quizPickSearch="";
+    toast("success"); render();
+  }));
+  // Slide form submit
+  document.getElementById("contentSlideForm")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!hasAdminAccess()) return toast("error");
+    const fd = new FormData(e.currentTarget);
+    const title = String(fd.get("title")||"").trim();
+    const isText = fd.get("isText") === "1";
+    if (!title) { const errEl = document.getElementById("slideError"); if(errEl){errEl.textContent="Vui lòng nhập tên bài học";errEl.classList.add("show");} return; }
+    if (!isText && !slideDraft?.fileName && contentBuilderMode !== "edit") { const errEl = document.getElementById("slideError"); if(errEl){errEl.textContent="Vui lòng chọn file";errEl.classList.add("show");} return; }
+    const payload = {
+      courseId: selectedCourseId, title, type: "slide",
+      slideContent: isText ? String(fd.get("slideContent")||"") : String(fd.get("description")||""),
+      required: fd.get("required")==="on", completionWeight: Number(fd.get("completionWeight"))||1,
+      minimumDurationSeconds: Number(fd.get("minimumDurationSeconds"))||8,
+      blobId: slideDraft?.blobId||null, pageCount: slideDraft?.pageCount||1,
+    };
+    const result = contentBuilderMode==="edit"&&selectedContentId ? updateCourseContent(selectedContentId,payload) : createCourseContent(payload);
+    if (!result) return toast("error");
+    if (slideDraft?.thumbs) slideDraft.thumbs.forEach(u => { try { URL.revokeObjectURL(u); } catch {} });
+    contentBuilderMode=""; selectedContentId=""; contentPickerStep="type"; slideDraft=null;
+    toast("success"); render();
+  });
+  // Drop zone and file input
+  { const dropZone = document.getElementById("slideDropZone");
+    const fileInput = document.getElementById("slideFileInput");
+    if (dropZone && fileInput) {
+      dropZone.addEventListener("click", () => fileInput.click());
+      dropZone.addEventListener("keydown", (e) => { if(e.key==="Enter"||e.key===" ") fileInput.click(); });
+      dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+      dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+      dropZone.addEventListener("drop", (e) => { e.preventDefault(); dropZone.classList.remove("drag-over"); handleSlideFiles(e.dataTransfer.files); });
+      fileInput.addEventListener("change", (e) => handleSlideFiles(e.target.files));
+    }
+  }
+  // "Use sample video" button
+  document.getElementById("ytUseSample")?.addEventListener("click", () => {
+    const sampleId = "dQw4w9WgXcQ";
+    const ytInput = document.getElementById("ytUrlInput");
+    if (ytInput) { ytInput.value = `https://youtu.be/${sampleId}`; updateYtPreview(ytInput.value); }
+  });
+  // Auto-show YouTube preview when editing
+  { const ytInputEl = document.getElementById("ytUrlInput");
+    if (ytInputEl?.value) updateYtPreview(ytInputEl.value);
+  }
+  // Add-question type picker
+  document.querySelectorAll("[data-add-q-type]").forEach(el => el.addEventListener("click", () => {
+    quizBuilderQuestions = readQuestionEditors();
+    const qtype = el.dataset.addQType;
+    const newQ = { id:`q-${Date.now()}`, type: qtype, text:"", points:1, explanation:"", options: ["singleChoice","single_choice","multipleChoice","multiple_choice"].includes(qtype)?[{id:`o${Date.now()}1`,text:""},{id:`o${Date.now()}2`,text:""}]:[] };
+    quizBuilderQuestions.push(newQ);
+    quizAddingQType = false;
+    render();
+    requestAnimationFrame(() => {
+      const lastCard = document.querySelector(`[data-q-idx="${quizBuilderQuestions.length-1}"] textarea`);
+      lastCard?.focus();
+      lastCard?.scrollIntoView({ behavior:"smooth", block:"nearest" });
+    });
+  }));
+  // Question card toggle / move / duplicate / delete
+  document.querySelectorAll("[data-q-toggle]").forEach(el => el.addEventListener("click", () => {
+    quizBuilderQuestions = readQuestionEditors();
+    const idx = Number(el.dataset.qToggle);
+    quizBuilderCollapsed[idx] = !quizBuilderCollapsed[idx];
+    render();
+  }));
+  document.querySelectorAll("[data-q-move-up]").forEach(el => el.addEventListener("click", () => {
+    quizBuilderQuestions = readQuestionEditors();
+    const i = Number(el.dataset.qMoveUp);
+    if (i<=0) return;
+    [quizBuilderQuestions[i-1],quizBuilderQuestions[i]] = [quizBuilderQuestions[i],quizBuilderQuestions[i-1]];
+    render();
+  }));
+  document.querySelectorAll("[data-q-move-down]").forEach(el => el.addEventListener("click", () => {
+    quizBuilderQuestions = readQuestionEditors();
+    const i = Number(el.dataset.qMoveDown);
+    if (i>=quizBuilderQuestions.length-1) return;
+    [quizBuilderQuestions[i],quizBuilderQuestions[i+1]] = [quizBuilderQuestions[i+1],quizBuilderQuestions[i]];
+    render();
+  }));
+  document.querySelectorAll("[data-q-duplicate]").forEach(el => el.addEventListener("click", () => {
+    quizBuilderQuestions = readQuestionEditors();
+    const i = Number(el.dataset.qDuplicate);
+    const clone = structuredClone(quizBuilderQuestions[i]);
+    clone.id = `q-dup-${Date.now()}`;
+    quizBuilderQuestions.splice(i+1, 0, clone);
+    render();
+  }));
+  document.querySelectorAll("[data-q-delete]").forEach(el => el.addEventListener("click", () => {
+    quizBuilderQuestions = readQuestionEditors().filter((_,i)=>i!==Number(el.dataset.qDelete));
+    delete quizBuilderCollapsed[Number(el.dataset.qDelete)];
+    render();
+  }));
+  // Dynamic option/acc/pair/item add+delete
+  document.querySelectorAll("[data-q-add-opt]").forEach(el => el.addEventListener("click", () => {
+    const idx = Number(el.dataset.qAddOpt);
+    quizBuilderQuestions = readQuestionEditors();
+    const q = quizBuilderQuestions[idx];
+    if (!q.options) q.options = [];
+    const newOpt = { id:`o${Date.now()}`, text:"" };
+    q.options.push(newOpt);
+    const container = document.getElementById(`q-opts-${idx}`);
+    const isMulti = ["multipleChoice","multiple_choice"].includes(q.type);
+    const oi = q.options.length - 1;
+    const row = document.createElement("div");
+    row.className = "q-option-row";
+    row.innerHTML = `<input type="${isMulti?"checkbox":"radio"}" name="${isMulti?`q_${idx}_correct[]`:`q_${idx}_correct`}" value="${escapeHtmlAttribute(newOpt.id)}"><input type="text" name="q_${idx}_opt_${oi}_text" value="" placeholder="Lựa chọn ${oi+1}" data-focus-key="q-${idx}-opt-${oi}"><input type="hidden" name="q_${idx}_opt_${oi}_id" value="${escapeHtmlAttribute(newOpt.id)}"><button type="button" class="btn btn-outline mini-action" data-q-del-opt="${idx}-${oi}">×</button>`;
+    container?.appendChild(row);
+    row.querySelector("input[type=text]")?.focus();
+  }));
+  document.querySelectorAll("[data-q-del-opt]").forEach(el => el.addEventListener("click", () => {
+    const [idx, oi] = el.dataset.qDelOpt.split("-").map(Number);
+    quizBuilderQuestions = readQuestionEditors();
+    const q = quizBuilderQuestions[idx];
+    if (!q.options || q.options.length <= 2) return;
+    q.options.splice(oi, 1);
+    render();
+  }));
+  document.querySelectorAll("[data-q-add-acc]").forEach(el => el.addEventListener("click", () => {
+    const idx = Number(el.dataset.qAddAcc);
+    quizBuilderQuestions = readQuestionEditors();
+    const q = quizBuilderQuestions[idx];
+    if (!q.acceptedAnswers) q.acceptedAnswers = [];
+    q.acceptedAnswers.push("");
+    const ai = q.acceptedAnswers.length - 1;
+    const container = document.getElementById(`q-acc-${idx}`);
+    const row = document.createElement("div");
+    row.className = "q-option-row";
+    row.innerHTML = `<input type="text" name="q_${idx}_acc_${ai}" placeholder="Đáp án ${ai+1}" data-focus-key="q-${idx}-acc-${ai}"><button type="button" class="btn btn-outline mini-action" data-q-del-acc="${idx}-${ai}">×</button>`;
+    container?.appendChild(row);
+    row.querySelector("input")?.focus();
+  }));
+  document.querySelectorAll("[data-q-del-acc]").forEach(el => el.addEventListener("click", () => {
+    const [idx, ai] = el.dataset.qDelAcc.split("-").map(Number);
+    quizBuilderQuestions = readQuestionEditors();
+    const q = quizBuilderQuestions[idx];
+    if (!q.acceptedAnswers || q.acceptedAnswers.length <= 1) return;
+    q.acceptedAnswers.splice(ai, 1);
+    render();
+  }));
+  document.querySelectorAll("[data-q-add-pair]").forEach(el => el.addEventListener("click", () => {
+    const idx = Number(el.dataset.qAddPair);
+    quizBuilderQuestions = readQuestionEditors();
+    const q = quizBuilderQuestions[idx];
+    if (!q.pairs) q.pairs = [];
+    q.pairs.push({ left:"", right:"" });
+    const pi = q.pairs.length - 1;
+    const container = document.getElementById(`q-pairs-${idx}`);
+    const row = document.createElement("div");
+    row.className = "q-pair-row";
+    row.innerHTML = `<input type="text" name="q_${idx}_left_${pi}" placeholder="Cột A" data-focus-key="q-${idx}-l-${pi}"><span style="color:var(--muted)">→</span><input type="text" name="q_${idx}_right_${pi}" placeholder="Cột B" data-focus-key="q-${idx}-r-${pi}"><button type="button" class="btn btn-outline mini-action" data-q-del-pair="${idx}-${pi}">×</button>`;
+    container?.appendChild(row);
+    row.querySelector("input")?.focus();
+  }));
+  document.querySelectorAll("[data-q-del-pair]").forEach(el => el.addEventListener("click", () => {
+    const [idx, pi] = el.dataset.qDelPair.split("-").map(Number);
+    quizBuilderQuestions = readQuestionEditors();
+    const q = quizBuilderQuestions[idx];
+    if (!q.pairs || q.pairs.length <= 1) return;
+    q.pairs.splice(pi, 1);
+    render();
+  }));
+  document.querySelectorAll("[data-q-add-item]").forEach(el => el.addEventListener("click", () => {
+    const idx = Number(el.dataset.qAddItem);
+    quizBuilderQuestions = readQuestionEditors();
+    const q = quizBuilderQuestions[idx];
+    if (!q.items) q.items = [];
+    q.items.push("");
+    const ii = q.items.length - 1;
+    const container = document.getElementById(`q-items-${idx}`);
+    const row = document.createElement("div");
+    row.className = "q-order-row";
+    row.innerHTML = `<span style="font-weight:700;color:var(--muted);min-width:20px">${ii+1}.</span><input type="text" name="q_${idx}_item_${ii}" placeholder="Bước ${ii+1}" data-focus-key="q-${idx}-item-${ii}"><button type="button" class="btn btn-outline mini-action" data-q-del-item="${idx}-${ii}">×</button>`;
+    container?.appendChild(row);
+    row.querySelector("input")?.focus();
+  }));
+  document.querySelectorAll("[data-q-del-item]").forEach(el => el.addEventListener("click", () => {
+    const [idx, ii] = el.dataset.qDelItem.split("-").map(Number);
+    quizBuilderQuestions = readQuestionEditors();
+    const q = quizBuilderQuestions[idx];
+    if (!q.items || q.items.length <= 2) return;
+    q.items.splice(ii, 1);
+    render();
+  }));
   document.getElementById("contentItemForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
     if(!hasAdminAccess())return toast("error");
@@ -1352,18 +1888,12 @@ function bindEvents() {
     toast("success");
     render();
   });
-  const debouncedAssignSearch = debounce((value, caret) => {
-    assignSearch = value;
-    render();
-    requestAnimationFrame(() => {
-      const input = document.querySelector("[data-assign-search]");
-      input?.focus();
-      input?.setSelectionRange(caret, caret);
-    });
-  }, 180);
-  document.querySelector("[data-assign-search]")?.addEventListener("input", (event) => {
-    debouncedAssignSearch(event.target.value, event.target.selectionStart);
-  });
+  { let _asc = false;
+    const el = document.getElementById("assignSearchInput");
+    el?.addEventListener("compositionstart", () => { _asc = true; });
+    el?.addEventListener("compositionend", debounce((e) => { _asc = false; assignSearch = e.target.value; render(); }, 30));
+    el?.addEventListener("input", debounce((e) => { if (_asc) return; assignSearch = e.target.value; render(); }, 180));
+  }
   document.querySelector("[data-assign-filter-course]")?.addEventListener("change", (event) => { assignCourseId = event.target.value; assignTargetCourseId = event.target.value; render(); });
   document.querySelector("[data-assign-filter-dept]")?.addEventListener("change", (event) => { assignFilterDept = event.target.value; render(); });
   document.querySelector("[data-assign-filter-status]")?.addEventListener("change", (event) => { assignFilterStatus = event.target.value; render(); });
@@ -1376,8 +1906,12 @@ function bindEvents() {
   });
   document.querySelector("[data-assign-new]")?.addEventListener("click", () => { assignModalOpen = true; assignTargetAccountId = ""; assignTargetCourseId = assignCourseId || ""; render(); });
   document.querySelectorAll("[data-assign-method]").forEach((el)=>el.addEventListener("click",()=>{assignMethod=el.dataset.assignMethod; bulkSelectedAccountIds=[]; excelPreviewRows=[]; render();}));
-  const debouncedBulkSearch = debounce((v) => { bulkEmployeeSearch=v; render(); }, 180);
-  document.querySelector("[data-bulk-search]")?.addEventListener("input",(e)=>{ bulkEmployeeSearch=e.target.value; debouncedBulkSearch(e.target.value); });
+  { let _bsc = false;
+    const el = document.getElementById("bulkSearchInput");
+    el?.addEventListener("compositionstart", () => { _bsc = true; });
+    el?.addEventListener("compositionend", debounce((e) => { _bsc = false; bulkEmployeeSearch = e.target.value; render(); }, 30));
+    el?.addEventListener("input", debounce((e) => { if (_bsc) return; bulkEmployeeSearch = e.target.value; render(); }, 180));
+  }
   document.querySelector("[data-bulk-department]")?.addEventListener("change",(e)=>{bulkDepartmentFilter=e.target.value; if(assignMethod==="department") bulkSelectedAccountIds=getAccounts().filter(a=>a.role==="employee"&&a.accountStatus!=="disabled"&&a.department===bulkDepartmentFilter).map(a=>a.id); render();});
   document.querySelectorAll("[data-bulk-account]").forEach((el)=>el.addEventListener("change",()=>{bulkSelectedAccountIds=el.checked?[...new Set([...bulkSelectedAccountIds,el.dataset.bulkAccount])]:bulkSelectedAccountIds.filter(id=>id!==el.dataset.bulkAccount); render();}));
   document.querySelector("[data-select-visible]")?.addEventListener("click",()=>{bulkSelectedAccountIds=getAccounts().filter(a=>a.role==="employee"&&a.accountStatus!=="disabled"&&(!bulkEmployeeSearch||`${a.fullName} ${a.email}`.toLowerCase().includes(bulkEmployeeSearch.toLowerCase()))&&(!bulkDepartmentFilter||a.department===bulkDepartmentFilter)).map(a=>a.id);render();});
@@ -1427,6 +1961,18 @@ function bindEvents() {
     assignModalOpen = true;
     navigate(`/admin/assign?accountId=${encodeURIComponent(accountId)}&open=1`);
   }));
+  if (!window.__kisEscBound) {
+    window.__kisEscBound = true;
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      if (contentBuilderMode) { contentBuilderMode=""; contentPickerStep="type"; slideDraft=null; youtubeDraft=null; render(); return; }
+      if (quizFormOpen) { quizFormOpen=false; quizBuilderQuestions=[]; quizAddingQType=false; render(); return; }
+      if (courseDrawerOpen) { courseDrawerOpen=false; render(); return; }
+      if (accountDrawerOpen) { accountDrawerOpen=false; render(); return; }
+      if (assignModalOpen) { assignModalOpen=false; render(); return; }
+      if (resetModalOpen) { resetModalOpen=false; render(); return; }
+    }, { capture: true });
+  }
 }
 
 function toast(key) {
