@@ -246,6 +246,7 @@ function navigate(path) {
   route = location.pathname;
   session = getSession();
   render();
+  document.querySelector(".app-main .content")?.classList.add("route-enter");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -1529,7 +1530,8 @@ function render() {
   else if (route === "/dashboard/courses") app.innerHTML = hasEmployeeAccess() ? myCoursesPage() : session ? restrictedPage() : loginPage();
   else if (route.startsWith("/dashboard/courses/")) app.innerHTML = coursePlayerPage(decodeURIComponent(route.split("/").pop()));
   else if (route === "/dashboard/quizzes") app.innerHTML = hasEmployeeAccess() ? employeeQuizzesPage() : session ? restrictedPage() : loginPage();
-  else if (route === "/dashboard/gallery") app.innerHTML = employeeGalleryPage();
+  else if (route === "/dashboard/gallery") app.innerHTML = galleryPageV2();
+  else if (route.startsWith("/dashboard/gallery/")) app.innerHTML = galleryPageV2(decodeURIComponent(route.split("/").pop()));
   else if (route === "/dashboard/resources") app.innerHTML = employeeResourcesPage();
   else if (route === "/dashboard/history") app.innerHTML = learningHistoryPage();
   else if (route === "/dashboard/calendar") app.innerHTML = learningCalendarPage();
@@ -1541,13 +1543,14 @@ function render() {
   else if (route === "/admin/quizzes") app.innerHTML = hasAdminAccess() ? adminQuizzesPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/notifications") app.innerHTML = hasAdminAccess() ? notificationsPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/reports") app.innerHTML = hasAdminAccess() ? reportsPage() : session ? restrictedPage() : loginPage();
-  else if (route === "/admin/gallery") app.innerHTML = adminGalleryPage();
+  else if (route === "/admin/gallery") app.innerHTML = adminGalleryPageV2();
   else if (route === "/change-password") app.innerHTML = changePasswordPage();
   else app.innerHTML = landingPage();
   bindEvents();
   enhanceCourseImageForm();
   enhanceEmployeePhotoManager();
   hydrateEmployeePhotos();
+  hydrateGalleryMedia();
   enhanceReportsPage();
   document.body.classList.toggle("modal-open", !!(contentBuilderMode || quizFormOpen || courseDrawerOpen || accountDrawerOpen || assignModalOpen || resetModalOpen || courseFormMode));
   setupLearningTracking();
