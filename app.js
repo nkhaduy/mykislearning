@@ -46,8 +46,11 @@ import {
   saveContentProgress, calculateCourseProgress, resetLearningProgress,
   createCourseContent, updateCourseContent, deleteCourseContent, reorderCourseContent,
   getQuizzesByCourseId,
+  getLmsOverviewStats,
+  getNotificationHistory, sendNotificationCampaign,
 } from "./lib/mockDatabase.js";
 import { validatePassword } from "./lib/auth/passwordPolicy.js";
+import { saveCourseImage, getCourseImage, saveEmployeePhoto, getEmployeePhoto, deleteEmployeePhoto } from "./lib/blobStore.js";
 
 const app = document.getElementById("app");
 
@@ -122,6 +125,18 @@ let activeSlideIndex = 0;
 let lastTickAt = 0;
 let blurStartedAt = 0;
 let youtubePlayer = null;
+let courseDetailTab = "overview";
+let notificationSearch = "";
+let notificationComposerOpen = false;
+let gallerySearch = "";
+let galleryYear = "";
+let resourceSearch = "";
+
+const GALLERY_KEY = "mykis.galleryAlbums.v1";
+const RESOURCES_KEY = "mykis.courseResources.v1";
+const REPORT_SNAPSHOTS_KEY = "mykis.reportSnapshots.v1";
+const readLocalRows = (key) => { try { const value=JSON.parse(localStorage.getItem(key)||"[]"); return Array.isArray(value)?value:[]; } catch { return []; } };
+const writeLocalRows = (key, rows) => localStorage.setItem(key, JSON.stringify(rows));
 
 initMockDatabase();
 
@@ -208,6 +223,7 @@ function uiText(key) {
     logout: { vi: "Đăng xuất", en: "Sign out", kr: "로그아웃" }, logoutSuccess: { vi: "Đăng xuất thành công.", en: "Signed out successfully.", kr: "로그아웃되었습니다." },
     forgotPassword: { vi: "Quên mật khẩu", en: "Forgot password", kr: "비밀번호를 잊으셨나요?" }, forgotEmailRequired: { vi: "Vui lòng nhập email trước.", en: "Please enter your email first.", kr: "먼저 이메일을 입력해 주세요." }, forgotNeutral: { vi: "Nếu tài khoản hợp lệ, vui lòng liên hệ HR để được hỗ trợ đặt lại mật khẩu: thanh.ntc@kisvn.vn", en: "If the account is valid, please contact HR for password reset support: thanh.ntc@kisvn.vn", kr: "유효한 계정인 경우 비밀번호 재설정을 위해 HR에 문의해 주세요: thanh.ntc@kisvn.vn" },
     demoEmployeeAccount: { vi: "Tài khoản nhân viên demo", en: "Demo Employee Account", kr: "직원 데모 계정" }, emailLabel: { vi: "Email", en: "Email", kr: "이메일" }, passwordLabel: { vi: "Mật khẩu", en: "Password", kr: "비밀번호" }, useAccount: { vi: "Dùng tài khoản này", en: "Use This Account", kr: "이 계정 사용" },
+    greeting: { vi: "Xin chào, {name}", en: "Hello, {name}", kr: "{name}님, 안녕하세요" }, learningJourney: { vi: "Tiếp tục hành trình học tập của bạn hôm nay.", en: "Continue your learning journey today.", kr: "오늘도 학습 여정을 이어가세요." }, employeeFallback: { vi: "Nhân viên", en: "Employee", kr: "직원" },
   };
   return labels[key]?.[language] || labels[key]?.vi || key;
 }
@@ -334,19 +350,9 @@ function progress(value) {
   return `<div class="progress"><span style="--value:${value}%"></span></div>`;
 }
 
-function getTotalParticipatingEmployees() {
-  return new Set(trainingEnrollments.map((item) => item.employeeId).filter(Boolean)).size;
-}
-
-function getTotalTrainingCourses() {
-  return allTrainingCourses.filter((course) => course[1]).length;
-}
-
-function getTotalLearningHours() {
-  return trainingEnrollments.reduce((total, item) => total + Number(item.trainingHours || item.durationHours || 0), 0);
-}
-
 function landingPage() {
+  const stats = getLmsOverviewStats();
+  const publishedCourses = getCourses().filter((course) => course.status === "published" && course.showOnLanding !== false);
   const purposes = [
     ["building", "purpose.onboarding", "Giúp nhân viên mới nắm rõ lịch sử công ty, văn hóa doanh nghiệp, quy trình nội bộ và các chính sách nhân sự bắt buộc."],
     ["message", "purpose.softSkills", "Cung cấp các khóa học thực chiến về kỹ năng giao tiếp, kỹ năng bán hàng (FAB) và quy trình phối hợp liên phòng ban."],
@@ -365,18 +371,34 @@ function landingPage() {
             <p>Nơi lưu trữ tài liệu, khóa học kỹ năng mềm, chuyên môn và kiểm tra tiến độ; giúp nhân viên nhanh chóng hòa nhập và nâng cao năng lực làm việc.</p>
             <p class="hero-subnote">Dành riêng cho nhân viên KIS Việt Nam</p>
             <div class="hero-actions"><a class="btn btn-primary" href="/login" data-link>${t("landing.cta")}</a><button class="btn btn-outline" data-scroll="featured-courses">Xem các khóa đào tạo</button></div>
-            <div class="hero-proof"><div class="proof-item"><strong>${getTotalParticipatingEmployees().toLocaleString("vi-VN")}+</strong><span>Tổng số nhân viên đã tham gia</span></div><div class="proof-item"><strong>${getTotalTrainingCourses()}</strong><span>Số lượng khóa đào tạo</span></div><div class="proof-item"><strong>${getTotalLearningHours().toLocaleString("vi-VN")} giờ</strong><span>Tổng số giờ học</span></div></div>
+            <div class="hero-proof"><div class="proof-item"><strong>${stats.totalActiveEmployees.toLocaleString()}</strong><span>${overviewText("activeEmployees")}</span></div><div class="proof-item"><strong>${stats.totalPublishedCourses}</strong><span>${overviewText("publishedCourses")}</span></div><div class="proof-item"><strong>${stats.completionRate}%</strong><span>${overviewText("completionRate")}</span></div></div>
           </div>
           ${heroMockup()}
         </div>
       </section>
       <section class="section" id="purpose"><div class="container"><h2 class="section-title">${t("landing.purpose")}</h2><p class="section-lead">${t("landing.purposeLead")}</p><div class="grid-4 purpose-grid">${purposes.map(([i, key, desc]) => `<article class="card info-card purpose-card">${icon(i)}<h3>${t(key)}</h3><p>${desc}</p></article>`).join("")}</div></div></section>
-      <section class="section" id="featured-courses"><div class="container"><h2 class="section-title">Khóa đào tạo nổi bật</h2><div class="grid-6">${courses.map(courseCard).join("")}</div>${upcomingCoursesSection()}</div></section>
+      <section class="section" id="featured-courses"><div class="container"><h2 class="section-title">${overviewText("openCourses")}</h2>${publishedCourses.length ? `<div class="landing-course-grid">${publishedCourses.map(realCourseCard).join("")}</div>` : `<div class="empty-state">${icon("book")}<h3>${overviewText("noOpenCourses")}</h3></div>`}</div></section>
       <section class="section alt" id="support"><div class="container"><div class="support-panel card"><div><h2>${t("nav.support")}</h2><p>Liên hệ hỗ trợ đào tạo, tài khoản và phân quyền nội bộ.</p></div><strong>${hrContact}</strong></div></div></section>
       ${hrAnnouncementsSection()}
       ${footer()}
     </div>
   `;
+}
+
+function overviewText(key) {
+  const copy = {
+    activeEmployees: { vi: "Nhân viên đang hoạt động", en: "Active employees", kr: "활성 직원" },
+    publishedCourses: { vi: "Khóa học đang mở", en: "Open courses", kr: "공개 교육 과정" },
+    completionRate: { vi: "Tỷ lệ hoàn thành", en: "Completion rate", kr: "완료율" },
+    openCourses: { vi: "Khóa học đang mở", en: "Open courses", kr: "공개 교육 과정" },
+    noOpenCourses: { vi: "Chưa có khóa học đang mở", en: "No open courses yet", kr: "현재 공개된 교육 과정이 없습니다" },
+  };
+  return copy[key]?.[language] || copy[key]?.vi || key;
+}
+
+function realCourseCard(course) {
+  const image = course.imageUrl ? `<img class="course-card-image" src="${escapeHtmlAttribute(course.imageUrl)}" alt="${escapeHtmlAttribute(course.title)}" loading="lazy">` : icon("book");
+  return `<article class="card info-card course-category">${image}<div class="course-card-body"><span class="badge new">${escapeHtml(course.category || t("nav.courses"))}</span><h3>${escapeHtml(course.title)}</h3><p>${escapeHtml(course.description || "")}</p><span class="card-meta">${Number(course.durationHours) || 0}h</span></div></article>`;
 }
 
 function heroMockup() {
@@ -533,7 +555,10 @@ function emptyCchnState() {
 }
 
 function pagination(kind, current, total) {
-  return `<div class="pagination ${kind}-pagination">${Array.from({ length: total }, (_, index) => index + 1).map((page) => `<button class="${page === current ? "active" : ""}" data-page-kind="${kind}" data-page="${page}">${page}</button>`).join("")}</div>`;
+  const previous = language === "vi" ? "Trang trước" : language === "kr" ? "이전 페이지" : "Previous page";
+  const next = language === "vi" ? "Trang sau" : language === "kr" ? "다음 페이지" : "Next page";
+  const label = language === "vi" ? `Trang ${current} / ${total}` : language === "kr" ? `${current} / ${total} 페이지` : `Page ${current} of ${total}`;
+  return `<nav class="pagination ${kind}-pagination" aria-label="${label}"><button aria-label="${previous}" data-page-kind="${kind}" data-page="${current - 1}" ${current <= 1 ? "disabled" : ""}>‹</button><span>${label}</span><button aria-label="${next}" data-page-kind="${kind}" data-page="${current + 1}" ${current >= total ? "disabled" : ""}>›</button></nav>`;
 }
 
 function trainingValueLabel(value) {
@@ -603,7 +628,7 @@ function hrEmployeeDirectory() {
   employeeDirectoryPage = Math.min(employeeDirectoryPage, totalPages);
   const pageRows = filtered.slice((employeeDirectoryPage - 1) * pageSize, employeeDirectoryPage * pageSize);
   return `<section class="card panel hr-employee-directory">
-    <div class="section-head"><div><h3>${t("admin.employeeList")}</h3><p class="section-lead">${t("admin.totalEmployees")}: ${allEmployees.length}</p></div><button class="btn btn-outline" data-sort-employees>${t("admin.sortAZ")}</button></div>
+    <div class="section-head"><div><h3>${t("admin.employeeList")}</h3><p class="section-lead">${t("admin.totalEmployees")}: ${allEmployees.length}</p></div><div class="security-actions"><label class="btn btn-outline" for="employeePhotoFolder">Import folder ảnh</label><input id="employeePhotoFolder" type="file" accept="image/jpeg,image/png,image/webp" webkitdirectory multiple hidden><button class="btn btn-outline" data-sort-employees>${t("admin.sortAZ")}</button></div></div>
     <div class="filter-bar employee-directory-filter">
       <input id="employeeDirSearch" data-focus-key="employee-dir-search" data-employee-search placeholder="${t("admin.searchEmployee")}" value="${employeeDirectorySearch}">
       ${employeeSelect("department", t("table.department"), uniqueValues(allEmployees, "department"), employeeDirectoryFilters.department)}
@@ -682,15 +707,33 @@ function employeeDashboard(compact = false) {
   const inProgress = enrollments.filter((item) => item.status === "inProgress").length;
   const overdue = enrollments.filter((item) => item.status === "overdue").length;
   const recent = [...enrollments].filter((item) => item.status !== "completed").sort(compareEnrollmentPriority).slice(0, 3);
-  const displayName = account?.fullName || account?.name || employee?.fullName || "";
+  const activities=getLearningActivity({accountId:session.accountId});
+  const primary = [...recent].sort((a,b)=>{
+    const aa=activities.find(x=>x.courseId===a.courseId)?.occurredAt||"";
+    const bb=activities.find(x=>x.courseId===b.courseId)?.occurredAt||"";
+    return bb.localeCompare(aa)||compareEnrollmentPriority(a,b);
+  })[0];
+  const displayName = employee?.fullName || account?.fullName || account?.email?.split("@")[0] || uiText("employeeFallback");
   return `
     <div class="app-layout">${sideNav("employee")}
       <main class="app-main">${topbar(uiText("learner"), displayName, "employee", initials(displayName))}<div class="content">
-        <div class="kpi-grid"><div class="card kpi"><span class="label">${uiText("inProgressCourses")}</span><strong>${inProgress}</strong></div><div class="card kpi"><span class="label">${uiText("completed")}</span><strong>${completed}</strong></div><div class="card kpi"><span class="label">${uiText("overdue")}</span><strong>${overdue}</strong></div><div class="card kpi"><span class="label">${uiText("newNotifications")}</span><strong>${unread}</strong></div></div>
+        <header class="dashboard-welcome employee-greeting">${employeeAvatar(account,employee,"employee-greeting__avatar")}<div><span class="eyebrow">${uiText("overview")}</span><h1 title="${escapeHtmlAttribute(greeting(displayName))}">${escapeHtml(greeting(displayName))}</h1><p><strong>${escapeHtml(employee?.department||account?.department||"")}</strong>${employee?.position||account?.position?` · ${escapeHtml(employee?.position||account?.position)}`:""}</p><p>${uiText("learningJourney")}</p></div></header>
+        ${primary ? continueLearningHero(primary) : `<section class="card continue-empty"><div>${icon("book")}<h2>${uiText("noRecentCourses")}</h2><p>${uiText("noRecentCoursesDesc")}</p></div><a class="btn btn-primary" href="/dashboard/courses" data-link>${uiText("myCourses")}</a></section>`}
+        <div class="progress-overview"><div><span>${uiText("inProgressCourses")}</span><strong>${inProgress}</strong></div><div><span>${uiText("completed")}</span><strong>${completed}</strong></div><div><span>${uiText("overdue")}</span><strong>${overdue}</strong></div><div><span>${uiText("newNotifications")}</span><strong>${unread}</strong></div></div>
         <div class="dashboard-grid"><section class="card panel"><div class="panel-head"><div><h3>${uiText("recentCourses")}</h3></div><a class="btn btn-outline mini-action" href="/dashboard/courses" data-link>${uiText("viewAllCourses")}</a></div>${recent.length ? recent.map(recentCourseRow).join("") : `<div class="empty-state">${icon("book")}<h3>${uiText("noRecentCourses")}</h3><p>${uiText("noRecentCoursesDesc")}</p></div>`}</section><aside class="card panel" id="employee-notifications"><div class="panel-head"><div><h3>${uiText("recentNotifications")}</h3></div><button class="btn btn-outline mini-action" type="button" data-toggle-employee-notifications>${uiText("viewNotifications")}</button></div>${notifications.slice(0, employeeNotificationPanelOpen ? notifications.length : 3).map(notificationRow).join("") || `<div class="empty-state"><p>${uiText("noNotifications")}</p></div>`}</aside></div>
       </div></main>
     </div>
   `;
+}
+
+function continueLearningHero(enrollment){
+  const course=enrollment.course||getCourseById(enrollment.courseId)||{};
+  const outline=getCourseContent(enrollment.courseId); const states=getContentProgress(session.accountId,enrollment.courseId);
+  const current=outline.find(x=>!states.some(s=>s.contentId===x.id&&s.completed))||outline.at(-1);
+  const activeSeconds=states.reduce((sum,x)=>sum+Number(x.activeSeconds||0),0);
+  const estimated=Math.max(5,Math.round((Number(course.durationHours||1)*3600*(100-enrollment.progressPercent)/100)/60));
+  const image=course.imageUrl?`<img src="${escapeHtmlAttribute(course.imageUrl)}" alt="${escapeHtmlAttribute(course.imageAlt||course.title||"")}">`:`<span class="continue-hero__placeholder">${icon("book")}</span>`;
+  return `<section class="card continue-hero"><div class="continue-hero__media">${image}</div><div class="continue-hero__body"><span class="eyebrow">${uiText("continueLearning")}</span><h2>${escapeHtml(course.title||"—")}</h2><p class="continue-hero__lesson">${current?escapeHtml(current.title):uiText("courseIntro")}</p><div class="continue-hero__progress"><span>${uiText("progressLabel")}</span><strong>${enrollment.progressPercent}%</strong>${progress(enrollment.progressPercent)}</div><p class="continue-hero__meta">Còn khoảng ${estimated} phút${enrollment.deadline?` · ${uiText("deadline")} ${escapeHtml(enrollment.deadline)}`:""}</p><div class="continue-hero__actions"><a class="btn btn-primary" href="/dashboard/courses/${escapeHtmlAttribute(enrollment.courseId)}${current?`?content=${encodeURIComponent(current.id)}`:""}" data-link>${uiText("continueLearning")} →</a><a class="btn btn-outline" href="/dashboard/courses/${escapeHtmlAttribute(enrollment.courseId)}" data-link>Xem nội dung</a></div></div></section>`;
 }
 
 function employeeEnrollments(){return getEnrollmentsByAccountId(session.accountId).map(e=>{const x=calculateCourseProgress({accountId:session.accountId,courseId:e.courseId});const status=x.completed?"completed":x.percent?"inProgress":"notStarted";return {...e,progressPercent:x.percent,status:getDisplayEnrollmentStatus({...e,status}),pendingGrading:x.pendingGrading};});}
@@ -764,11 +807,11 @@ function lessonRequirement(item,state,attempts){if(isContentComplete(item,getCon
 function lt(key){return (d().learning||{})[key]||key;}
 
 function adminDashboard(compact = false) {
-  const employees = getEmployees();
+  const stats = getLmsOverviewStats();
   const summary = getImportSummary();
   return `
     <div class="${compact ? "dashboard-preview" : "app-layout"}">${sideNav("hr")}<main class="app-main">${topbar("HR Admin Dashboard", "Quản trị đào tạo nội bộ", "hr")}<div class="content">
-      <div class="kpi-grid"><div class="card kpi"><span class="label">${t("admin.totalEmployees")}</span><strong>${employees.length}</strong></div><div class="card kpi"><span class="label">${t("admin.hasCert")}</span><strong>${summary.certificateHolders}</strong></div><div class="card kpi"><span class="label">${t("admin.invalidEmails")}</span><strong>${summary.invalidEmails}</strong></div><div class="card kpi"><span class="label">${t("admin.duplicateEmails")}</span><strong>${summary.duplicateEmails}</strong></div></div>
+      <div class="kpi-grid"><div class="card kpi"><span class="label">${overviewText("activeEmployees")}</span><strong>${stats.totalActiveEmployees}</strong></div><div class="card kpi"><span class="label">${overviewText("publishedCourses")}</span><strong>${stats.totalPublishedCourses}</strong></div><div class="card kpi"><span class="label">${overviewText("completionRate")}</span><strong>${stats.completionRate}%</strong></div><div class="card kpi"><span class="label">${t("quiz.passRate")}</span><strong>${stats.quizPassRate}%</strong></div></div>
       <section class="card panel data-quality-alert"><h3>${t("admin.dataReviewTitle")}</h3><p>${t("admin.invalidEmails")}: <strong>${summary.invalidEmails}</strong> · ${t("admin.duplicateEmails")}: <strong>${summary.duplicateEmails}</strong></p><button class="btn btn-outline" data-review-issues>${t("admin.reviewIssues")}</button></section>
       ${hrEmployeeDirectory()}
     </div></main></div>
@@ -776,21 +819,29 @@ function adminDashboard(compact = false) {
 }
 
 function sideNav(role) {
-  const items = role === "hr"
-    ? [["/admin", "overview"], ["/admin/employees", "employees"], ["/admin/accounts", "accounts"], ["/admin/courses", "courses"], ["/admin/assign", "assign"], ["/admin/quizzes", "quizzes"], ["/admin/reports", "reports"]]
-    : [["/dashboard", "overview"], ["/dashboard/courses", "courses"]];
+  const groups = role === "hr"
+    ? [["Tổng quan",[["/admin","overview"],["/admin/reports","reports"]]],["Đào tạo",[["/admin/courses","courses"],["/admin/assign","assign"],["/admin/quizzes","quizzes"],["/admin/gallery","gallery"],["/admin/notifications","notifications"]]],["Nhân sự",[["/admin/employees","employees"],["/admin/accounts","accounts"]]]]
+    : [["Học tập",[["/dashboard","overview"],["/dashboard/courses","courses"],["/dashboard/quizzes","quizzes"],["/dashboard/calendar","calendar"],["/dashboard/history","history"]]],["Thư viện",[["/dashboard/resources","resources"],["/dashboard/gallery","gallery"]]]];
+  const items=groups.flatMap(x=>x[1]);
   const activeIndex = items.reduce((bestIndex, [href], index) => {
     const isActive = route === href || (href !== "/" && route.startsWith(`${href}/`));
     if (!isActive) return bestIndex;
     return bestIndex < 0 || href.length > items[bestIndex][0].length ? index : bestIndex;
   }, -1);
-  return `<aside class="app-sidebar">${brand()}<nav class="side-nav" aria-label="${t("nav.dashboard")}">${items.map(([href, key], index) => `<a class="${index === activeIndex ? "active" : ""}" ${index === activeIndex ? 'aria-current="page"' : ""} href="${href}" data-link>${key === "quizzes" ? t("quiz.quizzes") : t(`admin.${key}`)}</a>`).join("")}</nav></aside>`;
+  let cursor=0; return `<aside class="app-sidebar">${sidebarBrand()}<nav class="side-nav" aria-label="${t("nav.dashboard")}">${groups.map(([label,links])=>`<span class="side-nav__group">${label}</span>${links.map(([href,key])=>{const index=cursor++; const labels={gallery:"Ảnh",resources:"Tài liệu",history:"Lịch sử học tập",calendar:"Lịch học"};return `<a class="${index===activeIndex?"active":""}" ${index===activeIndex?'aria-current="page"':""} href="${href}" data-link>${labels[key]|| (key==="quizzes"?t("quiz.quizzes"):key==="notifications"?notificationText("title"):t(`admin.${key}`))}</a>`}).join("")}`).join("")}</nav></aside>`;
 }
+
+function sidebarBrand() { return `<div class="sidebar-brand"><a href="/" data-link class="sidebar-brand__link" aria-label="MyKIS Learning"><img src="/assets/kis-logo-white.png" alt="KIS Vietnam" class="sidebar-brand__logo"><span class="sidebar-brand__name">MyKIS Learning</span></a></div>`; }
+
+function employeeAvatar(account, employee, className="avatar") { const name=employee?.fullName||account?.fullName||account?.email?.split("@")[0]||uiText("employeeFallback"); return `<span class="${className} employee-avatar" data-photo-blob-id="${escapeHtmlAttribute(employee?.photoBlobId||"")}" data-photo-url="${escapeHtmlAttribute(employee?.photoUrl||"")}" data-photo-key="${escapeHtmlAttribute(account?.employeeCode||account?.email?.split("@")[0]||"")}" aria-label="${escapeHtmlAttribute(name)}"><span>${initials(name)}</span></span>`; }
+function greeting(name){return uiText("greeting").replace("{name}",name);}
 
 function topbar(label, title, role, avatarText = "") {
   const currentAccount = session?.accountId ? getAccountById(session.accountId) : null;
+  const currentEmployee = currentAccount?.role === "employee" ? getEmployeeByAccountId(currentAccount.id) : null;
   const currentAvatarText = initials(currentAccount?.fullName || currentAccount?.name || session?.fullName || "");
-  return `<div class="topbar"><div><span class="label">${label}</span><h2>${title}</h2></div><div class="topbar-actions">${languageSwitcher()}<div class="user-chip"><span class="avatar">${avatarText || currentAvatarText || (role === "hr" ? "HR" : "?")}</span>${session?.fullName || t(`roles.${role}`)}</div><button type="button" class="btn btn-outline" data-logout>${uiText("logout")}</button></div></div>`;
+  const fullName=currentAccount?.fullName||session?.fullName||t(`roles.${role}`); const meta=currentEmployee?.department||t(`roles.${role}`);
+  return `<div class="topbar"><div class="topbar__title"><span class="label">${label}</span><h2>${title}</h2></div><div class="topbar-actions">${languageSwitcher()}<details class="topbar-user"><summary title="${escapeHtmlAttribute(fullName)}">${role === "employee" ? employeeAvatar(currentAccount,currentEmployee,"topbar-user__avatar") : `<span class="avatar">${avatarText||currentAvatarText||"HR"}</span>`}<span class="topbar-user__identity"><strong>${escapeHtml(fullName)}</strong><small>${escapeHtml(meta)}</small></span></summary><div class="topbar-user__menu"><strong>${escapeHtml(fullName)}</strong><span>${escapeHtml(meta)}</span><button type="button" class="btn btn-outline" data-logout>${uiText("logout")}</button></div></details></div></div>`;
 }
 
 function accountsPage() {
@@ -846,7 +897,7 @@ function auditTable() {
 
 function employeesPage() {
   if (!hasAdminAccess()) return restrictedPage();
-  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("Admin", t("admin.employees"), "hr")}<div class="content">${hrEmployeeDirectory()}</div></main></div>`;
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("Admin", t("admin.employees"), "hr")}<div class="content">${hrEmployeeDirectory()}</div></main>${accountDrawer()}</div>`;
 }
 
 function employeeTable() {
@@ -1102,6 +1153,32 @@ function coursesPage() {
   const categories = [...new Set(allCourses.map((course) => course.category).filter(Boolean))];
   return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", t("course.manage"), "hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h2>${t("course.manage")}</h2><p>${t("course.manageDesc")}</p></div><button type="button" class="btn btn-primary" data-course-create>${t("course.create")}</button></div><div class="filter-bar"><input id="courseSearchInput" data-focus-key="course-search" type="search" placeholder="${t("course.searchPlaceholder")}" value="${escapeHtmlAttribute(courseSearch)}" data-course-search><select data-course-filter-category><option value="">${t("course.allCategories")}</option>${categories.map((category) => `<option value="${escapeHtmlAttribute(category)}" ${courseFilterCategory === category ? "selected" : ""}>${escapeHtml(category)}</option>`).join("")}</select><select data-course-filter-status><option value="">${t("enrollment.allStatuses")}</option><option value="published" ${courseFilterStatus === "published" ? "selected" : ""}>${t("course.published")}</option><option value="draft" ${courseFilterStatus === "draft" ? "selected" : ""}>${t("course.draft")}</option><option value="archived" ${courseFilterStatus === "archived" ? "selected" : ""}>${t("course.archived")}</option></select></div>${courseTable(filteredCourses())}</section></div>${courseDrawerOpen ? courseDrawer() : ""}${courseFormMode ? courseFormModal() : ""}${contentBuilderMode ? contentItemForm() : ""}</main></div>`;
 }
+
+function notificationText(key) {
+  const values = {
+    title:{vi:"Thông báo",en:"Notifications",kr:"알림"}, create:{vi:"Tạo thông báo",en:"Create notification",kr:"알림 만들기"},
+    history:{vi:"Lịch sử gửi",en:"Delivery history",kr:"발송 내역"}, recipients:{vi:"Đối tượng nhận",en:"Recipients",kr:"수신자"},
+    all:{vi:"Toàn bộ nhân viên",en:"All employees",kr:"전체 직원"}, department:{vi:"Theo phòng ban",en:"By department",kr:"부서별"},
+    course:{vi:"Theo khóa học",en:"By course",kr:"교육 과정별"}, send:{vi:"Gửi ngay",en:"Send now",kr:"지금 보내기"},
+    preview:{vi:"Xem trước",en:"Preview",kr:"미리보기"}, noData:{vi:"Chưa có thông báo",en:"No notifications yet",kr:"아직 알림이 없습니다"},
+    emailUnavailable:{vi:"Chưa cấu hình dịch vụ email",en:"Email service is not configured",kr:"이메일 서비스가 구성되지 않았습니다"}
+  }; return values[key]?.[language] || values[key]?.vi || key;
+}
+
+function notificationRecipients(type, value) {
+  const accounts = getAccounts().filter(a=>a.role==="employee"&&a.accountStatus==="active");
+  if(type==="department") return accounts.filter(a=>a.department===value).map(a=>a.id);
+  if(type==="course") return getEnrollmentsByCourseId(value).map(e=>e.accountId).filter(id=>accounts.some(a=>a.id===id));
+  return accounts.map(a=>a.id);
+}
+
+function notificationsPage() {
+  if (!hasAdminAccess()) return restrictedPage();
+  const history=getNotificationHistory().filter(n=>!notificationSearch||`${n.title} ${n.body}`.toLowerCase().includes(notificationSearch.toLowerCase()));
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D",notificationText("title"),"hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h1>${notificationText("title")}</h1><p>${notificationText("history")}</p></div><button class="btn btn-primary" data-notification-create>${notificationText("create")}</button></div><div class="filter-bar"><input id="notificationSearch" data-focus-key="notification-search" type="search" value="${escapeHtmlAttribute(notificationSearch)}" placeholder="${t("admin.search")}" data-notification-search></div>${history.length?`<div class="table-wrap"><table><thead><tr><th>${t("course.title")}</th><th>${notificationText("recipients")}</th><th>${t("status.read")}</th><th>${t("table.createdAt")}</th><th>${t("course.status")}</th></tr></thead><tbody>${history.map(n=>`<tr><td><strong>${escapeHtml(n.title)}</strong><small class="table-subtext">${escapeHtml(n.body)}</small></td><td>${n.recipientCount}</td><td>${n.readCount} / ${n.recipientCount}</td><td>${escapeHtml(n.sentAt||n.createdAt)}</td><td><span class="badge active">${escapeHtml(n.status||"sent")}</span></td></tr>`).join("")}</tbody></table></div>`:`<div class="empty-state">${icon("message")}<h3>${notificationText("noData")}</h3></div>`}</section></div>${notificationComposerOpen?notificationComposer():""}</main></div>`;
+}
+
+function notificationComposer(){const departments=[...new Set(getAccounts().filter(a=>a.role==="employee").map(a=>a.department).filter(Boolean))];return `<div class="modal-backdrop open"><form id="notificationForm" class="modal modal--large modal--structured" role="dialog" aria-modal="true" aria-labelledby="notification-title"><header class="modal__header"><div><span class="eyebrow">HR / L&D</span><h2 id="notification-title">${notificationText("create")}</h2></div><button type="button" class="icon-btn" aria-label="Close" data-notification-close>×</button></header><div class="modal__body"><div class="form-2col"><div class="field"><label>${t("course.title")}</label><input name="title" required maxlength="160"></div><div class="field"><label>${t("course.category")}</label><select name="type"><option value="hr_announcement">HR</option><option value="deadline">Deadline</option><option value="course_updated">Course</option><option value="system">System</option></select></div></div><div class="field"><label>${t("course.description")}</label><textarea name="body" rows="6" required></textarea></div><fieldset class="recipient-fieldset"><legend>${notificationText("recipients")}</legend><div class="form-2col"><div class="field"><label>Type</label><select name="recipientType" data-recipient-type><option value="all">${notificationText("all")}</option><option value="department">${notificationText("department")}</option><option value="course">${notificationText("course")}</option></select></div><div class="field"><label>Department / Course</label><select name="recipientValue"><option value="">—</option><optgroup label="Department">${departments.map(d=>`<option value="${escapeHtmlAttribute(d)}">${escapeHtml(d)}</option>`).join("")}</optgroup><optgroup label="Course">${getCourses().filter(c=>c.status==="published").map(c=>`<option value="${c.id}">${escapeHtml(c.title)}</option>`).join("")}</optgroup></select></div></div></fieldset><div class="field"><label>CTA URL</label><input name="actionUrl" placeholder="/dashboard/courses"></div><div class="setting-row"><div><strong>Email</strong><small>${notificationText("emailUnavailable")}</small></div><button type="button" class="switch" role="switch" aria-checked="false" disabled><span></span></button></div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-notification-close>${t("content.cancel")}</button><button class="btn btn-primary" type="submit">${notificationText("send")}</button></footer></form></div>`;}
 
 function getTodayDateString() {
   const date = new Date();
@@ -1359,6 +1436,20 @@ function reportsPage() {
   return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR/L&D Analytics", t("admin.reports"), "hr")}<div class="content"><div class="kpi-grid"><div class="card kpi"><span>${t("bulkAssign.selectedCount")}</span><strong>${new Set(enrollments.map(e=>e.accountId)).size}</strong></div><div class="card kpi"><span>${t("status.completed")}</span><strong>${completion}%</strong></div><div class="card kpi"><span>${t("status.overdue")}</span><strong>${overdue}</strong></div><div class="card kpi"><span>${t("quiz.passRate")}</span><strong>${pass}%</strong></div></div><section class="card panel"><h3>${t("quiz.attemptHistory")}</h3>${attempts.length?`<div class="table-wrap"><table><thead><tr><th>${t("table.fullName")}</th><th>${t("nav.courses")}</th><th>${t("quiz.score")}</th><th>${t("quiz.result")}</th><th>${t("table.createdAt")}</th></tr></thead><tbody>${attempts.map(a=>`<tr><td>${escapeHtml(getAccountById(a.accountId)?.fullName||"")}</td><td>${escapeHtml(getCourseById(a.courseId)?.title||"")}</td><td>${a.scorePercent??"—"}%</td><td>${a.submittedAt?t(a.passed?"quiz.passed":"quiz.failed"):"—"}</td><td>${escapeHtml(a.submittedAt||a.startedAt)}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty-state"><p>${t("quiz.noQuiz")}</p></div>`}</section></div></main></div>`;
 }
 
+function employeeGalleryPage(){
+  if(!hasEmployeeAccess())return restrictedPage(); const ctx=getCurrentEmployeeContext(); const courseIds=new Set(employeeEnrollments().map(e=>e.courseId));
+  const rows=readLocalRows(GALLERY_KEY).filter(a=>a.status==="published"&&(a.visibility==="all_employees"||(a.courseId&&courseIds.has(a.courseId))||(a.visibility==="departments"&&(a.departmentNames||[]).includes(ctx.employee?.department))));
+  const filtered=rows.filter(a=>(!gallerySearch||`${a.title} ${a.description}`.toLowerCase().includes(gallerySearch.toLowerCase()))&&(!galleryYear||String(a.eventDate||"").startsWith(galleryYear)));
+  return `<div class="app-layout">${sideNav("employee")}<main class="app-main">${topbar("Thư viện","Ảnh","employee")}<div class="content"><section class="library-head"><div><span class="eyebrow">Kỷ niệm đào tạo</span><h1>Thư viện ảnh</h1><p>Album được HR chia sẻ theo khóa học và phòng ban của bạn.</p></div><div class="filter-bar"><input type="search" data-gallery-search value="${escapeHtmlAttribute(gallerySearch)}" placeholder="Tìm album"><select data-gallery-year><option value="">Tất cả năm</option>${[...new Set(rows.map(x=>String(x.eventDate||"").slice(0,4)).filter(Boolean))].map(y=>`<option ${galleryYear===y?"selected":""}>${y}</option>`).join("")}</select></div></section>${filtered.length?`<div class="gallery-grid">${filtered.map(a=>`<article class="card album-card"><img src="${escapeHtmlAttribute(a.coverUrl||"/images/communication-training-course.png")}" alt="${escapeHtmlAttribute(a.coverAlt||a.title)}" loading="lazy"><div><time>${escapeHtml(a.eventDate||"")}</time><h2>${escapeHtml(a.title)}</h2><p>${escapeHtml(a.description||"")}</p><span>${Number(a.imageCount||a.images?.length||1)} ảnh${a.courseId?` · ${escapeHtml(getCourseById(a.courseId)?.title||"")}`:""}</span></div></article>`).join("")}</div>`:`<div class="empty-state"><h2>Chưa có album phù hợp</h2><p>Album được xuất bản và cấp quyền sẽ xuất hiện tại đây.</p></div>`}</div></main></div>`;
+}
+function adminGalleryPage(){if(!hasAdminAccess())return restrictedPage();const rows=readLocalRows(GALLERY_KEY);return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D","Quản lý ảnh","hr")}<div class="content"><section class="card panel"><div class="panel-head"><div><h1>Album đào tạo</h1><p>Chỉ album Published mới hiển thị cho nhân viên đúng quyền.</p></div></div><form id="galleryForm" class="form-2col"><div class="field"><label>Tên album</label><input name="title" required></div><div class="field"><label>Ngày sự kiện</label><input name="eventDate" type="date" required></div><div class="field"><label>Quyền xem</label><select name="visibility"><option value="all_employees">Tất cả nhân viên</option><option value="course_assignees">Người được giao khóa học</option><option value="departments">Theo phòng ban</option></select></div><div class="field"><label>Khóa học liên quan</label><select name="courseId"><option value="">Không liên kết</option>${getCourses().map(c=>`<option value="${c.id}">${escapeHtml(c.title)}</option>`).join("")}</select></div><div class="field"><label>URL ảnh bìa</label><input name="coverUrl" type="url" placeholder="https://..."></div><div class="field"><label>Mô tả / alt text</label><input name="description"></div><button class="btn btn-primary" type="submit">Tạo và xuất bản album</button></form></section><section class="gallery-grid">${rows.map(a=>`<article class="card album-card"><img src="${escapeHtmlAttribute(a.coverUrl||"/images/leadership-training-course.png")}" alt="${escapeHtmlAttribute(a.title)}"><div><span class="badge ${a.status}">${a.status}</span><h2>${escapeHtml(a.title)}</h2><p>${escapeHtml(a.visibility)}</p><button class="btn btn-outline" data-gallery-toggle="${a.id}">${a.status==="published"?"Archive":"Publish"}</button></div></article>`).join("")||`<div class="empty-state">Chưa có album.</div>`}</section></div></main></div>`;}
+function resourceRows(){const existing=readLocalRows(RESOURCES_KEY);if(existing.length)return existing;const course=getCourses().find(c=>c.status==="published")||getCourses()[0];if(!course)return [];const seed=[{id:"resource-handbook",courseId:course.id,title:"Handbook sau đào tạo",description:"Tài liệu tổng kết và checklist áp dụng.",type:"link",externalUrl:"https://www.kisvn.vn/",unlockRule:"after_completion",downloadable:false,createdAt:new Date().toISOString()}];writeLocalRows(RESOURCES_KEY,seed);return seed;}
+function isResourceUnlocked(r,e){if(r.unlockRule==="always")return true;if(r.unlockRule==="after_completion")return e?.status==="completed";if(r.unlockRule==="after_quiz_pass")return getQuizAttemptsByAccountId(session.accountId).some(a=>a.quizId===r.requiredQuizId&&a.passed);return false;}
+function employeeResourcesPage(){if(!hasEmployeeAccess())return restrictedPage();const enrollments=employeeEnrollments();const byCourse=new Map(enrollments.map(e=>[e.courseId,e]));const rows=resourceRows().filter(r=>byCourse.has(r.courseId)&&(!resourceSearch||r.title.toLowerCase().includes(resourceSearch.toLowerCase())));return `<div class="app-layout">${sideNav("employee")}<main class="app-main">${topbar("Thư viện","Tài liệu","employee")}<div class="content"><section class="library-head"><div><h1>Thư viện tài liệu</h1><p>Tài liệu từ các khóa học được giao; quyền mở được kiểm tra lại khi truy cập.</p></div><input type="search" data-resource-search value="${escapeHtmlAttribute(resourceSearch)}" placeholder="Tìm tài liệu"></section><div class="resource-list">${rows.map(r=>{const open=isResourceUnlocked(r,byCourse.get(r.courseId));return `<article class="card resource-row"><div><span class="badge ${open?"completed":"pending"}">${open?"Đã mở khóa":"Bị khóa"}</span><h2>${escapeHtml(r.title)}</h2><p>${escapeHtml(getCourseById(r.courseId)?.title||"")} · ${escapeHtml(r.description||"")}</p>${!open?`<small>Hoàn thành khóa học để mở khóa.</small>`:""}</div>${open&&r.externalUrl?`<a class="btn btn-primary" href="${escapeHtmlAttribute(r.externalUrl)}" target="_blank" rel="noopener" data-resource-open="${r.id}">Xem tài liệu</a>`:`<button class="btn btn-outline" disabled>Chưa thể mở</button>`}</article>`}).join("")||`<div class="empty-state">Chưa có tài liệu phù hợp.</div>`}</div></div></main></div>`;}
+function learningHistoryPage(){if(!hasEmployeeAccess())return restrictedPage();const rows=employeeEnrollments().filter(e=>e.status==="completed");return `<div class="app-layout">${sideNav("employee")}<main class="app-main">${topbar("Học tập","Lịch sử học tập","employee")}<div class="content"><section class="card panel"><h1>Lịch sử học tập</h1><div class="table-wrap"><table><thead><tr><th>Khóa học</th><th>Ngày bắt đầu</th><th>Ngày hoàn thành</th><th>Tiến độ</th></tr></thead><tbody>${rows.map(e=>`<tr><td>${escapeHtml(e.course?.title||"")}</td><td>${escapeHtml(e.assignedAt||"—")}</td><td>${escapeHtml(e.completedAt||"—")}</td><td>100%</td></tr>`).join("")||`<tr><td colspan="4">Chưa có khóa học đã hoàn thành.</td></tr>`}</tbody></table></div></section></div></main></div>`;}
+function learningCalendarPage(){if(!hasEmployeeAccess())return restrictedPage();const rows=employeeEnrollments().filter(e=>e.deadline).sort((a,b)=>a.deadline.localeCompare(b.deadline));return `<div class="app-layout">${sideNav("employee")}<main class="app-main">${topbar("Học tập","Lịch học","employee")}<div class="content"><section class="card panel"><h1>Lịch học & deadline</h1>${rows.map(e=>`<article class="calendar-row"><time>${escapeHtml(e.deadline)}</time><div><h2>${escapeHtml(e.course?.title||"")}</h2><p>${uiText(e.status)} · ${e.progressPercent}%</p></div><a href="/dashboard/courses/${e.courseId}" data-link class="btn btn-outline">Mở khóa học</a></article>`).join("")||`<div class="empty-state">Chưa có deadline.</div>`}</section></div></main></div>`;}
+function exportExecutiveCsv(){if(!hasAdminAccess())return;const rows=enrichedEnrollments().filter(e=>e.account?.role==="employee");const data=[["Nhân viên","Phòng ban","Khóa học","Trạng thái","Tiến độ","Deadline"],...rows.map(e=>[e.account?.fullName||"",e.account?.department||"",e.course?.title||"",e.displayStatus||e.status,Number(e.progressPercent)||0,e.deadline||""])];const csv="\uFEFF"+data.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\r\n");const name=`MyKIS_Executive_Training_Report_${new Date().toISOString().slice(0,7)}.csv`;const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);const snapshots=readLocalRows(REPORT_SNAPSHOTS_KEY);snapshots.unshift({id:crypto.randomUUID(),reportType:"executive_coo",filters:{},generatedAt:new Date().toISOString(),generatedBy:session.accountId,recipient:"COO",fileName:name,recordCount:rows.length});writeLocalRows(REPORT_SNAPSHOTS_KEY,snapshots.slice(0,50));}
+
 function changePasswordPage() {
   const account = session?.accountId ? getAccountById(session.accountId) : null;
   const passwordPolicyText = {
@@ -1393,6 +1484,7 @@ function render() {
   const _afSel = [_af?.selectionStart ?? null, _af?.selectionEnd ?? null];
 
   route = location.pathname.replace(/\/$/, "") || "/";
+  document.body.dataset.route = route;
   session = getSession();
   const routeParams = new URLSearchParams(location.search);
   selectedLoginRole = routeParams.get("role") || selectedLoginRole;
@@ -1412,16 +1504,26 @@ function render() {
   else if (route === "/dashboard/courses") app.innerHTML = hasEmployeeAccess() ? myCoursesPage() : session ? restrictedPage() : loginPage();
   else if (route.startsWith("/dashboard/courses/")) app.innerHTML = coursePlayerPage(decodeURIComponent(route.split("/").pop()));
   else if (route === "/dashboard/quizzes") app.innerHTML = hasEmployeeAccess() ? employeeQuizzesPage() : session ? restrictedPage() : loginPage();
+  else if (route === "/dashboard/gallery") app.innerHTML = employeeGalleryPage();
+  else if (route === "/dashboard/resources") app.innerHTML = employeeResourcesPage();
+  else if (route === "/dashboard/history") app.innerHTML = learningHistoryPage();
+  else if (route === "/dashboard/calendar") app.innerHTML = learningCalendarPage();
   else if (route === "/admin") app.innerHTML = hasAdminAccess() ? adminDashboard(false) : session ? restrictedPage() : loginPage();
   else if (route === "/admin/employees") app.innerHTML = employeesPage();
   else if (route === "/admin/accounts") app.innerHTML = accountsPage();
   else if (route === "/admin/courses") app.innerHTML = hasAdminAccess() ? coursesPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/assign") app.innerHTML = hasAdminAccess() ? assignPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/quizzes") app.innerHTML = hasAdminAccess() ? adminQuizzesPage() : session ? restrictedPage() : loginPage();
+  else if (route === "/admin/notifications") app.innerHTML = hasAdminAccess() ? notificationsPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/reports") app.innerHTML = hasAdminAccess() ? reportsPage() : session ? restrictedPage() : loginPage();
+  else if (route === "/admin/gallery") app.innerHTML = adminGalleryPage();
   else if (route === "/change-password") app.innerHTML = changePasswordPage();
   else app.innerHTML = landingPage();
   bindEvents();
+  enhanceCourseImageForm();
+  enhanceEmployeePhotoManager();
+  hydrateEmployeePhotos();
+  enhanceReportsPage();
   document.body.classList.toggle("modal-open", !!(contentBuilderMode || quizFormOpen || courseDrawerOpen || accountDrawerOpen || assignModalOpen || resetModalOpen || courseFormMode));
   setupLearningTracking();
   if (activeQuizAttempt) startQuizCountdown();
@@ -1435,7 +1537,31 @@ function render() {
   });
 }
 
+async function enhanceCourseImageForm(){const form=document.getElementById("courseForm");if(!form||form.querySelector(".course-image-upload"))return;const course=courseFormMode==="edit"?getCourseById(selectedCourseId):null;const body=form.querySelector(".modal__body");if(!body)return;const section=document.createElement("section");section.className="course-image-upload";section.innerHTML=`<img data-course-image-preview alt="${escapeHtmlAttribute(course?.imageAlt||course?.title||"")}"><div><label class="btn btn-outline" for="courseCoverInput">Cover image</label><input id="courseCoverInput" name="coverImage" type="file" accept="image/jpeg,image/png,image/webp" hidden><input name="coverImageId" type="hidden" value="${escapeHtmlAttribute(course?.coverImageId||"")}"><div class="field"><label>Alt text</label><input name="imageAlt" value="${escapeHtmlAttribute(course?.imageAlt||course?.title||"")}"></div><small>JPG, PNG, WebP · max 5 MB · 1200×675 recommended</small></div>`;body.prepend(section);if(course?.coverImageId){try{const blob=await getCourseImage(course.coverImageId);if(blob){const image=section.querySelector("img"),url=URL.createObjectURL(blob);image.src=url;image.dataset.objectUrl=url;}}catch{}}
+  const input=section.querySelector("#courseCoverInput");input.addEventListener("change",async event=>{const file=event.target.files?.[0];if(!file)return;try{const id=await saveCourseImage(file);section.querySelector('[name="coverImageId"]').value=id;const image=section.querySelector("img");if(image.dataset.objectUrl)URL.revokeObjectURL(image.dataset.objectUrl);const url=URL.createObjectURL(file);image.src=url;image.dataset.objectUrl=url;}catch{toast("error");}});
+}
+
+function enhanceReportsPage(){if(route!=="/admin/reports")return;const content=document.querySelector(".app-main .content");if(!content||content.querySelector(".report-head"))return;const head=document.createElement("section");head.className="report-head";head.innerHTML=`<div><span class="eyebrow">Báo cáo điều hành COO</span><h1>Trung tâm báo cáo đào tạo</h1><p>Dữ liệu trực tiếp từ enrollment, tiến độ và kết quả kiểm tra hiện tại.</p></div><div class="report-actions"><button class="btn btn-primary" data-report-export>Xuất CSV</button><button class="btn btn-outline" data-report-print>Xuất PDF / In</button></div>`;content.prepend(head);head.querySelector("[data-report-export]").addEventListener("click",exportExecutiveCsv);head.querySelector("[data-report-print]").addEventListener("click",()=>window.print());}
+const employeePhotoUrls=new Map();
+window.addEventListener("beforeunload",()=>{employeePhotoUrls.forEach(url=>URL.revokeObjectURL(url));employeePhotoUrls.clear();},{once:true});
+async function hydrateEmployeePhotos(){for(const el of document.querySelectorAll("[data-photo-blob-id],[data-photo-url]")){const id=el.dataset.photoBlobId,url=el.dataset.photoUrl;if(!id&&!url)continue;try{let src=url;if(id){if(!employeePhotoUrls.has(id)){const blob=await getEmployeePhoto(id);if(blob)employeePhotoUrls.set(id,URL.createObjectURL(blob));}src=employeePhotoUrls.get(id);}if(!src)continue;let img=el.querySelector("img");if(!img){img=document.createElement("img");img.alt=el.getAttribute("aria-label")||"";img.loading="lazy";img.addEventListener("error",()=>img.remove(),{once:true});el.append(img);}img.src=src;}catch{}}}
+function enhanceEmployeePhotoManager(){if(!accountDrawerOpen||!selectedAccountId)return;const modal=document.querySelector(".modal-backdrop .modal");if(!modal||modal.querySelector(".employee-photo-manager"))return;const account=getAccountById(selectedAccountId),employee=getEmployeeByAccountId(selectedAccountId);if(!account||!employee)return;const section=document.createElement("section");section.className="employee-photo-manager";section.innerHTML=`<div>${employeeAvatar(account,employee,"employee-photo-manager__preview")}<div><h3>Ảnh đại diện</h3><p>JPG, PNG hoặc WebP · tối đa 5 MB</p></div></div><div class="employee-photo-manager__actions"><label class="btn btn-outline" for="employeePhotoInput">Thay ảnh</label><input id="employeePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><button type="button" class="btn btn-ghost" data-remove-employee-photo ${employee.photoBlobId?"":"disabled"}>Xóa ảnh</button></div>`;modal.querySelector(".modal-head")?.after(section);hydrateEmployeePhotos();section.querySelector("#employeePhotoInput")?.addEventListener("change",async event=>{const file=event.target.files?.[0];if(!file)return;try{const photoBlobId=await saveEmployeePhoto(file);if(employee.photoBlobId)await deleteEmployeePhoto(employee.photoBlobId);updateEmployeeProfile(employee.id,{photoBlobId,photoFileName:file.name,photoUpdatedAt:new Date().toISOString(),photoUpdatedBy:session.accountId});accountDrawerOpen=false;toast("success");render();}catch{toast("error");}});section.querySelector("[data-remove-employee-photo]")?.addEventListener("click",async()=>{if(employee.photoBlobId)await deleteEmployeePhoto(employee.photoBlobId);updateEmployeeProfile(employee.id,{photoBlobId:null,photoFileName:"",photoUpdatedAt:new Date().toISOString(),photoUpdatedBy:session.accountId});accountDrawerOpen=false;render();});}
+
 function bindEvents() {
+  document.getElementById("galleryForm")?.addEventListener("submit",event=>{event.preventDefault();const f=new FormData(event.currentTarget),rows=readLocalRows(GALLERY_KEY);rows.unshift({id:crypto.randomUUID(),title:String(f.get("title")).trim(),description:String(f.get("description")||""),coverUrl:String(f.get("coverUrl")||""),coverAlt:String(f.get("description")||f.get("title")),courseId:String(f.get("courseId")||""),departmentNames:[],visibility:String(f.get("visibility")),status:"published",eventDate:String(f.get("eventDate")),createdBy:session.accountId,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),images:[]});writeLocalRows(GALLERY_KEY,rows);toast("success");render();});
+  document.querySelectorAll("[data-gallery-toggle]").forEach(el=>el.addEventListener("click",()=>{const rows=readLocalRows(GALLERY_KEY),row=rows.find(x=>x.id===el.dataset.galleryToggle);if(row){row.status=row.status==="published"?"archived":"published";row.updatedAt=new Date().toISOString();writeLocalRows(GALLERY_KEY,rows);render();}}));
+  document.querySelector("[data-gallery-search]")?.addEventListener("input",debounce(e=>{gallerySearch=e.target.value;render();},180));
+  document.querySelector("[data-gallery-year]")?.addEventListener("change",e=>{galleryYear=e.target.value;render();});
+  document.querySelector("[data-resource-search]")?.addEventListener("input",debounce(e=>{resourceSearch=e.target.value;render();},180));
+  document.querySelectorAll("[data-resource-open]").forEach(el=>el.addEventListener("click",event=>{const r=resourceRows().find(x=>x.id===el.dataset.resourceOpen),e=employeeEnrollments().find(x=>x.courseId===r?.courseId);if(!r||!e||!isResourceUnlocked(r,e)){event.preventDefault();toast("error");return;}logLearningActivity({actorAccountId:session.accountId,accountId:session.accountId,courseId:r.courseId,eventType:"resource_downloaded",metadata:{resourceId:r.id}});}));
+  document.querySelector("[data-report-export]")?.addEventListener("click",exportExecutiveCsv);
+  document.querySelector("[data-report-print]")?.addEventListener("click",()=>window.print());
+  document.getElementById("employeePhotoFolder")?.addEventListener("change",async event=>{const files=[...(event.target.files||[])].filter(file=>["image/jpeg","image/png","image/webp"].includes(file.type));const employees=getEmployees(),byCode=new Map(employees.map(employee=>{const account=employee.accountId?getAccountById(employee.accountId):null;return [String(account?.employeeCode||"").toLowerCase(),employee];}).filter(([code])=>code));const matched=[],unmatched=[];for(const file of files){const stem=file.name.replace(/\.[^.]+$/,"").toLowerCase();const employee=byCode.get(stem);if(employee)matched.push({file,employee});else unmatched.push(file.name);}if(!matched.length)return toast("error");const approved=window.confirm(`${matched.length} file match thành công · ${unmatched.length} không tìm thấy nhân viên. Xác nhận import?`);if(!approved)return;for(const {file,employee} of matched){try{const photoBlobId=await saveEmployeePhoto(file);if(employee.photoBlobId)await deleteEmployeePhoto(employee.photoBlobId);updateEmployeeProfile(employee.id,{photoBlobId,photoFileName:file.name,photoUpdatedAt:new Date().toISOString(),photoUpdatedBy:session.accountId});}catch{}}toast("success");render();});
+  document.querySelector("[data-notification-create]")?.addEventListener("click",()=>{notificationComposerOpen=true;render();});
+  document.querySelectorAll("[data-notification-close]").forEach(el=>el.addEventListener("click",()=>{notificationComposerOpen=false;render();}));
+  { let composing=false; const el=document.querySelector("[data-notification-search]"); el?.addEventListener("compositionstart",()=>composing=true); el?.addEventListener("compositionend",e=>{composing=false;notificationSearch=e.target.value;render();}); el?.addEventListener("input",debounce(e=>{if(!composing){notificationSearch=e.target.value;render();}},180)); }
+  document.getElementById("notificationForm")?.addEventListener("submit",event=>{event.preventDefault();const form=new FormData(event.currentTarget);const type=form.get("recipientType"),value=form.get("recipientValue");const result=sendNotificationCampaign({title:form.get("title"),body:form.get("body"),type:form.get("type"),recipientType:type,recipientIds:notificationRecipients(type,value),actionUrl:form.get("actionUrl"),createdBy:session.accountId});if(result.ok){notificationComposerOpen=false;toast("success");render();}else toast("error");});
+  document.getElementById("courseCoverInput")?.addEventListener("change",async event=>{const file=event.target.files?.[0];if(!file)return;try{const id=await saveCourseImage(file);const hidden=document.querySelector('[name="coverImageId"]');if(hidden)hidden.value=id;const image=document.querySelector("[data-course-image-preview]");if(image){if(image.dataset.objectUrl)URL.revokeObjectURL(image.dataset.objectUrl);const url=URL.createObjectURL(file);image.src=url;image.dataset.objectUrl=url;}}catch{toast("error");}});
   document.querySelectorAll("[data-link]").forEach((el) => el.addEventListener("click", (event) => { event.preventDefault(); navigate(el.getAttribute("href")); }));
   document.querySelector("[data-logout]")?.addEventListener("click", () => {
     clearSession();
@@ -1875,6 +2001,9 @@ function bindEvents() {
       format: String(formData.get("format") || "").trim(),
       durationHours: Number(formData.get("durationHours")),
       status: String(formData.get("status") || "draft"),
+      coverImageId: String(formData.get("coverImageId") || ""),
+      thumbnailImageId: String(formData.get("coverImageId") || ""),
+      imageAlt: String(formData.get("imageAlt") || formData.get("title") || "").trim(),
       updatedBy: account?.fullName || "HR / L&D",
     };
     if (!payload.title || !Number.isFinite(payload.durationHours) || payload.durationHours < 0) return toast("error");
