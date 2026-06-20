@@ -827,11 +827,68 @@ function lt(key){return (d().learning||{})[key]||key;}
 function adminDashboard(compact = false) {
   const stats = getLmsOverviewStats();
   const summary = getImportSummary();
+  const allAccounts = getAccounts();
+  const allEmployees = getEmployees();
+  const allCourses = getCourses();
+  const allAttempts = getQuizAttempts ? getQuizAttempts() : [];
+
+  // Recent employees (last 5 by createdAt)
+  const recentAccounts = [...allAccounts]
+    .filter(a => a.role === "employee")
+    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+    .slice(0, 5);
+
+  // Recent published courses (last 6)
+  const recentCourses = [...allCourses]
+    .filter(c => c.status === "published")
+    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+    .slice(0, 6);
+
+  // Pending grading items
+  const pendingAttempts = allAttempts.filter(a => a.submittedAt && a.gradingStatus === "pendingManual").slice(0, 5);
+
+  // Overdue enrollments count
+  const overdueCount = stats.overdueEnrollments || 0;
+  const pendingGradingCount = stats.pendingGrading || 0;
+  const draftCourses = allCourses.filter(c => c.status === "draft");
+
+  const actionItems = [
+    ...pendingAttempts.map(a => ({ icon: "✏️", label: `Chấm bài tự luận`, sub: `Quiz chờ chấm điểm`, href: "/admin/quizzes" })),
+    ...(overdueCount > 0 ? [{ icon: "⚠️", label: `${overdueCount} lượt học quá hạn`, sub: "Nhân viên chưa hoàn thành đúng deadline", href: "/admin/assign" }] : []),
+    ...(draftCourses.length > 0 ? [{ icon: "📝", label: `${draftCourses.length} khóa học bản nháp`, sub: "Chưa publish cho nhân viên", href: "/admin/courses" }] : []),
+    ...((summary.invalidEmails + summary.duplicateEmails) > 0 ? [{ icon: "🔍", label: "Dữ liệu cần kiểm tra", sub: `${summary.invalidEmails} email không hợp lệ · ${summary.duplicateEmails} email trùng`, href: "/admin/employees" }] : []),
+  ].slice(0, 7);
+
+  const actionHtml = actionItems.length
+    ? actionItems.map(item => `<a class="action-item-row" href="${item.href}" data-link><span class="action-item-row__icon">${item.icon}</span><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.sub)}</small></span><span class="action-item-row__arrow">›</span></a>`).join("")
+    : `<div class="empty-state" style="padding:16px"><p>Không có việc cần xử lý.</p></div>`;
+
+  const recentCourseHtml = recentCourses.length
+    ? recentCourses.map(c => `<div class="overview-course-row"><span class="badge ${c.status==="published"?"active":"draft"}">${c.status==="published"?"Đang mở":"Nháp"}</span><span class="overview-course-row__title">${escapeHtml(c.title)}</span><a class="btn btn-outline mini-action" href="/admin/courses" data-link>Xem</a></div>`).join("")
+    : `<p style="color:var(--muted);padding:12px">Chưa có khóa học.</p>`;
+
+  const recentEmpHtml = recentAccounts.length
+    ? recentAccounts.map(a => { const emp = allEmployees.find(e => e.id === a.employeeId); return `<div class="overview-emp-row">${employeeAvatar(a, emp, "avatar avatar--sm")}<div><strong>${escapeHtml(a.fullName)}</strong><small>${escapeHtml(emp?.position||emp?.jobTitle||"")}${emp?.department?` · ${escapeHtml(emp.department)}`:""}</small></div></div>`; }).join("")
+    : `<p style="color:var(--muted);padding:12px">Chưa có nhân viên.</p>`;
+
   return `
     <div class="${compact ? "dashboard-preview" : "app-layout"}">${sideNav("hr")}<main class="app-main">${topbar("HR Admin Dashboard", "Quản trị đào tạo nội bộ", "hr")}<div class="content">
-      <div class="kpi-grid"><div class="card kpi"><span class="label">${overviewText("activeEmployees")}</span><strong>${stats.totalActiveEmployees}</strong></div><div class="card kpi"><span class="label">${overviewText("publishedCourses")}</span><strong>${stats.totalPublishedCourses}</strong></div><div class="card kpi"><span class="label">${overviewText("completionRate")}</span><strong>${stats.completionRate}%</strong></div><div class="card kpi"><span class="label">${t("quiz.passRate")}</span><strong>${stats.quizPassRate}%</strong></div></div>
-      <section class="card panel data-quality-alert"><h3>${t("admin.dataReviewTitle")}</h3><p>${t("admin.invalidEmails")}: <strong>${summary.invalidEmails}</strong> · ${t("admin.duplicateEmails")}: <strong>${summary.duplicateEmails}</strong></p><button class="btn btn-outline" data-review-issues>${t("admin.reviewIssues")}</button></section>
-      ${hrEmployeeDirectory()}
+      <div class="kpi-grid">
+        <div class="card kpi"><span class="label">${overviewText("activeEmployees")}</span><strong>${stats.totalActiveEmployees}</strong></div>
+        <div class="card kpi"><span class="label">${overviewText("publishedCourses")}</span><strong>${stats.totalPublishedCourses}</strong></div>
+        <div class="card kpi"><span class="label">${overviewText("completionRate")}</span><strong>${stats.completionRate}%</strong></div>
+        <div class="card kpi"><span class="label">${t("quiz.passRate")}</span><strong>${stats.quizPassRate}%</strong></div>
+        <div class="card kpi"><span class="label">Quá hạn</span><strong>${overdueCount}</strong></div>
+        <div class="card kpi"><span class="label">${t("quiz.pendingGrading")}</span><strong>${pendingGradingCount}</strong></div>
+      </div>
+      <div class="overview-grid">
+        <section class="card panel"><div class="panel-head"><h3>Việc cần xử lý</h3></div>${actionHtml}</section>
+        <section class="card panel"><div class="panel-head"><h3>Khóa học gần đây</h3><a class="btn btn-outline mini-action" href="/admin/courses" data-link>Xem tất cả</a></div>${recentCourseHtml}</section>
+      </div>
+      <div class="overview-grid">
+        <section class="card panel"><div class="panel-head"><h3>Nhân viên mới gần đây</h3><a class="btn btn-outline mini-action" href="/admin/employees" data-link>Xem tất cả nhân viên</a></div>${recentEmpHtml}</section>
+        <section class="card panel data-quality-alert"><div class="panel-head"><h3>${t("admin.dataReviewTitle")}</h3></div><p>${t("admin.invalidEmails")}: <strong>${summary.invalidEmails}</strong> · ${t("admin.duplicateEmails")}: <strong>${summary.duplicateEmails}</strong></p><button class="btn btn-outline" data-review-issues>${t("admin.reviewIssues")}</button></section>
+      </div>
     </div></main>${employeeFormModal()}</div>
   `;
 }
