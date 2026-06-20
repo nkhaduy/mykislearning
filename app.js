@@ -729,8 +729,8 @@ function employeeDashboard(compact = false) {
     return bb.localeCompare(aa)||compareEnrollmentPriority(a,b);
   })[0];
   const displayName = employee?.fullName || account?.fullName || account?.email?.split("@")[0] || uiText("employeeFallback");
-  const jobTitle=employee?.jobTitle||employee?.position||employee?.title||uiText("employeeFallback");
-  const department=employee?.department||employee?.departmentName||employee?.division||"";
+  const jobTitle=employee?.jobTitle||employee?.position||employee?.title||account?.position||uiText("employeeFallback");
+  const department=employee?.department||employee?.departmentName||employee?.division||account?.department||"";
   return `
     <div class="app-layout">${sideNav("employee")}
       <main class="app-main">${topbar(uiText("learner"), displayName, "employee", initials(displayName))}<div class="content">
