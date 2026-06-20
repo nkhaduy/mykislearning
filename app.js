@@ -858,8 +858,11 @@ function topbar(label, title, role, avatarText = "") {
   const currentAccount = session?.accountId ? getAccountById(session.accountId) : null;
   const currentEmployee = currentAccount?.role === "employee" ? getEmployeeByAccountId(currentAccount.id) : null;
   const currentAvatarText = initials(currentAccount?.fullName || currentAccount?.name || session?.fullName || "");
-  const fullName=currentAccount?.fullName||session?.fullName||t(`roles.${role}`); const meta=currentEmployee?.department||t(`roles.${role}`);
-  return `<div class="topbar"><div class="topbar__title"><span class="label">${label}</span><h2>${title}</h2></div><div class="topbar-actions">${languageSwitcher()}<details class="topbar-user"><summary title="${escapeHtmlAttribute(fullName)}">${role === "employee" ? employeeAvatar(currentAccount,currentEmployee,"topbar-user__avatar") : `<span class="avatar">${avatarText||currentAvatarText||"HR"}</span>`}<span class="topbar-user__identity"><strong>${escapeHtml(fullName)}</strong><small>${escapeHtml(meta)}</small></span></summary><div class="topbar-user__menu"><strong>${escapeHtml(fullName)}</strong><span>${escapeHtml(meta)}</span><button type="button" class="btn btn-outline" data-logout>${uiText("logout")}</button></div></details></div></div>`;
+  const fullName=currentAccount?.fullName||session?.fullName||t(`roles.${role}`);
+  const jobTitle=currentEmployee?.jobTitle||currentEmployee?.position||currentEmployee?.title||currentAccount?.position||"";
+  const dept=currentEmployee?.department||currentAccount?.department||"";
+  const meta = role==="employee" ? (jobTitle||dept||t("roles.employee")) : (dept||t(`roles.${role}`));
+  return `<div class="topbar"><div class="topbar__title"><span class="label">${label}</span><h2>${title}</h2></div><div class="topbar-actions">${languageSwitcher()}<div class="topbar-user-identity">${role === "employee" ? employeeAvatar(currentAccount,currentEmployee,"topbar-user__avatar") : `<span class="avatar">${avatarText||currentAvatarText||"HR"}</span>`}<span class="topbar-user__identity"><strong>${escapeHtml(fullName)}</strong><small>${escapeHtml(meta)}</small></span></div><button type="button" class="topbar-logout-btn" data-logout aria-label="${uiText("logout")}" title="${uiText("logout")}"><span class="topbar-logout-btn__icon" aria-hidden="true">↪</span><span class="topbar-logout-btn__text">${uiText("logout")}</span></button></div></div>`;
 }
 
 function accountsPage() {
