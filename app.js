@@ -832,7 +832,7 @@ function adminDashboard(compact = false) {
       <div class="kpi-grid"><div class="card kpi"><span class="label">${overviewText("activeEmployees")}</span><strong>${stats.totalActiveEmployees}</strong></div><div class="card kpi"><span class="label">${overviewText("publishedCourses")}</span><strong>${stats.totalPublishedCourses}</strong></div><div class="card kpi"><span class="label">${overviewText("completionRate")}</span><strong>${stats.completionRate}%</strong></div><div class="card kpi"><span class="label">${t("quiz.passRate")}</span><strong>${stats.quizPassRate}%</strong></div></div>
       <section class="card panel data-quality-alert"><h3>${t("admin.dataReviewTitle")}</h3><p>${t("admin.invalidEmails")}: <strong>${summary.invalidEmails}</strong> · ${t("admin.duplicateEmails")}: <strong>${summary.duplicateEmails}</strong></p><button class="btn btn-outline" data-review-issues>${t("admin.reviewIssues")}</button></section>
       ${hrEmployeeDirectory()}
-    </div></main></div>
+    </div></main>${employeeFormModal()}</div>
   `;
 }
 
