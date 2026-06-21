@@ -335,6 +335,11 @@ function languageSwitcher() {
 }
 
 function header() {
+  const activeSession = sessionService.getValidSession();
+  const activeAccount = activeSession?.accountId ? getAccountById(activeSession.accountId) : null;
+  const activeEmployee = activeAccount?.role === "employee" ? getEmployeeByAccountId(activeAccount.id) : null;
+  const destinationLabel = activeAccount?.role === "hr" ? "Vào trang quản trị" : "Vào trang học tập";
+  const destinationRoute = activeAccount?.role === "hr" ? "/admin" : "/dashboard";
   return `
     <header class="header">
       <div class="container header-inner">
@@ -342,14 +347,16 @@ function header() {
         <nav class="nav">
           <a href="/" data-link>${t("nav.home")}</a>
           <a href="/about-kis" data-link>${t("nav.about")}</a>
-          <button class="nav-button" data-scroll="featured-courses">${t("nav.courses")}</button>
-          <button class="nav-button" data-announcements-link>${uiText("announcements")}</button>
+          <button class="nav-button" ${activeSession ? 'data-auth-target="/dashboard/courses" data-auth-role="employee"' : 'data-scroll="featured-courses"'}>${activeSession ? uiText("exploreCourses") : t("nav.courses")}</button>
+          ${activeSession ? `<button class="nav-button" data-open-notifications>${uiText("announcements")}</button>` : `<button class="nav-button" data-announcements-link>${uiText("announcements")}</button>`}
+          ${activeAccount?.role === "employee" ? `<button class="nav-button" data-auth-target="/dashboard/calendar" data-auth-role="employee">${uiText("calendar")}</button>` : ""}
+          ${activeAccount?.role === "hr" ? `<button class="nav-button" data-auth-target="/admin/reports" data-auth-role="hr">${t("admin.reports")}</button>` : ""}
           <button class="nav-button" data-scroll="support">${t("nav.support")}</button>
         </nav>
         <div class="header-actions">
           ${languageSwitcher()}
-          <a class="btn btn-outline" href="/login" data-link>${t("nav.login")}</a>
-          <button class="btn btn-primary" data-hr-link>${t("nav.hr")}</button>
+          ${activeSession ? `<button class="btn btn-outline" data-auth-target="${destinationRoute}" data-auth-role="${activeAccount?.role || "employee"}">${destinationLabel}</button>` : `<a class="btn btn-outline" href="/login" data-link>${t("nav.login")}</a>`}
+          ${activeSession ? `<details class="topbar-user"><summary aria-label="${escapeHtmlAttribute(activeAccount?.fullName || "")}" title="${escapeHtmlAttribute(activeAccount?.fullName || "")}">${activeAccount?.role === "employee" ? employeeAvatar(activeAccount,activeEmployee,"topbar-user__avatar") : `<span class="avatar topbar-user__avatar">${initials(activeAccount?.fullName || "HR")}</span>`}<span class="topbar-user__identity"><strong title="${escapeHtmlAttribute(activeAccount?.fullName || "")}">${escapeHtml(activeAccount?.fullName || "")}</strong><small title="${escapeHtmlAttribute(activeEmployee?.department || activeAccount?.department || activeAccount?.role || "")}">${escapeHtml(activeEmployee?.department || activeAccount?.department || activeAccount?.role || "")}</small></span></summary><div class="topbar-user__menu"><strong>${escapeHtml(activeAccount?.fullName || "")}</strong><span>${escapeHtml(activeEmployee?.position || activeEmployee?.jobTitle || activeAccount?.position || "")}</span><span>${escapeHtml(activeEmployee?.department || activeAccount?.department || "")}</span><button class="btn btn-primary" data-auth-target="${destinationRoute}" data-auth-role="${activeAccount?.role || "employee"}">${destinationLabel}</button><button class="btn btn-outline" data-logout>${uiText("logout")}</button></div></details>` : `<button class="btn btn-primary" data-hr-link>${t("nav.hr")}</button>`}
         </div>
       </div>
     </header>
@@ -407,6 +414,7 @@ function progress(value) {
 
 function landingPage() {
   const stats = getLmsOverviewStats();
+  const training = getTrainingOverviewStats();
   const publishedCourses = getCourses().filter((course) => course.status === "published" && course.showOnLanding !== false);
   const purposes = [
     ["building", "purpose.onboarding", "Giúp nhân viên mới nắm rõ lịch sử công ty, văn hóa doanh nghiệp, quy trình nội bộ và các chính sách nhân sự bắt buộc."],
@@ -425,17 +433,18 @@ function landingPage() {
             <h2>Hệ thống Đào tạo Hội nhập và Phát triển chuyên môn KIS Việt Nam</h2>
             <p>Nơi lưu trữ tài liệu, khóa học kỹ năng mềm, chuyên môn và kiểm tra tiến độ; giúp nhân viên nhanh chóng hòa nhập và nâng cao năng lực làm việc.</p>
             <p class="hero-subnote">Dành riêng cho nhân viên KIS Việt Nam</p>
-            <div class="hero-actions"><a class="btn btn-primary" href="/login" data-link>${t("landing.cta")}</a><button class="btn btn-outline" data-scroll="featured-courses">Xem các khóa đào tạo</button></div>
-            <div class="hero-proof"><div class="proof-item"><strong>${stats.totalActiveEmployees.toLocaleString()}</strong><span>${overviewText("activeEmployees")}</span></div><div class="proof-item"><strong>${stats.totalPublishedCourses}</strong><span>${overviewText("publishedCourses")}</span></div><div class="proof-item"><strong>${stats.completionRate}%</strong><span>${overviewText("completionRate")}</span></div></div>
+            <div class="hero-actions"><button class="btn btn-primary" data-auth-target="/dashboard/courses" data-auth-role="employee">${t("landing.cta")}</button><button class="btn btn-outline" data-scroll="featured-courses">${uiText("exploreCourses")}</button></div>
+            <div class="hero-proof"><button class="proof-item" data-auth-target="/dashboard/history" data-auth-role="employee"><strong>${formatTrainingDuration(training.totalTrainingSeconds,language,true)}</strong><span>${uiText("totalTrainingHours")}</span></button><button class="proof-item" data-auth-target="/dashboard/courses" data-auth-role="employee"><strong>${stats.totalActiveEmployees.toLocaleString()}</strong><span>${overviewText("activeEmployees")}</span></button><button class="proof-item" data-auth-target="/dashboard/calendar" data-auth-role="employee"><strong>${stats.totalPublishedCourses}</strong><span>${overviewText("publishedCourses")}</span></button></div>
           </div>
           ${heroMockup()}
         </div>
       </section>
       <section class="section" id="purpose"><div class="container"><h2 class="section-title">${t("landing.purpose")}</h2><p class="section-lead">${t("landing.purposeLead")}</p><div class="grid-4 purpose-grid">${purposes.map(([i, key, desc]) => `<article class="card info-card purpose-card">${icon(i)}<h3>${t(key)}</h3><p>${desc}</p></article>`).join("")}</div></div></section>
       <section class="section" id="featured-courses"><div class="container"><h2 class="section-title">${overviewText("openCourses")}</h2>${publishedCourses.length ? `<div class="landing-course-grid">${publishedCourses.map(realCourseCard).join("")}</div>` : `<div class="empty-state">${icon("book")}<h3>${overviewText("noOpenCourses")}</h3></div>`}</div></section>
-      <section class="section alt" id="support"><div class="container"><div class="support-panel card"><div><h2>${t("nav.support")}</h2><p>Liên hệ hỗ trợ đào tạo, tài khoản và phân quyền nội bộ.</p></div><strong>${hrContact}</strong></div></div></section>
+      <section class="section alt" id="support"><div class="container"><div class="support-panel card"><div><h2>${t("nav.support")}</h2><p>Liên hệ hỗ trợ đào tạo, tài khoản và phân quyền nội bộ.</p><div class="hero-actions"><button class="btn btn-outline" data-auth-target="/dashboard/gallery" data-auth-role="employee">Xem thư viện ảnh</button><button class="btn btn-outline" data-auth-target="/dashboard/resources" data-auth-role="employee">Xem tài liệu</button></div></div><strong>${hrContact}</strong></div></div></section>
       ${hrAnnouncementsSection()}
       ${footer()}
+      ${activeSessionForLandingModal()}
     </div>
   `;
 }
@@ -453,7 +462,7 @@ function overviewText(key) {
 
 function realCourseCard(course) {
   const image = course.imageUrl ? `<img class="course-card-image" src="${escapeHtmlAttribute(course.imageUrl)}" alt="${escapeHtmlAttribute(course.title)}" loading="lazy">` : icon("book");
-  return `<article class="card info-card course-category">${image}<div class="course-card-body"><span class="badge new">${escapeHtml(course.category || t("nav.courses"))}</span><h3>${escapeHtml(course.title)}</h3><p>${escapeHtml(course.description || "")}</p><span class="card-meta">${Number(course.durationHours) || 0}h</span></div></article>`;
+  return `<article class="card info-card course-category" data-auth-target="/dashboard/courses" data-auth-role="employee" tabindex="0" role="button" aria-label="${escapeHtmlAttribute(course.title)}">${image}<div class="course-card-body"><span class="badge new">${escapeHtml(course.category || t("nav.courses"))}</span><h3>${escapeHtml(course.title)}</h3><p>${escapeHtml(course.description || "")}</p><span class="card-meta">${Number(course.durationHours) || 0}h</span><span class="btn btn-outline mini-action">Xem khóa học</span></div></article>`;
 }
 
 function heroMockup() {
@@ -472,7 +481,7 @@ function upcomingCoursesSection() {
 }
 
 function hrAnnouncementsSection() {
-  return `<section class="section alt" id="hr-announcements"><div class="container"><div class="section-head"><div><h2 class="section-title">Thông báo từ HR</h2><p class="section-lead">Cập nhật các thông tin quan trọng về đào tạo, hội nhập và phát triển nhân sự.</p></div></div><div class="grid-4">${hrAnnouncements.map(([category, title, desc]) => `<article class="card info-card hr-announcement-card">${icon("file")}<span class="badge new">${category}</span><h3>${title}</h3><p>${desc}</p><button class="btn btn-outline mini-course-btn">Xem chi tiết</button></article>`).join("")}</div></div></section>`;
+  return `<section class="section alt" id="hr-announcements"><div class="container"><div class="section-head"><div><h2 class="section-title">Thông báo từ HR</h2><p class="section-lead">Cập nhật các thông tin quan trọng về đào tạo, hội nhập và phát triển nhân sự.</p></div></div><div class="grid-4">${hrAnnouncements.map(([category, title, desc],index) => `<article class="card info-card hr-announcement-card" data-open-landing-announcement="${index}" tabindex="0" role="button">${icon("file")}<span class="badge new">${category}</span><h3>${title}</h3><p>${desc}</p><button class="btn btn-outline mini-course-btn">Xem chi tiết</button></article>`).join("")}</div></div></section>`;
 }
 
 function aboutPage() {
