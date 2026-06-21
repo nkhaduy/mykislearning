@@ -5314,14 +5314,7 @@ body.modal-open { overflow: hidden; }
   to   { opacity: 1; transform: none; }
 }
 
-/* Card head with logo */
-.login-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 28px;
-}
+/* Card head with logo — layout defined in the login-brand-group block below */
 .login-logo-link {
   display: inline-flex;
   align-items: center;
@@ -6214,6 +6207,7 @@ textarea:focus-visible {
   align-items: center;
   gap: 12px;
   padding: 20px 24px 16px;
+  margin-bottom: 28px;
 }
 .login-brand-group {
   display: inline-flex;
