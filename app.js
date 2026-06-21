@@ -1629,6 +1629,7 @@ function render() {
   hydrateEmployeePhotos();
   hydrateGalleryMedia();
   enhanceReportsPage();
+  enhanceTrainingReport();
   document.body.classList.toggle("modal-open", !!(contentBuilderMode || quizFormOpen || courseDrawerOpen || accountDrawerOpen || assignModalOpen || resetModalOpen || courseFormMode));
   setupLearningTracking();
   if (activeQuizAttempt) startQuizCountdown();
