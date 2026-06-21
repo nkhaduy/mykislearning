@@ -2,7 +2,8 @@
   "type": "module",
   "dependencies": {
     "impeccable": "github:pbakaus/impeccable",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "xlsx": "^0.18.5"
   },
   "allowScripts": {
     "puppeteer@25.1.0": true
