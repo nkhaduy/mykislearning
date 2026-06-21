@@ -1643,9 +1643,15 @@ function render() {
 
   route = location.pathname.replace(/\/$/, "") || "/";
   document.body.dataset.route = route;
-  session = getSession();
+  session = sessionService.getValidSession();
   const routeParams = new URLSearchParams(location.search);
   selectedLoginRole = routeParams.get("role") || selectedLoginRole;
+  if ((route.startsWith("/dashboard") || route.startsWith("/attendance/scan")) && !session) {
+    sessionService.setPostLoginRedirect(currentPathWithQuery());
+  }
+  if (route.startsWith("/admin") && !session) {
+    sessionService.setPostLoginRedirect(currentPathWithQuery());
+  }
   if (route === "/admin/assign" && assignRouteSearch !== location.search) {
     assignRouteSearch = location.search;
     assignCourseId = routeParams.get("courseId") || "";
@@ -1658,6 +1664,7 @@ function render() {
   if (route === "/") app.innerHTML = landingPage();
   else if (route === "/about-kis") app.innerHTML = aboutPage();
   else if (route === "/login") app.innerHTML = loginPage();
+  else if (route === "/attendance/scan") app.innerHTML = attendanceScanPage(routeParams.get("token") || "");
   else if (route === "/dashboard") app.innerHTML = hasEmployeeAccess() ? employeeDashboard(false) : session ? restrictedPage() : loginPage();
   else if (route === "/dashboard/courses") app.innerHTML = hasEmployeeAccess() ? myCoursesPage() : session ? restrictedPage() : loginPage();
   else if (route.startsWith("/dashboard/courses/")) app.innerHTML = coursePlayerPage(decodeURIComponent(route.split("/").pop()));
