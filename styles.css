@@ -6224,6 +6224,124 @@ textarea:focus-visible {
 }
 
 /* ============================================================
+   LOGIN CARD: Language switcher (solid, not glassmorphism)
+   ============================================================ */
+.login-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 24px 16px;
+}
+.login-logo-link {
+  flex-shrink: 0;
+}
+.login-lang-wrap {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.login-lang-wrap .language-switch {
+  background: var(--navy, #003087);
+  border: 1.5px solid rgba(255,255,255,0.25);
+  border-radius: 8px;
+  box-shadow: none;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.login-lang-wrap .language-switch button {
+  color: rgba(255,255,255,0.7);
+  font-size: 0.72rem;
+  padding: 3px 7px;
+}
+.login-lang-wrap .language-switch button.active,
+.login-lang-wrap .language-switch button[aria-pressed="true"] {
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  font-weight: 700;
+}
+.login-lang-wrap .language-switch button:hover:not(.active) {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+
+/* ============================================================
+   QR SCAN IMPROVEMENTS
+   ============================================================ */
+.qr-consent-card {
+  max-width: 440px;
+  margin: 0 auto;
+  text-align: center;
+}
+.qr-consent-icon {
+  width: 72px; height: 72px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--blue-tint, #eef3fb);
+  border-radius: 50%;
+  margin: 0 auto 20px;
+  color: var(--navy, #003087);
+}
+.qr-consent-list {
+  text-align: left;
+  margin: 12px 0 24px;
+  padding-left: 20px;
+  color: var(--text-muted, #6b7280);
+  font-size: 0.875rem;
+}
+.qr-consent-list li { margin-bottom: 6px; }
+
+.qr-session-meta {
+  font-size: 0.9rem;
+  color: var(--text-muted, #6b7280);
+  margin: 4px 0;
+}
+.qr-session-location {
+  font-size: 0.82rem;
+  color: var(--text-muted, #6b7280);
+  display: inline-flex; align-items: center; gap: 4px;
+  margin: 2px 0 12px;
+}
+.qr-location-info {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.78rem;
+  color: #16a34a;
+  margin-bottom: 12px;
+  padding: 5px 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+}
+.qr-location-info--pending {
+  color: var(--text-muted, #6b7280);
+  background: var(--blue-tint, #eef3fb);
+  border-color: var(--blue-border, #c7d9f5);
+}
+.qr-location-info--ok {
+  color: #16a34a;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.qr-confirm-actions {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  margin-top: 16px;
+}
+
+.attendance-result {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; padding: 24px; text-align: center;
+  max-width: 420px; margin: 0 auto;
+}
+.attendance-result--error { color: #b45309; }
+.attendance-result--already .attendance-result__icon { color: #16a34a; }
+.attendance-result--warn { color: #b45309; }
+.attendance-result__icon {
+  width: 64px; height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  background: #f0fdf4; border-radius: 50%;
+  margin-bottom: 4px;
+}
+.attendance-result--error .attendance-result__icon { background: #fef9c3; }
+
+/* ============================================================
    REDUCED MOTION
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
