@@ -5909,8 +5909,7 @@ body.modal-open { overflow: hidden; }
 .auth-header-lang .language-switch button:hover { color: #fff; }
 .auth-header-lang .language-switch span { color: rgba(255,255,255,0.3); }
 
-/* Remove lingering language switcher space from login card head */
-.login-card-head { justify-content: center; }
+/* login-card-head layout now handled by the block below */
 
 @media (max-width: 600px) {
   .auth-header { padding: 14px 16px; }
