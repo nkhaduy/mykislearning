@@ -207,6 +207,78 @@ function ytFlushRanges(final = false) {
   if (completed) render();
 }
 
+let _qrCameraStream = null;
+let _qrScanRafId = null;
+
+function stopQrCameraScanner() {
+  if (_qrScanRafId) { cancelAnimationFrame(_qrScanRafId); _qrScanRafId = null; }
+  if (_qrCameraStream) { _qrCameraStream.getTracks().forEach(t => t.stop()); _qrCameraStream = null; }
+}
+
+async function initQrCameraScanner() {
+  const video = document.getElementById("qrCameraVideo");
+  const canvas = document.getElementById("qrCameraCanvas");
+  const status = document.getElementById("qrCameraStatus");
+  const stopBtn = document.getElementById("qrCameraStop");
+  if (!video || !canvas || !status) return;
+
+  stopBtn?.addEventListener("click", () => { stopQrCameraScanner(); render(); });
+
+  // Load jsQR if not already loaded
+  if (!window.jsQR) {
+    const script = document.createElement("script");
+    script.src = "/vendor/jsqr.min.js";
+    document.head.appendChild(script);
+    await new Promise((res, rej) => { script.onload = res; script.onerror = rej; });
+  }
+
+  // Check if camera is available
+  if (!navigator.mediaDevices?.getUserMedia) {
+    status.textContent = "Thiết bị không hỗ trợ camera. Vui lòng dùng link QR.";
+    return;
+  }
+
+  status.textContent = "Đang yêu cầu quyền truy cập camera...";
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    _qrCameraStream = stream;
+    video.srcObject = stream;
+    if (stopBtn) stopBtn.style.display = "";
+    status.textContent = "Đang quét... Hướng camera vào mã QR.";
+
+    function scanFrame() {
+      if (!_qrCameraStream || video.readyState < 2) { _qrScanRafId = requestAnimationFrame(scanFrame); return; }
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = window.jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+      if (code?.data) {
+        stopQrCameraScanner();
+        const url = code.data;
+        // Extract token from URL or use raw value
+        let token = url;
+        try { const u = new URL(url); token = u.searchParams.get("token") || u.pathname.split("/").pop() || url; } catch {}
+        status.textContent = "Đã nhận mã. Đang xác nhận điểm danh...";
+        navigate(`/attendance/scan?token=${encodeURIComponent(token)}`);
+        return;
+      }
+      _qrScanRafId = requestAnimationFrame(scanFrame);
+    }
+    scanFrame();
+  } catch (err) {
+    if (err.name === "NotAllowedError") {
+      status.textContent = "Camera bị từ chối. Vui lòng cấp quyền trong cài đặt trình duyệt.";
+    } else if (err.name === "NotFoundError") {
+      status.textContent = "Không tìm thấy camera. Vui lòng dùng link QR.";
+    } else {
+      status.textContent = "Không thể khởi động camera: " + err.message;
+    }
+  }
+}
+
 function destroyYoutubePlayer() {
   if (_ytPersistTimer) { clearInterval(_ytPersistTimer); _ytPersistTimer = null; }
   if (_ytWatchStart !== null) ytFlushRanges(true);
