@@ -1,5 +1,8 @@
 {
   "type": "module",
+  "scripts": {
+    "start:spa": "node scripts/spa-fallback-server.mjs"
+  },
   "dependencies": {
     "impeccable": "github:pbakaus/impeccable",
     "qrcode": "^1.5.4",
