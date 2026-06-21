@@ -2239,7 +2239,7 @@ function bindEvents() {
   document.querySelectorAll("[data-scroll]").forEach((el) => el.addEventListener("click", () => scrollToId(el.dataset.scroll)));
   document.querySelector("[data-announcements-link]")?.addEventListener("click", goAnnouncements);
   document.querySelector("[data-hr-link]")?.addEventListener("click", () => navigate(session?.role === "hr" ? "/admin" : "/login?role=hr"));
-  document.querySelectorAll("[data-login-role]").forEach((el) => el.addEventListener("click", () => { selectedLoginRole = el.dataset.loginRole; render(); }));
+  // role-toggle removed from login UI
   document.querySelector("[data-forgot-password]")?.addEventListener("click", () => {
     openDialog({ type: "support" });
   });
