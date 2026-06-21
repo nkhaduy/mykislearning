@@ -5537,10 +5537,85 @@ body.modal-open { overflow: hidden; }
 }
 
 /* Hide old classes that conflict */
-.auth-background { display: none !important; }
-.auth-overlay { display: none !important; }
 .auth-context-brand { display: none !important; }
 .login-system-label { display: none !important; }
+.auth-bg-shapes { display: none !important; }
+
+/* Restore real background image */
+.auth-background {
+  display: block !important;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: url("/public/images/kis-head-office.webp") center 52% / cover no-repeat;
+  pointer-events: none;
+}
+
+/* Overlay — navy tint, no blur */
+.auth-overlay {
+  display: block !important;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    100deg,
+    rgba(7, 21, 42, 0.72) 0%,
+    rgba(7, 21, 42, 0.54) 48%,
+    rgba(7, 21, 42, 0.68) 100%
+  );
+  pointer-events: none;
+}
+
+/* Ensure auth-page content sits above overlay */
+.auth-page .auth-context,
+.auth-page .auth-visual,
+.auth-page .auth-home-btn {
+  position: relative;
+  z-index: 2;
+}
+
+/* "Về trang chủ" button */
+.auth-home-btn {
+  position: fixed;
+  top: 20px;
+  left: 24px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px 8px 12px;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: background 150ms, color 150ms, border-color 150ms;
+}
+.auth-home-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.auth-home-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+}
+.auth-home-btn svg {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+@media (max-width: 480px) {
+  .auth-home-btn {
+    top: 14px;
+    left: 14px;
+    padding: 7px 12px 7px 10px;
+    font-size: 12.5px;
+  }
+}
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
