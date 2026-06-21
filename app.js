@@ -958,18 +958,23 @@ function loginPage() {
   const demoEmployee = getDemoEmployee();
   return `
     <main class="auth-page">
-      <section class="auth-panel">${brand()}<div class="auth-copy"><h1>${t("login.title")}</h1><p>${t("login.subtitle")}</p></div></section>
+      <div class="auth-background" aria-hidden="true"></div>
+      <div class="auth-overlay" aria-hidden="true"></div>
+      <section class="auth-context">
+        <div class="auth-context-brand"><span class="auth-context-mark">KIS</span><span>KIẾN TẠO GIÁ TRỊ BỀN VỮNG</span></div>
+        <div class="auth-context-copy"><span>HỆ THỐNG NỘI BỘ KIS VIỆT NAM</span><h1>Chào mừng đến với MyKIS</h1><p>Nền tảng học tập và phát triển năng lực dành riêng cho đội ngũ KIS Việt Nam.</p></div>
+      </section>
       <section class="auth-visual">
         <form class="card login-card" id="loginForm">
-          <div class="login-card-head">${brand()}${languageSwitcher()}</div>
-          <h2>${t("login.title")}</h2><p>${t("login.note")}</p>
+          <div class="login-card-head"><div class="mykis-brand"><span class="mykis-logo">KIS</span><span class="mykis-wordmark">MyKIS</span></div>${languageSwitcher()}</div>
+          <div class="login-heading"><span>CỔNG THÔNG TIN NỘI BỘ</span><h2>Đăng nhập MyKIS</h2><p>Vui lòng sử dụng tài khoản được Phòng Nhân sự cấp để tiếp tục.</p></div>
           <div class="role-toggle" role="tablist">${["employee", "hr"].map((role) => `<button type="button" class="${selectedLoginRole === role ? "active" : ""}" data-login-role="${role}" aria-selected="${selectedLoginRole === role}">${t(`roles.${role}`)}</button>`).join("")}</div>
-          <div class="field"><label>${t("login.email")}</label><input name="identifier" autocomplete="username" type="email"></div>
-          <div class="field"><label>${t("login.password")}</label><input name="password" type="password" autocomplete="current-password"></div>
-          <div class="login-tools"><span>${t("login.note")}</span><button class="link-button" type="button" data-forgot-password>${uiText("forgotPassword")}</button></div>
-          <label class="remember-me-row"><input type="checkbox" name="rememberMe" class="remember-me-check"><span>${uiText("rememberMe")}</span><small>${uiText("rememberMeNote")}</small></label>
-          <button class="btn btn-primary" type="submit" style="width:100%">${t("login.submit")}</button>
-          <div class="demo-account-card">
+          <div class="field"><label>${t("login.email")}</label><input name="identifier" autocomplete="username" type="email" placeholder="ten.nhanvien@kisvn.vn"></div>
+          <div class="field"><label>${t("login.password")}</label><input name="password" type="password" autocomplete="current-password" placeholder="Nhập mật khẩu"></div>
+          <div class="login-options"><label class="remember-me-row"><input type="checkbox" name="rememberMe" class="remember-me-check"><span>Ghi nhớ đăng nhập</span></label><button class="link-button" type="button" data-forgot-password>${uiText("forgotPassword")}</button></div>
+          <button class="btn btn-primary login-submit" type="submit">${t("login.submit")}</button>
+          <p class="login-security-note">Tài khoản được bảo vệ theo chính sách an toàn thông tin của KIS Việt Nam.</p>
+          <details class="demo-account-details"><summary>Tài khoản dùng thử</summary><div class="demo-account-card">
             <div>
               <span class="eyebrow">Tài khoản HR demo</span>
               <h3>Nguyễn Thị Cẩm Thanh</h3>
@@ -981,7 +986,7 @@ function loginPage() {
               <button class="btn btn-ghost" type="button" data-reset-demo-account>Reset demo account</button>
             </div>
           </div>
-          ${demoEmployee ? `<div class="demo-account-card"><div><strong>${uiText("demoEmployeeAccount")}</strong><p>${escapeHtml(demoEmployee.fullName || demoEmployee.name || "")}</p><p>${uiText("emailLabel")}: ${escapeHtml(demoEmployee.email || "")}</p><p>${uiText("passwordLabel")}: Training@2026</p></div><button type="button" class="btn btn-outline" data-fill-demo-employee>${uiText("useAccount")}</button></div>` : ""}
+          ${demoEmployee ? `<div class="demo-account-card"><div><strong>${uiText("demoEmployeeAccount")}</strong><p>${escapeHtml(demoEmployee.fullName || demoEmployee.name || "")}</p><p>${uiText("emailLabel")}: ${escapeHtml(demoEmployee.email || "")}</p><p>${uiText("passwordLabel")}: Training@2026</p></div><button type="button" class="btn btn-outline" data-fill-demo-employee>${uiText("useAccount")}</button></div>` : ""}</details>
         </form>
       </section>
     </main>
