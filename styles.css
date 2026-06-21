@@ -6201,85 +6201,142 @@ textarea:focus-visible {
 
 /* ============================================================
    LOGIN CARD: Logo + language switcher row
+   Root causes fixed:
+   - Removed padding from login-card-head (card already has clamp padding)
+   - login-brand-group uses width:100% + overflow:hidden to contain overflow
+   - login-logo-link gets flex:1 1 auto so logo shrinks before switcher
+   - login-language-switcher gets flex:0 0 auto so it never wraps or shrinks
+   - All global .language-switch overrides (min-height:38px, padding:0 12px,
+     width:100% at mobile) are neutralised with higher-specificity rules here
    ============================================================ */
 .login-card-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 20px 24px 16px;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
   margin-bottom: 28px;
 }
 .login-brand-group {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
   min-width: 0;
-  flex: 0 0 auto;
+  overflow: hidden;
 }
-.login-logo-link {
-  flex-shrink: 0;
-}
-/* Login-specific language switcher: solid white, compact, no glassmorphism */
-.login-lang-switcher {
-  flex: 0 0 auto;
-}
-.login-lang-switcher .language-switch {
+/* Logo link: shrinks first if space is tight */
+.login-brand-group .login-logo-link {
   display: inline-flex;
   align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  text-decoration: none;
+  border-radius: 6px;
+  outline-offset: 3px;
+}
+.login-brand-group .login-logo-link:focus-visible {
+  outline: 2px solid var(--navy, #003087);
+}
+.login-brand-logo {
+  display: block;
+  width: auto;
+  max-width: 180px;
+  height: auto;
+  max-height: 32px;
+  object-fit: contain;
+  object-position: left center;
+  flex-shrink: 1;
+}
+/* Switcher wrapper: never shrinks, never grows */
+.login-language-switcher {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
   width: auto;
   max-width: max-content;
-  white-space: nowrap;
-  overflow: hidden;
-  min-height: 0;
-  height: auto;
-  padding: 4px;
+  min-width: 0;
+  margin: 0;
+  position: static;
+  transform: none;
+}
+/* Override ALL global .language-switch rules that cause overflow */
+.login-language-switcher .language-switch {
+  display: inline-flex !important;
+  align-items: center;
   gap: 2px;
-  background: #ffffff;
-  border: 1px solid rgba(15, 45, 78, 0.16);
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: max-content;
+  min-height: 0 !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 3px !important;
+  border: 1px solid #d7e1ec !important;
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(8, 35, 70, 0.10);
+  background: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(10, 37, 70, 0.10);
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-}
-.login-lang-switcher .language-switch button {
-  min-width: 34px;
-  min-height: 0;
-  height: 30px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: #173b63;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
+  overflow: hidden;
   white-space: nowrap;
-  flex-shrink: 0;
 }
-.login-lang-switcher .language-switch button.active {
-  background: #0b2e59;
-  color: #ffffff;
-  text-decoration: none;
+/* Override global button rules: min-height, min-width, padding, flex */
+.login-language-switcher .language-switch button {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto !important;
+  width: auto !important;
+  min-width: 32px !important;
+  height: 30px !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 8px !important;
+  border: 0 !important;
+  border-radius: 7px;
+  background: transparent !important;
+  color: #173b63 !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
 }
-.login-lang-switcher .language-switch button:hover:not(.active) {
-  background: #edf4fb;
-  color: #0b2e59;
+.login-language-switcher .language-switch button.active {
+  background: #0b2e59 !important;
+  color: #ffffff !important;
+  text-decoration: none !important;
 }
-.login-lang-switcher .language-switch button:focus-visible {
+.login-language-switcher .language-switch button:hover:not(.active) {
+  background: #edf4fb !important;
+  color: #0b2e59 !important;
+}
+.login-language-switcher .language-switch button:focus-visible {
   outline: 2px solid #6aa9df;
   outline-offset: 2px;
 }
-/* hide the "|" separators inside login card (already styled via gap) */
-.login-lang-switcher .language-switch span {
-  display: none;
+/* Hide "|" separators — buttons already spaced by gap */
+.login-language-switcher .language-switch span {
+  display: none !important;
 }
+/* Mobile: logo shrinks, switcher stays put */
 @media (max-width: 640px) {
-  .login-brand-group { gap: 8px; }
-  .login-lang-switcher .language-switch button {
-    min-width: 30px;
-    height: 28px;
-    padding: 0 7px;
-    font-size: 11px;
+  .login-brand-group { gap: 7px; }
+  .login-brand-logo { max-width: 145px; max-height: 28px; }
+  .login-language-switcher .language-switch button {
+    min-width: 28px !important;
+    height: 28px !important;
+    padding: 0 6px !important;
+    font-size: 11px !important;
+  }
+}
+/* Ensure login switcher is never hidden by the dashboard mobile rule
+   (.language-switch{display:none} in @media(max-width:640px)) */
+@media (max-width: 640px) {
+  .login-language-switcher .language-switch {
+    display: inline-flex !important;
   }
 }
 
