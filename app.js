@@ -2271,7 +2271,63 @@ function offlineSessionCards() {
   }).join("");
 }
 function renderCalendarMonth(events){const base=new Date();base.setMonth(base.getMonth()+calendarMonthOffset,1);base.setHours(0,0,0,0);const today=new Date();const daysInMonth=new Date(base.getFullYear(),base.getMonth()+1,0).getDate(),offset=(base.getDay()+6)%7;const eventByDay=new Map();events.forEach(event=>{const date=new Date(event.startAt);if(date.getMonth()!==base.getMonth()||date.getFullYear()!==base.getFullYear())return;const day=date.getDate();eventByDay.set(day,[...(eventByDay.get(day)||[]),event]);});const effectiveSelectedDay=calendarSelectedDay&&eventByDay.has(calendarSelectedDay)?calendarSelectedDay:0;const selectedEvents=effectiveSelectedDay?(eventByDay.get(effectiveSelectedDay)||[]):[];const cells=[...Array(offset).fill(null),...Array.from({length:daysInMonth},(_,index)=>index+1)];return `<section class="card month-calendar"><header class="calendar-month-head"><button class="btn btn-outline mini-action" data-calendar-month="-1">‹</button><h2>${base.toLocaleDateString("vi-VN",{month:"long",year:"numeric"})}</h2><div class="calendar-month-head__actions"><button class="btn btn-outline mini-action" data-calendar-today>Hôm nay</button><button class="btn btn-outline mini-action" data-calendar-month="1">›</button></div></header><div class="month-weekdays">${["T2","T3","T4","T5","T6","T7","CN"].map(label=>`<span>${label}</span>`).join("")}</div><div class="month-grid">${cells.map(day=>day?`<button class="month-day ${day===today.getDate()&&calendarMonthOffset===0?"today":""} ${effectiveSelectedDay===day?"active":""}" data-calendar-day="${day}"><span>${day}</span>${eventByDay.get(day)?.length?`<small>${eventByDay.get(day).length} sự kiện</small><i aria-hidden="true"></i>`:""}</button>`:`<span></span>`).join("")}</div>${effectiveSelectedDay?`<section class="calendar-day-detail"><div class="panel-head"><div><h3>Ngày ${effectiveSelectedDay}/${base.getMonth()+1}</h3><p>${selectedEvents.length} sự kiện đã lên lịch</p></div><button class="btn btn-outline mini-action" data-calendar-clear-day>Đóng</button></div><div class="calendar-day-detail__list">${selectedEvents.map(event=>`<article class="calendar-event-row"><div><strong>${escapeHtml(event.title)}</strong><p>${escapeHtml(event.subtitle||"")}</p><small>${formatLocalDateTime(event.startAt)}${event.location?` · ${escapeHtml(event.location)}`:""}</small></div><a class="btn btn-outline mini-action" href="${event.actionUrl}" data-link>Chi tiết</a></article>`).join("")}</div></section>`:""}</section>`;}
-function learningCalendarPageV3(){if(!hasEmployeeAccess())return restrictedPage();const events=calendarService.getEventsForAccount(session.accountId,{includeCancelled:true});const sessionEvents=events.filter(event=>event.eventType==="offline_session"),deadlineEvents=events.filter(event=>event.eventType!=="offline_session");return `<div class="app-layout">${sideNav("employee")}<main class="app-main">${topbar("Học tập","Lịch học & deadline","employee")}<div class="content route-content"><section class="calendar-head"><div><span class="eyebrow">Online · Offline · Hybrid</span><h1>Lịch học & deadline</h1><p>Phản hồi lớp trực tiếp và theo dõi thời hạn học tập tại một nơi.</p></div><div class="view-tabs"><button class="${calendarView==="upcoming"?"active":""}" data-calendar-view="upcoming">Sắp tới</button><button class="${calendarView==="month"?"active":""}" data-calendar-view="month">Theo tháng</button><button class="${calendarView==="deadline"?"active":""}" data-calendar-view="deadline">Deadline</button></div></section>${calendarView==="month"?renderCalendarMonth(events):calendarView==="upcoming"?`<div class="offline-session-list">${offlineSessionCards()}</div>`:`<div class="deadline-list">${deadlineEvents.map(event=>`<article class="card deadline-card ${event.status==="cancelled"?"overdue":""}"><div class="deadline-date"><strong>${new Date(event.startAt).getDate()}</strong><span>${new Date(event.startAt).toLocaleDateString("vi-VN",{month:"short"})}</span></div><div class="deadline-card__body"><div><h2>${escapeHtml(event.title||"")}</h2><p>${escapeHtml(event.subtitle||"")}</p></div><a class="btn btn-primary" href="${escapeHtmlAttribute(event.actionUrl)}" data-link>${event.eventType==="course_deadline"?"Mở khóa học":"Xem chi tiết"}</a></div></article>`).join("")||`<div class="empty-state">Bạn chưa có deadline sắp tới.</div>`}</div>`}</div></main>${busyResponseModal()}</div>`;}
+function learningCalendarPageV3() {
+  if (!hasEmployeeAccess()) return restrictedPage();
+  const events = _calendarEvents || [];
+  const sessionEvents = events.filter(event => event.eventType === "offline_session");
+  const deadlineEvents = events.filter(event => event.eventType !== "offline_session");
+
+  const sourceNote = _calendarSource === "api"
+    ? ""
+    : _calendarSource === "local" && !_calendarLoading
+    ? `<p class="calendar-sync-note">Dữ liệu từ bộ nhớ cục bộ — có thể chưa đồng bộ.</p>`
+    : "";
+
+  const contentArea = _calendarLoading
+    ? `<div class="calendar-loading"><div class="spinner" aria-label="Đang tải lịch học..."></div><p>Đang tải lịch học...</p></div>`
+    : _calendarError
+    ? `<div class="empty-state calendar-error">
+        <p>Không thể tải lịch học: ${escapeHtml(_calendarError)}</p>
+        <button class="btn btn-outline" data-calendar-refresh>Thử lại</button>
+      </div>`
+    : calendarView === "month"
+    ? renderCalendarMonth(events)
+    : calendarView === "upcoming"
+    ? `<div class="offline-session-list">${offlineSessionCards()}</div>`
+    : `<div class="deadline-list">${deadlineEvents.map(event => `
+        <article class="card deadline-card ${event.status === "cancelled" ? "overdue" : ""}">
+          <div class="deadline-date">
+            <strong>${new Date(event.startAt).getDate()}</strong>
+            <span>${new Date(event.startAt).toLocaleDateString("vi-VN", { month: "short" })}</span>
+          </div>
+          <div class="deadline-card__body">
+            <div><h2>${escapeHtml(event.title || "")}</h2><p>${escapeHtml(event.subtitle || "")}</p></div>
+            <a class="btn btn-primary" href="${escapeHtmlAttribute(event.actionUrl)}" data-link>${event.eventType === "course_deadline" ? "Mở khóa học" : "Xem chi tiết"}</a>
+          </div>
+        </article>`).join("") || `<div class="empty-state">Bạn chưa có deadline sắp tới.</div>`}
+      </div>`;
+
+  return `<div class="app-layout">${sideNav("employee")}<main class="app-main">
+    ${topbar("Học tập", "Lịch học & deadline", "employee")}
+    <div class="content route-content">
+      <section class="calendar-head">
+        <div>
+          <span class="eyebrow">Online · Offline · Hybrid</span>
+          <h1>Lịch học & deadline</h1>
+          <p>Phản hồi lớp trực tiếp và theo dõi thời hạn học tập tại một nơi.</p>
+          ${sourceNote}
+        </div>
+        <div class="view-tabs">
+          <button class="${calendarView === "upcoming" ? "active" : ""}" data-calendar-view="upcoming">Sắp tới</button>
+          <button class="${calendarView === "month" ? "active" : ""}" data-calendar-view="month">Theo tháng</button>
+          <button class="${calendarView === "deadline" ? "active" : ""}" data-calendar-view="deadline">Deadline</button>
+          <button class="btn-ghost calendar-refresh-btn" data-calendar-refresh title="Làm mới">↻</button>
+        </div>
+      </section>
+      ${contentArea}
+    </div>
+  </main>${busyResponseModal()}</div>`;
+}
 function busyResponseModal(){if(!busySessionId)return "";return `<div class="modal-backdrop open"><form id="busyResponseForm" class="modal modal--medium modal--structured"><header class="modal__header"><h2>Lý do không thể tham gia</h2><button type="button" class="icon-btn" data-close-busy>×</button></header><div class="modal__body"><div class="field"><label>Lý do</label><select name="reason"><option>Trùng lịch công việc</option><option>Nghỉ phép/công tác</option><option>Đã tham gia lớp tương đương</option><option value="other">Lý do khác</option></select></div><div class="field"><label>Ghi chú</label><textarea name="note" maxlength="300" rows="3"></textarea></div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-close-busy>Hủy</button><button class="btn btn-primary">Gửi phản hồi</button></footer></form></div>`;}
 
 function adminSessionsPage(){if(!hasAdminAccess())return restrictedPage();const sessions=offlineTrainingService.listSessions();return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D","Lớp trực tiếp & điểm danh","hr")}<div class="content route-content"><section class="library-head"><div><span class="eyebrow">Offline · Hybrid</span><h1>Quản lý buổi học</h1><p>Chọn người tham dự, mở QR theo từng slot và chốt attendance bằng dữ liệu thật.</p></div><button class="btn btn-primary" data-create-session>+ Thêm buổi học</button></section><div class="session-admin-list">${sessions.map(s=>{const regs=offlineTrainingService.ensureInvitations(s.id),attending=regs.filter(row=>row.responseStatus==="attending").length,attended=regs.filter(row=>["attended","partial"].includes(row.attendanceStatus)).length,summary=offlineTrainingService.participantSummary(s.id),slots=qrAttendanceService.getOrCreateDefaultSlots(s.id,session.accountId);return `<article class="card session-admin-card"><div class="session-admin-card__body"><span class="badge ${s.status}">${s.status}</span><h2>${escapeHtml(getCourseById(s.courseId)?.title||"")}</h2><h3>${escapeHtml(s.title)}</h3><p>${formatLocalDateTime(s.startAt)}–${new Date(s.endAt).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})} · ${escapeHtml(s.locationName||s.meetingUrl||"")}</p><div class="session-admin-summary"><span>${summary.selected} / ${summary.capacity} người</span><span>${attending} xác nhận</span><span>${attended} đã điểm danh</span></div><div class="session-slot-list">${slots.map(slot=>`<span class="slot-chip">${escapeHtml(slot.label)}</span>`).join("")}</div></div><div class="session-admin-card__actions"><button class="btn btn-primary" data-manage-session="${s.id}">Quản lý người tham gia</button><button class="btn btn-outline" data-edit-session="${s.id}">Chỉnh sửa</button></div></article>`;}).join("")||`<div class="empty-state">Chưa có buổi học trực tiếp.</div>`}</div></div></main>${sessionEditorModal()}${attendanceModal()}${qrProjectorModal()}${importWizardModal()}</div>`;}
