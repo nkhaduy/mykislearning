@@ -1118,7 +1118,7 @@ function adminDashboard(compact = false) {
   return `
     <div class="${compact ? "dashboard-preview" : "app-layout"}">${sideNav("hr")}<main class="app-main">${topbar("HR Admin Dashboard", "Quản trị đào tạo nội bộ", "hr")}<div class="content">
       <div class="kpi-grid">
-        <div class="card kpi"><span class="label">${overviewText("activeEmployees")}</span><strong>${stats.totalActiveEmployees}</strong></div>
+        <div class="card kpi"><span class="label">${overviewText("activeEmployees")}</span><strong>${stats.totalActiveEmployees}</strong><small>${allEmployees.length - stats.totalActiveEmployees > 0 ? `${stats.totalActiveEmployees} đang hoạt động · ${allEmployees.length - stats.totalActiveEmployees} tạm khóa` : "Sẵn sàng tham gia đào tạo"}</small></div>
         <div class="card kpi"><span class="label">${overviewText("publishedCourses")}</span><strong>${stats.totalPublishedCourses}</strong></div>
         <div class="card kpi"><span class="label">${overviewText("completionRate")}</span><strong>${stats.completionRate}%</strong></div>
         <div class="card kpi"><span class="label">${t("quiz.passRate")}</span><strong>${stats.quizPassRate}%</strong></div>
