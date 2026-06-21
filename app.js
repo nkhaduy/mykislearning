@@ -905,6 +905,7 @@ function aboutPage() {
       <main>
         ${kisOverviewSection()}
         ${globalNetworkSection()}
+        ${leadershipSection()}
         ${kisTimelineSection()}
         ${ceoMessageSection()}
         ${corporatePhilosophySection()}
