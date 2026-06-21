@@ -2439,16 +2439,6 @@ function bindEvents() {
       activeNode?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
     });
   }));
-  document.querySelector("[data-timeline-prev]")?.addEventListener("click", () => {
-    const years = Object.keys(timelineData);
-    const idx = years.indexOf(String(activeTimelineYear));
-    if (idx > 0) { activeTimelineYear = years[idx - 1]; render(); }
-  });
-  document.querySelector("[data-timeline-next]")?.addEventListener("click", () => {
-    const years = Object.keys(timelineData);
-    const idx = years.indexOf(String(activeTimelineYear));
-    if (idx < years.length - 1) { activeTimelineYear = years[idx + 1]; render(); }
-  });
   // Auto-scroll active timeline node into view on page load
   requestAnimationFrame(() => {
     const activeNode = document.querySelector(".timeline-node.active");
