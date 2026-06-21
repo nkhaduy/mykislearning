@@ -457,6 +457,7 @@ function landingPage() {
       ${hrAnnouncementsSection()}
       ${footer()}
       ${activeSessionForLandingModal()}
+      ${hasEmployeeAccess()?notificationModal():""}
     </div>
   `;
 }
