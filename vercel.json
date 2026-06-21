@@ -5,11 +5,7 @@
   "outputDirectory": ".",
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    },
-    {
-      "source": "/((?!assets|vendor|public|images|data|lib|styles\\.css|app\\.js|favicon\\.|manifest\\.).*)",
+      "source": "/((?!api/|assets/|vendor/|public/|images/|data/|lib/|styles\\.css|app\\.js|favicon\\.|manifest\\.).*)",
       "destination": "/index.html"
     }
   ],
@@ -20,7 +16,7 @@
     },
     {
       "source": "/assets/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }]
     },
     {
       "source": "/styles.css",
