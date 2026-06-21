@@ -2379,11 +2379,12 @@ function bindEvents() {
   document.querySelectorAll("[data-course-delete]").forEach((el) => el.addEventListener("click", () => {
     const courseId = el.dataset.courseDelete;
     if (getEnrollmentsByCourseId(courseId).length > 0) return toast("error");
-    openDialog({type:"confirm",title:"Xóa khóa học",body:"Khóa học sẽ bị xóa vĩnh viễn. Tiến trình học liên quan sẽ không bị xóa.",onConfirm:()=>document.querySelector("[data-course-delete-confirmed]")?.click()});return;
-    const deleted = deleteCourse(courseId);
-    if (deleted && selectedCourseId === courseId) { selectedCourseId = ""; courseDrawerOpen = false; courseFormMode = ""; }
-    toast(deleted ? "success" : "error");
-    render();
+    openDialog({type:"confirm",title:"Xóa khóa học",body:"Khóa học sẽ bị xóa vĩnh viễn. Tiến trình học liên quan sẽ không bị xóa.",onConfirm:()=>{
+      const deleted = deleteCourse(courseId);
+      if (deleted && selectedCourseId === courseId) { selectedCourseId = ""; courseDrawerOpen = false; courseFormMode = ""; }
+      toast(deleted ? "success" : "error");
+      render();
+    }});
   }));
   document.querySelector("[data-close-course-drawer]")?.addEventListener("click", () => { courseDrawerOpen = false; contentBuilderMode = ""; selectedContentId = ""; render(); });
   document.querySelectorAll("[data-close-course-form]").forEach((el) => el.addEventListener("click", () => { courseFormMode = ""; render(); }));
