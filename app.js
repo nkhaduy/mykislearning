@@ -2426,7 +2426,30 @@ function bindEvents() {
   document.querySelector("[data-open-selected-participants]")?.addEventListener("click",()=>{const rows=sessionParticipantAccounts(selectedOfflineSessionId);openDialog({type:"alert",title:`Danh sách người tham dự (${rows.length})`,body:rows.length?rows.map((account,index)=>`${index+1}. ${account.fullName} — ${account.department||"Không rõ phòng ban"}`).join("\n"):"Chưa có nhân viên nào được chọn."});});
   document.querySelectorAll("[data-calendar-day]").forEach((el)=>el.addEventListener("click",()=>{calendarSelectedDay=Number(el.dataset.calendarDay)||0;render();}));
   document.querySelector("[data-calendar-clear-day]")?.addEventListener("click",()=>{calendarSelectedDay=0;render();});
-  document.querySelectorAll("[data-timeline-year]").forEach((el)=>el.addEventListener("click",()=>{activeTimelineYear=el.dataset.timelineYear;render();document.getElementById("kis-history")?.scrollIntoView({behavior:"smooth",block:"start"});}));
+  document.querySelectorAll("[data-timeline-year]").forEach((el) => el.addEventListener("click", () => {
+    activeTimelineYear = el.dataset.timelineYear;
+    render();
+    document.getElementById("kis-history")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    requestAnimationFrame(() => {
+      const activeNode = document.querySelector(".timeline-node.active");
+      activeNode?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    });
+  }));
+  document.querySelector("[data-timeline-prev]")?.addEventListener("click", () => {
+    const years = Object.keys(timelineData);
+    const idx = years.indexOf(String(activeTimelineYear));
+    if (idx > 0) { activeTimelineYear = years[idx - 1]; render(); }
+  });
+  document.querySelector("[data-timeline-next]")?.addEventListener("click", () => {
+    const years = Object.keys(timelineData);
+    const idx = years.indexOf(String(activeTimelineYear));
+    if (idx < years.length - 1) { activeTimelineYear = years[idx + 1]; render(); }
+  });
+  // Auto-scroll active timeline node into view on page load
+  requestAnimationFrame(() => {
+    const activeNode = document.querySelector(".timeline-node.active");
+    activeNode?.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
+  });
   document.querySelectorAll("[data-close-employee-form]").forEach(el=>el.addEventListener("click",()=>{employeeFormOpen=false;employeeCreateResult=null;render();}));
   document.getElementById("newEmployeePhoto")?.addEventListener("change",event=>{const file=event.target.files?.[0],preview=document.querySelector(".employee-photo-preview");if(!file||!preview)return;const url=URL.createObjectURL(file);preview.innerHTML=`<img src="${url}" alt="Xem trước ảnh đại diện">`;preview.querySelector("img").addEventListener("load",()=>URL.revokeObjectURL(url),{once:true});});
   document.getElementById("employeeCreateForm")?.addEventListener("submit",async event=>{event.preventDefault();const form=event.currentTarget,button=form.querySelector('[type="submit"]'),data=Object.fromEntries(new FormData(form));button.disabled=true;button.textContent="Đang tạo...";const result=employeeService.create(data);if(!result.ok){const box=form.querySelector("[data-employee-form-error]");box.textContent=result.error==="duplicate_email"?"Email này đã được sử dụng bởi tài khoản khác.":result.error==="duplicate_code"?"Mã nhân viên này đã tồn tại.":"Vui lòng kiểm tra các trường bắt buộc.";button.disabled=false;button.textContent="Tạo hồ sơ & tài khoản";return;}const file=form.querySelector('[name="photo"]')?.files?.[0];if(file)try{await employeeService.uploadPhoto(result.employee.id,file);}catch{}employeeCreateResult=result;render();});
