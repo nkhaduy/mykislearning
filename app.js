@@ -702,7 +702,7 @@ function aboutPage() {
       ${header()}
       <section class="about-premium-hero about-image-hero">
         <div class="container about-premium-grid">
-          <div><span class="breadcrumb">${t("about.breadcrumb")}</span><span class="eyebrow">${t("about.eyebrow")}</span><h1>${t("about.title")}</h1><p>KIS Việt Nam xây dựng môi trường học tập liên tục để nhân viên hội nhập nhanh, nâng cao năng lực chuyên môn và phát triển nghề nghiệp bền vững.</p><div class="hero-actions"><button class="btn btn-primary" data-scroll="kis-overview">Tìm hiểu KIS Việt Nam</button><button class="btn btn-outline light" data-scroll="learning-culture">Văn hóa học tập</button></div></div>
+          <div><span class="breadcrumb">${t("about.breadcrumb")}</span><span class="eyebrow">Văn hóa học tập</span><h1>${t("about.title")}</h1><p>KIS Việt Nam xây dựng môi trường học tập liên tục để nhân viên hội nhập nhanh, nâng cao năng lực chuyên môn và phát triển nghề nghiệp bền vững.</p><div class="hero-actions"><button class="btn btn-primary" data-scroll="kis-overview">Tìm hiểu KIS Việt Nam</button><button class="btn btn-outline light" data-scroll="learning-culture">Văn hóa học tập</button></div></div>
           <div class="profile-summary-card">${[["MyKIS Learning", "Nền tảng học tập"], ["Online · Offline · Hybrid", "Hình thức đào tạo"], ["QR attendance", "Điểm danh buổi học"], ["HR / L&D support", "Hỗ trợ vận hành"]].map(([v, l]) => `<div><span>${l}</span><strong>${v}</strong></div>`).join("")}</div>
         </div>
       </section>
