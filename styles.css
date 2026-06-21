@@ -5520,11 +5520,7 @@ body.modal-open { overflow: hidden; }
 }
 .demo-account-card h3 { color: #0b1f3a; }
 
-/* Language switcher inside card */
-.login-card .language-switch {
-  background: rgba(11, 31, 58, 0.06);
-  border-color: transparent;
-}
+/* Language switcher inside card — neutralised; styling now via .login-language-switcher */
 
 /* Hide old classes that conflict */
 .auth-context-brand { display: none !important; }
