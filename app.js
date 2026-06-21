@@ -2601,6 +2601,10 @@ function bindEvents() {
   document.querySelector("[data-logout]")?.addEventListener("click", () => {
     sessionService.endSession();
     session = null;
+    _calendarEvents = null;
+    _calendarLoading = false;
+    _calendarError = null;
+    _calendarAccountId = "";
     navigate("/login");
     toast(uiText("logoutSuccess"));
   });
