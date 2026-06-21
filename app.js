@@ -901,7 +901,7 @@ function adminDashboard(compact = false) {
 
 function sideNav(role) {
   const groups = role === "hr"
-    ? [["Tổng quan",[["/admin","overview"],["/admin/reports","reports"]]],["Đào tạo",[["/admin/courses","courses"],["/admin/assign","assign"],["/admin/quizzes","quizzes"],["/admin/gallery","gallery"],["/admin/notifications","notifications"]]],["Nhân sự",[["/admin/employees","employees"],["/admin/accounts","accounts"]]]]
+    ? [["Tổng quan",[["/admin","overview"],["/admin/reports","reports"]]],["Đào tạo",[["/admin/courses","courses"],["/admin/sessions","sessions"],["/admin/assign","assign"],["/admin/quizzes","quizzes"],["/admin/gallery","gallery"],["/admin/notifications","notifications"]]],["Nhân sự",[["/admin/employees","employees"],["/admin/accounts","accounts"]]]]
     : [["Học tập",[["/dashboard","overview"],["/dashboard/courses","courses"],["/dashboard/quizzes","quizzes"],["/dashboard/calendar","calendar"],["/dashboard/history","history"]]],["Thư viện",[["/dashboard/resources","resources"],["/dashboard/gallery","gallery"]]]];
   const items=groups.flatMap(x=>x[1]);
   const activeIndex = items.reduce((bestIndex, [href], index) => {
