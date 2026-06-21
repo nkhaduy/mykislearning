@@ -1620,6 +1620,7 @@ function render() {
   else if (route === "/admin/notifications") app.innerHTML = hasAdminAccess() ? notificationsPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/reports") app.innerHTML = hasAdminAccess() ? reportsPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/gallery") app.innerHTML = adminGalleryPageV2();
+  else if (route === "/admin/sessions") app.innerHTML = adminSessionsPage();
   else if (route === "/change-password") app.innerHTML = changePasswordPage();
   else app.innerHTML = landingPage();
   bindEvents();
@@ -1654,6 +1655,13 @@ function enhanceEmployeePhotoManager(){if(!accountDrawerOpen||!selectedAccountId
 async function hydrateGalleryMedia(){for(const el of document.querySelectorAll("[data-media-blob]")){if(el.dataset.hydrated)return;try{const blob=await getGalleryMedia(el.dataset.mediaBlob);if(!blob)continue;const url=URL.createObjectURL(blob),node=el.dataset.mediaKind==="video"?document.createElement("video"):document.createElement("img");node.src=url;node.dataset.objectUrl=url;if(node.tagName==="VIDEO"){node.preload="metadata";node.muted=true;}else{node.loading="lazy";node.alt="";}el.replaceChildren(node);el.dataset.hydrated="1";}catch{}}const viewer=document.querySelector("[data-viewer-blob]");if(viewer){try{const blob=await getGalleryMedia(viewer.dataset.viewerBlob);if(blob){const url=URL.createObjectURL(blob);viewer.src=url;viewer.dataset.objectUrl=url;}}catch{}}}
 function revokeGalleryUrls(){document.querySelectorAll("[data-object-url]").forEach(el=>{URL.revokeObjectURL(el.dataset.objectUrl);delete el.dataset.objectUrl;});}
 function bindEvents() {
+  document.querySelector("[data-create-session]")?.addEventListener("click",()=>{selectedOfflineSessionId="";sessionFormOpen=true;render();});
+  document.querySelectorAll("[data-edit-session]").forEach(el=>el.addEventListener("click",()=>{selectedOfflineSessionId=el.dataset.editSession;sessionFormOpen=true;render();}));
+  document.querySelectorAll("[data-manage-session]").forEach(el=>el.addEventListener("click",()=>{selectedOfflineSessionId=el.dataset.manageSession;sessionFormOpen=false;render();}));
+  document.querySelectorAll("[data-close-session-form]").forEach(el=>el.addEventListener("click",()=>{sessionFormOpen=false;selectedOfflineSessionId="";render();}));
+  document.querySelector("[data-close-attendance]")?.addEventListener("click",()=>{selectedOfflineSessionId="";render();});
+  document.getElementById("offlineSessionForm")?.addEventListener("submit",event=>{event.preventDefault();const data=Object.fromEntries(new FormData(event.currentTarget));data.attendanceRequired=true;const result=offlineTrainingService.saveSession(data,session.accountId);if(!result.ok){event.currentTarget.querySelector("[data-session-error]").textContent=result.error==="invalid_time"?"Giờ kết thúc phải sau giờ bắt đầu.":result.error==="invalid_deadline"?"Hạn xác nhận phải trước giờ bắt đầu.":"Vui lòng kiểm tra thông tin buổi học.";return;}offlineTrainingService.ensureInvitations(result.session.id);sessionFormOpen=false;selectedOfflineSessionId="";toast("success");render();});
+  document.querySelectorAll("[data-save-attendance]").forEach(el=>el.addEventListener("click",()=>{const accountId=el.dataset.saveAttendance,status=document.querySelector(`[data-attendance-status="${accountId}"]`)?.value,minutes=document.querySelector(`[data-attendance-minutes="${accountId}"]`)?.value;el.disabled=true;const result=offlineTrainingService.markAttendance(selectedOfflineSessionId,accountId,{attendanceStatus:status,attendedMinutes:Number(minutes)},session.accountId);toast(result.ok?"success":"error");render();}));
   document.querySelectorAll("[data-session-response]").forEach(el=>el.addEventListener("click",()=>{el.disabled=true;el.textContent="Đang lưu...";const result=offlineTrainingService.respond(el.dataset.sessionResponse,session.accountId,el.dataset.response);toast(result.ok?"success":"error");render();}));
   document.querySelectorAll("[data-session-busy]").forEach(el=>el.addEventListener("click",()=>{busySessionId=el.dataset.sessionBusy;render();}));
   document.querySelectorAll("[data-close-busy]").forEach(el=>el.addEventListener("click",()=>{busySessionId="";render();}));
