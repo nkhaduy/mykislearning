@@ -443,24 +443,61 @@ function closeDialog() {
 
 function sharedDialog() {
   if (!dialogState) return "";
+  const ICON_SYMBOLS = { "?": "💬", "!": "⚠", "i": "ℹ", "✓": "✓", "×": "✕" };
+  const ICON_CLASSES = {
+    support: "info", invalidCredentials: "warning", locked: "warning",
+    inactive: "warning", pending: "info", system: "error",
+    unsaved: "warning", alert: "info", confirm: "warning", gradeInput: "info",
+  };
   const configs = {
     support: { title: "Hỗ trợ đặt lại mật khẩu", body: `Vui lòng liên hệ ${HR_SUPPORT_NAME} để được hỗ trợ đặt lại mật khẩu.`, icon: "?" },
     invalidCredentials: { title: "Đăng nhập không thành công", body: "Email hoặc mật khẩu chưa chính xác. Vui lòng kiểm tra và thử lại.", icon: "!" },
-    locked: { title: "Tài khoản đã bị khóa", body: "Tài khoản của bạn hiện đang bị khóa. Vui lòng liên hệ HR để được hỗ trợ.", icon: "!" },
-    inactive: { title: "Không thể đăng nhập", body: "Tài khoản này hiện không còn quyền truy cập hệ thống. Vui lòng liên hệ HR để được hỗ trợ.", icon: "!" },
-    pending: { title: "Tài khoản chưa được kích hoạt", body: "Tài khoản đang chờ kích hoạt. Vui lòng liên hệ HR để được hỗ trợ.", icon: "i" },
+    locked: { title: "Tài khoản đã bị khóa", body: "Tài khoản của bạn hiện không thể đăng nhập. Vui lòng liên hệ Phòng Nhân sự để được hỗ trợ.", icon: "!" },
+    inactive: { title: "Không thể đăng nhập", body: "Tài khoản này hiện không còn quyền truy cập hệ thống. Vui lòng liên hệ Phòng Nhân sự để được hỗ trợ.", icon: "!" },
+    pending: { title: "Tài khoản chưa được kích hoạt", body: "Vui lòng liên hệ Phòng Nhân sự để được hỗ trợ kích hoạt tài khoản.", icon: "i" },
     system: { title: "Không thể kết nối", body: "Hệ thống đang tạm thời gián đoạn. Vui lòng thử lại sau.", icon: "!" },
-    unsaved: { title: activeQuizAttempt ? "Bạn có chắc muốn rời khỏi bài kiểm tra?" : "Bạn có chắc muốn rời khỏi bài học?", body: activeQuizAttempt ? "Các câu trả lời chưa gửi có thể không được ghi nhận." : "Tiến độ hoặc nội dung chưa lưu có thể bị mất.", icon: "!" },
+    unsaved: { title: activeQuizAttempt ? "Rời khỏi bài kiểm tra?" : "Rời khỏi bài học?", body: activeQuizAttempt ? "Các câu trả lời chưa gửi có thể không được ghi nhận." : "Tiến độ hoặc nội dung chưa lưu có thể bị mất.", icon: "!" },
     alert: { title: dialogState.title || "Thông báo", body: dialogState.body || "", icon: "i" },
     confirm: { title: dialogState.title || "Xác nhận thao tác", body: dialogState.body || "", icon: "!" },
+    gradeInput: { title: dialogState.title || "Chấm điểm câu hỏi tự luận", body: dialogState.body || "", icon: "i" },
   };
   const config = configs[dialogState.type] || configs.alert;
+  const iconClass = ICON_CLASSES[dialogState.type] || "info";
   const isUnsaved = dialogState.type === "unsaved";
   const isConfirm = dialogState.type === "confirm";
-  return `<div class="modal-backdrop open shared-dialog-backdrop"><section class="shared-dialog" role="dialog" aria-modal="true" aria-labelledby="shared-dialog-title" aria-describedby="shared-dialog-description" data-shared-dialog>
-    <div class="shared-dialog__icon" aria-hidden="true">${config.icon}</div>
-    <div class="shared-dialog__content"><h2 id="shared-dialog-title">${escapeHtml(config.title)}</h2><p id="shared-dialog-description">${escapeHtml(config.body)}</p>${dialogState.type === "support" ? `<a class="support-mail" href="mailto:${escapeHtmlAttribute(HR_SUPPORT_EMAIL)}">${escapeHtml(HR_SUPPORT_EMAIL)}</a>` : ""}</div>
-    <div class="shared-dialog__actions">${isUnsaved ? `<button class="btn btn-outline" data-dialog-close>Tiếp tục học</button><button class="btn btn-primary" data-dialog-leave>Rời khỏi</button>` : isConfirm ? `<button class="btn btn-outline" data-dialog-close>Hủy</button><button class="btn btn-primary" data-dialog-confirm>Xác nhận</button>` : `<button class="btn btn-primary" data-dialog-close data-dialog-primary>Đóng</button>`}</div>
+  const isGradeInput = dialogState.type === "gradeInput";
+  const isSupport = dialogState.type === "support";
+
+  const inputHtml = isGradeInput ? `
+    ${dialogState.answer ? `<p class="shared-dialog__answer-label">Câu trả lời của nhân viên</p><div class="shared-dialog__answer-box">${escapeHtml(dialogState.answer)}</div>` : ""}
+    <div class="shared-dialog__input-wrap">
+      <label for="sdGradeInput">Điểm (0 – ${dialogState.maxPoints ?? "?"})</label>
+      <input type="number" id="sdGradeInput" min="0" max="${dialogState.maxPoints ?? 9999}" step="0.5" placeholder="Nhập điểm..." autocomplete="off">
+      <span class="input-error" id="sdGradeError" aria-live="polite"></span>
+    </div>` : "";
+
+  const actionsHtml = isUnsaved
+    ? `<button class="btn btn-outline" data-dialog-close>Tiếp tục học</button><button class="btn btn-primary" data-dialog-leave>Rời khỏi</button>`
+    : isConfirm
+    ? `<button class="btn btn-outline" data-dialog-close>Hủy</button><button class="btn btn-primary" data-dialog-confirm>Xác nhận</button>`
+    : isGradeInput
+    ? `<button class="btn btn-outline" data-dialog-close>Hủy</button><button class="btn btn-primary" data-dialog-grade-submit>Lưu điểm</button>`
+    : isSupport
+    ? `<a class="btn btn-outline" href="mailto:${escapeHtmlAttribute(HR_SUPPORT_EMAIL)}">Gửi email</a><button class="btn btn-primary" data-dialog-close data-dialog-primary>Đóng</button>`
+    : `<button class="btn btn-primary" data-dialog-close data-dialog-primary>Đóng</button>`;
+
+  return `<div class="modal-backdrop open shared-dialog-backdrop" data-shared-dialog-backdrop>
+  <section class="shared-dialog" role="dialog" aria-modal="true" aria-labelledby="shared-dialog-title" aria-describedby="shared-dialog-description" data-shared-dialog>
+    <div class="shared-dialog__header">
+      <div class="shared-dialog__icon shared-dialog__icon--${iconClass}" aria-hidden="true">${ICON_SYMBOLS[config.icon] || config.icon}</div>
+      <div class="shared-dialog__content">
+        <h2 id="shared-dialog-title">${escapeHtml(config.title)}</h2>
+        <p id="shared-dialog-description">${escapeHtml(config.body)}</p>
+        ${isSupport ? `<a class="support-mail" href="mailto:${escapeHtmlAttribute(HR_SUPPORT_EMAIL)}">${escapeHtml(HR_SUPPORT_EMAIL)}</a>` : ""}
+        ${inputHtml}
+      </div>
+    </div>
+    <div class="shared-dialog__actions">${actionsHtml}</div>
   </section></div>`;
 }
 
