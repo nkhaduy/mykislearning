@@ -2975,8 +2975,16 @@ a {
 .login-submit {
   width: 100%;
   min-height: 49px;
+  color: #fff;
+  background: var(--kis-red);
+  border-color: var(--kis-red);
   font-size: 15px;
   box-shadow: 0 12px 24px rgba(215, 25, 32, 0.24);
+}
+
+.login-submit:hover {
+  background: var(--kis-red-dark);
+  border-color: var(--kis-red-dark);
 }
 
 .login-card .login-security-note {
