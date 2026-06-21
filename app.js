@@ -1889,7 +1889,7 @@ function bindEvents() {
     const data = new FormData(event.currentTarget);
     const result = login(data.get("identifier"), data.get("password"));
     if (!result.ok) return toast(result.reason === "locked" ? "locked" : "loginFailed");
-    session = sessionService.startSession(result.account, { rememberMe: false });
+    session = sessionService.startSession(result.account, { rememberMe: data.get("rememberMe") === "on" });
     if (result.reason === "passwordResetRequired") navigate("/change-password");
     else navigate(sessionService.consumePostLoginRedirect(result.account.role === "hr" ? "/admin" : "/dashboard"));
   });
