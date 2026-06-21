@@ -2117,6 +2117,7 @@ function bindEvents() {
       description: String(formData.get("description") || "").trim(),
       category: String(formData.get("category") || "").trim(),
       format: String(formData.get("format") || "").trim(),
+      deliveryMode: String(formData.get("format") || "online").toLowerCase(),
       durationHours: Number(formData.get("durationHours")),
       status: String(formData.get("status") || "draft"),
       coverImageId: String(formData.get("coverImageId") || ""),
