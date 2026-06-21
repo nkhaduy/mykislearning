@@ -2820,11 +2820,11 @@ a {
   height: 40px;
   border-radius: 6px;
   color: #fff;
-  background: var(--kis-red);
+  background: var(--navy);
   font-size: 17px;
   font-weight: 950;
   letter-spacing: 0;
-  box-shadow: 0 10px 25px rgba(137, 13, 18, 0.28);
+  box-shadow: 0 10px 25px rgba(11, 31, 58, 0.28);
 }
 
 .auth-context-copy {
@@ -2890,7 +2890,7 @@ a {
   height: 36px;
   border-radius: 6px;
   color: #fff;
-  background: var(--kis-red);
+  background: var(--navy);
   font-size: 15px;
   font-weight: 950;
 }
@@ -2911,7 +2911,7 @@ a {
 }
 
 .login-heading > span {
-  color: var(--kis-red);
+  color: var(--navy);
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.1em;
@@ -2948,7 +2948,7 @@ a {
 
 .login-card .field input:focus {
   background: #fff;
-  border-color: var(--kis-red);
+  border-color: var(--navy);
 }
 
 .login-options {
@@ -2978,15 +2978,15 @@ a {
   width: 100%;
   min-height: 49px;
   color: #fff;
-  background: var(--kis-red);
-  border-color: var(--kis-red);
+  background: var(--navy);
+  border-color: var(--navy);
   font-size: 15px;
-  box-shadow: 0 12px 24px rgba(215, 25, 32, 0.24);
+  box-shadow: 0 12px 24px rgba(11, 31, 58, 0.24);
 }
 
 .login-submit:hover {
-  background: var(--kis-red-dark);
-  border-color: var(--kis-red-dark);
+  background: var(--navy-dark, #071527);
+  border-color: var(--navy-dark, #071527);
 }
 
 .login-card .login-security-note {
@@ -4822,8 +4822,8 @@ body.modal-open { overflow: hidden; }
 .auth-page .login-submit,
 .auth-page .login-submit:hover {
   color: #fff;
-  background: var(--kis-red);
-  border-color: var(--kis-red);
+  background: var(--navy);
+  border-color: var(--navy);
 }
 
 /* Login page responsive overrides */
