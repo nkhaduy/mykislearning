@@ -2714,6 +2714,19 @@ function bindEvents() {
   if (!window.__kisEscBound) {
     window.__kisEscBound = true;
     document.addEventListener("keydown", (e) => {
+      if (dialogState) {
+        if (e.key === "Tab") {
+          const focusable = [...document.querySelectorAll("[data-shared-dialog] button, [data-shared-dialog] a")].filter((item) => !item.disabled);
+          if (focusable.length) {
+            const first = focusable[0], last = focusable[focusable.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+          }
+          return;
+        }
+        if (e.key === "Escape" && !dialogState.important) { e.preventDefault(); closeDialog(); }
+        return;
+      }
       if (e.key !== "Escape") return;
       if (contentBuilderMode) { contentBuilderMode=""; contentPickerStep="type"; slideDraft=null; youtubeDraft=null; render(); return; }
       if (quizFormOpen) { quizFormOpen=false; quizBuilderQuestions=[]; quizAddingQType=false; render(); return; }
