@@ -465,7 +465,7 @@ function uiText(key) {
     forgotPassword: { vi: "Quên mật khẩu", en: "Forgot password", kr: "비밀번호를 잊으셨나요?" }, forgotEmailRequired: { vi: "Vui lòng nhập email trước.", en: "Please enter your email first.", kr: "먼저 이메일을 입력해 주세요." }, forgotNeutral: { vi: "Nếu tài khoản hợp lệ, vui lòng liên hệ HR để được hỗ trợ đặt lại mật khẩu: thanh.ntc@kisvn.vn", en: "If the account is valid, please contact HR for password reset support: thanh.ntc@kisvn.vn", kr: "유효한 계정인 경우 비밀번호 재설정을 위해 HR에 문의해 주세요: thanh.ntc@kisvn.vn" },
     demoEmployeeAccount: { vi: "Tài khoản nhân viên demo", en: "Demo Employee Account", kr: "직원 데모 계정" }, emailLabel: { vi: "Email", en: "Email", kr: "이메일" }, passwordLabel: { vi: "Mật khẩu", en: "Password", kr: "비밀번호" }, useAccount: { vi: "Dùng tài khoản này", en: "Use This Account", kr: "이 계정 사용" },
     greeting: { vi: "Xin chào, {name}", en: "Hello, {name}", kr: "{name}님, 안녕하세요" }, learningJourney: { vi: "Tiếp tục hành trình học tập của bạn hôm nay.", en: "Continue your learning journey today.", kr: "오늘도 학습 여정을 이어가세요." }, employeeFallback: { vi: "Nhân viên", en: "Employee", kr: "직원" },
-    totalTrainingHours: { vi: "Tổng giờ đào tạo", en: "Total training time", kr: "총 교육 시간" }, exploreCourses: { vi: "Khám phá khóa học", en: "Explore courses", kr: "교육 과정 보기" }, calendar: { vi: "Lịch học", en: "Calendar", kr: "학습 일정" }, qrAttendance: { vi: "Điểm danh QR", en: "QR attendance", kr: "QR 출석" },
+    totalTrainingHours: { vi: "Tổng giờ đào tạo", en: "Total training time", kr: "총 교육 시간" }, exploreCourses: { vi: "Khám phá khóa học", en: "Explore courses", kr: "교육 과정 보기" }, goToLearning: { vi: "Vào trang học tập", en: "Go to Learning", kr: "학습 공간으로" }, calendar: { vi: "Lịch học", en: "Calendar", kr: "학습 일정" }, qrAttendance: { vi: "Điểm danh QR", en: "QR attendance", kr: "QR 출석" },
     checkIn: { vi: "Check-in", en: "Check-in", kr: "체크인" }, checkOut: { vi: "Check-out", en: "Check-out", kr: "체크아웃" }, morning: { vi: "Buổi sáng", en: "Morning", kr: "오전" }, afternoon: { vi: "Buổi chiều", en: "Afternoon", kr: "오후" },
     manualAttendance: { vi: "Điểm danh thủ công", en: "Manual attendance", kr: "수동 출석" }, qrExpired: { vi: "QR đã hết hạn", en: "QR has expired", kr: "QR이 만료되었습니다" }, qrNotOpen: { vi: "QR chưa mở", en: "QR is not open yet", kr: "QR이 아직 열리지 않았습니다" },
     attendanceSuccess: { vi: "Điểm danh thành công", en: "Attendance recorded", kr: "출석이 기록되었습니다" }, alreadyScanned: { vi: "Bạn đã điểm danh rồi", en: "You already scanned this code", kr: "이미 출석 처리되었습니다" }, notInvited: { vi: "Bạn không thuộc danh sách tham dự", en: "You are not on the attendee list", kr: "참석 대상이 아닙니다" },
@@ -861,6 +861,9 @@ function overviewText(key) {
     completionRate: { vi: "Tỷ lệ hoàn thành", en: "Completion rate", kr: "완료율" },
     openCourses: { vi: "Khóa học đang mở", en: "Open courses", kr: "공개 교육 과정" },
     noOpenCourses: { vi: "Chưa có khóa học đang mở", en: "No open courses yet", kr: "현재 공개된 교육 과정이 없습니다" },
+    learnersCount: { vi: "Số nhân viên học", en: "Employees learning", kr: "학습 직원 수" },
+    openCoursesCount: { vi: "Số khóa đào tạo đang mở", en: "Open training courses", kr: "공개 교육 과정 수" },
+    totalHoursCount: { vi: "Tổng số giờ học", en: "Total learning hours", kr: "총 학습 시간" },
   };
   return copy[key]?.[language] || copy[key]?.vi || key;
 }
