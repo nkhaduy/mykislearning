@@ -2222,51 +2222,122 @@ function attendanceScanPage(tokenValue) {
   const activeSession = sessionService.getValidSession();
   if (!activeSession) return loginPage();
 
-  // If tokenValue is provided via URL (from QR link), show the confirmation UI
+  // Token provided (from QR link or camera scan) — show confirmation UI
   if (tokenValue) {
     const preview = qrAttendanceService.validateToken(tokenValue);
     if (!preview.ok) {
-      const errorMap = { expired: uiText("qrExpired"), not_open_yet: uiText("qrNotOpen"), closed: "QR đã đóng", session_cancelled: "Buổi học đã hủy", not_found: "QR không hợp lệ" };
-      return `<div class="page">${header()}<section class="section"><div class="container"><div class="card empty-state">${icon("lock")}<h2>${errorMap[preview.error] || "Không thể điểm danh"}</h2><a class="btn btn-outline" href="/dashboard/calendar" data-link>${uiText("calendar")}</a></div></div></section></div>`;
+      const errorMap = {
+        expired: uiText("qrExpired"),
+        not_open_yet: uiText("qrNotOpen"),
+        closed: "QR đã đóng",
+        session_cancelled: "Buổi học đã hủy",
+        not_found: "QR không hợp lệ",
+      };
+      return `<div class="page">${header()}
+        <section class="section"><div class="container">
+          <div class="card attendance-result attendance-result--error">
+            <div class="attendance-result__icon" aria-hidden="true">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <h2>${errorMap[preview.error] || "Không thể điểm danh"}</h2>
+            <p>${preview.error === "expired" ? "Vui lòng quét mã QR mới đang được HR hiển thị." : preview.error === "not_open_yet" ? "Phiên điểm danh chưa mở. Vui lòng quét đúng thời gian." : "Mã QR không hợp lệ hoặc đã hết hiệu lực."}</p>
+            <div class="hero-actions">
+              <button class="btn btn-primary" data-qr-retry>Quét lại</button>
+              <a class="btn btn-outline" href="/dashboard/calendar" data-link>${uiText("calendar")}</a>
+            </div>
+          </div>
+        </div></section>
+      </div>`;
     }
+
     const course = getCourseById(preview.session.courseId);
     const existing = qrAttendanceService.getRecord(preview.slot.id, activeSession.accountId);
+    const alreadyDone = existing && ((preview.token.action === "check_in" && existing.checkInAt) || (preview.token.action === "check_out" && existing.checkOutAt));
     const needsCheckInFirst = preview.token.action === "check_out" && !existing?.checkInAt;
-    return `<div class="page">${header()}<section class="section"><div class="container"><div class="card panel qr-scan-result">
-      <span class="eyebrow">${uiText("qrAttendance")}</span>
-      <h1>${escapeHtml(course?.title || preview.session.title)}</h1>
-      <p>${escapeHtml(preview.slot.label)} · ${preview.token.action === "check_in" ? uiText("checkIn") : uiText("checkOut")}</p>
-      <p>${escapeHtml(preview.session.locationName || preview.session.meetingUrl || "")}</p>
-      ${existing && ((preview.token.action === "check_in" && existing.checkInAt) || (preview.token.action === "check_out" && existing.checkOutAt))
-        ? `<div class="empty-state"><h2>${uiText("alreadyScanned")}</h2><p>${existing.checkInAt ? `Check-in: ${escapeHtml(existing.checkInAt)}` : ""} ${existing.checkOutAt ? `· Check-out: ${escapeHtml(existing.checkOutAt)}` : ""}</p></div>`
-        : needsCheckInFirst
-        ? `<div class="empty-state"><h2>Chưa có check-in</h2><p>Vui lòng quét mã check-in trước khi check-out.</p></div>`
-        : `<div class="hero-actions"><button class="btn btn-primary" data-submit-scan="${escapeHtmlAttribute(tokenValue)}">${preview.token.action === "check_in" ? uiText("checkIn") : uiText("checkOut")}</button><a class="btn btn-outline" href="/dashboard/calendar" data-link>${uiText("calendar")}</a></div>`}
-    </div></div></section></div>`;
+    const actionLabel = preview.token.action === "check_in" ? uiText("checkIn") : uiText("checkOut");
+    const locationCapture = _qrScanLocationData
+      ? `<p class="qr-location-info"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg> Vị trí đã xác định · Độ chính xác ~${Math.round(_qrScanLocationData.accuracy)}m</p>`
+      : `<p class="qr-location-info qr-location-info--pending" id="qrLocationStatus"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> <span id="qrLocText">Đang lấy vị trí...</span></p>`;
+
+    return `<div class="page">${header()}
+      <section class="section"><div class="container">
+        <div class="card panel qr-scan-result">
+          <span class="eyebrow">${uiText("qrAttendance")}</span>
+          <h1>${escapeHtml(course?.title || preview.session.title)}</h1>
+          <p class="qr-session-meta">${escapeHtml(preview.slot.label)} · ${actionLabel}</p>
+          ${preview.session.locationName ? `<p class="qr-session-location"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg> ${escapeHtml(preview.session.locationName)}</p>` : ""}
+          ${alreadyDone
+            ? `<div class="attendance-result attendance-result--already">
+                <div class="attendance-result__icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <h3>${uiText("alreadyScanned")}</h3>
+                <p>Hệ thống đã ghi nhận lượt điểm danh của bạn trước đó.${existing.checkInAt ? " Check-in: " + new Date(existing.checkInAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : ""}${existing.checkOutAt ? " · Check-out: " + new Date(existing.checkOutAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : ""}</p>
+                <a class="btn btn-outline" href="/dashboard/calendar" data-link>${uiText("calendar")}</a>
+              </div>`
+            : needsCheckInFirst
+            ? `<div class="attendance-result attendance-result--warn">
+                <h3>Chưa có check-in</h3>
+                <p>Vui lòng quét mã check-in trước khi check-out.</p>
+                <button class="btn btn-primary" data-qr-retry>Quét lại</button>
+              </div>`
+            : `<div class="qr-confirm-actions">
+                ${locationCapture}
+                <div class="hero-actions">
+                  <button class="btn btn-primary btn--hero" data-submit-scan="${escapeHtmlAttribute(tokenValue)}">${actionLabel}</button>
+                  <a class="btn btn-outline" href="/dashboard/calendar" data-link>Huỷ</a>
+                </div>
+              </div>`}
+        </div>
+      </div></section>
+    </div>`;
   }
 
-  // No token — show camera scanner UI
-  return `<div class="page">${header()}<section class="section"><div class="container">
-    <div class="card panel qr-camera-wrap">
-      <span class="eyebrow">${uiText("qrAttendance")}</span>
-      <h2>Quét mã QR điểm danh</h2>
-      <p class="text-muted">Hướng camera vào mã QR được chiếu bởi HR.</p>
-      <div class="qr-camera-viewport" id="qrCameraViewport">
-        <video id="qrCameraVideo" autoplay muted playsinline></video>
-        <canvas id="qrCameraCanvas" style="display:none"></canvas>
-        <div class="qr-camera-corner qr-camera-corner--tl"></div>
-        <div class="qr-camera-corner qr-camera-corner--tr"></div>
-        <div class="qr-camera-corner qr-camera-corner--bl"></div>
-        <div class="qr-camera-corner qr-camera-corner--br"></div>
-        <div class="qr-scan-line"></div>
+  // No token — show camera scanner UI with consent gate
+  if (!_qrCameraConsentGiven) {
+    return `<div class="page">${header()}
+      <section class="section"><div class="container">
+        <div class="card panel qr-consent-card">
+          <div class="qr-consent-icon" aria-hidden="true">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </div>
+          <h2>Cho phép sử dụng camera</h2>
+          <p>MyKIS Learning cần truy cập camera để quét mã QR điểm danh do HR cung cấp.</p>
+          <ul class="qr-consent-list">
+            <li>Camera chỉ dùng để đọc mã QR điểm danh.</li>
+            <li>Hệ thống không ghi hình, không lưu video.</li>
+            <li>Camera sẽ tắt ngay sau khi quét thành công.</li>
+          </ul>
+          <div class="hero-actions">
+            <button class="btn btn-primary btn--hero" data-qr-consent-accept>Tiếp tục quét QR</button>
+            <a class="btn btn-outline" href="/dashboard/calendar" data-link>Huỷ</a>
+          </div>
+        </div>
+      </div></section>
+    </div>`;
+  }
+
+  return `<div class="page">${header()}
+    <section class="section"><div class="container">
+      <div class="card panel qr-camera-wrap">
+        <span class="eyebrow">${uiText("qrAttendance")}</span>
+        <h2>Quét mã QR điểm danh</h2>
+        <p class="text-muted">Hướng camera vào mã QR được chiếu bởi HR.</p>
+        <div class="qr-camera-viewport" id="qrCameraViewport">
+          <video id="qrCameraVideo" autoplay muted playsinline></video>
+          <canvas id="qrCameraCanvas" style="display:none"></canvas>
+          <div class="qr-camera-corner qr-camera-corner--tl"></div>
+          <div class="qr-camera-corner qr-camera-corner--tr"></div>
+          <div class="qr-camera-corner qr-camera-corner--bl"></div>
+          <div class="qr-camera-corner qr-camera-corner--br"></div>
+          <div class="qr-scan-line"></div>
+        </div>
+        <p class="qr-camera-status" id="qrCameraStatus">Đang khởi động camera...</p>
+        <div class="qr-camera-actions">
+          <button class="btn btn-outline" id="qrCameraStop" style="display:none">Dừng camera</button>
+          <a class="btn btn-ghost" href="/dashboard/calendar" data-link>Huỷ</a>
+        </div>
       </div>
-      <p class="qr-camera-status" id="qrCameraStatus">Đang khởi động camera...</p>
-      <div class="qr-camera-actions">
-        <button class="btn btn-outline" id="qrCameraStop" style="display:none">Dừng camera</button>
-        <a class="btn btn-ghost" href="/dashboard/calendar" data-link>Huỷ</a>
-      </div>
-    </div>
-  </div></section></div>`;
+    </div></section>
+  </div>`;
 }
 
 function qrProjectorModal(){if(!qrProjectorOpen||!currentQrTokenId)return "";const token=qrAttendanceService.listTokens().find(row=>row.id===currentQrTokenId);const slot=token?qrAttendanceService.getSlot(token.slotId):null;const sessionRow=slot?offlineTrainingService.getSession(slot.sessionId):null;const live=slot?qrAttendanceService.getLiveSummary(slot.id):null;if(!token||!slot||!sessionRow)return "";return `<div class="modal-backdrop open"><section class="modal modal--large modal--structured qr-projector"><header class="modal__header"><div><span class="eyebrow">${escapeHtml(slot.label)}</span><h2>${uiText("projector")}</h2></div><button class="icon-btn" data-close-projector>×</button></header><div class="modal__body"><div class="qr-projector__code" data-qr-render="${escapeHtmlAttribute(qrAttendanceService.attendanceLink(token))}"></div><div class="qr-projector__meta"><h3>${escapeHtml(sessionRow.title)}</h3><p>${escapeHtml(slot.label)} · ${token.action==="check_in"?uiText("checkIn"):uiText("checkOut")}</p><p>${new Date(token.opensAt).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})}–${new Date(token.closesAt).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})}</p><div class="kpi-grid"><div class="card kpi"><span>Đã quét</span><strong>${token.action==="check_in"?live?.checkedIn||0:live?.checkedOut||0}</strong></div><div class="card kpi"><span>Chưa quét</span><strong>${live?.pending||0}</strong></div></div><a class="btn btn-outline" href="${escapeHtmlAttribute(qrAttendanceService.attendanceLink(token))}" target="_blank" rel="noopener">Mở link scan</a></div></div><footer class="modal__footer"><button class="btn btn-outline" data-close-projector>Đóng</button><button class="btn btn-primary" data-close-qr-token>${uiText("closeAttendance")}</button></footer></section></div>`;}
