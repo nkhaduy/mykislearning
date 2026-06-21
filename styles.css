@@ -4856,7 +4856,7 @@ body.modal-open { overflow: hidden; }
   .login-heading { margin: 20px 0 16px; }
   .login-card .login-heading h2 { font-size: 26px; }
   .login-card-head { gap: 8px; }
-  .login-card .language-switch { padding: 0 9px; }
+  /* .login-card .language-switch padding override removed — handled by .login-language-switcher */
   .login-options { align-items: flex-start; gap: 10px; }
 }
 
