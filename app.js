@@ -479,6 +479,9 @@ function uiText(key) {
 
 function navigate(path) {
   stopQrCameraScanner();
+  _qrScanLocationData = null;
+  _qrScanLocationStatus = "pending";
+  if (!path.startsWith("/attendance/scan")) _qrCameraConsentGiven = false;
   if (!bypassNavigationGuard && shouldWarnBeforeLeaving(path)) {
     pendingNavigation = path;
     openDialog({ type: "unsaved", important: true });
