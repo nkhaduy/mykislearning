@@ -242,7 +242,7 @@ a {
 }
 
 .login-card-head {
-  justify-content: space-between;
+  justify-content: flex-start;
 }
 
 .language-switch {
