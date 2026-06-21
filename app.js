@@ -932,6 +932,50 @@ function globalNetworkSection() {
   return `<section class="section alt global-network-section"><div class="container"><div class="section-head"><div><span class="eyebrow">Global Network</span><h2 class="section-title">${t("about.network")}</h2><p class="section-lead">KIS kết nối năng lực tài chính, đầu tư và quản trị quốc tế nhằm hỗ trợ sự phát triển bền vững tại thị trường Việt Nam.</p></div></div><div class="network-summary-grid">${cards.map(([title, left, right]) => `<article class="card network-summary-card"><h3>${title}</h3><p>${right ? `${left} <span>|</span> ${right}` : left}</p></article>`).join("")}</div><div class="network-reference-map"><img src="/assets/about/global-network.png" alt="Mạng lưới KIS toàn cầu với bản đồ dotted map và các văn phòng quốc tế"></div></div></section>`;
 }
 
+function leadershipSection() {
+  const leaders = [
+    {
+      img: "/assets/about/leader-shin-hyun-jae.jpg",
+      name: "Shin Hyun Jae",
+      title: "Tổng Giám đốc kiêm Chủ tịch Hội đồng Quản trị",
+    },
+    {
+      img: "/assets/about/leader-cho-hun-hee.jpg",
+      name: "Cho Hun Hee",
+      title: "Giám đốc cấp cao Khối Hoạt động & KHCN, Thành viên HĐQT",
+    },
+    {
+      img: "/assets/about/leader-choi-eun-suk.jpg",
+      name: "Choi Eun Suk",
+      title: "Thành viên Hội đồng Quản trị",
+    },
+  ];
+  return `<section class="section alt" id="kis-leadership">
+    <div class="container">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">Leadership</span>
+          <h2 class="section-title">Ban Lãnh đạo</h2>
+          <p class="section-lead">Đội ngũ lãnh đạo dẫn dắt KIS Việt Nam trên hành trình phát triển bền vững.</p>
+        </div>
+      </div>
+      <div class="leadership-grid">
+        ${leaders.map((l, i) => `
+          <article class="leader-card" style="animation-delay: ${i * 80}ms">
+            <div class="leader-card__photo-wrap">
+              <img class="leader-card__photo" src="${l.img}" alt="Ảnh ${l.name}" loading="lazy">
+            </div>
+            <div class="leader-card__info">
+              <h3 class="leader-card__name">Ông ${l.name}</h3>
+              <p class="leader-card__title">${l.title}</p>
+            </div>
+          </article>
+        `).join("")}
+      </div>
+    </div>
+  </section>`;
+}
+
 function kisTimelineSection() {
   const item = timelineData[activeTimelineYear];
   const years = Object.keys(timelineData);
@@ -988,7 +1032,7 @@ function ceoMessageSection() {
 
 function corporatePhilosophySection() {
   const cards = [["01", "Làm hài lòng khách hàng", ["Khách hàng là lý do mà công ty chứng khoán tồn tại.", "Ra quyết định dựa trên góc nhìn của khách hàng.", "Phát triển cùng với khách hàng bằng cách đảm bảo sự hài lòng của họ."]], ["02", "Kiến tạo giá trị mới", ["Liên tục tạo ra giá trị mới cho xã hội.", "Đổi mới với tinh thần thử thách bằng cách nâng cao năng lực tổ chức.", "Theo đuổi những mục tiêu cao nhất và sự xuất sắc."]], ["03", "Tôn trọng cá nhân", ["Chúng tôi luôn tôn trọng từng cá nhân trong đội ngũ của mình.", "Khuyến khích cá nhân phát triển khả năng của họ tại nơi làm việc.", "Hỗ trợ mỗi cá nhân trở thành những nhân viên xuất sắc."]]];
-  return `<section class="section"><div class="container"><h2 class="section-title">Triết lý tập đoàn</h2><div class="grid-3">${cards.map(([no,title,bullets]) => `<article class="card philosophy-premium philosophy-list-card">${icon("check")}<span>${no}</span><h3>${title}</h3><ul>${bullets.map((b) => `<li>${b}</li>`).join("")}</ul></article>`).join("")}</div></div></section>`;
+  return `<section class="section"><div class="container"><h2 class="section-title">Triết lý tập đoàn</h2><div class="grid-3">${cards.map(([no,title,bullets]) => `<article class="card philosophy-premium philosophy-list-card"><header class="phil-card-head"><div class="phil-icon-wrap" aria-hidden="true">${icon("check")}</div><span class="phil-no" aria-hidden="true">${no}</span></header><h3>${title}</h3><ul>${bullets.map((b) => `<li>${b}</li>`).join("")}</ul></article>`).join("")}</div></div></section>`;
 }
 
 function coreValuesMissionSection() {
