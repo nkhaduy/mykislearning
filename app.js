@@ -484,6 +484,26 @@ function uiText(key) {
   return labels[key]?.[language] || labels[key]?.vi || key;
 }
 
+async function fetchCalendarEvents(accountId) {
+  if (_calendarLoading) return;
+  _calendarLoading = true;
+  _calendarError = null;
+  _calendarAccountId = accountId;
+  render(); // show spinner
+  try {
+    const result = await calendarService.getEventsForAccountAsync(accountId, { includeCancelled: true });
+    _calendarEvents = result.events;
+    _calendarSource = result.source;
+  } catch (err) {
+    _calendarError = String(err);
+    _calendarEvents = [];
+    _calendarSource = "local";
+  } finally {
+    _calendarLoading = false;
+  }
+  render(); // show data
+}
+
 function navigate(path) {
   stopQrCameraScanner();
   _qrScanLocationData = null;
