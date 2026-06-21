@@ -1130,11 +1130,12 @@ function loginPage() {
   const demoEmployee = getDemoEmployee();
   return `
     <main class="auth-page" role="main">
-      <div class="auth-bg-shapes" aria-hidden="true">
-        <div class="auth-bg-shape auth-bg-shape--1"></div>
-        <div class="auth-bg-shape auth-bg-shape--2"></div>
-        <div class="auth-bg-grid"></div>
-      </div>
+      <div class="auth-background" aria-hidden="true"></div>
+      <div class="auth-overlay" aria-hidden="true"></div>
+      <a href="/" data-link class="auth-home-btn" aria-label="Quay về trang chủ">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="16" height="16"><path d="M12 4L6 10l6 6"/></svg>
+        Về trang chủ
+      </a>
       <section class="auth-context" aria-hidden="true">
         <div class="auth-context-copy">
           <h1>Đăng nhập MyKIS Learning</h1>
