@@ -747,6 +747,7 @@ function loginPage() {
           <div class="field"><label>${t("login.email")}</label><input name="identifier" autocomplete="username" type="email"></div>
           <div class="field"><label>${t("login.password")}</label><input name="password" type="password" autocomplete="current-password"></div>
           <div class="login-tools"><span>${t("login.note")}</span><button class="link-button" type="button" data-forgot-password>${uiText("forgotPassword")}</button></div>
+          <label class="remember-me-row"><input type="checkbox" name="rememberMe" class="remember-me-check"><span>${uiText("rememberMe")}</span><small>${uiText("rememberMeNote")}</small></label>
           <button class="btn btn-primary" type="submit" style="width:100%">${t("login.submit")}</button>
           <div class="demo-account-card">
             <div>
