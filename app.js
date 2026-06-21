@@ -2345,6 +2345,21 @@ function bindEvents() {
     if (typeof action === "function") action();
     render();
   });
+  document.querySelector("[data-dialog-grade-submit]")?.addEventListener("click", () => {
+    const input = document.getElementById("sdGradeInput");
+    const errEl = document.getElementById("sdGradeError");
+    const val = parseFloat(input?.value);
+    const max = parseFloat(input?.max ?? "9999");
+    if (!input || isNaN(val) || val < 0 || val > max) {
+      if (errEl) errEl.textContent = `Vui lòng nhập điểm từ 0 đến ${max}.`;
+      input?.focus();
+      return;
+    }
+    const action = dialogState?.onGrade;
+    dialogState = null;
+    if (typeof action === "function") action(val);
+    render();
+  });
   document.querySelector("[data-submit-scan]")?.addEventListener("click",()=>{const result=qrAttendanceService.scan(document.querySelector("[data-submit-scan]")?.dataset.submitScan||"",session.accountId);if(!result.ok)return toast(result.error==="already_checked_in"||result.error==="already_checked_out"?uiText("alreadyScanned"):result.error==="not_invited"?uiText("notInvited"):result.error==="missing_check_in"?"Vui lòng check-in trước khi check-out.":result.error==="expired"?uiText("qrExpired"):uiText("qrNotOpen"));toast(uiText("attendanceSuccess"));render();});
   document.querySelectorAll("[data-qr-slot]").forEach(el=>el.addEventListener("click",()=>{selectedQrSlotId=el.dataset.qrSlot;render();}));
   document.querySelectorAll("[data-qr-action]").forEach(el=>el.addEventListener("click",()=>{selectedQrAction=el.dataset.qrAction;render();}));
