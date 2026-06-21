@@ -2218,10 +2218,7 @@ function bindEvents() {
   document.querySelector("[data-hr-link]")?.addEventListener("click", () => navigate(session?.role === "hr" ? "/admin" : "/login?role=hr"));
   document.querySelectorAll("[data-login-role]").forEach((el) => el.addEventListener("click", () => { selectedLoginRole = el.dataset.loginRole; render(); }));
   document.querySelector("[data-forgot-password]")?.addEventListener("click", () => {
-    const identifier = document.querySelector("input[name='identifier']")?.value?.trim();
-    if (!identifier) return toast(uiText("forgotEmailRequired"));
-    findAccount(identifier);
-    toast(uiText("forgotNeutral"));
+    openDialog({ type: "support" });
   });
   document.querySelector("[data-fill-demo-account]")?.addEventListener("click", () => {
     const form = document.getElementById("loginForm");
@@ -2242,7 +2239,7 @@ function bindEvents() {
     if (!demoEmployee) return toast("error");
     selectedLoginRole = "employee";
     form.elements.identifier.value = demoEmployee.email || "";
-    form.elements.password.value = "Training@2026";
+    form.elements.password.value = DEMO_EMPLOYEE_PASSWORD;
     document.querySelectorAll("[data-login-role]").forEach((element) => {
       const isEmployee = element.dataset.loginRole === "employee";
       element.classList.toggle("active", isEmployee);
@@ -2250,27 +2247,40 @@ function bindEvents() {
     });
     form.elements.identifier.focus();
   });
-  document.querySelector("[data-reset-demo-account]")?.addEventListener("click", () => {
-    resetDemoHrAccount();
-    session = sessionService.getValidSession();
-    selectedLoginRole = "hr";
-    render();
-    requestAnimationFrame(() => {
-      const form = document.getElementById("loginForm");
-      if (!form) return;
-      form.elements.identifier.value = DEMO_HR_EMAIL;
-      form.elements.password.value = DEMO_HR_PASSWORD;
-      toast("success");
-    });
-  });
   document.getElementById("loginForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const result = login(data.get("identifier"), data.get("password"));
-    if (!result.ok) return toast(result.reason === "locked" ? "locked" : "loginFailed");
+    const email = String(data.get("identifier") || "").trim().toLowerCase();
+    const emailError = event.currentTarget.querySelector("[data-login-email-error]");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (emailError) emailError.textContent = "Vui lòng nhập email công ty hợp lệ.";
+      event.currentTarget.elements.identifier.setAttribute("aria-invalid", "true");
+      event.currentTarget.elements.identifier.focus();
+      return;
+    }
+    if (emailError) emailError.textContent = "";
+    event.currentTarget.elements.identifier.removeAttribute("aria-invalid");
+    let result;
+    try { result = login(email, data.get("password")); } catch { return openDialog({ type: "system" }); }
+    if (!result.ok) return openDialog({ type: result.reason === "invalidEmail" ? "invalidCredentials" : result.reason });
     session = sessionService.startSession(result.account, { rememberMe: data.get("rememberMe") === "on" });
     if (result.reason === "passwordResetRequired") navigate("/change-password");
     else navigate(sessionService.consumePostLoginRedirect(result.account.role === "hr" ? "/admin" : "/dashboard"));
+  });
+  document.querySelectorAll("[data-dialog-close]").forEach((el) => el.addEventListener("click", closeDialog));
+  document.querySelector("[data-dialog-leave]")?.addEventListener("click", () => {
+    const target = pendingNavigation || "/dashboard";
+    dialogState = null;
+    pendingNavigation = "";
+    bypassNavigationGuard = true;
+    destroyYoutubePlayer();
+    navigate(target);
+  });
+  document.querySelector("[data-dialog-confirm]")?.addEventListener("click", () => {
+    const action = dialogState?.onConfirm;
+    dialogState = null;
+    if (typeof action === "function") action();
+    render();
   });
   document.querySelector("[data-submit-scan]")?.addEventListener("click",()=>{const result=qrAttendanceService.scan(document.querySelector("[data-submit-scan]")?.dataset.submitScan||"",session.accountId);if(!result.ok)return toast(result.error==="already_checked_in"||result.error==="already_checked_out"?uiText("alreadyScanned"):result.error==="not_invited"?uiText("notInvited"):result.error==="missing_check_in"?"Vui lòng check-in trước khi check-out.":result.error==="expired"?uiText("qrExpired"):uiText("qrNotOpen"));toast(uiText("attendanceSuccess"));render();});
   document.querySelectorAll("[data-qr-slot]").forEach(el=>el.addEventListener("click",()=>{selectedQrSlotId=el.dataset.qrSlot;render();}));
