@@ -5893,23 +5893,7 @@ body.modal-open { overflow: hidden; }
 .auth-home-btn:focus-visible { outline: 2px solid rgba(255,255,255,0.8); outline-offset: 2px; }
 .auth-home-btn svg { flex-shrink: 0; opacity: 0.85; }
 
-.auth-header-lang .language-switch {
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.18);
-  border-radius: var(--radius-sm);
-  padding: 4px 8px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.auth-header-lang .language-switch button { color: rgba(255,255,255,0.8); font-size: 12px; font-weight: 600; }
-.auth-header-lang .language-switch button.active,
-.auth-header-lang .language-switch button:hover { color: #fff; }
-.auth-header-lang .language-switch span { color: rgba(255,255,255,0.3); }
-
-/* login-card-head layout now handled by the block below */
+/* auth-header-lang removed — language switcher now lives inside login-card-head only */
 
 @media (max-width: 600px) {
   .auth-header { padding: 14px 16px; }
