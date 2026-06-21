@@ -1022,18 +1022,21 @@ function loginPage() {
       <div class="auth-background" aria-hidden="true"></div>
       <div class="auth-overlay" aria-hidden="true"></div>
       <section class="auth-context">
-        <div class="auth-context-brand">MyKIS Learning</div>
-        <div class="auth-context-copy"><h1>MyKIS Learning</h1><p>HỆ THỐNG ĐÀO TẠO NỘI BỘ KIS VIỆT NAM</p></div>
+        <div class="auth-context-copy">
+          <h1>Đăng nhập<br>MyKIS Learning</h1>
+          <p>Hệ thống Đào tạo Nội bộ dành riêng cho Nhân viên KIS Việt Nam</p>
+        </div>
       </section>
       <section class="auth-visual">
         <form class="card login-card" id="loginForm" novalidate>
           <div class="login-card-head">
-            <div class="mykis-brand"><span class="mykis-wordmark">MyKIS Learning</span></div>
+            <a href="/" data-link class="login-logo-link" aria-label="Quay về trang chủ">
+              <img src="/assets/kis-logo-horizontal.png" alt="KIS Vietnam" class="login-logo-img">
+            </a>
             ${languageSwitcher()}
           </div>
           <div class="login-heading">
-            <span class="login-system-label">HỆ THỐNG ĐÀO TẠO NỘI BỘ KIS VIỆT NAM</span>
-            <h2>${t("login.title")}</h2>
+            <h2>${uiText("loginHeading") || "Đăng nhập"}</h2>
           </div>
           <div class="field">
             <label for="loginEmail">${t("login.email")}</label>
@@ -1042,7 +1045,7 @@ function loginPage() {
           </div>
           <div class="field">
             <label for="loginPassword">${t("login.password")}</label>
-            <input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="${t("login.passwordPlaceholder")||"Nhập mật khẩu"}">
+            <input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="${t("login.passwordPlaceholder") || "Nhập mật khẩu"}">
           </div>
           <div class="login-options">
             <label class="remember-me-row">
