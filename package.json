@@ -5,6 +5,7 @@
   },
   "dependencies": {
     "impeccable": "github:pbakaus/impeccable",
+    "jsqr": "^1.4.0",
     "qrcode": "^1.5.4",
     "xlsx": "^0.18.5"
   },
