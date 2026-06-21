@@ -1744,12 +1744,15 @@ function bindEvents() {
   document.getElementById("employeeCreateForm")?.addEventListener("submit",async event=>{event.preventDefault();const form=event.currentTarget,button=form.querySelector('[type="submit"]'),data=Object.fromEntries(new FormData(form));button.disabled=true;button.textContent="Đang tạo...";const result=employeeService.create(data);if(!result.ok){const box=form.querySelector("[data-employee-form-error]");box.textContent=result.error==="duplicate_email"?"Email này đã được sử dụng bởi tài khoản khác.":result.error==="duplicate_code"?"Mã nhân viên này đã tồn tại.":"Vui lòng kiểm tra các trường bắt buộc.";button.disabled=false;button.textContent="Tạo hồ sơ & tài khoản";return;}const file=form.querySelector('[name="photo"]')?.files?.[0];if(file)try{await employeeService.uploadPhoto(result.employee.id,file);}catch{}employeeCreateResult=result;render();});
   document.querySelector("[data-copy-created-account]")?.addEventListener("click",()=>navigator.clipboard.writeText(`${employeeCreateResult.account.email}\n${employeeCreateResult.temporaryPassword}`).then(()=>toast("copied")));
   document.querySelector("[data-open-notifications]")?.addEventListener("click",()=>{notificationModalOpen=true;notificationPage=1;render();});
+  document.querySelectorAll("[data-open-landing-announcement]").forEach(el=>el.addEventListener("click",()=>{selectedNotificationId=el.dataset.openLandingAnnouncement;render();}));
+  document.querySelectorAll("[data-close-landing-detail]").forEach(el=>el.addEventListener("click",()=>{selectedNotificationId="";render();}));
   document.querySelectorAll("[data-close-notifications]").forEach(el=>el.addEventListener("click",event=>{if(event.target!==el&&el.classList.contains("notification-overlay"))return;notificationModalOpen=false;selectedNotificationId="";render();}));
   document.querySelectorAll("[data-notification-filter]").forEach(el=>el.addEventListener("click",()=>{notificationFilter=el.dataset.notificationFilter;notificationPage=1;selectedNotificationId="";render();}));
   document.querySelectorAll("[data-notification-detail]").forEach(el=>el.addEventListener("click",()=>{selectedNotificationId=el.dataset.notificationDetail;notificationService.markRead(selectedNotificationId,session.accountId);render();}));
   document.querySelector("[data-notification-back]")?.addEventListener("click",()=>{selectedNotificationId="";render();});
   document.querySelector("[data-mark-all-read]")?.addEventListener("click",()=>{notificationService.markAllRead(session.accountId);render();});
   document.querySelectorAll("[data-notification-page]").forEach(el=>el.addEventListener("click",()=>{notificationPage=Number(el.dataset.notificationPage);render();}));
+  document.querySelectorAll("[data-auth-target]").forEach(el=>el.addEventListener("click",event=>{event.preventDefault();const target=el.dataset.authTarget||"/dashboard";navigateWithAuth(target,el.dataset.authRole||"employee");}));
   document.querySelector("[data-create-album]")?.addEventListener("click",()=>{selectedAlbumId="";galleryEditorOpen=true;render();});
   document.querySelectorAll("[data-edit-album]").forEach(el=>el.addEventListener("click",()=>{selectedAlbumId=el.dataset.editAlbum;galleryEditorOpen=true;render();}));
   document.querySelectorAll("[data-close-album-editor]").forEach(el=>el.addEventListener("click",()=>{galleryEditorOpen=false;selectedAlbumId="";render();}));
@@ -1777,7 +1780,7 @@ function bindEvents() {
   document.getElementById("courseCoverInput")?.addEventListener("change",async event=>{const file=event.target.files?.[0];if(!file)return;try{const id=await saveCourseImage(file);const hidden=document.querySelector('[name="coverImageId"]');if(hidden)hidden.value=id;const image=document.querySelector("[data-course-image-preview]");if(image){if(image.dataset.objectUrl)URL.revokeObjectURL(image.dataset.objectUrl);const url=URL.createObjectURL(file);image.src=url;image.dataset.objectUrl=url;}}catch{toast("error");}});
   document.querySelectorAll("[data-link]").forEach((el) => el.addEventListener("click", (event) => { event.preventDefault(); navigate(el.getAttribute("href")); }));
   document.querySelector("[data-logout]")?.addEventListener("click", () => {
-    clearSession();
+    sessionService.endSession();
     session = null;
     navigate("/login");
     toast(uiText("logoutSuccess"));
@@ -1876,10 +1879,18 @@ function bindEvents() {
     const data = new FormData(event.currentTarget);
     const result = login(data.get("identifier"), data.get("password"));
     if (!result.ok) return toast(result.reason === "locked" ? "locked" : "loginFailed");
-    session = getSession();
+    session = sessionService.startSession(result.account, { rememberMe: false });
     if (result.reason === "passwordResetRequired") navigate("/change-password");
-    else navigate(result.account.role === "hr" ? "/admin" : "/dashboard");
+    else navigate(sessionService.consumePostLoginRedirect(result.account.role === "hr" ? "/admin" : "/dashboard"));
   });
+  document.querySelector("[data-submit-scan]")?.addEventListener("click",()=>{const result=qrAttendanceService.scan(document.querySelector("[data-submit-scan]")?.dataset.submitScan||"",session.accountId);if(!result.ok)return toast(result.error==="already_checked_in"||result.error==="already_checked_out"?uiText("alreadyScanned"):result.error==="not_invited"?uiText("notInvited"):result.error==="expired"?uiText("qrExpired"):uiText("qrNotOpen"));toast(uiText("attendanceSuccess"));render();});
+  document.querySelectorAll("[data-qr-slot]").forEach(el=>el.addEventListener("click",()=>{selectedQrSlotId=el.dataset.qrSlot;render();}));
+  document.querySelectorAll("[data-qr-action]").forEach(el=>el.addEventListener("click",()=>{selectedQrAction=el.dataset.qrAction;render();}));
+  document.querySelector("[data-generate-qr]")?.addEventListener("click",()=>{const result=qrAttendanceService.createToken({slotId:selectedQrSlotId,action:selectedQrAction},session.accountId);if(!result.ok)return toast("error");currentQrTokenId=result.token.id;qrProjectorOpen=true;render();});
+  document.querySelector("[data-open-projector]")?.addEventListener("click",()=>{const token=qrAttendanceService.listTokens(selectedQrSlotId).find(row=>row.action===selectedQrAction&&row.status==="open");if(!token)return toast("error");currentQrTokenId=token.id;qrProjectorOpen=true;render();});
+  document.querySelectorAll("[data-close-projector]").forEach(el=>el.addEventListener("click",()=>{qrProjectorOpen=false;render();}));
+  document.querySelectorAll("[data-close-qr-token]").forEach(el=>el.addEventListener("click",()=>{const token=qrAttendanceService.listTokens(selectedQrSlotId).find(row=>row.action===selectedQrAction&&row.status==="open");if(token)qrAttendanceService.closeToken(token.id,session.accountId);qrProjectorOpen=false;render();}));
+  document.querySelector("[data-open-scan-entry]")?.addEventListener("click",()=>{const value=window.prompt("Nhập link hoặc token QR");if(!value)return;const token=value.includes("token=")?new URL(value,location.origin).searchParams.get("token"):value.trim();if(token)navigateWithAuth(`/attendance/scan?token=${encodeURIComponent(token)}`,"employee");});
   document.getElementById("changePasswordForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
