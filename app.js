@@ -1232,9 +1232,9 @@ function loginPage() {
           <div class="login-card-head">
             <div class="login-brand-group">
               <a href="/" data-link class="login-logo-link" aria-label="Quay về trang chủ">
-                <img src="/assets/kis-logo-horizontal.png" alt="KIS Vietnam" class="login-logo-img">
+                <img src="/assets/kis-logo-horizontal.png" alt="KIS Vietnam" class="login-brand-logo">
               </a>
-              <div class="login-lang-switcher">${languageSwitcher()}</div>
+              <div class="login-language-switcher">${languageSwitcher()}</div>
             </div>
           </div>
           <div class="login-heading">
