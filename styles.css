@@ -4862,3 +4862,15 @@ body.modal-open { overflow: hidden; }
   .login-card .language-switch { padding: 0 9px; }
   .login-options { align-items: flex-start; gap: 10px; }
 }
+
+/* Login system label (replaces old .login-heading > span with red color) */
+.login-system-label {
+  display: block;
+  color: var(--navy);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  opacity: 0.7;
+}
