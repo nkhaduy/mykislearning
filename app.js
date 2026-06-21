@@ -655,7 +655,7 @@ function landingPage() {
             <p>Nơi lưu trữ tài liệu, khóa học kỹ năng mềm, chuyên môn và kiểm tra tiến độ; giúp nhân viên nhanh chóng hòa nhập và nâng cao năng lực làm việc.</p>
             <p class="hero-subnote">Dành riêng cho nhân viên KIS Việt Nam</p>
             <div class="hero-actions"><button class="btn btn-primary" data-auth-target="/dashboard/courses" data-auth-role="employee">${t("landing.cta")}</button><button class="btn btn-outline" data-scroll="featured-courses">${uiText("exploreCourses")}</button></div>
-            <div class="hero-proof"><button class="proof-item" data-auth-target="/dashboard/history" data-auth-role="employee"><strong>${formatTrainingDuration(training.totalTrainingSeconds,language,true)}</strong><span>${uiText("totalTrainingHours")}</span></button><button class="proof-item" data-auth-target="/dashboard/courses" data-auth-role="employee"><strong>${stats.totalActiveEmployees.toLocaleString()}</strong><span>${overviewText("activeEmployees")}</span></button><button class="proof-item" data-auth-target="/dashboard/calendar" data-auth-role="employee"><strong>${stats.totalPublishedCourses}</strong><span>${overviewText("publishedCourses")}</span></button></div>
+            <div class="hero-proof hero-proof--refined"><button class="proof-item proof-item--training" data-auth-target="/admin/reports" data-auth-role="hr"><span class="proof-item__eyebrow">Từ đầu năm đến nay</span><strong>${formatTrainingDuration(training.totalTrainingSeconds,language,true)}</strong><span>${uiText("totalTrainingHours")}</span><small>${formatTrainingDuration(training.totalOnlineSeconds,language,true)} trực tuyến · ${formatTrainingDuration(training.totalOfflineSeconds,language,true)} trực tiếp</small></button><button class="proof-item" data-auth-target="/dashboard/courses" data-auth-role="employee"><strong>${stats.totalActiveEmployees.toLocaleString()}</strong><span>${overviewText("activeEmployees")}</span></button><button class="proof-item" data-auth-target="/dashboard/calendar" data-auth-role="employee"><strong>${stats.totalPublishedCourses}</strong><span>${overviewText("publishedCourses")}</span></button></div>
           </div>
           ${heroMockup()}
         </div>
@@ -712,18 +712,15 @@ function aboutPage() {
       ${header()}
       <section class="about-premium-hero about-image-hero">
         <div class="container about-premium-grid">
-          <div><span class="breadcrumb">${t("about.breadcrumb")}</span><span class="eyebrow">${t("about.eyebrow")}</span><h1>${t("about.title")}</h1><p>Hành trình phát triển, nền tảng tài chính, mạng lưới toàn cầu và sức mạnh con người tạo nên KIS Việt Nam.</p><div class="hero-actions"><button class="btn btn-primary" data-scroll="kis-overview">${t("about.financialCta")}</button><button class="btn btn-outline light" data-scroll="kis-history">${t("about.honorCta")}</button></div></div>
-          <div class="profile-summary-card">${[["12/2010", "Thành lập"], ["4.550 tỷ VND", "Vốn điều lệ"], ["99.8%", "Sở hữu KIS Korea"], ["15+ năm", "Hoạt động tại Việt Nam"]].map(([v, l]) => `<div><span>${l}</span><strong>${v}</strong></div>`).join("")}</div>
+          <div><span class="breadcrumb">${t("about.breadcrumb")}</span><span class="eyebrow">${t("about.eyebrow")}</span><h1>${t("about.title")}</h1><p>KIS Việt Nam xây dựng môi trường học tập liên tục để nhân viên hội nhập nhanh, nâng cao năng lực chuyên môn và phát triển nghề nghiệp bền vững.</p><div class="hero-actions"><button class="btn btn-primary" data-scroll="kis-overview">Tìm hiểu KIS Việt Nam</button><button class="btn btn-outline light" data-scroll="learning-culture">Văn hóa học tập</button></div></div>
+          <div class="profile-summary-card">${[["MyKIS Learning", "Nền tảng học tập"], ["Online · Offline · Hybrid", "Hình thức đào tạo"], ["QR attendance", "Điểm danh buổi học"], ["HR / L&D support", "Hỗ trợ vận hành"]].map(([v, l]) => `<div><span>${l}</span><strong>${v}</strong></div>`).join("")}</div>
         </div>
       </section>
       <main>
         ${kisOverviewSection()}
-        ${globalNetworkSection()}
-        ${kisTimelineSection()}
-        ${ceoMessageSection()}
-        ${corporatePhilosophySection()}
-        ${coreValuesMissionSection()}
-        ${cchnHonorSection()}
+        ${learningCultureSection()}
+        ${mykisLearningSection()}
+        ${aboutSupportSection()}
       </main>
       ${footer()}
     </div>
@@ -735,44 +732,18 @@ function kisOverviewSection() {
   return `<section class="section" id="kis-overview"><div class="container overview-split"><div><span class="eyebrow">Overview</span><h2 class="section-title">Tổng quan KIS Việt Nam</h2><div class="overview-copy"><p>Công ty Cổ phần Chứng khoán KIS Vietnam (KIS Vietnam) được thành lập vào tháng 12 năm 2010 bởi Công ty Cổ phần Đầu tư & Chứng khoán Hàn Quốc (KIS Korea), cùng với sự đầu tư của Tập đoàn Dệt may Việt Nam và các cổ đông khác. KIS Korea nắm giữ 48,8% cổ phần tại KIS Vietnam tính đến tháng 11 năm 2010 và đã dần dần tăng cường sở hữu trong những năm qua, với tỷ lệ sở hữu chính thức hiện tại là <strong>99,8%</strong>.</p><p>Trong suốt <strong>15 năm</strong> hoạt động tại thị trường Việt Nam, KIS Vietnam đã liên tục tăng vốn để mở rộng các hoạt động kinh doanh của công ty, với tổng vốn điều lệ đạt <strong>4.550 tỷ VND</strong>, và con số này sẽ tiếp tục tăng trong tương lai.</p><p>KIS Vietnam nhận được sự hỗ trợ mạnh mẽ từ Tập đoàn KIS tại Hàn Quốc, tận dụng kinh nghiệm trong lĩnh vực tài chính và sự hợp tác của các chuyên gia nước ngoài cùng đội ngũ nhân viên xuất sắc có nhiều năm kinh nghiệm trong ngân hàng, kiểm toán và thị trường vốn trong nước.</p><p>KIS Vietnam tập trung phát triển kỹ thuật quản lý hoạt động và quản lý rủi ro để định vị công ty như một nhà lãnh đạo trong các lĩnh vực tài chính tại Việt Nam. Chúng tôi tin rằng nguồn nhân lực là yếu tố then chốt xây dựng danh tiếng và thành công của KIS Vietnam trên thị trường chứng khoán.</p></div></div><aside class="overview-stat-card card">${stats.map(([v,l]) => `<div><span>${l}</span><strong>${v}</strong></div>`).join("")}</aside></div></section>`;
 }
 
-function globalNetworkSection() {
-  const cards = [
-    ["Korea Investment & Securities (KIS)", "8 công ty con", "1 văn phòng đại diện"],
-    ["Korea Investment Management (KIM)", "1 công ty con", "1 văn phòng đại diện"],
-    ["Korea Investment Partners (KIP)", "1 công ty con", "2 văn phòng đại diện"],
-    ["KIARA Advisors", "Global advisory network", ""],
-  ];
-  return `<section class="section alt global-network-section"><div class="container"><div class="section-head"><div><span class="eyebrow">Global Network</span><h2 class="section-title">${t("about.network")}</h2><p class="section-lead">KIS kết nối năng lực tài chính, đầu tư và quản trị quốc tế nhằm hỗ trợ sự phát triển bền vững tại thị trường Việt Nam.</p></div></div><div class="network-summary-grid">${cards.map(([title, left, right]) => `<article class="card network-summary-card"><h3>${title}</h3><p>${right ? `${left} <span>|</span> ${right}` : left}</p></article>`).join("")}</div><div class="network-reference-map"><img src="/assets/about/global-network.png" alt="Mạng lưới KIS toàn cầu với bản đồ dotted map và các văn phòng quốc tế"></div></div></section>`;
+function learningCultureSection() {
+  const cards = [["book", "Học tập liên tục", "Khóa học được cập nhật để nhân viên chủ động bổ sung kiến thức chuyên môn và kỹ năng làm việc."], ["users", "Chia sẻ kiến thức", "Workshop, lớp trực tiếp và tài liệu nội bộ giúp lan tỏa kinh nghiệm giữa các phòng ban."], ["chart", "Nâng cao năng lực", "Theo dõi tiến độ, thời lượng học và điểm danh để HR đánh giá hiệu quả đào tạo bằng dữ liệu thật."], ["award", "Phát triển nghề nghiệp", "Lịch sử học tập, tài liệu mở khóa và chứng nhận hoàn thành hỗ trợ lộ trình phát triển dài hạn."]];
+  return `<section class="section alt" id="learning-culture"><div class="container"><div class="section-head"><div><h2 class="section-title">Văn hóa học tập</h2><p class="section-lead">MyKIS Learning tập trung vào trải nghiệm học tập thực tế, dễ theo dõi và dễ vận hành cho cả nhân viên lẫn HR.</p></div></div><div class="grid-4 purpose-grid">${cards.map(([i, title, desc]) => `<article class="card info-card purpose-card">${icon(i)}<h3>${title}</h3><p>${desc}</p></article>`).join("")}</div></div></section>`;
 }
 
-function kisTimelineSection() {
-  const item = timelineData[activeTimelineYear];
-  return `<section class="section" id="kis-history"><div class="container"><h2 class="section-title">Lịch sử phát triển</h2><div class="year-nav">${Object.keys(timelineData).map((year) => `<button class="${activeTimelineYear === year ? "active" : ""}" data-timeline-year="${year}">${year}</button>`).join("")}</div><div class="timeline-detail"><div class="timeline-image-wrap"><img src="${item.image}" alt="Sự kiện KIS năm ${activeTimelineYear}"></div><div class="timeline-content"><span>${activeTimelineYear}</span><h3>KIS Vietnam Milestone</h3><ul>${item.events.map((event) => `<li>${event}</li>`).join("")}</ul></div></div></div></section>`;
+function mykisLearningSection() {
+  const features = ["Học online với slide, video, quiz và tracking thời lượng học hợp lệ.", "Theo dõi lịch đào tạo, deadline và RSVP cho buổi học trực tiếp trong một nơi.", "Điểm danh QR theo từng slot sáng/chiều, check-in và check-out rõ ràng.", "Xem tài liệu, ảnh đào tạo, lịch sử học tập và thông báo liên quan đến khóa được giao."];
+  return `<section class="section"><div class="container"><div class="section-head"><div><h2 class="section-title">MyKIS Learning hỗ trợ gì cho nhân viên?</h2><p class="section-lead">Hệ thống được thiết kế để nhân viên mở vào là biết cần học gì, khi nào phải tham gia lớp và tài liệu nào đã được mở khóa.</p></div></div><div class="card support-panel"><div><ul class="course-benefit-list">${features.map((item) => `<li>${item}</li>`).join("")}</ul></div><div class="hero-actions"><button class="btn btn-primary" data-auth-target="/dashboard" data-auth-role="employee">Vào trang học tập</button><button class="btn btn-outline" data-auth-target="/dashboard/calendar" data-auth-role="employee">Xem lịch đào tạo</button></div></div></div></section>`;
 }
 
-function ceoMessageSection() {
-  const paragraphs = ["Kính gửi Quý Nhà đầu tư và Đối tác,", "Thay mặt Công ty Cổ phần Chứng khoán KIS Việt Nam, tôi xin gửi lời cảm ơn chân thành tới Quý Nhà đầu tư và Đối tác đã luôn tin tưởng, đồng hành và ủng hộ KIS Việt Nam trong suốt chặng đường phát triển hơn 15 năm qua.", "Ngay từ những ngày đầu thành lập, KIS Việt Nam luôn kiên định với định hướng lấy khách hàng làm trung tâm, không ngừng nâng cao chất lượng dịch vụ và ứng dụng công nghệ hiện đại nhằm mang đến các sản phẩm, giải pháp tài chính toàn diện cho nhà đầu tư cá nhân, tổ chức trong nước và quốc tế. Chúng tôi tin rằng sự thành công của khách hàng chính là nền tảng cho sự phát triển bền vững của KIS Việt Nam.", "Với mục tiêu trở thành một trong những định chế tài chính hàng đầu trên thị trường vốn Việt Nam, KIS Việt Nam không chỉ kế thừa nền tảng tài chính vững mạnh, kinh nghiệm quản trị và mạng lưới toàn cầu từ KIS Hàn Quốc, mà còn không ngừng đầu tư vào nguồn nhân lực chất lượng cao, công nghệ và hạ tầng giao dịch hiện đại để nâng cao trải nghiệm khách hàng.", "Sở hữu đội ngũ chuyên gia giàu kinh nghiệm cùng sự hỗ trợ từ các giải pháp công nghệ tiên tiến, chúng tôi cam kết tiếp tục đồng hành cùng Quý khách hàng và đối tác trên hành trình đầu tư, mang đến những giá trị thiết thực, bền vững và hiệu quả.", "Một lần nữa, xin chân thành cảm ơn sự tin tưởng và đồng hành của Quý vị. Kính chúc Quý Nhà đầu tư, Đối tác cùng gia đình sức khỏe, hạnh phúc và thành công.", "Trân trọng."];
-  return `<section class="section alt"><div class="container"><h2 class="section-title">Lời Tổng Giám đốc</h2><div class="ceo-message-card card"><div class="ceo-photo"><img src="/assets/about/tgd.jpeg" alt="Shin, Hyun Jae - Tổng Giám đốc"></div><div class="ceo-copy"><span class="eyebrow">${t("about.leadership")}</span><h3>Shin, Hyun Jae</h3><p class="label">Tổng Giám đốc</p><div class="ceo-letter">${paragraphs.map((p) => `<p>${p}</p>`).join("")}</div></div></div></div></section>`;
-}
-
-function corporatePhilosophySection() {
-  const cards = [["01", "Làm hài lòng khách hàng", ["Khách hàng là lý do mà công ty chứng khoán tồn tại.", "Ra quyết định dựa trên góc nhìn của khách hàng.", "Phát triển cùng với khách hàng bằng cách đảm bảo sự hài lòng của họ."]], ["02", "Kiến tạo giá trị mới", ["Liên tục tạo ra giá trị mới cho xã hội.", "Đổi mới với tinh thần thử thách bằng cách nâng cao năng lực tổ chức.", "Theo đuổi những mục tiêu cao nhất và sự xuất sắc."]], ["03", "Tôn trọng cá nhân", ["Chúng tôi luôn tôn trọng từng cá nhân trong đội ngũ của mình.", "Khuyến khích cá nhân phát triển khả năng của họ tại nơi làm việc.", "Hỗ trợ mỗi cá nhân trở thành những nhân viên xuất sắc."]]];
-  return `<section class="section"><div class="container"><h2 class="section-title">Triết lý tập đoàn</h2><div class="grid-3">${cards.map(([no,title,bullets]) => `<article class="card philosophy-premium philosophy-list-card">${icon("check")}<span>${no}</span><h3>${title}</h3><ul>${bullets.map((b) => `<li>${b}</li>`).join("")}</ul></article>`).join("")}</div></div></section>`;
-}
-
-function coreValuesMissionSection() {
-  const title = language === "kr" ? "핵심 가치 및 미션" : language === "en" ? "Core Values & Mission" : "Giá trị cốt lõi & Sứ mệnh";
-  const subtitle = language === "kr"
-    ? "KIS가 조직을 구축하고 변화를 추진하며 고객을 위한 지속 가능한 가치를 창출하는 방향을 제시합니다."
-    : language === "en"
-      ? "Guiding how KIS builds its organization, drives transformation, and creates sustainable value for customers."
-      : "Định hướng cách KIS xây dựng tổ chức, thúc đẩy đổi mới và tạo ra giá trị bền vững cho khách hàng.";
-  const cards = [
-    ["01", "target", { vi: "Tổ chức hướng đến mục tiêu", en: "Goal-Oriented Organization", kr: "목표 지향적 조직" }, { vi: "Xác lập mục tiêu rõ ràng, phối hợp hiệu quả và tập trung nguồn lực để tạo ra kết quả đo lường được.", en: "Setting clear objectives, coordinating effectively, and focusing resources to deliver measurable results.", kr: "명확한 목표를 설정하고 효과적으로 협업하며 자원을 집중하여 측정 가능한 성과를 창출합니다." }],
-    ["02", "check", { vi: "Tổ chức thúc đẩy chuyển đổi", en: "A Transformative Organization", kr: "변화를 주도하는 조직" }, { vi: "Không ngừng đổi mới phương thức làm việc, ứng dụng công nghệ và phát triển năng lực để thích ứng với thay đổi.", en: "Continuously improving ways of working, adopting technology, and building capabilities to adapt to change.", kr: "업무 방식을 지속적으로 개선하고 기술을 도입하며 변화에 대응할 수 있는 역량을 강화합니다." }],
-    ["03", "users", { vi: "Công ty lấy khách hàng làm trọng tâm", en: "A Customer-Focused Company", kr: "고객 중심 기업" }, { vi: "Thấu hiểu nhu cầu khách hàng, nâng cao trải nghiệm và tạo ra giải pháp tài chính có giá trị lâu dài.", en: "Understanding customer needs, improving experiences, and delivering financial solutions with long-term value.", kr: "고객의 요구를 이해하고 경험을 향상시키며 장기적인 가치를 제공하는 금융 솔루션을 제공합니다." }],
-  ];
-  return `<section class="section alt"><div class="container"><div class="section-head"><div><h2 class="section-title">${title}</h2><p class="section-lead">${subtitle}</p></div></div><div class="grid-3">${cards.map(([no, i, names, descriptions]) => `<article class="card philosophy-premium philosophy-list-card core-value-card">${icon(i)}<span>${no}</span><h3>${names[language] || names.vi}</h3><p>${descriptions[language] || descriptions.vi}</p></article>`).join("")}</div></div></section>`;
+function aboutSupportSection() {
+  return `<section class="section alt"><div class="container"><div class="support-panel card"><div><h2>Hỗ trợ sử dụng</h2><p>Nếu cần hỗ trợ về tài khoản, phân quyền, lịch đào tạo hoặc tài liệu, nhân viên có thể liên hệ HR/L&D hoặc xem hướng dẫn trong hệ thống.</p><div class="hero-actions"><button class="btn btn-outline" data-auth-target="/dashboard/resources" data-auth-role="employee">Xem tài liệu</button><button class="btn btn-outline" data-auth-target="/dashboard/gallery" data-auth-role="employee">Xem thư viện ảnh</button></div></div><strong>${hrContact}<small>HR / L&D support</small></strong></div></div></section>`;
 }
 
 function cchnRows() {
