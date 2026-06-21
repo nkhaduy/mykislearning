@@ -371,6 +371,13 @@ let selectedSessionDepartments = [];
 let sessionEmployeeSearch = "";
 let sessionEmployeeDepartment = "";
 let sessionEmployeePage = 1;
+
+// Async calendar state — populated by fetchCalendarEvents(), read by learningCalendarPageV3()
+let _calendarEvents = null;       // null = not yet loaded
+let _calendarLoading = false;
+let _calendarError = null;
+let _calendarSource = "";         // "api" | "local"
+let _calendarAccountId = "";      // detect account switch
 let sessionImportPreviewRows = [];
 
 const GALLERY_KEY = "mykis.galleryAlbums.v1";
