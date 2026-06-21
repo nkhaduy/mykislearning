@@ -2722,10 +2722,12 @@ function bindEvents() {
   document.querySelectorAll("[data-reset-learning]").forEach(el=>el.addEventListener("click",()=>{const row=getEnrollments().find(x=>x.id===el.dataset.resetLearning);openDialog({type:"confirm",title:lt("resetConfirm"),body:lt("resetReason"),onConfirm:()=>{const result=resetLearningProgress({performedBy:session.accountId,targetAccountId:row.accountId,courseId:row.courseId,reason:"HR đặt lại tiến trình"});toast(result?"success":"error");if(result)render();}});}));
   document.querySelectorAll("[data-view-learning-log]").forEach(el=>el.addEventListener("click",()=>{const row=getEnrollments().find(x=>x.id===el.dataset.viewLearningLog);const logs=getLearningActivity({accountId:row.accountId,courseId:row.courseId}).slice(0,20);openDialog({type:"alert",title:"Nhật ký học tập",body:logs.length?logs.map(x=>`${x.occurredAt} · ${x.eventType}`).join("\n"):lt("noActivity")});}));
   document.querySelectorAll("[data-remove-enrollment]").forEach((el) => el.addEventListener("click", () => {
-    openDialog({type:"confirm",title:"Hủy giao khóa học",body:"Nhân viên sẽ bị xóa khỏi khóa học này. Tiến trình học sẽ không bị xóa.",onConfirm:()=>document.querySelector("[data-unassign-confirmed]")?.click()});return;
-    const removed = removeEnrollment(el.dataset.removeEnrollment);
-    toast(removed ? "success" : "error");
-    if (removed) render();
+    const enrollmentId = el.dataset.removeEnrollment;
+    openDialog({type:"confirm",title:"Hủy giao khóa học",body:"Nhân viên sẽ bị xóa khỏi khóa học này. Tiến trình học sẽ không bị xóa.",onConfirm:()=>{
+      const removed = removeEnrollment(enrollmentId);
+      toast(removed ? "success" : "error");
+      if (removed) render();
+    }});
   }));
   document.querySelectorAll("[data-quick-assign]").forEach((el) => el.addEventListener("click", () => {
     const accountId = el.dataset.quickAssign;
