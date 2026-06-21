@@ -2443,7 +2443,13 @@ function render() {
   else if (route.startsWith("/dashboard/gallery/")) app.innerHTML = galleryPageV2(decodeURIComponent(route.split("/").pop()));
   else if (route === "/dashboard/resources") app.innerHTML = employeeResourcesPage();
   else if (route === "/dashboard/history") app.innerHTML = learningHistoryPage();
-  else if (route === "/dashboard/calendar") app.innerHTML = learningCalendarPageV3();
+  else if (route === "/dashboard/calendar") {
+    // Trigger async fetch if: no data yet, not currently loading, or account changed
+    if (session && (!_calendarEvents || _calendarAccountId !== session.accountId) && !_calendarLoading) {
+      fetchCalendarEvents(session.accountId); // async, triggers re-render on completion
+    }
+    app.innerHTML = learningCalendarPageV3();
+  }
   else if (route === "/admin") app.innerHTML = hasAdminAccess() ? adminDashboard(false) : session ? restrictedPage() : loginPage();
   else if (route === "/admin/employees") app.innerHTML = employeesPage();
   else if (route === "/admin/accounts") app.innerHTML = accountsPage();
