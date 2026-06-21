@@ -1026,27 +1026,45 @@ function loginPage() {
         <div class="auth-context-copy"><h1>MyKIS Learning</h1><p>HỆ THỐNG ĐÀO TẠO NỘI BỘ KIS VIỆT NAM</p></div>
       </section>
       <section class="auth-visual">
-        <form class="card login-card" id="loginForm">
-          <div class="login-card-head"><div class="mykis-brand"><span class="mykis-wordmark">MyKIS Learning</span></div>${languageSwitcher()}</div>
-          <div class="login-heading"><span>HỆ THỐNG ĐÀO TẠO NỘI BỘ KIS VIỆT NAM</span><h2>${t("login.title")}</h2><p>Vui lòng sử dụng email công ty được Phòng Nhân sự cấp để tiếp tục.</p></div>
-          <div class="role-toggle" role="tablist">${["employee", "hr"].map((role) => `<button type="button" class="${selectedLoginRole === role ? "active" : ""}" data-login-role="${role}" aria-selected="${selectedLoginRole === role}">${t(`roles.${role}`)}</button>`).join("")}</div>
-          <div class="field"><label>${t("login.email")}</label><input name="identifier" autocomplete="username" type="email" inputmode="email" required placeholder="${t("login.emailPlaceholder")}" aria-describedby="loginEmailError"><span class="field-error" id="loginEmailError" data-login-email-error></span></div>
-          <div class="field"><label>${t("login.password")}</label><input name="password" type="password" autocomplete="current-password" placeholder="Nhập mật khẩu"></div>
-          <div class="login-options"><label class="remember-me-row"><input type="checkbox" name="rememberMe" class="remember-me-check"><span>Ghi nhớ đăng nhập</span></label><button class="link-button" type="button" data-forgot-password>${uiText("forgotPassword")}</button></div>
+        <form class="card login-card" id="loginForm" novalidate>
+          <div class="login-card-head">
+            <div class="mykis-brand"><span class="mykis-wordmark">MyKIS Learning</span></div>
+            ${languageSwitcher()}
+          </div>
+          <div class="login-heading">
+            <span class="login-system-label">HỆ THỐNG ĐÀO TẠO NỘI BỘ KIS VIỆT NAM</span>
+            <h2>${t("login.title")}</h2>
+          </div>
+          <div class="field">
+            <label for="loginEmail">${t("login.email")}</label>
+            <input id="loginEmail" name="identifier" autocomplete="email" type="email" inputmode="email" placeholder="${t("login.emailPlaceholder")}" aria-describedby="loginEmailError">
+            <span class="field-error" id="loginEmailError" data-login-email-error aria-live="polite"></span>
+          </div>
+          <div class="field">
+            <label for="loginPassword">${t("login.password")}</label>
+            <input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="${t("login.passwordPlaceholder")||"Nhập mật khẩu"}">
+          </div>
+          <div class="login-options">
+            <label class="remember-me-row">
+              <input type="checkbox" name="rememberMe" class="remember-me-check">
+              <span>${uiText("rememberMe")}</span>
+            </label>
+            <button class="link-button" type="button" data-forgot-password>${uiText("forgotPassword")}</button>
+          </div>
           <button class="btn btn-primary login-submit" type="submit">${t("login.submit")}</button>
-          <p class="login-security-note">Tài khoản được bảo vệ theo chính sách an toàn thông tin của KIS Việt Nam.</p>
-          ${SHOW_DEMO_CREDENTIALS ? `<details class="demo-account-details"><summary>Tài khoản dùng thử</summary><div class="demo-account-card">
-            <div>
-              <span class="eyebrow">Tài khoản HR demo</span>
-              <h3>Nguyễn Thị Cẩm Thanh</h3>
-              <p><strong>Email:</strong> ${DEMO_HR_EMAIL}</p>
-              <p><strong>Mật khẩu:</strong> ${DEMO_HR_PASSWORD}</p>
-            </div>
-            <div class="demo-actions">
+          <p class="login-security-note">${t("login.note") || "Tài khoản được cấp bởi Phòng Nhân sự."}</p>
+          ${SHOW_DEMO_CREDENTIALS ? `<details class="demo-account-details"><summary>Tài khoản dùng thử</summary>
+            <div class="demo-account-card">
+              <div>
+                <span class="eyebrow">Tài khoản HR</span>
+                <h3>Nguyễn Thị Cẩm Thanh</h3>
+                <p><strong>Email:</strong> ${DEMO_HR_EMAIL}</p>
+                <p><strong>Mật khẩu:</strong> ${DEMO_HR_PASSWORD}</p>
+              </div>
               <button class="btn btn-outline" type="button" data-fill-demo-account>Dùng tài khoản này</button>
             </div>
-          </div>
-          ${demoEmployee ? `<div class="demo-account-card"><div><strong>${uiText("demoEmployeeAccount")}</strong><p>${escapeHtml(demoEmployee.fullName || demoEmployee.name || "")}</p><p>${uiText("emailLabel")}: ${escapeHtml(DEMO_EMPLOYEE_EMAIL)}</p><p>${uiText("passwordLabel")}: ${escapeHtml(DEMO_EMPLOYEE_PASSWORD)}</p></div><button type="button" class="btn btn-outline" data-fill-demo-employee>${uiText("useAccount")}</button></div>` : ""}</details>` : ""}
+            ${demoEmployee ? `<div class="demo-account-card"><div><span class="eyebrow">Tài khoản nhân viên</span><h3>${escapeHtml(demoEmployee.fullName||"")}</h3><p><strong>Email:</strong> ${escapeHtml(DEMO_EMPLOYEE_EMAIL)}</p><p><strong>Mật khẩu:</strong> ${escapeHtml(DEMO_EMPLOYEE_PASSWORD)}</p></div><button type="button" class="btn btn-outline" data-fill-demo-employee>Dùng tài khoản này</button></div>` : ""}
+          </details>` : ""}
         </form>
       </section>
     </main>
