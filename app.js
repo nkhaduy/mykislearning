@@ -979,45 +979,29 @@ function leadershipSection() {
 function kisTimelineSection() {
   const item = timelineData[activeTimelineYear];
   const years = Object.keys(timelineData);
-  const activeIdx = years.indexOf(String(activeTimelineYear));
   return `<section class="section" id="kis-history">
     <div class="container">
       <h2 class="section-title">Lịch sử phát triển</h2>
-      <div class="timeline-track-wrap" role="tablist" aria-label="Năm lịch sử KIS">
-        <button class="timeline-arrow timeline-arrow--prev" data-timeline-prev aria-label="Năm trước" ${activeIdx <= 0 ? "disabled" : ""}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <div class="timeline-track-scroll" id="kisTimelineScroll">
-          <div class="timeline-track">
-            <div class="timeline-line" aria-hidden="true"></div>
-            ${years.map((year, idx) => `
-              <button
-                class="timeline-node${activeTimelineYear === year ? " active" : ""}"
-                data-timeline-year="${year}"
-                role="tab"
-                aria-selected="${activeTimelineYear === year ? "true" : "false"}"
-                aria-controls="timeline-content-panel"
-                id="timeline-tab-${year}"
-              >
-                <span class="timeline-node__dot" aria-hidden="true"></span>
-                <span class="timeline-node__label">${year}</span>
-              </button>
-            `).join("")}
-          </div>
-        </div>
-        <button class="timeline-arrow timeline-arrow--next" data-timeline-next aria-label="Năm tiếp theo" ${activeIdx >= years.length - 1 ? "disabled" : ""}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-        </button>
+      <div class="tl-nav" role="tablist" aria-label="Chọn năm">
+        ${years.map((year) => `<button
+          class="tl-nav__pill${activeTimelineYear === year ? " active" : ""}"
+          data-timeline-year="${year}"
+          role="tab"
+          aria-selected="${activeTimelineYear === year}"
+          id="tl-tab-${year}"
+          aria-controls="tl-panel"
+        >${year}</button>`).join("")}
       </div>
-      <div class="timeline-content-panel" id="timeline-content-panel" role="tabpanel" aria-labelledby="timeline-tab-${activeTimelineYear}">
-        <div class="timeline-content-inner">
-          <div class="timeline-image-wrap">
-            <img src="${item.image}" alt="Sự kiện KIS năm ${activeTimelineYear}" loading="lazy">
+      <div class="tl-panel" id="tl-panel" role="tabpanel" aria-labelledby="tl-tab-${activeTimelineYear}">
+        <div class="tl-panel__inner">
+          <div class="tl-panel__photo">
+            <img src="${item.image}" alt="KIS Vietnam ${activeTimelineYear}" loading="lazy">
           </div>
-          <div class="timeline-content">
-            <span class="timeline-year-badge">${activeTimelineYear}</span>
-            <h3>KIS Vietnam Milestone</h3>
-            <ul>${item.events.map((event) => `<li>${event}</li>`).join("")}</ul>
+          <div class="tl-panel__body">
+            <span class="tl-panel__year">${activeTimelineYear}</span>
+            <ul class="tl-panel__events">
+              ${item.events.map((ev) => `<li>${ev}</li>`).join("")}
+            </ul>
           </div>
         </div>
       </div>
