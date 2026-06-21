@@ -383,7 +383,7 @@ function footer() {
           <h3>${uiText("support")}</h3>
           <a href="#support" data-scroll="support">Hướng dẫn sử dụng</a>
           <a href="mailto:thanh.ntc@kisvn.vn">Liên hệ HR</a>
-          <a href="#">Chính sách bảo mật</a>
+          <button class="footer-link-button" type="button" data-open-privacy>Chính sách bảo mật</button>
           <a href="/change-password" data-link>Đổi mật khẩu</a>
         </nav>
         <div class="footer-column footer-contact">
@@ -401,6 +401,13 @@ function footer() {
       </div>
     </footer>
   `;
+}
+
+function activeSessionForLandingModal() {
+  if (location.pathname !== "/" || hasEmployeeAccess() || hasAdminAccess() || !selectedNotificationId) return "";
+  const announcement = hrAnnouncements[Number(selectedNotificationId)];
+  if (!announcement) return "";
+  return `<div class="modal-backdrop open" data-close-landing-detail><section class="modal modal--medium modal--structured"><header class="modal__header"><div><span class="eyebrow">${escapeHtml(announcement[0])}</span><h2>${escapeHtml(announcement[1])}</h2></div><button class="icon-btn" data-close-landing-detail aria-label="Đóng">×</button></header><div class="modal__body"><p>${escapeHtml(announcement[2])}</p></div><footer class="modal__footer"><button class="btn btn-outline" data-close-landing-detail>Đóng</button><button class="btn btn-primary" data-auth-target="/dashboard/notifications" data-auth-role="employee">Đăng nhập để xem đầy đủ</button></footer></section></div>`;
 }
 
 function badge(key) {
