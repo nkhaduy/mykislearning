@@ -4,6 +4,7 @@
     "start:spa": "node scripts/spa-fallback-server.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
     "impeccable": "github:pbakaus/impeccable",
     "jsqr": "^1.4.0",
     "qrcode": "^1.5.4",
