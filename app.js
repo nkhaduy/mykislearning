@@ -132,6 +132,116 @@ let activeSlideIndex = 0;
 let lastTickAt = 0;
 let blurStartedAt = 0;
 let youtubePlayer = null;
+let _ytWatchStart = null;
+let _ytWatchRanges = [];
+let _ytPersistTimer = null;
+let _ytCourseId = "";
+let _ytContentId = "";
+let _ytAccountId = "";
+
+function mergeWatchedRanges(ranges) {
+  if (!ranges.length) return [];
+  const sorted = [...ranges].sort((a, b) => a.start - b.start);
+  const merged = [{ ...sorted[0] }];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = merged[merged.length - 1];
+    if (sorted[i].start <= last.end) {
+      last.end = Math.max(last.end, sorted[i].end);
+    } else {
+      merged.push({ ...sorted[i] });
+    }
+  }
+  return merged;
+}
+
+function uniqueWatchedSeconds(ranges) {
+  return mergeWatchedRanges(ranges).reduce((sum, r) => sum + (r.end - r.start), 0);
+}
+
+function ytFlushRanges(final = false) {
+  if (!_ytCourseId || !_ytContentId || !_ytAccountId) return;
+  if (_ytWatchStart !== null && youtubePlayer) {
+    try {
+      const cur = youtubePlayer.getCurrentTime();
+      if (cur > _ytWatchStart) _ytWatchRanges.push({ start: _ytWatchStart, end: cur });
+    } catch {}
+    if (!final) _ytWatchStart = (() => { try { return youtubePlayer.getCurrentTime(); } catch { return null; } })();
+  }
+  const state = getContentProgress(_ytAccountId, _ytCourseId).find(x => x.contentId === _ytContentId);
+  const prev = state?.metadata?.watchedRanges || [];
+  const merged = mergeWatchedRanges([...prev, ..._ytWatchRanges]);
+  const duration = (() => { try { return youtubePlayer?.getDuration() || 0; } catch { return 0; } })();
+  const watched = uniqueWatchedSeconds(merged);
+  const requiredPercent = (() => {
+    try { const content = getCourseContent(_ytCourseId).find(x => x.id === _ytContentId); return content?.completionRule?.requiredPercent ?? 90; } catch { return 90; }
+  })();
+  const pct = duration > 0 ? Math.min(100, Math.round(watched / duration * 100)) : 0;
+  const completed = pct >= requiredPercent;
+  saveContentProgress({ accountId: _ytAccountId, courseId: _ytCourseId, contentId: _ytContentId, contentType: "video", activeSeconds: watched, completionPercent: pct, completed, metadata: { watchedRanges: merged, durationSeconds: duration } });
+  if (final) { _ytWatchRanges = []; _ytWatchStart = null; }
+  else { _ytWatchRanges = []; }
+  if (completed) render();
+}
+
+function destroyYoutubePlayer() {
+  if (_ytPersistTimer) { clearInterval(_ytPersistTimer); _ytPersistTimer = null; }
+  if (_ytWatchStart !== null) ytFlushRanges(true);
+  if (youtubePlayer) { try { youtubePlayer.destroy(); } catch {} youtubePlayer = null; }
+  _ytCourseId = ""; _ytContentId = ""; _ytAccountId = "";
+}
+
+function initYoutubeTracking(courseId, contentId, accountId, videoId, requiredPercent = 90) {
+  destroyYoutubePlayer();
+  _ytCourseId = courseId; _ytContentId = contentId; _ytAccountId = accountId;
+  const state = getContentProgress(accountId, courseId).find(x => x.contentId === contentId);
+  _ytWatchRanges = state?.metadata?.watchedRanges ? [] : [];
+
+  function setupPlayer() {
+    if (!window.YT?.Player) return;
+    const iframe = document.getElementById("youtube-player");
+    if (!iframe) return;
+    youtubePlayer = new window.YT.Player(iframe, {
+      events: {
+        onStateChange(e) {
+          const YT = window.YT;
+          if (e.data === YT.PlayerState.PLAYING) {
+            if (!document.hidden) {
+              try { _ytWatchStart = youtubePlayer.getCurrentTime(); } catch {}
+            }
+          } else if (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.ENDED || e.data === YT.PlayerState.BUFFERING) {
+            if (_ytWatchStart !== null) {
+              try { _ytWatchRanges.push({ start: _ytWatchStart, end: youtubePlayer.getCurrentTime() }); } catch {}
+              _ytWatchStart = null;
+            }
+            ytFlushRanges(false);
+            if (e.data === YT.PlayerState.ENDED) ytFlushRanges(true);
+          }
+        },
+      },
+    });
+    _ytPersistTimer = setInterval(() => {
+      if (document.hidden || _ytWatchStart === null) return;
+      ytFlushRanges(false);
+    }, 8000);
+  }
+
+  if (window.YT?.Player) {
+    setupPlayer();
+  } else {
+    window._ytReadyCallbacks = window._ytReadyCallbacks || [];
+    window._ytReadyCallbacks.push(setupPlayer);
+    if (!document.getElementById("yt-api-script")) {
+      const s = document.createElement("script");
+      s.id = "yt-api-script";
+      s.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(s);
+      window.onYouTubeIframeAPIReady = () => {
+        (window._ytReadyCallbacks || []).forEach(fn => fn());
+        window._ytReadyCallbacks = [];
+      };
+    }
+  }
+}
 let courseDetailTab = "overview";
 let notificationSearch = "";
 let notificationComposerOpen = false;
