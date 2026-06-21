@@ -1201,17 +1201,58 @@ function loginPage() {
             </span>
           </button>
           <p class="login-security-note">${t("login.note") || "Tài khoản được cấp bởi Phòng Nhân sự."}</p>
-          ${SHOW_DEMO_CREDENTIALS ? `<details class="demo-account-details"><summary>Tài khoản dùng thử</summary>
-            <div class="demo-account-card">
-              <div>
-                <span class="eyebrow">Tài khoản HR</span>
-                <h3>Nguyễn Thị Cẩm Thanh</h3>
-                <p><strong>Email:</strong> ${DEMO_HR_EMAIL}</p>
-                <p><strong>Mật khẩu:</strong> ${DEMO_HR_PASSWORD}</p>
+          ${SHOW_DEMO_CREDENTIALS ? `<details class="demo-accounts">
+            <summary class="demo-accounts__toggle">
+              <span class="demo-accounts__label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                Tài khoản dùng thử
+              </span>
+              <svg class="demo-accounts__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </summary>
+            <div class="demo-accounts__body">
+              <div class="demo-card">
+                <div class="demo-card__badge">HR</div>
+                <div class="demo-card__info">
+                  <p class="demo-card__name">Nguyễn Thị Cẩm Thanh</p>
+                  <div class="demo-card__field">
+                    <span class="demo-card__field-label">Email</span>
+                    <code class="demo-card__field-value" id="demoHrEmail">${DEMO_HR_EMAIL}</code>
+                    <button type="button" class="demo-card__copy" data-copy-target="demoHrEmail" aria-label="Sao chép email HR">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                  </div>
+                  <div class="demo-card__field">
+                    <span class="demo-card__field-label">Mật khẩu</span>
+                    <code class="demo-card__field-value" id="demoHrPwd">${DEMO_HR_PASSWORD}</code>
+                    <button type="button" class="demo-card__copy" data-copy-target="demoHrPwd" aria-label="Sao chép mật khẩu HR">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <button type="button" class="demo-card__use" data-fill-demo-account>Dùng tài khoản này</button>
               </div>
-              <button class="btn btn-outline" type="button" data-fill-demo-account>Dùng tài khoản này</button>
+              <div class="demo-card">
+                <div class="demo-card__badge demo-card__badge--emp">NV</div>
+                <div class="demo-card__info">
+                  <p class="demo-card__name">${demoEmployee ? escapeHtml(demoEmployee.fullName||"Nhân viên demo") : "Nhân viên demo"}</p>
+                  <div class="demo-card__field">
+                    <span class="demo-card__field-label">Email</span>
+                    <code class="demo-card__field-value" id="demoEmpEmail">${DEMO_EMPLOYEE_EMAIL}</code>
+                    <button type="button" class="demo-card__copy" data-copy-target="demoEmpEmail" aria-label="Sao chép email nhân viên">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                  </div>
+                  <div class="demo-card__field">
+                    <span class="demo-card__field-label">Mật khẩu</span>
+                    <code class="demo-card__field-value" id="demoEmpPwd">${DEMO_EMPLOYEE_PASSWORD}</code>
+                    <button type="button" class="demo-card__copy" data-copy-target="demoEmpPwd" aria-label="Sao chép mật khẩu nhân viên">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <button type="button" class="demo-card__use" data-fill-demo-employee>Dùng tài khoản này</button>
+              </div>
             </div>
-            ${demoEmployee ? `<div class="demo-account-card"><div><span class="eyebrow">Tài khoản nhân viên</span><h3>${escapeHtml(demoEmployee.fullName||"")}</h3><p><strong>Email:</strong> ${escapeHtml(DEMO_EMPLOYEE_EMAIL)}</p><p><strong>Mật khẩu:</strong> ${escapeHtml(DEMO_EMPLOYEE_PASSWORD)}</p></div><button type="button" class="btn btn-outline" data-fill-demo-employee>Dùng tài khoản này</button></div>` : ""}
           </details>` : ""}
         </form>
       </section>
