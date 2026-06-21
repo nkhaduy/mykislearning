@@ -5121,3 +5121,65 @@ body.modal-open { overflow: hidden; }
 
 /* Hide the old login-system-label if it still appears */
 .login-system-label { display: none; }
+
+/* ============================================================
+   QR CAMERA SCANNER
+   ============================================================ */
+.qr-camera-wrap {
+  max-width: 480px;
+  margin: 0 auto;
+  text-align: center;
+}
+.qr-camera-viewport {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 1;
+  margin: 20px auto;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #0b1220;
+}
+.qr-camera-viewport video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* Corner guides */
+.qr-camera-corner {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-color: var(--teal, #0e7a70);
+  border-style: solid;
+}
+.qr-camera-corner--tl { top: 12px; left: 12px; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+.qr-camera-corner--tr { top: 12px; right: 12px; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+.qr-camera-corner--bl { bottom: 12px; left: 12px; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+.qr-camera-corner--br { bottom: 12px; right: 12px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+/* Scan line animation */
+.qr-scan-line {
+  position: absolute;
+  left: 12px; right: 12px;
+  top: 12px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--teal, #0e7a70), transparent);
+  animation: qr-scan 2s linear infinite;
+}
+@keyframes qr-scan {
+  0%   { top: 12px; }
+  50%  { top: calc(100% - 14px); }
+  100% { top: 12px; }
+}
+.qr-camera-status {
+  margin: 10px 0;
+  color: #4b5869;
+  font-size: 14px;
+}
+.qr-camera-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 12px;
+}
