@@ -2901,10 +2901,7 @@ a {
   font-weight: 900;
 }
 
-.login-card .language-switch {
-  min-height: 34px;
-  background: rgba(255, 255, 255, 0.72);
-}
+/* login-card .language-switch legacy rule — neutralised; styling now via .login-language-switcher */
 
 .login-heading {
   margin: 24px 0 20px;
