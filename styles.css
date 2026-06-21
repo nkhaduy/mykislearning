@@ -5953,3 +5953,454 @@ body.modal-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .btn--hero { transition: none !important; }
 }
+
+/* ============================================================
+   LOGIN PAGE — AUTH-HEADER OVERLAY
+   Replaces old .auth-page .auth-home-btn { position: relative }
+   ============================================================ */
+.auth-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px;
+  pointer-events: none;
+}
+.auth-header > * {
+  pointer-events: auto;
+}
+
+/* Back button: no longer position:fixed — lives inside the overlay */
+.auth-home-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px 8px 12px;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  max-width: max-content;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: background 150ms, color 150ms, border-color 150ms;
+}
+.auth-home-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.auth-home-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+}
+.auth-home-btn svg {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+/* Language switcher in auth-header */
+.auth-header-lang .lang-switcher {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+}
+.auth-header-lang .lang-switcher button {
+  color: rgba(255, 255, 255, 0.85);
+}
+.auth-header-lang .lang-switcher button:hover,
+.auth-header-lang .lang-switcher button.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Remove old login-card-head language switcher space */
+.login-card-head {
+  justify-content: center;
+}
+
+@media (max-width: 600px) {
+  .auth-header {
+    padding: 14px 16px;
+  }
+  .auth-home-btn {
+    padding: 7px 12px 7px 10px;
+    font-size: 12.5px;
+  }
+}
+
+/* ============================================================
+   ABOUT-KIS — TIMELINE (upgraded)
+   ============================================================ */
+.timeline-track-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 32px 0 40px;
+  position: relative;
+}
+
+.timeline-arrow {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid #d1dae6;
+  border-radius: 8px;
+  background: #fff;
+  color: #4b6a8a;
+  cursor: pointer;
+  transition: background 130ms, border-color 130ms, color 130ms;
+  z-index: 2;
+}
+.timeline-arrow:hover:not(:disabled) {
+  background: #f0f5fb;
+  border-color: #8aaed4;
+  color: #0b1f3a;
+}
+.timeline-arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.timeline-arrow:focus-visible {
+  outline: 2px solid #0b1f3a;
+  outline-offset: 2px;
+}
+
+.timeline-track-scroll {
+  flex: 1;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 16px 8px;
+}
+.timeline-track-scroll::-webkit-scrollbar { display: none; }
+
+.timeline-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-width: max-content;
+  padding: 0 8px;
+}
+
+.timeline-line {
+  position: absolute;
+  top: 50%;
+  left: 20px;
+  right: 20px;
+  height: 2px;
+  background: linear-gradient(90deg, #c8d8e8 0%, #a0b8d0 100%);
+  transform: translateY(-50%);
+  z-index: 0;
+}
+
+.timeline-node {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  min-width: 72px;
+  transition: color 180ms;
+}
+.timeline-node:focus-visible {
+  outline: 2px solid #0b1f3a;
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.timeline-node__dot {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #c8d8e8;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px #b0c4d8;
+  transition: background 200ms, box-shadow 200ms, transform 200ms;
+  flex-shrink: 0;
+}
+.timeline-node:hover .timeline-node__dot {
+  background: #4b7ab3;
+  box-shadow: 0 0 0 2px #4b7ab3;
+  transform: scale(1.15);
+}
+.timeline-node.active .timeline-node__dot {
+  background: #0b1f3a;
+  box-shadow: 0 0 0 3px #0b1f3a, 0 0 0 5px rgba(11, 31, 58, 0.15);
+  transform: scale(1.2);
+}
+
+.timeline-node__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b829a;
+  letter-spacing: 0.02em;
+  transition: color 180ms, font-weight 180ms;
+  white-space: nowrap;
+}
+.timeline-node:hover .timeline-node__label {
+  color: #1e3a5f;
+}
+.timeline-node.active .timeline-node__label {
+  color: #0b1f3a;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+/* Timeline content panel */
+.timeline-content-panel {
+  border-radius: 14px;
+  overflow: hidden;
+  background: #f7fafd;
+  border: 1.5px solid #dbeafe;
+}
+
+.timeline-content-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  animation: timeline-fade-in 220ms ease;
+}
+
+@keyframes timeline-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.timeline-image-wrap {
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+}
+.timeline-image-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.timeline-content {
+  padding: 36px 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+
+.timeline-year-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: #0b1f3a;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  align-self: flex-start;
+}
+
+.timeline-content h3 {
+  margin: 0;
+  color: #0b1f3a;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.timeline-content ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.timeline-content ul li {
+  color: #374a5e;
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+@media (max-width: 768px) {
+  .timeline-content-inner {
+    grid-template-columns: 1fr;
+  }
+  .timeline-image-wrap {
+    aspect-ratio: 16 / 9;
+  }
+  .timeline-content {
+    padding: 24px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline-content-panel { animation: none; }
+  .timeline-node__dot { transition: none; }
+}
+
+/* ============================================================
+   ABOUT-KIS — LEADERSHIP SECTION
+   ============================================================ */
+.leadership-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  margin-top: 36px;
+}
+
+.leader-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+  border: 1.5px solid #e4eaf2;
+  box-shadow: 0 2px 8px rgba(11, 31, 58, 0.06);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+  animation: leader-fade-in 380ms ease both;
+}
+.leader-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(11, 31, 58, 0.13);
+}
+
+@keyframes leader-fade-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.leader-card__photo-wrap {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: #e8edf4;
+}
+.leader-card__photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+  transition: transform 300ms ease;
+}
+.leader-card:hover .leader-card__photo {
+  transform: scale(1.03);
+}
+
+.leader-card__info {
+  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.leader-card__name {
+  margin: 0;
+  color: #0b1f3a;
+  font-size: 16.5px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.leader-card__title {
+  margin: 0;
+  color: #5a7191;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+@media (max-width: 900px) {
+  .leadership-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .leader-card__name { font-size: 14px; }
+  .leader-card__title { font-size: 12px; }
+}
+@media (max-width: 600px) {
+  .leadership-grid {
+    grid-template-columns: 1fr;
+    max-width: 360px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .leader-card__photo-wrap {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leader-card { animation: none; transition: none; }
+  .leader-card__photo { transition: none; }
+}
+
+/* ============================================================
+   ABOUT-KIS — PHILOSOPHY & CORE VALUES CARDS (fix number/icon overlap)
+   ============================================================ */
+.phil-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.phil-icon-wrap {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #eef4ff;
+  flex-shrink: 0;
+}
+.phil-icon-wrap svg {
+  width: 22px;
+  height: 22px;
+  color: #1e4a8a;
+}
+
+.phil-no {
+  font-size: 13px;
+  font-weight: 800;
+  color: #a0b8d0;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+/* Suppress old overlapping span number inside philosophy cards */
+.philosophy-list-card > span:not(.phil-no) {
+  display: none;
+}
+/* Ensure old icon placement is also hidden if it was outside the new header */
+.philosophy-list-card > svg:first-child {
+  display: none;
+}
+
+.philosophy-premium.philosophy-list-card {
+  position: relative;
+}
+.philosophy-premium.philosophy-list-card h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0b1f3a;
+}
