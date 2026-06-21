@@ -1651,6 +1651,10 @@ function render() {
   session = sessionService.getValidSession();
   const routeParams = new URLSearchParams(location.search);
   selectedLoginRole = routeParams.get("role") || selectedLoginRole;
+  const returnTo = routeParams.get("returnTo") || "";
+  if (route === "/login" && returnTo && sessionService.canRedirectTo(returnTo)) {
+    sessionService.setPostLoginRedirect(returnTo);
+  }
   if ((route.startsWith("/dashboard") || route.startsWith("/attendance/scan")) && !session) {
     sessionService.setPostLoginRedirect(currentPathWithQuery());
   }
@@ -1895,7 +1899,7 @@ function bindEvents() {
   document.querySelector("[data-open-projector]")?.addEventListener("click",()=>{const token=qrAttendanceService.listTokens(selectedQrSlotId).find(row=>row.action===selectedQrAction&&row.status==="open");if(!token)return toast("error");currentQrTokenId=token.id;qrProjectorOpen=true;render();});
   document.querySelectorAll("[data-close-projector]").forEach(el=>el.addEventListener("click",()=>{qrProjectorOpen=false;render();}));
   document.querySelectorAll("[data-close-qr-token]").forEach(el=>el.addEventListener("click",()=>{const token=qrAttendanceService.listTokens(selectedQrSlotId).find(row=>row.action===selectedQrAction&&row.status==="open");if(token)qrAttendanceService.closeToken(token.id,session.accountId);qrProjectorOpen=false;render();}));
-  document.querySelector("[data-open-scan-entry]")?.addEventListener("click",()=>{const value=window.prompt("Nhập link hoặc token QR");if(!value)return;const token=value.includes("token=")?new URL(value,location.origin).searchParams.get("token"):value.trim();if(token)navigateWithAuth(`/attendance/scan?token=${encodeURIComponent(token)}`,"employee");});
+  document.querySelectorAll("[data-open-scan-entry]").forEach(el=>el.addEventListener("click",()=>{const value=window.prompt("Nhập link hoặc token QR");if(!value)return;const token=value.includes("token=")?new URL(value,location.origin).searchParams.get("token"):value.trim();if(token)navigateWithAuth(`/attendance/scan?token=${encodeURIComponent(token)}`,"employee");}));
   document.getElementById("changePasswordForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
