@@ -2477,23 +2477,48 @@ function bindEvents() {
   });
   document.getElementById("loginForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const submitBtn = document.getElementById("loginSubmitBtn");
+    const submitText = submitBtn?.querySelector(".login-submit-text");
+    const submitSpinner = submitBtn?.querySelector(".login-submit-spinner");
+
+    const data = new FormData(form);
     const email = String(data.get("identifier") || "").trim().toLowerCase();
-    const emailError = event.currentTarget.querySelector("[data-login-email-error]");
+    const emailError = form.querySelector("[data-login-email-error]");
+
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       if (emailError) emailError.textContent = "Vui lòng nhập email công ty hợp lệ.";
-      event.currentTarget.elements.identifier.setAttribute("aria-invalid", "true");
-      event.currentTarget.elements.identifier.focus();
+      form.elements.identifier?.setAttribute("aria-invalid", "true");
+      form.elements.identifier?.focus();
       return;
     }
     if (emailError) emailError.textContent = "";
-    event.currentTarget.elements.identifier.removeAttribute("aria-invalid");
-    let result;
-    try { result = login(email, data.get("password")); } catch { return openDialog({ type: "system" }); }
-    if (!result.ok) return openDialog({ type: result.reason === "invalidEmail" ? "invalidCredentials" : result.reason });
-    session = sessionService.startSession(result.account, { rememberMe: data.get("rememberMe") === "on" });
-    if (result.reason === "passwordResetRequired") navigate("/change-password");
-    else navigate(sessionService.consumePostLoginRedirect(result.account.role === "hr" ? "/admin" : "/dashboard"));
+    form.elements.identifier?.removeAttribute("aria-invalid");
+
+    // Show loading state
+    if (submitBtn) submitBtn.disabled = true;
+    if (submitText) submitText.style.display = "none";
+    if (submitSpinner) submitSpinner.style.display = "";
+
+    // Simulate async to allow spinner to paint, then process
+    requestAnimationFrame(() => setTimeout(() => {
+      let result;
+      try { result = login(email, data.get("password")); } catch {
+        if (submitBtn) submitBtn.disabled = false;
+        if (submitText) submitText.style.display = "";
+        if (submitSpinner) submitSpinner.style.display = "none";
+        return openDialog({ type: "system" });
+      }
+      if (!result.ok) {
+        if (submitBtn) submitBtn.disabled = false;
+        if (submitText) submitText.style.display = "";
+        if (submitSpinner) submitSpinner.style.display = "none";
+        return openDialog({ type: result.reason === "invalidEmail" ? "invalidCredentials" : result.reason });
+      }
+      session = sessionService.startSession(result.account, { rememberMe: data.get("rememberMe") === "on" });
+      if (result.reason === "passwordResetRequired") navigate("/change-password");
+      else navigate(sessionService.consumePostLoginRedirect(result.account.role === "hr" ? "/admin" : "/dashboard"));
+    }, 280));
   });
   document.querySelectorAll("[data-dialog-close]").forEach((el) => el.addEventListener("click", closeDialog));
   document.querySelector("[data-dialog-leave]")?.addEventListener("click", () => {
