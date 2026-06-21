@@ -55,13 +55,15 @@ import {employeeService} from "./lib/services/employeeService.js";
 import {notificationService} from "./lib/services/notificationService.js";
 import {galleryService} from "./lib/services/galleryService.js";
 import {offlineTrainingService} from "./lib/services/offlineTrainingService.js";
-import {calculateEmployeeTrainingTime,getCompanyTrainingAnalytics,formatTrainingDuration} from "./lib/services/trainingAnalyticsService.js";
+import {calculateEmployeeTrainingTime,getCompanyTrainingAnalytics,getTrainingOverviewStats,formatTrainingDuration} from "./lib/services/trainingAnalyticsService.js";
+import {sessionService} from "./lib/services/sessionService.js";
+import {qrAttendanceService} from "./lib/services/qrAttendanceService.js";
 
 const app = document.getElementById("app");
 
 let language = getInitialLanguage();
 let route = location.pathname;
-let session = getSession();
+let session = sessionService.getValidSession();
 let selectedLoginRole = new URLSearchParams(location.search).get("role") || "employee";
 let accountSearch = "";
 let accountFilters = { department: "", role: "", accountStatus: "", passwordStatus: "" };
@@ -150,6 +152,11 @@ let calendarView="upcoming";
 let sessionFormOpen=false;
 let selectedOfflineSessionId="";
 let busySessionId="";
+let selectedQrSlotId="";
+let selectedQrAction="check_in";
+let currentQrTokenId="";
+let qrProjectorOpen=false;
+let qrScanInput="";
 
 const GALLERY_KEY = "mykis.galleryAlbums.v1";
 const RESOURCES_KEY = "mykis.courseResources.v1";
@@ -251,10 +258,37 @@ function uiText(key) {
 function navigate(path) {
   history.pushState({}, "", path);
   route = location.pathname;
-  session = getSession();
+  session = sessionService.getValidSession();
   render();
   document.querySelector(".app-main .content")?.classList.add("route-enter");
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function currentPathWithQuery() {
+  return `${location.pathname}${location.search}${location.hash || ""}`;
+}
+
+function navigateWithAuth(targetRoute, requiredRole = "employee") {
+  const activeSession = sessionService.getValidSession();
+  if (!activeSession) {
+    sessionService.setPostLoginRedirect(targetRoute);
+    navigate(requiredRole === "hr" ? "/login?role=hr" : "/login");
+    return false;
+  }
+  if (requiredRole === "hr" && activeSession.role !== "hr") {
+    navigate("/dashboard");
+    return false;
+  }
+  if (requiredRole === "employee" && activeSession.role !== "employee") {
+    navigate("/admin");
+    return false;
+  }
+  navigate(targetRoute);
+  return true;
+}
+
+function protectedRoute(path, role = "employee") {
+  return `href="${role === "hr" ? "/login?role=hr" : "/login"}" data-auth-target="${escapeHtmlAttribute(path)}" data-auth-role="${role}"`;
 }
 
 function scrollToId(id) {
