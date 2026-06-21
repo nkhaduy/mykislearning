@@ -428,6 +428,83 @@ function protectedRoute(path, role = "employee") {
   return `href="${role === "hr" ? "/login?role=hr" : "/login"}" data-auth-target="${escapeHtmlAttribute(path)}" data-auth-role="${role}"`;
 }
 
+function availableEmployeeAccounts() {
+  return getAccounts()
+    .filter((account) => account.role === "employee" && account.accountStatus === "active")
+    .sort((a, b) => String(a.fullName || "").localeCompare(String(b.fullName || ""), "vi", { sensitivity: "base" }));
+}
+
+function sessionParticipantAccounts(sessionId) {
+  return offlineTrainingService.getParticipantAccountIds(sessionId).map((accountId) => getAccountById(accountId)).filter(Boolean);
+}
+
+function sessionParticipantSummaryLabel(sessionId) {
+  const summary = offlineTrainingService.participantSummary(sessionId);
+  return summary.overBy
+    ? `Đã chọn ${summary.selected} / ${summary.capacity} · Vượt sức chứa ${summary.overBy}`
+    : `${summary.selected} người đã chọn · Còn ${summary.remaining} chỗ`;
+}
+
+function formatLocalDateTime(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (!Number.isFinite(+date)) return "—";
+  return date.toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function resetImportWizard() {
+  importWizardOpen = false;
+  importWorkbookState = null;
+  importSheetName = "";
+  importHeaderRowIndex = 0;
+  importColumnMapping = {};
+  importPreviewRows = [];
+}
+
+function openImportWizard(mode, target = "") {
+  importWizardMode = mode;
+  importWizardTarget = target;
+  importWizardOpen = true;
+  importWorkbookState = null;
+  importSheetName = "";
+  importHeaderRowIndex = 0;
+  importColumnMapping = {};
+  importPreviewRows = [];
+}
+
+function importFieldList(mode) {
+  const fields = {
+    employees: [
+      ["employeeCode", "Mã nhân viên"],
+      ["fullName", "Họ và tên"],
+      ["email", "Email"],
+      ["department", "Phòng ban"],
+      ["position", "Chức danh"],
+      ["joinDate", "Ngày vào làm"],
+      ["location", "Địa điểm"],
+      ["defaultLanguage", "Ngôn ngữ"],
+      ["accountStatus", "Trạng thái"],
+    ],
+    participants: [
+      ["employeeCode", "Mã nhân viên"],
+      ["email", "Email"],
+      ["fullName", "Họ và tên"],
+      ["department", "Phòng ban"],
+      ["responseStatus", "Trạng thái đăng ký"],
+    ],
+    attendance: [
+      ["employeeCode", "Mã nhân viên"],
+      ["email", "Email"],
+      ["slot", "Buổi sáng/chiều"],
+      ["checkIn", "Check-in"],
+      ["checkOut", "Check-out"],
+      ["attendanceStatus", "Trạng thái"],
+      ["note", "Ghi chú"],
+    ],
+  };
+  return fields[mode] || [];
+}
+
 function scrollToId(id) {
   const target = document.getElementById(id);
   if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
