@@ -90,7 +90,7 @@ let cchnSearch = "";
 let cchnSortAsc = true;
 let cchnPage = 1;
 let cchnFilters = { department: "", certificate: "", year: "", status: "" };
-let activeTimelineYear = "2015";
+let activeTimelineYear = "2025";
 let courseSearch = "";
 let courseFilterCategory = "";
 let courseFilterStatus = "";
@@ -1135,10 +1135,13 @@ function loginPage() {
     <main class="auth-page" role="main">
       <div class="auth-background" aria-hidden="true"></div>
       <div class="auth-overlay" aria-hidden="true"></div>
-      <a href="/" data-link class="auth-home-btn" aria-label="Quay về trang chủ">
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="16" height="16"><path d="M12 4L6 10l6 6"/></svg>
-        Về trang chủ
-      </a>
+      <div class="auth-header" aria-hidden="false">
+        <a href="/" data-link class="auth-home-btn" aria-label="Quay về trang chủ">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="16" height="16"><path d="M12 4L6 10l6 6"/></svg>
+          Về trang chủ
+        </a>
+        <div class="auth-header-lang">${languageSwitcher()}</div>
+      </div>
       <section class="auth-context" aria-hidden="true">
         <div class="auth-context-copy">
           <h1>Đăng nhập MyKIS Learning</h1>
@@ -1151,7 +1154,6 @@ function loginPage() {
             <a href="/" data-link class="login-logo-link" aria-label="Quay về trang chủ">
               <img src="/assets/kis-logo-horizontal.png" alt="KIS Vietnam" class="login-logo-img">
             </a>
-            ${languageSwitcher()}
           </div>
           <div class="login-heading">
             <h2>${uiText("loginHeading") || "Đăng nhập"}</h2>
