@@ -83,6 +83,7 @@ let cchnSearch = "";
 let cchnSortAsc = true;
 let cchnPage = 1;
 let cchnFilters = { department: "", certificate: "", year: "", status: "" };
+let activeTimelineYear = "2015";
 let courseSearch = "";
 let courseFilterCategory = "";
 let courseFilterStatus = "";
