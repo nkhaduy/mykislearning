@@ -2432,6 +2432,18 @@ function bindEvents() {
   document.querySelectorAll("[data-scroll]").forEach((el) => el.addEventListener("click", () => scrollToId(el.dataset.scroll)));
   document.querySelector("[data-announcements-link]")?.addEventListener("click", goAnnouncements);
   document.querySelector("[data-hr-link]")?.addEventListener("click", () => navigate(session?.role === "hr" ? "/admin" : "/login?role=hr"));
+  // Password show/hide toggle
+  document.querySelector("[data-toggle-password]")?.addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    const input = document.getElementById("loginPassword");
+    if (!input) return;
+    const isPassword = input.type === "password";
+    input.type = isPassword ? "text" : "password";
+    btn.setAttribute("aria-pressed", String(isPassword));
+    btn.setAttribute("aria-label", isPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu");
+    btn.querySelector(".eye-icon--show").style.display = isPassword ? "none" : "";
+    btn.querySelector(".eye-icon--hide").style.display = isPassword ? "" : "none";
+  });
   // role-toggle removed from login UI
   document.querySelector("[data-forgot-password]")?.addEventListener("click", () => {
     openDialog({ type: "support" });
