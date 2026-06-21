@@ -1,7 +1,8 @@
 {
   "type": "module",
   "dependencies": {
-    "impeccable": "github:pbakaus/impeccable"
+    "impeccable": "github:pbakaus/impeccable",
+    "qrcode": "^1.5.4"
   },
   "allowScripts": {
     "puppeteer@25.1.0": true
