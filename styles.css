@@ -4562,6 +4562,12 @@ body.modal-open { overflow: hidden; }
 .calendar-month-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
 .calendar-month-head__actions{display:flex;gap:8px}
 .month-day small{display:block;margin-top:8px;color:var(--text-secondary);font-size:11px}
+.month-day.active{border-color:var(--navy);box-shadow:0 0 0 1px rgba(11,31,58,.18)}
+.calendar-day-detail{margin-top:16px;padding-top:16px;border-top:1px solid var(--border-subtle)}
+.calendar-day-detail__list{display:grid;gap:10px}
+.calendar-event-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px;border:1px solid var(--border-subtle);border-radius:14px;background:var(--surface-card)}
+.calendar-event-row p,.calendar-event-row small{margin:4px 0 0}
+.calendar-event-row small{display:block;color:var(--text-secondary)}
 .upload-dropzone{display:grid;gap:8px;place-items:center;min-height:140px;padding:24px;border:1.5px dashed #bfd1e2;border-radius:16px;background:linear-gradient(180deg,#fff,#f7fbff);text-align:center;cursor:pointer}
 .sheet-chip-list,.header-row-picker{display:flex;flex-wrap:wrap;gap:8px}
 .import-wizard-step h3{margin:0 0 12px}
@@ -4599,6 +4605,7 @@ body.modal-open { overflow: hidden; }
 .overview-emp-row:last-child{border-bottom:0}
 .overview-emp-row>div{min-width:0}.overview-emp-row strong{display:block;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .overview-emp-row small{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kpi .label + strong + small{display:block;margin-top:6px;color:var(--text-secondary);font-size:12px;line-height:1.45}
 .avatar--sm{width:36px;height:36px;font-size:13px;flex-shrink:0}
 @media(max-width:900px){.overview-grid{grid-template-columns:1fr}}
 
