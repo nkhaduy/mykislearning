@@ -2493,32 +2493,36 @@ function bindEvents() {
   document.querySelector("[data-forgot-password]")?.addEventListener("click", () => {
     openDialog({ type: "support" });
   });
+  function demoFillEffect(form) {
+    const card = form.closest(".login-card") || form;
+    card.classList.add("demo-filled");
+    setTimeout(() => card.classList.remove("demo-filled"), 700);
+    form.elements.identifier?.focus();
+  }
   document.querySelector("[data-fill-demo-account]")?.addEventListener("click", () => {
     const form = document.getElementById("loginForm");
     if (!form) return;
-    selectedLoginRole = "hr";
     form.elements.identifier.value = DEMO_HR_EMAIL;
     form.elements.password.value = DEMO_HR_PASSWORD;
-    document.querySelectorAll("[data-login-role]").forEach((el) => {
-      const isHr = el.dataset.loginRole === "hr";
-      el.classList.toggle("active", isHr);
-      el.setAttribute("aria-selected", isHr ? "true" : "false");
-    });
+    demoFillEffect(form);
   });
   document.querySelector("[data-fill-demo-employee]")?.addEventListener("click", () => {
     const form = document.getElementById("loginForm");
     if (!form) return;
-    const demoEmployee = getDemoEmployee();
-    if (!demoEmployee) return toast("error");
-    selectedLoginRole = "employee";
-    form.elements.identifier.value = demoEmployee.email || "";
+    form.elements.identifier.value = DEMO_EMPLOYEE_EMAIL;
     form.elements.password.value = DEMO_EMPLOYEE_PASSWORD;
-    document.querySelectorAll("[data-login-role]").forEach((element) => {
-      const isEmployee = element.dataset.loginRole === "employee";
-      element.classList.toggle("active", isEmployee);
-      element.setAttribute("aria-selected", isEmployee ? "true" : "false");
+    demoFillEffect(form);
+  });
+  // Copy to clipboard for demo fields
+  document.querySelectorAll("[data-copy-target]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = document.getElementById(btn.dataset.copyTarget);
+      if (!target) return;
+      navigator.clipboard?.writeText(target.textContent.trim()).then(() => {
+        btn.classList.add("demo-card__copy--copied");
+        setTimeout(() => btn.classList.remove("demo-card__copy--copied"), 1400);
+      }).catch(() => {});
     });
-    form.elements.identifier.focus();
   });
   document.getElementById("loginForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
