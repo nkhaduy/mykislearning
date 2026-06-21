@@ -1129,17 +1129,20 @@ function employeeDirectoryTable(rows, offset = 0) {
 function loginPage() {
   const demoEmployee = getDemoEmployee();
   return `
-    <main class="auth-page">
-      <div class="auth-background" aria-hidden="true"></div>
-      <div class="auth-overlay" aria-hidden="true"></div>
-      <section class="auth-context">
+    <main class="auth-page" role="main">
+      <div class="auth-bg-shapes" aria-hidden="true">
+        <div class="auth-bg-shape auth-bg-shape--1"></div>
+        <div class="auth-bg-shape auth-bg-shape--2"></div>
+        <div class="auth-bg-grid"></div>
+      </div>
+      <section class="auth-context" aria-hidden="true">
         <div class="auth-context-copy">
-          <h1>Đăng nhập<br>MyKIS Learning</h1>
+          <h1>Đăng nhập MyKIS Learning</h1>
           <p>Hệ thống Đào tạo Nội bộ dành riêng cho Nhân viên KIS Việt Nam</p>
         </div>
       </section>
       <section class="auth-visual">
-        <form class="card login-card" id="loginForm" novalidate>
+        <form class="card login-card" id="loginForm" novalidate autocomplete="on">
           <div class="login-card-head">
             <a href="/" data-link class="login-logo-link" aria-label="Quay về trang chủ">
               <img src="/assets/kis-logo-horizontal.png" alt="KIS Vietnam" class="login-logo-img">
@@ -1150,22 +1153,49 @@ function loginPage() {
             <h2>${uiText("loginHeading") || "Đăng nhập"}</h2>
           </div>
           <div class="field">
-            <label for="loginEmail">${t("login.email")}</label>
-            <input id="loginEmail" name="identifier" autocomplete="email" type="email" inputmode="email" placeholder="${t("login.emailPlaceholder")}" aria-describedby="loginEmailError">
+            <label for="loginEmail">${t("login.email") || "Email"}</label>
+            <input
+              id="loginEmail"
+              name="identifier"
+              autocomplete="email"
+              type="email"
+              inputmode="email"
+              placeholder="${t("login.emailPlaceholder") || "Nhập email công ty"}"
+              aria-describedby="loginEmailError"
+              aria-required="true"
+            >
             <span class="field-error" id="loginEmailError" data-login-email-error aria-live="polite"></span>
           </div>
-          <div class="field">
-            <label for="loginPassword">${t("login.password")}</label>
-            <input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="${t("login.passwordPlaceholder") || "Nhập mật khẩu"}">
+          <div class="field field--password">
+            <label for="loginPassword">${t("login.password") || "Mật khẩu"}</label>
+            <div class="input-password-wrap">
+              <input
+                id="loginPassword"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                placeholder="${t("login.passwordPlaceholder") || "Nhập mật khẩu"}"
+                aria-required="true"
+              >
+              <button type="button" class="password-toggle" data-toggle-password aria-label="Hiện mật khẩu" aria-pressed="false">
+                <svg class="eye-icon eye-icon--show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="eye-icon eye-icon--hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
           </div>
           <div class="login-options">
             <label class="remember-me-row">
-              <input type="checkbox" name="rememberMe" class="remember-me-check">
-              <span>${uiText("rememberMe")}</span>
+              <input type="checkbox" name="rememberMe" class="remember-me-check" id="loginRememberMe">
+              <span>${uiText("rememberMe") || "Ghi nhớ đăng nhập"}</span>
             </label>
-            <button class="link-button" type="button" data-forgot-password>${uiText("forgotPassword")}</button>
+            <button class="link-button" type="button" data-forgot-password>${uiText("forgotPassword") || "Quên mật khẩu"}</button>
           </div>
-          <button class="btn btn-primary login-submit" type="submit">${t("login.submit")}</button>
+          <button class="btn btn-primary login-submit" type="submit" id="loginSubmitBtn">
+            <span class="login-submit-text">${t("login.submit") || "Đăng nhập"}</span>
+            <span class="login-submit-spinner" aria-hidden="true" style="display:none">
+              <svg class="spinner-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="31.4 62.8"/></svg>
+            </span>
+          </button>
           <p class="login-security-note">${t("login.note") || "Tài khoản được cấp bởi Phòng Nhân sự."}</p>
           ${SHOW_DEMO_CREDENTIALS ? `<details class="demo-account-details"><summary>Tài khoản dùng thử</summary>
             <div class="demo-account-card">
