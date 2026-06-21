@@ -2729,7 +2729,88 @@ function bindEvents() {
     if (typeof action === "function") action(val);
     render();
   });
-  document.querySelector("[data-submit-scan]")?.addEventListener("click",()=>{const result=qrAttendanceService.scan(document.querySelector("[data-submit-scan]")?.dataset.submitScan||"",session.accountId);if(!result.ok)return toast(result.error==="already_checked_in"||result.error==="already_checked_out"?uiText("alreadyScanned"):result.error==="not_invited"?uiText("notInvited"):result.error==="missing_check_in"?"Vui lòng check-in trước khi check-out.":result.error==="expired"?uiText("qrExpired"):uiText("qrNotOpen"));toast(uiText("attendanceSuccess"));render();});
+  // QR camera consent
+  document.querySelector("[data-qr-consent-accept]")?.addEventListener("click", () => {
+    _qrCameraConsentGiven = true;
+    render();
+  });
+
+  // QR retry — back to camera scanner
+  document.querySelector("[data-qr-retry]")?.addEventListener("click", () => {
+    navigate("/attendance/scan");
+  });
+
+  // QR submit — geolocation then scan
+  const submitScanBtn = document.querySelector("[data-submit-scan]");
+  if (submitScanBtn) {
+    submitScanBtn.addEventListener("click", () => {
+      const tokenVal = submitScanBtn.dataset.submitScan || "";
+
+      function doScan(locData) {
+        const result = qrAttendanceService.scan(tokenVal, session.accountId, locData);
+        if (!result.ok) {
+          const msgMap = {
+            already_checked_in: uiText("alreadyScanned"),
+            already_checked_out: uiText("alreadyScanned"),
+            not_invited: uiText("notInvited"),
+            missing_check_in: "Vui lòng quét mã check-in trước khi check-out.",
+            expired: uiText("qrExpired"),
+          };
+          openDialog({ type: "alert", title: "Không thể điểm danh", body: msgMap[result.error] || uiText("qrNotOpen") });
+          return;
+        }
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+        const locNote = locData
+          ? locData.insideGeofence === false
+            ? "\n\nVị trí hiện tại nằm ngoài khu vực tổ chức. HR sẽ kiểm tra và xác nhận."
+            : "\nVị trí đã được xác minh."
+          : "";
+        openDialog({
+          type: "alert",
+          title: "Điểm danh thành công",
+          body: `Bạn đã được ghi nhận tham gia buổi học lúc ${timeStr}.${locNote}`,
+        });
+        render();
+      }
+
+      // Request geolocation with user-facing status update
+      if (navigator.geolocation) {
+        const locText = document.getElementById("qrLocText");
+        if (locText) locText.textContent = "Đang xác định vị trí...";
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            _qrScanLocationData = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy };
+            _qrScanLocationStatus = "acquired";
+            doScan(_qrScanLocationData);
+          },
+          () => {
+            _qrScanLocationStatus = "unavailable";
+            doScan(null);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      } else {
+        doScan(null);
+      }
+    });
+  }
+
+  // Start background geolocation for scan page (non-blocking)
+  if (route === "/attendance/scan" && routeParams.get("token") && !_qrScanLocationData && navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        _qrScanLocationData = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy };
+        _qrScanLocationStatus = "acquired";
+        const statusEl = document.getElementById("qrLocationStatus");
+        const textEl = document.getElementById("qrLocText");
+        if (statusEl) statusEl.className = "qr-location-info qr-location-info--ok";
+        if (textEl) textEl.textContent = `Vị trí đã xác định · Độ chính xác ~${Math.round(pos.coords.accuracy)}m`;
+      },
+      () => { _qrScanLocationStatus = "unavailable"; },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }
   // Camera QR scanner init (only on /attendance/scan without token)
   if (document.getElementById("qrCameraViewport")) { initQrCameraScanner(); }
   document.querySelectorAll("[data-qr-slot]").forEach(el=>el.addEventListener("click",()=>{selectedQrSlotId=el.dataset.qrSlot;render();}));
