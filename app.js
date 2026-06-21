@@ -1220,7 +1220,6 @@ function loginPage() {
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="16" height="16"><path d="M12 4L6 10l6 6"/></svg>
           Về trang chủ
         </a>
-        <div class="auth-header-lang">${languageSwitcher()}</div>
       </div>
       <section class="auth-context" aria-hidden="true">
         <div class="auth-context-copy">
