@@ -1230,10 +1230,12 @@ function loginPage() {
       <section class="auth-visual">
         <form class="card login-card" id="loginForm" novalidate autocomplete="on">
           <div class="login-card-head">
-            <a href="/" data-link class="login-logo-link" aria-label="Quay về trang chủ">
-              <img src="/assets/kis-logo-horizontal.png" alt="KIS Vietnam" class="login-logo-img">
-            </a>
-            <div class="login-lang-wrap">${languageSwitcher()}</div>
+            <div class="login-brand-group">
+              <a href="/" data-link class="login-logo-link" aria-label="Quay về trang chủ">
+                <img src="/assets/kis-logo-horizontal.png" alt="KIS Vietnam" class="login-logo-img">
+              </a>
+              <div class="login-lang-switcher">${languageSwitcher()}</div>
+            </div>
           </div>
           <div class="login-heading">
             <h2>${uiText("loginHeading") || "Đăng nhập"}</h2>
