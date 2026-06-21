@@ -125,6 +125,7 @@ let importSheetName = "";
 let importHeaderRowIndex = 0;
 let importColumnMapping = {};
 let importPreviewRows = [];
+let calendarSelectedDay = 0;
 let activeQuizAttempt = null;
 let quizFormOpen = false;
 let selectedQuizId = "";
@@ -444,6 +445,7 @@ function formatLocalDateTime(value) {
 
 function resetImportWizard() {
   importWizardOpen = false;
+  importWizardTarget = "";
   importWorkbookState = null;
   importSheetName = "";
   importHeaderRowIndex = 0;
@@ -493,6 +495,14 @@ function importFieldList(mode) {
     ],
   };
   return fields[mode] || [];
+}
+
+function normalizeAttendanceSlotLabel(value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text) return "";
+  if (["morning", "am", "buổi sáng", "sáng"].includes(text)) return "Buổi sáng";
+  if (["afternoon", "pm", "buổi chiều", "chiều"].includes(text)) return "Buổi chiều";
+  return text;
 }
 
 function scrollToId(id) {
