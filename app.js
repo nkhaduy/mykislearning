@@ -54,6 +54,8 @@ import { saveCourseImage, getCourseImage, saveEmployeePhoto, getEmployeePhoto, d
 import {employeeService} from "./lib/services/employeeService.js";
 import {notificationService} from "./lib/services/notificationService.js";
 import {galleryService} from "./lib/services/galleryService.js";
+import {offlineTrainingService} from "./lib/services/offlineTrainingService.js";
+import {calculateEmployeeTrainingTime,getCompanyTrainingAnalytics,formatTrainingDuration} from "./lib/services/trainingAnalyticsService.js";
 
 const app = document.getElementById("app");
 
@@ -145,6 +147,9 @@ let selectedAlbumId="";
 let mediaViewerIndex=-1;
 let galleryMediaFilter="all";
 let calendarView="upcoming";
+let sessionFormOpen=false;
+let selectedOfflineSessionId="";
+let busySessionId="";
 
 const GALLERY_KEY = "mykis.galleryAlbums.v1";
 const RESOURCES_KEY = "mykis.courseResources.v1";
@@ -718,6 +723,7 @@ function employeeDashboard(compact = false) {
   const enrollments = employeeEnrollments();
   const notifications = getNotifications(session.accountId);
   const unread = getUnreadCount(session.accountId);
+  const yearStart=`${new Date().getFullYear()}-01-01T00:00:00+07:00`;const trainingTime=calculateEmployeeTrainingTime(session.accountId,{dateFrom:yearStart});
   const completed = enrollments.filter((item) => item.status === "completed").length;
   const inProgress = enrollments.filter((item) => item.status === "inProgress").length;
   const overdue = enrollments.filter((item) => item.status === "overdue").length;
@@ -736,7 +742,7 @@ function employeeDashboard(compact = false) {
       <main class="app-main">${topbar(uiText("learner"), displayName, "employee", initials(displayName))}<div class="content">
         <header class="dashboard-welcome employee-greeting">${employeeAvatar(account,employee,"employee-greeting__avatar")}<div class="employee-greeting__identity"><span class="eyebrow">${uiText("overview")}</span><h1>${escapeHtml(greeting(displayName))}</h1><div class="employee-meta-line">${jobTitle!==uiText("employeeFallback")?`<span class="employee-meta-line__title">${escapeHtml(jobTitle)}</span>`:""}${jobTitle!==uiText("employeeFallback")&&department?`<span class="employee-meta-line__divider" aria-hidden="true"></span>`:""}${department?`<span class="employee-meta-line__department">${escapeHtml(department)}</span>`:""}</div><p>${uiText("learningJourney")}</p></div></header>
         ${primary ? continueLearningHero(primary) : `<section class="card continue-empty"><div>${icon("book")}<h2>${uiText("noRecentCourses")}</h2><p>${uiText("noRecentCoursesDesc")}</p></div><a class="btn btn-primary" href="/dashboard/courses" data-link>${uiText("myCourses")}</a></section>`}
-        <div class="progress-overview"><div><span>${uiText("inProgressCourses")}</span><strong>${inProgress}</strong></div><div><span>${uiText("completed")}</span><strong>${completed}</strong></div><div><span>${uiText("overdue")}</span><strong>${overdue}</strong></div><div><span>${uiText("newNotifications")}</span><strong>${unread}</strong></div></div>
+        <div class="progress-overview"><div><span>${uiText("inProgressCourses")}</span><strong>${inProgress}</strong></div><a href="/dashboard/history" data-link class="training-hours-kpi"><span>Tổng giờ đào tạo<small>Online ${formatTrainingDuration(trainingTime.onlineSeconds,language,true)} · Offline ${formatTrainingDuration(trainingTime.offlineSeconds,language,true)}</small></span><strong>${formatTrainingDuration(trainingTime.totalSeconds,language,true)}</strong></a><div><span>${uiText("overdue")}</span><strong>${overdue}</strong></div><div><span>${uiText("newNotifications")}</span><strong>${unread}</strong></div></div>
         <div class="dashboard-grid"><section class="card panel"><div class="panel-head"><div><h3>${uiText("recentCourses")}</h3></div><a class="btn btn-outline mini-action" href="/dashboard/courses" data-link>${uiText("viewAllCourses")}</a></div>${recent.length ? recent.map(recentCourseRow).join("") : `<div class="empty-state">${icon("book")}<h3>${uiText("noRecentCourses")}</h3><p>${uiText("noRecentCoursesDesc")}</p></div>`}</section><aside class="card panel" id="employee-notifications"><div class="panel-head"><div><h3>${uiText("recentNotifications")}</h3></div><button class="btn btn-outline mini-action" type="button" data-open-notifications>${uiText("viewNotifications")}</button></div>${notifications.slice(0,3).map(notificationRow).join("") || `<div class="empty-state"><p>${uiText("noNotifications")}</p></div>`}</aside></div>
       </div></main>${notificationModal()}
     </div>
