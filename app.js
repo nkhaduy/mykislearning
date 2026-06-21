@@ -217,6 +217,7 @@ function d() {
 }
 
 function t(path) {
+  if(path==="admin.sessions")return {vi:"Lớp trực tiếp",en:"Live sessions",kr:"오프라인 수업"}[language];
   return path.split(".").reduce((obj, key) => obj?.[key], d()) ?? path;
 }
 
