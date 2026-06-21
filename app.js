@@ -1872,7 +1872,7 @@ function bindEvents() {
   });
   document.querySelector("[data-reset-demo-account]")?.addEventListener("click", () => {
     resetDemoHrAccount();
-    session = getSession();
+    session = sessionService.getValidSession();
     selectedLoginRole = "hr";
     render();
     requestAnimationFrame(() => {
@@ -2297,7 +2297,7 @@ function bindEvents() {
     const deadline = String(formData.get("deadline") || "").trim();
     const note = String(formData.get("note") || "").trim();
     if (!bulkSelectedAccountIds.length || !courseId || !deadline || deadline < getTodayDateString()) return toast("error");
-    const currentSession = getSession();
+    const currentSession = sessionService.getValidSession();
     const result = assignCourseToAccounts({ courseId, accountIds: bulkSelectedAccountIds, assignedBy: currentSession?.accountId || "acc-hr-demo", deadline, note });
     assignModalOpen = false;
     assignTargetAccountId = "";
