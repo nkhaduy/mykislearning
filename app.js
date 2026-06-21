@@ -1228,6 +1228,7 @@ function loginPage() {
             <a href="/" data-link class="login-logo-link" aria-label="Quay về trang chủ">
               <img src="/assets/kis-logo-horizontal.png" alt="KIS Vietnam" class="login-logo-img">
             </a>
+            <div class="login-lang-wrap">${languageSwitcher()}</div>
           </div>
           <div class="login-heading">
             <h2>${uiText("loginHeading") || "Đăng nhập"}</h2>
