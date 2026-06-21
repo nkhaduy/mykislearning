@@ -30,8 +30,11 @@ import {
   markAsRead,
   DEMO_HR_EMAIL,
   DEMO_HR_PASSWORD,
+  DEMO_EMPLOYEE_EMAIL,
+  DEMO_EMPLOYEE_PASSWORD,
+  HR_SUPPORT_NAME,
+  HR_SUPPORT_EMAIL,
   resendActivationEmail,
-  resetDemoHrAccount,
   resetPassword,
   removeEnrollment,
   unlockAccount,
@@ -62,11 +65,15 @@ import {calendarService} from "./lib/services/calendarService.js";
 import {excelImportService} from "./lib/services/excelImportService.js";
 
 const app = document.getElementById("app");
+const SHOW_DEMO_CREDENTIALS = ["localhost", "127.0.0.1", ""].includes(location.hostname);
 
 let language = getInitialLanguage();
 let route = location.pathname;
 let session = sessionService.getValidSession();
 let selectedLoginRole = new URLSearchParams(location.search).get("role") || "employee";
+let dialogState = null;
+let pendingNavigation = "";
+let bypassNavigationGuard = false;
 let accountSearch = "";
 let accountFilters = { department: "", role: "", accountStatus: "", passwordStatus: "" };
 let selectedAccountId = "";
