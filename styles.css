@@ -4817,6 +4817,13 @@ body.modal-open { overflow: hidden; }
 .report-filter-bar .filter-bar select{padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-primary);font-size:13px}
 .report-period{font-size:13px;color:var(--text-secondary);margin:4px 0 0}
 
+.auth-page .login-submit,
+.auth-page .login-submit:hover {
+  color: #fff;
+  background: var(--kis-red);
+  border-color: var(--kis-red);
+}
+
 /* Login page responsive overrides */
 @media (min-width: 981px) and (max-width: 1180px) {
   .auth-page { grid-template-columns: minmax(0, 0.8fr) minmax(410px, 0.72fr); }
