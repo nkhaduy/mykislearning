@@ -1606,7 +1606,7 @@ function render() {
   else if (route.startsWith("/dashboard/gallery/")) app.innerHTML = galleryPageV2(decodeURIComponent(route.split("/").pop()));
   else if (route === "/dashboard/resources") app.innerHTML = employeeResourcesPage();
   else if (route === "/dashboard/history") app.innerHTML = learningHistoryPage();
-  else if (route === "/dashboard/calendar") app.innerHTML = learningCalendarPageV2();
+  else if (route === "/dashboard/calendar") app.innerHTML = learningCalendarPageV3();
   else if (route === "/admin") app.innerHTML = hasAdminAccess() ? adminDashboard(false) : session ? restrictedPage() : loginPage();
   else if (route === "/admin/employees") app.innerHTML = employeesPage();
   else if (route === "/admin/accounts") app.innerHTML = accountsPage();
@@ -1650,6 +1650,10 @@ function enhanceEmployeePhotoManager(){if(!accountDrawerOpen||!selectedAccountId
 async function hydrateGalleryMedia(){for(const el of document.querySelectorAll("[data-media-blob]")){if(el.dataset.hydrated)return;try{const blob=await getGalleryMedia(el.dataset.mediaBlob);if(!blob)continue;const url=URL.createObjectURL(blob),node=el.dataset.mediaKind==="video"?document.createElement("video"):document.createElement("img");node.src=url;node.dataset.objectUrl=url;if(node.tagName==="VIDEO"){node.preload="metadata";node.muted=true;}else{node.loading="lazy";node.alt="";}el.replaceChildren(node);el.dataset.hydrated="1";}catch{}}const viewer=document.querySelector("[data-viewer-blob]");if(viewer){try{const blob=await getGalleryMedia(viewer.dataset.viewerBlob);if(blob){const url=URL.createObjectURL(blob);viewer.src=url;viewer.dataset.objectUrl=url;}}catch{}}}
 function revokeGalleryUrls(){document.querySelectorAll("[data-object-url]").forEach(el=>{URL.revokeObjectURL(el.dataset.objectUrl);delete el.dataset.objectUrl;});}
 function bindEvents() {
+  document.querySelectorAll("[data-session-response]").forEach(el=>el.addEventListener("click",()=>{el.disabled=true;el.textContent="Đang lưu...";const result=offlineTrainingService.respond(el.dataset.sessionResponse,session.accountId,el.dataset.response);toast(result.ok?"success":"error");render();}));
+  document.querySelectorAll("[data-session-busy]").forEach(el=>el.addEventListener("click",()=>{busySessionId=el.dataset.sessionBusy;render();}));
+  document.querySelectorAll("[data-close-busy]").forEach(el=>el.addEventListener("click",()=>{busySessionId="";render();}));
+  document.getElementById("busyResponseForm")?.addEventListener("submit",event=>{event.preventDefault();const fd=new FormData(event.currentTarget),reason=fd.get("reason")==="other"?fd.get("note"):fd.get("reason");const result=offlineTrainingService.respond(busySessionId,session.accountId,"busy",reason);busySessionId="";toast(result.ok?"success":"error");render();});
   if(!window.__galleryKeysBound){window.__galleryKeysBound=true;document.addEventListener("keydown",event=>{if(mediaViewerIndex<0)return;if(event.key==="Escape"){revokeGalleryUrls();mediaViewerIndex=-1;render();}if(event.key==="ArrowLeft"&&mediaViewerIndex>0){revokeGalleryUrls();mediaViewerIndex--;render();}if(event.key==="ArrowRight"){const album=galleryService.get(route.split("/").pop()),items=(album?.mediaItems||[]).filter(x=>galleryMediaFilter==="all"||x.type===galleryMediaFilter||(galleryMediaFilter==="video"&&x.type==="youtube"));if(mediaViewerIndex<items.length-1){revokeGalleryUrls();mediaViewerIndex++;render();}}});}
   document.querySelectorAll("[data-calendar-view]").forEach(el=>el.addEventListener("click",()=>{calendarView=el.dataset.calendarView;render();}));
   document.querySelector("[data-add-employee]")?.addEventListener("click",()=>{employeeFormOpen=true;employeeCreateResult=null;render();});
