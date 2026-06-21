@@ -2222,7 +2222,7 @@ function bindEvents() {
   document.querySelector("[data-question-next]")?.addEventListener("click",()=>{captureQuizAnswer();quizCurrentQuestion=Math.min(activeQuizAttempt.quiz.questions.length-1,quizCurrentQuestion+1);render();});
   document.querySelector("[data-bookmark-question]")?.addEventListener("click",()=>{captureQuizAnswer();const id=activeQuizAttempt.quiz.questions[quizCurrentQuestion].id;quizBookmarks=quizBookmarks.includes(id)?quizBookmarks.filter(x=>x!==id):[...quizBookmarks,id];persistQuizDraft();render();});
   document.querySelectorAll("[data-answer-option]").forEach(el=>el.addEventListener("change",captureQuizAnswer));document.querySelector("[data-answer-text]")?.addEventListener("input",captureQuizAnswer);
-  document.getElementById("quizAttemptForm")?.addEventListener("submit",(event)=>{event.preventDefault();captureQuizAnswer();if(!window.confirm(t("quiz.confirmSubmit")))return;finishQuizAttempt();});
+  document.getElementById("quizAttemptForm")?.addEventListener("submit",(event)=>{event.preventDefault();captureQuizAnswer();openDialog({type:"confirm",title:t("quiz.confirmSubmit"),body:"Bạn sẽ không thể thay đổi câu trả lời sau khi nộp.",onConfirm:()=>finishQuizAttempt()});return;});
   document.querySelector("[data-quiz-result-close]")?.addEventListener("click",()=>{quizLastResult=null;render();});
   document.querySelectorAll("[data-my-course-filter]").forEach((el) => el.addEventListener("click", () => { myCourseFilter = el.dataset.myCourseFilter || ""; render(); }));
   document.querySelector("[data-toggle-employee-notifications]")?.addEventListener("click", () => { employeeNotificationPanelOpen = !employeeNotificationPanelOpen; render(); });
@@ -2348,8 +2348,8 @@ function bindEvents() {
     toast("success");
     render();
   }));
-  document.querySelectorAll("[data-unlock-account]").forEach((el) => el.addEventListener("click", () => { if (confirm(t("admin.unlock"))) { unlockAccount(el.dataset.unlockAccount); toast("success"); render(); } }));
-  document.querySelectorAll("[data-disable-account]").forEach((el) => el.addEventListener("click", () => { if (confirm(t("admin.disable"))) { disableAccount(el.dataset.disableAccount, "HR action"); toast("success"); render(); } }));
+  document.querySelectorAll("[data-unlock-account]").forEach((el) => el.addEventListener("click", () => { openDialog({type:"confirm",title:t("admin.unlock"),body:"Tài khoản sẽ được mở khóa và nhân viên có thể đăng nhập lại.",onConfirm:()=>{unlockAccount(el.dataset.unlockAccount);toast("success");render();}}); }));
+  document.querySelectorAll("[data-disable-account]").forEach((el) => el.addEventListener("click", () => { openDialog({type:"confirm",title:t("admin.disable"),body:"Tài khoản sẽ bị vô hiệu hóa. Nhân viên sẽ không thể đăng nhập.",onConfirm:()=>{disableAccount(el.dataset.disableAccount,"HR action");toast("success");render();}}); }));
   document.querySelectorAll("[data-resend-account]").forEach((el) => el.addEventListener("click", () => { resendActivationEmail(el.dataset.resendAccount); toast("success"); render(); }));
   document.querySelector("[data-close-reset]")?.addEventListener("click", () => { resetModalOpen = false; temporaryPasswordResult = ""; render(); });
   document.getElementById("resetPasswordForm")?.addEventListener("submit", (event) => {
@@ -2379,7 +2379,7 @@ function bindEvents() {
   document.querySelectorAll("[data-course-delete]").forEach((el) => el.addEventListener("click", () => {
     const courseId = el.dataset.courseDelete;
     if (getEnrollmentsByCourseId(courseId).length > 0) return toast("error");
-    if (!window.confirm("Xóa khóa học này?")) return;
+    openDialog({type:"confirm",title:"Xóa khóa học",body:"Khóa học sẽ bị xóa vĩnh viễn. Tiến trình học liên quan sẽ không bị xóa.",onConfirm:()=>document.querySelector("[data-course-delete-confirmed]")?.click()});return;
     const deleted = deleteCourse(courseId);
     if (deleted && selectedCourseId === courseId) { selectedCourseId = ""; courseDrawerOpen = false; courseFormMode = ""; }
     toast(deleted ? "success" : "error");
@@ -2389,7 +2389,7 @@ function bindEvents() {
   document.querySelectorAll("[data-close-course-form]").forEach((el) => el.addEventListener("click", () => { courseFormMode = ""; render(); }));
   document.querySelector("[data-content-add]")?.addEventListener("click", () => { contentBuilderMode = "add"; selectedContentId = ""; contentPickerStep = "type"; slideDraft = null; youtubeDraft = null; render(); });
   document.querySelectorAll("[data-content-edit]").forEach(el => el.addEventListener("click", () => { const item = getCourseContent(selectedCourseId).find(x=>x.id===el.dataset.contentEdit); if(!item)return; contentBuilderMode = "edit"; selectedContentId = item.id; contentBuilderType = item.type; render(); }));
-  document.querySelectorAll("[data-content-delete]").forEach(el => el.addEventListener("click", () => { if(!window.confirm("Xóa nội dung này? Tiến trình học liên quan sẽ không bị xóa."))return; deleteCourseContent(el.dataset.contentDelete); toast("success"); render(); }));
+  document.querySelectorAll("[data-content-delete]").forEach(el => el.addEventListener("click", () => { const cid=el.dataset.contentDelete;openDialog({type:"confirm",title:"Xóa nội dung bài học",body:"Nội dung sẽ bị xóa. Tiến trình học liên quan sẽ không bị xóa.",onConfirm:()=>{deleteCourseContent(cid);toast("success");render();}}); }));
   document.querySelectorAll("[data-content-move-up]").forEach(el => el.addEventListener("click", () => { const items = getCourseContent(selectedCourseId); const i = items.findIndex(x=>x.id===el.dataset.contentMoveUp); if(i<=0)return; const ids=items.map(x=>x.id); [ids[i-1],ids[i]]=[ids[i],ids[i-1]]; reorderCourseContent(selectedCourseId,ids); render(); }));
   document.querySelectorAll("[data-content-move-down]").forEach(el => el.addEventListener("click", () => { const items = getCourseContent(selectedCourseId); const i = items.findIndex(x=>x.id===el.dataset.contentMoveDown); if(i<0||i>=items.length-1)return; const ids=items.map(x=>x.id); [ids[i],ids[i+1]]=[ids[i+1],ids[i]]; reorderCourseContent(selectedCourseId,ids); render(); }));
   document.querySelectorAll("[data-content-form-close]").forEach(el => el.addEventListener("click", () => { contentBuilderMode = ""; selectedContentId = ""; contentPickerStep = "type"; slideDraft = null; youtubeDraft = null; quizPickSearch = ""; render(); }));
@@ -2721,7 +2721,7 @@ function bindEvents() {
   document.querySelectorAll("[data-reset-learning]").forEach(el=>el.addEventListener("click",()=>{const row=getEnrollments().find(x=>x.id===el.dataset.resetLearning);const reason=window.prompt(lt("resetReason"));if(!reason?.trim())return toast("learning.resetReasonRequired");if(!window.confirm(lt("resetConfirm")))return;const result=resetLearningProgress({performedBy:session.accountId,targetAccountId:row.accountId,courseId:row.courseId,reason:reason.trim()});toast(result?"success":"error");if(result)render();}));
   document.querySelectorAll("[data-view-learning-log]").forEach(el=>el.addEventListener("click",()=>{const row=getEnrollments().find(x=>x.id===el.dataset.viewLearningLog);const logs=getLearningActivity({accountId:row.accountId,courseId:row.courseId}).slice(0,20);window.alert(logs.length?logs.map(x=>`${x.occurredAt} · ${x.eventType}`).join("\n"):lt("noActivity"));}));
   document.querySelectorAll("[data-remove-enrollment]").forEach((el) => el.addEventListener("click", () => {
-    if (!window.confirm("Bạn có chắc muốn hủy giao khóa học này?")) return;
+    openDialog({type:"confirm",title:"Hủy giao khóa học",body:"Nhân viên sẽ bị xóa khỏi khóa học này. Tiến trình học sẽ không bị xóa.",onConfirm:()=>document.querySelector("[data-unassign-confirmed]")?.click()});return;
     const removed = removeEnrollment(el.dataset.removeEnrollment);
     toast(removed ? "success" : "error");
     if (removed) render();
