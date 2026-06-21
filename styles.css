@@ -6207,44 +6207,86 @@ textarea:focus-visible {
 }
 
 /* ============================================================
-   LOGIN CARD: Language switcher (solid, not glassmorphism)
+   LOGIN CARD: Logo + language switcher row
    ============================================================ */
 .login-card-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 20px 24px 16px;
+}
+.login-brand-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 0 0 auto;
 }
 .login-logo-link {
   flex-shrink: 0;
 }
-.login-lang-wrap {
-  flex-shrink: 0;
-  margin-left: auto;
+/* Login-specific language switcher: solid white, compact, no glassmorphism */
+.login-lang-switcher {
+  flex: 0 0 auto;
 }
-.login-lang-wrap .language-switch {
-  background: var(--navy, #003087);
-  border: 1.5px solid rgba(255,255,255,0.25);
-  border-radius: 8px;
-  box-shadow: none;
+.login-lang-switcher .language-switch {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  max-width: max-content;
+  white-space: nowrap;
+  overflow: hidden;
+  min-height: 0;
+  height: auto;
+  padding: 4px;
+  gap: 2px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 45, 78, 0.16);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(8, 35, 70, 0.10);
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-.login-lang-wrap .language-switch button {
-  color: rgba(255,255,255,0.7);
-  font-size: 0.72rem;
-  padding: 3px 7px;
-}
-.login-lang-wrap .language-switch button.active,
-.login-lang-wrap .language-switch button[aria-pressed="true"] {
-  background: rgba(255,255,255,0.18);
-  color: #fff;
+.login-lang-switcher .language-switch button {
+  min-width: 34px;
+  min-height: 0;
+  height: 30px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #173b63;
+  font-size: 12px;
   font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.login-lang-wrap .language-switch button:hover:not(.active) {
-  background: rgba(255,255,255,0.1);
-  color: #fff;
+.login-lang-switcher .language-switch button.active {
+  background: #0b2e59;
+  color: #ffffff;
+  text-decoration: none;
+}
+.login-lang-switcher .language-switch button:hover:not(.active) {
+  background: #edf4fb;
+  color: #0b2e59;
+}
+.login-lang-switcher .language-switch button:focus-visible {
+  outline: 2px solid #6aa9df;
+  outline-offset: 2px;
+}
+/* hide the "|" separators inside login card (already styled via gap) */
+.login-lang-switcher .language-switch span {
+  display: none;
+}
+@media (max-width: 640px) {
+  .login-brand-group { gap: 8px; }
+  .login-lang-switcher .language-switch button {
+    min-width: 30px;
+    height: 28px;
+    padding: 0 7px;
+    font-size: 11px;
+  }
 }
 
 /* ============================================================
