@@ -1688,10 +1688,68 @@ function assignPage() {
   return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", t("enrollment.assign"), "hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h2>${t("enrollment.assign")}</h2><p>${t("enrollment.description")}</p></div><button type="button" class="btn btn-primary" data-assign-new>${t("enrollment.assign")}</button></div>${selectedCourse ? `<div class="card"><strong>${t("enrollment.filteringByCourse")}:</strong> ${escapeHtml(selectedCourse.title)} <button type="button" class="btn btn-outline mini-action" data-clear-assign-course>${t("enrollment.clearFilter")}</button></div>` : ""}<div class="kpi-grid"><div class="card kpi"><span>${t("enrollment.totalAssigned")}</span><strong>${allEnrollments.length}</strong></div><div class="card kpi"><span>${t("status.completed")}</span><strong>${completed}</strong>${progress(completionRate)}</div><div class="card kpi"><span>${t("status.inProgress")}</span><strong>${inProgress}</strong></div><div class="card kpi"><span>${t("status.overdue")}</span><strong>${overdue}</strong></div></div><div class="filter-bar"><input id="assignSearchInput" data-focus-key="assign-search" type="search" placeholder="${t("enrollment.searchPlaceholder")}" value="${escapeHtmlAttribute(assignSearch)}" data-assign-search><select data-assign-filter-course><option value="">${t("enrollment.allCourses")}</option>${allCourses.map((course) => `<option value="${escapeHtmlAttribute(course.id)}" ${assignCourseId === course.id ? "selected" : ""}>${escapeHtml(course.title || course.id)}</option>`).join("")}</select><select data-assign-filter-dept><option value="">${t("enrollment.allDepts")}</option>${departments.map((department) => `<option value="${escapeHtmlAttribute(department)}" ${assignFilterDept === department ? "selected" : ""}>${escapeHtml(department)}</option>`).join("")}</select><select data-assign-filter-status><option value="">${t("enrollment.allStatuses")}</option><option value="notStarted" ${assignFilterStatus === "notStarted" ? "selected" : ""}>${t("status.notStarted")}</option><option value="inProgress" ${assignFilterStatus === "inProgress" ? "selected" : ""}>${t("status.inProgress")}</option><option value="completed" ${assignFilterStatus === "completed" ? "selected" : ""}>${t("status.completed")}</option><option value="overdue" ${assignFilterStatus === "overdue" ? "selected" : ""}>${t("status.overdue")}</option></select></div>${enrollmentTable(filteredAssignments())}</section></div>${assignModalOpen ? assignModal() : ""}</main></div>`;
 }
 
+function getReportDateBounds() {
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  if (reportDateRange === "today") return { from: today, to: today };
+  if (reportDateRange === "7d") { const d = new Date(now); d.setDate(d.getDate() - 6); return { from: d.toISOString().slice(0, 10), to: today }; }
+  if (reportDateRange === "month") return { from: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`, to: today };
+  if (reportDateRange === "quarter") { const q = Math.floor(now.getMonth() / 3); return { from: `${now.getFullYear()}-${String(q * 3 + 1).padStart(2, "0")}-01`, to: today }; }
+  if (reportDateRange === "year") return { from: `${now.getFullYear()}-01-01`, to: today };
+  if (reportDateRange === "custom") { const f = reportDateFrom, t2 = reportDateTo; if (f && t2 && f <= t2) return { from: f, to: t2 }; }
+  return { from: "", to: "" };
+}
+
 function reportsPage() {
   if (!hasAdminAccess()) return restrictedPage();
-  const enrollments=enrichedEnrollments().filter(e=>e.account?.role==="employee"); const attempts=getQuizAttempts(); const completed=enrollments.filter(e=>e.status==="completed").length; const overdue=enrollments.filter(e=>e.displayStatus==="overdue").length; const completion=enrollments.length?Math.round(completed/enrollments.length*100):0; const pass=attempts.length?Math.round(attempts.filter(a=>a.passed).length/attempts.length*100):0;
-  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR/L&D Analytics", t("admin.reports"), "hr")}<div class="content"><div class="kpi-grid"><div class="card kpi"><span>${t("bulkAssign.selectedCount")}</span><strong>${new Set(enrollments.map(e=>e.accountId)).size}</strong></div><div class="card kpi"><span>${t("status.completed")}</span><strong>${completion}%</strong></div><div class="card kpi"><span>${t("status.overdue")}</span><strong>${overdue}</strong></div><div class="card kpi"><span>${t("quiz.passRate")}</span><strong>${pass}%</strong></div></div><section class="card panel"><h3>${t("quiz.attemptHistory")}</h3>${attempts.length?`<div class="table-wrap"><table><thead><tr><th>${t("table.fullName")}</th><th>${t("nav.courses")}</th><th>${t("quiz.score")}</th><th>${t("quiz.result")}</th><th>${t("table.createdAt")}</th></tr></thead><tbody>${attempts.map(a=>`<tr><td>${escapeHtml(getAccountById(a.accountId)?.fullName||"")}</td><td>${escapeHtml(getCourseById(a.courseId)?.title||"")}</td><td>${a.scorePercent??"—"}%</td><td>${a.submittedAt?t(a.passed?"quiz.passed":"quiz.failed"):"—"}</td><td>${escapeHtml(a.submittedAt||a.startedAt)}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty-state"><p>${t("quiz.noQuiz")}</p></div>`}</section></div></main></div>`;
+  const { from, to } = getReportDateBounds();
+  const allEnrollments = enrichedEnrollments().filter(e => e.account?.role === "employee");
+  const enrollments = allEnrollments.filter(e => {
+    if (reportDeptFilter && e.account?.department !== reportDeptFilter) return false;
+    if (reportCourseFilter && e.courseId !== reportCourseFilter) return false;
+    if (from && e.assignedAt && e.assignedAt < from) return false;
+    if (to && e.assignedAt && e.assignedAt > to + "T23:59:59") return false;
+    return true;
+  });
+  const allAttempts = getQuizAttempts();
+  const attempts = allAttempts.filter(a => {
+    const at = a.submittedAt || a.startedAt || "";
+    if (from && at && at < from) return false;
+    if (to && at && at > to + "T23:59:59") return false;
+    return true;
+  });
+  const completed = enrollments.filter(e => e.status === "completed").length;
+  const overdue = enrollments.filter(e => e.displayStatus === "overdue").length;
+  const completion = enrollments.length ? Math.round(completed / enrollments.length * 100) : 0;
+  const pass = attempts.filter(a => a.submittedAt).length ? Math.round(attempts.filter(a => a.passed).length / attempts.filter(a => a.submittedAt).length * 100) : 0;
+  const a = getCompanyTrainingAnalytics(from ? { dateFrom: `${from}T00:00:00+07:00`, dateTo: `${to}T23:59:59+07:00` } : {});
+  const depts = [...new Set(allEnrollments.map(e => e.account?.department).filter(Boolean))].sort();
+  const dateRangeLabel = from && to ? `${from} – ${to}` : "Toàn bộ thời gian";
+  const periodHtml = `<p class="report-period">Kỳ báo cáo: <strong>${escapeHtml(dateRangeLabel)}</strong></p>`;
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR/L&D Analytics", t("admin.reports"), "hr")}<div class="content">
+    <section class="card panel report-head"><div><h1>${t("admin.reports")}</h1>${periodHtml}</div><div class="report-actions"><button class="btn btn-outline" data-export-csv>Xuất CSV</button></div></section>
+    <section class="card panel report-filter-bar">
+      <div class="filter-bar" style="flex-wrap:wrap;gap:10px">
+        <select data-report-range>
+          ${[["all","Toàn bộ thời gian"],["today","Hôm nay"],["7d","7 ngày gần nhất"],["month","Tháng này"],["quarter","Quý này"],["year","Năm nay"],["custom","Khoảng tùy chọn"]].map(([v,l])=>`<option value="${v}" ${reportDateRange===v?"selected":""}>${l}</option>`).join("")}
+        </select>
+        ${reportDateRange==="custom"?`<input type="date" id="reportFrom" value="${escapeHtmlAttribute(reportDateFrom)}" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px"><span style="align-self:center">–</span><input type="date" id="reportTo" value="${escapeHtmlAttribute(reportDateTo)}" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px"><button class="btn btn-primary" id="reportApply">Áp dụng</button><button class="btn btn-outline" id="reportReset">Đặt lại</button>`:""}
+        <select data-report-dept><option value="">Tất cả phòng ban</option>${depts.map(d=>`<option value="${escapeHtmlAttribute(d)}" ${reportDeptFilter===d?"selected":""}>${escapeHtml(d)}</option>`).join("")}</select>
+        <select data-report-course><option value="">Tất cả khóa học</option>${getCourses().filter(c=>c.status==="published").map(c=>`<option value="${c.id}" ${reportCourseFilter===c.id?"selected":""}>${escapeHtml(c.title)}</option>`).join("")}</select>
+      </div>
+    </section>
+    <div class="kpi-grid">
+      <div class="card kpi"><span>Tổng giờ đào tạo</span><strong>${formatTrainingDuration(a.totalSeconds,language,true)}</strong></div>
+      <div class="card kpi"><span>Giờ online</span><strong>${formatTrainingDuration(a.onlineSeconds,language,true)}</strong></div>
+      <div class="card kpi"><span>Giờ offline</span><strong>${formatTrainingDuration(a.offlineSeconds,language,true)}</strong></div>
+      <div class="card kpi"><span>Trung bình/người</span><strong>${formatTrainingDuration(a.averageSeconds,language,true)}</strong></div>
+      <div class="card kpi"><span>Tỷ lệ hoàn thành</span><strong>${completion}%</strong></div>
+      <div class="card kpi"><span>Quá hạn</span><strong>${overdue}</strong></div>
+      <div class="card kpi"><span>${t("quiz.passRate")}</span><strong>${pass}%</strong></div>
+      <div class="card kpi"><span>Tỷ lệ tham dự</span><strong>${a.attendanceRate}%</strong></div>
+    </div>
+    <section class="card panel"><h3>${t("quiz.attemptHistory")}</h3>${attempts.filter(at=>at.submittedAt).length?`<div class="table-wrap"><table><thead><tr><th>${t("table.fullName")}</th><th>${t("nav.courses")}</th><th>${t("quiz.score")}</th><th>${t("quiz.result")}</th><th>${t("table.createdAt")}</th></tr></thead><tbody>${attempts.filter(at=>at.submittedAt).map(at=>`<tr><td>${escapeHtml(getAccountById(at.accountId)?.fullName||"")}</td><td>${escapeHtml(getCourseById(at.courseId)?.title||"")}</td><td>${at.scorePercent??"—"}%</td><td>${t(at.passed?"quiz.passed":"quiz.failed")}</td><td>${escapeHtml(at.submittedAt||"")}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty-state"><p>${t("quiz.noQuiz")}</p></div>`}</section>
+  </div></main></div>`;
 }
 
 function employeeGalleryPage(){
