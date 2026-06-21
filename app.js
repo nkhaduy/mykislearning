@@ -2207,7 +2207,6 @@ function bindEvents() {
     render();
   });
   document.querySelector("[data-copy-temp]")?.addEventListener("click", async () => { await navigator.clipboard?.writeText(temporaryPasswordResult); toast("copied"); });
-  document.querySelectorAll("[data-timeline-year]").forEach((el) => el.addEventListener("click", () => { activeTimelineYear = el.dataset.timelineYear; render(); document.getElementById("kis-history")?.scrollIntoView({ behavior: "smooth", block: "start" }); }));
   document.querySelector("[data-cchn-search]")?.addEventListener("input", (event) => { cchnSearch = event.target.value; cchnPage = 1; render(); });
   document.querySelector("[data-cchn-sort]")?.addEventListener("click", () => { cchnSortAsc = !cchnSortAsc; cchnPage = 1; render(); });
   document.querySelectorAll("[data-cchn-filter]").forEach((el) => el.addEventListener("change", () => { cchnFilters[el.dataset.cchnFilter] = el.value; render(); }));
