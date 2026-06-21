@@ -2410,6 +2410,8 @@ function bindEvents() {
     render();
   });
   document.querySelector("[data-submit-scan]")?.addEventListener("click",()=>{const result=qrAttendanceService.scan(document.querySelector("[data-submit-scan]")?.dataset.submitScan||"",session.accountId);if(!result.ok)return toast(result.error==="already_checked_in"||result.error==="already_checked_out"?uiText("alreadyScanned"):result.error==="not_invited"?uiText("notInvited"):result.error==="missing_check_in"?"Vui lòng check-in trước khi check-out.":result.error==="expired"?uiText("qrExpired"):uiText("qrNotOpen"));toast(uiText("attendanceSuccess"));render();});
+  // Camera QR scanner init (only on /attendance/scan without token)
+  if (document.getElementById("qrCameraViewport")) { initQrCameraScanner(); }
   document.querySelectorAll("[data-qr-slot]").forEach(el=>el.addEventListener("click",()=>{selectedQrSlotId=el.dataset.qrSlot;render();}));
   document.querySelectorAll("[data-qr-action]").forEach(el=>el.addEventListener("click",()=>{selectedQrAction=el.dataset.qrAction;render();}));
   document.querySelector("[data-generate-qr]")?.addEventListener("click",()=>{const result=qrAttendanceService.createToken({slotId:selectedQrSlotId,action:selectedQrAction},session.accountId);if(!result.ok)return toast("error");currentQrTokenId=result.token.id;qrProjectorOpen=true;render();});
