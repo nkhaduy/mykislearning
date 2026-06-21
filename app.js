@@ -402,12 +402,66 @@ function uiText(key) {
 }
 
 function navigate(path) {
+  if (!bypassNavigationGuard && shouldWarnBeforeLeaving(path)) {
+    pendingNavigation = path;
+    openDialog({ type: "unsaved", important: true });
+    return;
+  }
+  bypassNavigationGuard = false;
   history.pushState({}, "", path);
   route = location.pathname;
   session = sessionService.getValidSession();
   render();
   document.querySelector(".app-main .content")?.classList.add("route-enter");
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function hasUnsavedLearningState() {
+  const video = document.getElementById("course-video");
+  const videoActive = Boolean(video && !video.paused && !video.ended);
+  const quizDirty = Boolean(activeQuizAttempt && Object.keys(quizAnswers || {}).length);
+  return videoActive || _ytWatchStart !== null || quizDirty;
+}
+
+function shouldWarnBeforeLeaving(path) {
+  if (!hasUnsavedLearningState()) return false;
+  const nextPath = String(path || "").split("?")[0];
+  return nextPath !== route;
+}
+
+function openDialog(state) {
+  dialogState = state;
+  render();
+  requestAnimationFrame(() => document.querySelector("[data-dialog-primary], [data-dialog-close]")?.focus());
+}
+
+function closeDialog() {
+  dialogState = null;
+  pendingNavigation = "";
+  render();
+}
+
+function sharedDialog() {
+  if (!dialogState) return "";
+  const configs = {
+    support: { title: "Hỗ trợ đặt lại mật khẩu", body: `Vui lòng liên hệ ${HR_SUPPORT_NAME} để được hỗ trợ đặt lại mật khẩu.`, icon: "?" },
+    invalidCredentials: { title: "Đăng nhập không thành công", body: "Email hoặc mật khẩu chưa chính xác. Vui lòng kiểm tra và thử lại.", icon: "!" },
+    locked: { title: "Tài khoản đã bị khóa", body: "Tài khoản của bạn hiện đang bị khóa. Vui lòng liên hệ HR để được hỗ trợ.", icon: "!" },
+    inactive: { title: "Không thể đăng nhập", body: "Tài khoản này hiện không còn quyền truy cập hệ thống. Vui lòng liên hệ HR để được hỗ trợ.", icon: "!" },
+    pending: { title: "Tài khoản chưa được kích hoạt", body: "Tài khoản đang chờ kích hoạt. Vui lòng liên hệ HR để được hỗ trợ.", icon: "i" },
+    system: { title: "Không thể kết nối", body: "Hệ thống đang tạm thời gián đoạn. Vui lòng thử lại sau.", icon: "!" },
+    unsaved: { title: activeQuizAttempt ? "Bạn có chắc muốn rời khỏi bài kiểm tra?" : "Bạn có chắc muốn rời khỏi bài học?", body: activeQuizAttempt ? "Các câu trả lời chưa gửi có thể không được ghi nhận." : "Tiến độ hoặc nội dung chưa lưu có thể bị mất.", icon: "!" },
+    alert: { title: dialogState.title || "Thông báo", body: dialogState.body || "", icon: "i" },
+    confirm: { title: dialogState.title || "Xác nhận thao tác", body: dialogState.body || "", icon: "!" },
+  };
+  const config = configs[dialogState.type] || configs.alert;
+  const isUnsaved = dialogState.type === "unsaved";
+  const isConfirm = dialogState.type === "confirm";
+  return `<div class="modal-backdrop open shared-dialog-backdrop"><section class="shared-dialog" role="dialog" aria-modal="true" aria-labelledby="shared-dialog-title" aria-describedby="shared-dialog-description" data-shared-dialog>
+    <div class="shared-dialog__icon" aria-hidden="true">${config.icon}</div>
+    <div class="shared-dialog__content"><h2 id="shared-dialog-title">${escapeHtml(config.title)}</h2><p id="shared-dialog-description">${escapeHtml(config.body)}</p>${dialogState.type === "support" ? `<a class="support-mail" href="mailto:${escapeHtmlAttribute(HR_SUPPORT_EMAIL)}">${escapeHtml(HR_SUPPORT_EMAIL)}</a>` : ""}</div>
+    <div class="shared-dialog__actions">${isUnsaved ? `<button class="btn btn-outline" data-dialog-close>Tiếp tục học</button><button class="btn btn-primary" data-dialog-leave>Rời khỏi</button>` : isConfirm ? `<button class="btn btn-outline" data-dialog-close>Hủy</button><button class="btn btn-primary" data-dialog-confirm>Xác nhận</button>` : `<button class="btn btn-primary" data-dialog-close data-dialog-primary>Đóng</button>`}</div>
+  </section></div>`;
 }
 
 function currentPathWithQuery() {
@@ -1990,6 +2044,7 @@ function render() {
   else if (route === "/admin/sessions") app.innerHTML = adminSessionsPage();
   else if (route === "/change-password") app.innerHTML = changePasswordPage();
   else app.innerHTML = landingPage();
+  app.insertAdjacentHTML("beforeend", sharedDialog());
   bindEvents();
   enhanceCourseImageForm();
   enhanceEmployeePhotoManager();
