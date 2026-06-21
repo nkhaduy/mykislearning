@@ -474,6 +474,7 @@ function uiText(key) {
 }
 
 function navigate(path) {
+  stopQrCameraScanner();
   if (!bypassNavigationGuard && shouldWarnBeforeLeaving(path)) {
     pendingNavigation = path;
     openDialog({ type: "unsaved", important: true });
