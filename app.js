@@ -3143,7 +3143,7 @@ function bindEvents() {
         if (locText) locText.textContent = "Đang xác định vị trí...";
         navigator.geolocation.getCurrentPosition(
           (pos) => {
-            _qrScanLocationData = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy };
+            _qrScanLocationData = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy, timestamp: new Date().toISOString(), device: "mobile", userAgent: navigator.userAgent };
             _qrScanLocationStatus = "acquired";
             doScan(_qrScanLocationData);
           },
@@ -3163,7 +3163,7 @@ function bindEvents() {
   if (route === "/attendance/scan" && routeParams.get("token") && !_qrScanLocationData && navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        _qrScanLocationData = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy };
+        _qrScanLocationData = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy, timestamp: new Date().toISOString(), device: isMobileQrDevice() ? "mobile" : "desktop", userAgent: navigator.userAgent };
         _qrScanLocationStatus = "acquired";
         const statusEl = document.getElementById("qrLocationStatus");
         const textEl = document.getElementById("qrLocText");
