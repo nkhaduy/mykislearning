@@ -715,7 +715,7 @@ function sharedDialog() {
   return `<div class="modal-backdrop open shared-dialog-backdrop" data-shared-dialog-backdrop>
   <section class="shared-dialog" role="dialog" aria-modal="true" aria-labelledby="shared-dialog-title" aria-describedby="shared-dialog-description" data-shared-dialog>
     <div class="shared-dialog__header">
-      <div class="shared-dialog__icon shared-dialog__icon--${iconClass}" aria-hidden="true">${ICON_SYMBOLS[config.icon] || config.icon}</div>
+      <div class="shared-dialog__icon shared-dialog__icon--${iconClass}${isPhoneQr ? " shared-dialog__icon--phone-qr" : ""}" aria-hidden="true">${isPhoneQr ? `<svg viewBox="0 0 24 24"><rect x="5" y="2" width="10" height="20" rx="2"/><path d="M9 18h2"/></svg><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM18 18h3v3h-3z"/></svg>` : ICON_SYMBOLS[config.icon] || config.icon}</div>
       <div class="shared-dialog__content">
         <h2 id="shared-dialog-title">${escapeHtml(config.title)}</h2>
         <p id="shared-dialog-description">${escapeHtml(config.body)}</p>
