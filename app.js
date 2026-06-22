@@ -249,6 +249,7 @@ function openPhoneAttendanceGuide() {
 // ─── QR Camera Scanner ──────────────────────────────────────────────────────
 
 let _qrDebugTicker = null;
+let _qrDiagState = {}; // shared state for diagnostics snapshot
 
 function stopQrCameraScanner() {
   if (_qrScanRafId) { cancelAnimationFrame(_qrScanRafId); _qrScanRafId = null; }
@@ -258,20 +259,155 @@ function stopQrCameraScanner() {
   if (video) { video.pause(); video.srcObject = null; }
 }
 
+// Update a single row in the debug panel (no-op if panel absent)
 function _qrDB(key, val) {
+  _qrDiagState[key] = String(val);
   const panel = document.getElementById("qrDebugPanel");
   if (!panel) return;
-  let row = panel.querySelector(`[data-dbk="${CSS.escape(key)}"]`);
-  if (!row) { row = document.createElement("div"); row.setAttribute("data-dbk", key); panel.appendChild(row); }
-  row.textContent = `${key}: ${val}`;
+  let row = panel.querySelector(`[data-dbk]`);
+  // Use a linear scan — avoids CSS.escape compat issues on old Safari
+  for (const el of panel.querySelectorAll("[data-dbk]")) {
+    if (el.getAttribute("data-dbk") === key) { el.textContent = `${key}: ${val}`; return; }
+  }
+  const div = document.createElement("div");
+  div.setAttribute("data-dbk", key);
+  div.textContent = `${key}: ${val}`;
+  panel.querySelector(".qr-dbg-rows")?.appendChild(div) ?? panel.appendChild(div);
 }
 
-// Live debug ticker — updates CSS-computed values every 500ms while camera is open
-function _qrStartDebugTicker(videoEl, refEl) {
+// Build the full diagnostic text for copy/send
+function _qrBuildDiagnostic(videoEl, startTime) {
+  const elapsed = startTime ? Math.round((Date.now() - startTime) / 100) / 10 : "—";
+  const track = _qrCameraStream?.getVideoTracks()[0];
+  let trackSettings = "—";
+  try { trackSettings = JSON.stringify(track?.getSettings?.()); } catch {}
+  const lines = [
+    "QR DIAGNOSTICS",
+    "──────────────────────",
+    `Timestamp: ${new Date().toISOString()}`,
+    `URL: ${location.href}`,
+    `User agent: ${navigator.userAgent}`,
+    `iOS: ${/iPhone|iPad|iPod/.test(navigator.userAgent)}`,
+    `Safari: ${/Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent)}`,
+    `HTTPS: ${location.protocol === "https:"}`,
+    `Page visibility: ${document.visibilityState}`,
+    "",
+    `Video element found: ${videoEl ? "yes" : "NO"}`,
+    `Same element: ${_qrDiagState.sameElement || "—"}`,
+    `Connected: ${videoEl?.isConnected ?? "—"}`,
+    `srcObject: ${videoEl?.srcObject ? "yes" : "none"}`,
+    `Video paused: ${videoEl?.paused ?? "—"}`,
+    `Video readyState: ${videoEl?.readyState ?? "—"}`,
+    `Video size: ${videoEl ? videoEl.videoWidth + "×" + videoEl.videoHeight : "—"}`,
+    `Rendered size: ${_qrDiagState.renderedSize || "—"}`,
+    `CSS display: ${_qrDiagState.cssDisplay || "—"}`,
+    `CSS height: ${_qrDiagState.cssHeight || "—"}`,
+    `CSS opacity: ${_qrDiagState.cssOpacity || "—"}`,
+    "",
+    `Stream exists: ${_qrCameraStream ? "yes" : "no"}`,
+    `Stream active: ${_qrCameraStream?.active ?? "—"}`,
+    `Track readyState: ${track?.readyState ?? "—"}`,
+    `Track enabled: ${track?.enabled ?? "—"}`,
+    `Track muted: ${track?.muted ?? "—"}`,
+    `Track settings: ${trackSettings}`,
+    "",
+    `Camera permission: ${_qrDiagState.camPermission || "—"}`,
+    `Location permission: ${_qrDiagState.locPermission || "—"}`,
+    "",
+    `Current step: ${_qrDiagState.step || "—"}`,
+    `Elapsed: ${elapsed}s`,
+    `Last error: ${_qrDiagState.error || "none"}`,
+  ];
+  return lines.join("\n");
+}
+
+async function _qrCopyDiagnostic(videoEl, startTime, btn) {
+  const text = _qrBuildDiagnostic(videoEl, startTime);
+  const orig = btn.textContent;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      // Fallback: create textarea, select, copy
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.cssText = "position:fixed;top:0;left:0;opacity:0.01;font-size:16px";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    btn.textContent = "✓ Đã sao chép!";
+  } catch {
+    btn.textContent = "Lỗi copy";
+  }
+  setTimeout(() => { btn.textContent = orig; }, 2500);
+}
+
+async function _qrSendReport(videoEl, startTime, btn) {
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Đang gửi...";
+  const track = _qrCameraStream?.getVideoTracks()[0];
+  let trackSettings = null;
+  try { trackSettings = track?.getSettings?.(); } catch {}
+  const body = {
+    timestamp: new Date().toISOString(),
+    url: location.pathname + location.search,
+    ua: navigator.userAgent,
+    isHttps: location.protocol === "https:",
+    pageVisibility: document.visibilityState,
+    videoFound: !!videoEl,
+    sameElement: _qrDiagState.sameElement || "—",
+    connected: videoEl?.isConnected ?? false,
+    hasSrcObject: !!videoEl?.srcObject,
+    videoPaused: videoEl?.paused ?? null,
+    videoReadyState: videoEl?.readyState ?? null,
+    videoSize: videoEl ? videoEl.videoWidth + "x" + videoEl.videoHeight : "0x0",
+    renderedSize: _qrDiagState.renderedSize || "—",
+    streamExists: !!_qrCameraStream,
+    trackState: track?.readyState ?? "—",
+    trackEnabled: track?.enabled ?? null,
+    trackMuted: track?.muted ?? null,
+    trackSettings,
+    camPermission: _qrDiagState.camPermission || "—",
+    locPermission: _qrDiagState.locPermission || "—",
+    currentStep: _qrDiagState.step || "—",
+    elapsedMs: startTime ? Date.now() - startTime : null,
+    lastErrorCode: _qrDiagState.error || "none",
+    lastErrorMessage: _qrDiagState.error || "none",
+    accountIdMasked: session?.accountId ? session.accountId.slice(0, 4) + "****" : "—",
+  };
+  try {
+    const res = await fetch("/api/debug/qr", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    const code = data.code || "QR-????";
+    _qrDB("reportCode", code);
+    btn.textContent = "✓ " + code;
+    btn.disabled = false;
+    // Show code prominently
+    const codeEl = document.getElementById("qrReportCode");
+    if (codeEl) { codeEl.textContent = "Mã báo cáo: " + code; codeEl.style.display = ""; }
+  } catch {
+    btn.textContent = "Lỗi gửi";
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  }
+}
+
+// Live debug ticker — runs every 500ms, updates panel and _qrDiagState
+function _qrStartDebugTicker(videoEl, refEl, startTime) {
   if (_qrDebugTicker) clearInterval(_qrDebugTicker);
   _qrDebugTicker = setInterval(() => {
     if (!document.getElementById("qrDebugPanel")) { clearInterval(_qrDebugTicker); _qrDebugTicker = null; return; }
     const cur = document.getElementById("qrCameraVideo");
+    const elapsed = startTime ? ((Date.now() - startTime) / 1000).toFixed(1) + "s" : "—";
+    _qrDB("elapsed", elapsed);
     _qrDB("sameElement", cur === refEl ? "yes ✓" : "NO — REPLACED ✗");
     _qrDB("connected", videoEl.isConnected ? "yes" : "NO ✗");
     _qrDB("srcObject", videoEl.srcObject ? "yes" : "none");
@@ -281,22 +417,26 @@ function _qrStartDebugTicker(videoEl, refEl) {
     _qrDB("trackState", track ? track.readyState : "none");
     _qrDB("trackEnabled", track ? String(track.enabled) : "—");
     _qrDB("trackMuted", track ? String(track.muted) : "—");
-    _qrDB("readyState", videoEl.readyState);
-    _qrDB("paused", String(videoEl.paused));
+    _qrDB("videoRS", videoEl.readyState + " / paused:" + videoEl.paused);
     _qrDB("videoSize", videoEl.videoWidth + "×" + videoEl.videoHeight);
     const cs = getComputedStyle(videoEl);
     _qrDB("cssDisplay", cs.display);
-    _qrDB("cssOpacity", cs.opacity);
-    _qrDB("cssVisibility", cs.visibility);
-    _qrDB("cssWidth", cs.width);
     _qrDB("cssHeight", cs.height);
+    _qrDB("cssOpacity", cs.opacity);
     _qrDB("cssZIndex", cs.zIndex);
     const rect = videoEl.getBoundingClientRect();
     _qrDB("renderedSize", Math.round(rect.width) + "×" + Math.round(rect.height));
   }, 500);
 }
 
-// Try getUserMedia with progressively looser constraints for iOS Safari compat
+function _withTimeout(promise, ms, errCode) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(errCode)), ms)),
+  ]);
+}
+
+// Try getUserMedia with progressively looser constraints
 async function _qrGetStream() {
   const attempts = [
     { video: { facingMode: { exact: "environment" } }, audio: false },
@@ -318,18 +458,13 @@ async function _qrGetStream() {
   throw lastErr;
 }
 
-function _withTimeout(promise, ms, errCode) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error(errCode)), ms)),
-  ]);
-}
-
-// Full camera init — MUST originate from a direct user tap to preserve iOS gesture chain
+// Main camera init — MUST originate directly from user tap
 async function initQrCameraScanner() {
   const params = new URLSearchParams(location.search);
   const isDebug = location.hostname.includes("vercel.app") || params.has("debugQr");
   const previewOnly = params.has("previewOnly");
+  const startTime = Date.now();
+  _qrDiagState = {};
 
   const videoEl = document.getElementById("qrCameraVideo");
   const canvas = document.getElementById("qrCameraCanvas");
@@ -337,32 +472,64 @@ async function initQrCameraScanner() {
   const stopBtn = document.getElementById("qrCameraStop");
   const retryBtn = document.getElementById("qrCameraRetry");
 
+  // Lookup permission states for debug
+  if (navigator.permissions?.query) {
+    navigator.permissions.query({ name: "camera" }).then(p => _qrDB("camPermission", p.state)).catch(() => {});
+    navigator.permissions.query({ name: "geolocation" }).then(p => _qrDB("locPermission", p.state)).catch(() => {});
+  }
+
   if (!videoEl || !status) {
-    _qrDB("init", "FAILED — no video/status element in DOM");
+    _qrDB("step", "FAILED_NO_ELEMENT");
+    _qrDB("error", "VIDEO_ELEMENT_NOT_FOUND");
     return;
   }
 
-  _qrDB("init", "started");
+  _qrDB("step", "init");
   _qrDB("videoFound", "yes");
-  _qrDB("connected-init", videoEl.isConnected ? "yes" : "NO ✗");
 
-  stopBtn?.addEventListener("click", () => { stopQrCameraScanner(); render(); });
+  // Start live ticker immediately so panel is always fresh
+  if (isDebug) _qrStartDebugTicker(videoEl, videoEl, startTime);
+
+  // Wire retry button to reset overlay
   retryBtn?.addEventListener("click", () => {
     stopQrCameraScanner();
-    if (retryBtn) retryBtn.style.display = "none";
+    retryBtn.style.display = "none";
     const overlay = document.getElementById("qrCameraStartOverlay");
     if (overlay) overlay.style.display = "";
     const startBtn = document.getElementById("qrCameraStart");
     if (startBtn) { startBtn.disabled = false; startBtn.textContent = "Khởi động camera"; }
+    const hrFallback = document.getElementById("qrHrFallback");
+    if (hrFallback) hrFallback.style.display = "none";
   });
+  stopBtn?.addEventListener("click", () => { stopQrCameraScanner(); render(); });
+
+  // Show "Nhập mã HR" fallback after 5s if camera not live yet
+  const hrFallbackTimer = setTimeout(() => {
+    const hrFallback = document.getElementById("qrHrFallback");
+    if (hrFallback && !videoEl.classList.contains("is-playing")) hrFallback.style.display = "";
+  }, 5000);
+
+  // Auto-error after 20s stuck in loading — never infinite spinner
+  const globalTimeout = setTimeout(() => {
+    if (!videoEl.classList.contains("is-playing")) {
+      _qrDB("error", "GLOBAL_TIMEOUT");
+      stopQrCameraScanner();
+      if (status) status.textContent = "Hết thời gian — nhấn Thử lại hoặc nhập mã HR.";
+      if (retryBtn) retryBtn.style.display = "";
+      const hrFallback = document.getElementById("qrHrFallback");
+      if (hrFallback) hrFallback.style.display = "";
+    }
+  }, 20000);
 
   if (!navigator.mediaDevices?.getUserMedia) {
-    status.textContent = "Thiết bị không hỗ trợ camera.";
-    _qrDB("getUserMedia", "NOT AVAILABLE ✗");
+    clearTimeout(hrFallbackTimer); clearTimeout(globalTimeout);
+    _qrDB("step", "NO_GUM");
+    _qrDB("error", "GETUSERMEDIA_NOT_AVAILABLE");
+    if (status) status.textContent = "Thiết bị không hỗ trợ camera.";
     return;
   }
 
-  // Load jsQR (skip in previewOnly mode)
+  // Load jsQR
   if (!previewOnly && !window.jsQR) {
     const script = document.createElement("script");
     script.src = "/vendor/jsqr.min.js";
@@ -370,34 +537,29 @@ async function initQrCameraScanner() {
     await new Promise((res, rej) => { script.onload = res; script.onerror = rej; });
   }
 
-  status.textContent = "Đang xin quyền camera...";
+  if (status) status.textContent = "Đang xin quyền camera...";
   _qrDB("step", "getUserMedia");
-  if (navigator.permissions?.query) {
-    navigator.permissions.query({ name: "camera" }).then(p => _qrDB("camPermission", p.state)).catch(() => {});
-  }
 
   try {
     const stream = await _withTimeout(_qrGetStream(), 15000, "STREAM_TIMEOUT");
     _qrCameraStream = stream;
+    clearTimeout(globalTimeout);
+    clearTimeout(hrFallbackTimer);
 
-    // Snapshot reference to detect DOM replacement
     const videoRef = document.getElementById("qrCameraVideo");
     _qrDB("stream", "yes — " + stream.getVideoTracks().length + " track(s)");
     const track = stream.getVideoTracks()[0];
     if (!track) throw new Error("NO_VIDEO_TRACK");
-    if (track.readyState !== "live") throw new Error("TRACK_NOT_LIVE — " + track.readyState);
+    if (track.readyState !== "live") throw new Error("TRACK_NOT_LIVE");
     track.enabled = true;
     _qrDB("track", track.readyState + " / " + (track.label || "unknown"));
     track.addEventListener("ended", () => _qrDB("trackEvent", "ENDED"), { once: true });
     track.addEventListener("mute", () => _qrDB("trackEvent", "MUTED"));
-    track.addEventListener("unmute", () => _qrDB("trackEvent", "unmuted"));
 
-    if (isDebug) _qrStartDebugTicker(videoRef, videoRef);
-
-    status.textContent = "Đang mở camera...";
+    if (status) status.textContent = "Đang mở camera...";
     _qrDB("step", "attach");
 
-    // Set attributes BEFORE srcObject (iOS Safari ignores late attribute changes)
+    // Set ALL attributes before srcObject — iOS Safari ignores post-set changes
     videoRef.setAttribute("playsinline", "");
     videoRef.setAttribute("webkit-playsinline", "");
     videoRef.setAttribute("muted", "");
@@ -409,30 +571,28 @@ async function initQrCameraScanner() {
     videoRef.srcObject = stream;
     _qrDB("srcObject", "set");
 
-    // Check element is still in DOM (detect render() replacing it)
     if (!videoRef.isConnected) throw new Error("VIDEO_ELEMENT_REPLACED");
 
-    // Wait for loadedmetadata
+    // loadedmetadata
     await _withTimeout(new Promise((resolve, reject) => {
       if (videoRef.readyState >= 1) return resolve();
       videoRef.addEventListener("loadedmetadata", resolve, { once: true });
       videoRef.addEventListener("error", () => reject(new Error("VIDEO_ELEMENT_ERROR")), { once: true });
     }), 8000, "METADATA_TIMEOUT");
-    _qrDB("step", "metadata ok — readyState=" + videoRef.readyState);
+    _qrDB("step", "metadata-ok rs=" + videoRef.readyState);
 
     if (!videoRef.isConnected) throw new Error("VIDEO_ELEMENT_REPLACED");
 
-    // play() — muted video should work without gesture, but must still call explicitly
+    // play()
     try {
       await videoRef.play();
       _qrDB("play()", "ok");
     } catch (playErr) {
       _qrDB("play() err", playErr.name);
       if (playErr.name === "NotAllowedError") throw new Error("PLAY_REJECTED");
-      // AbortError on iOS: sometimes fires then recovers — continue
     }
 
-    // Wait for first real frame
+    // First frame
     await _withTimeout(new Promise((resolve) => {
       if (videoRef.videoWidth > 0) return resolve();
       const check = () => {
@@ -445,20 +605,18 @@ async function initQrCameraScanner() {
 
     if (!videoRef.isConnected) throw new Error("VIDEO_ELEMENT_REPLACED");
 
-    _qrDB("step", "LIVE — " + videoRef.videoWidth + "×" + videoRef.videoHeight);
+    _qrDB("step", "LIVE " + videoRef.videoWidth + "×" + videoRef.videoHeight);
     if (stopBtn) stopBtn.style.display = "";
     videoRef.classList.add("is-playing");
-    status.textContent = previewOnly
-      ? "[preview-only] Camera hoạt động — " + videoRef.videoWidth + "×" + videoRef.videoHeight
+    if (status) status.textContent = previewOnly
+      ? "[preview-only] Camera live — " + videoRef.videoWidth + "×" + videoRef.videoHeight
       : "Đang quét... Hướng camera vào mã QR.";
 
-    if (previewOnly) return; // Stop here in preview-only mode
+    if (previewOnly) return;
 
-    // QR decode loop — starts only after confirmed first frame
     function scanFrame() {
       if (!_qrCameraStream || videoRef.readyState < 2 || videoRef.videoWidth === 0) {
-        _qrScanRafId = requestAnimationFrame(scanFrame);
-        return;
+        _qrScanRafId = requestAnimationFrame(scanFrame); return;
       }
       canvas.width = videoRef.videoWidth;
       canvas.height = videoRef.videoHeight;
@@ -470,7 +628,7 @@ async function initQrCameraScanner() {
         stopQrCameraScanner();
         let token = code.data;
         try { const u = new URL(code.data); token = u.searchParams.get("token") || u.pathname.split("/").pop() || code.data; } catch {}
-        status.textContent = "Đã nhận mã. Đang xác nhận điểm danh...";
+        if (status) status.textContent = "Đã nhận mã. Đang xác nhận...";
         navigate(`/attendance/scan?token=${encodeURIComponent(token)}`);
         return;
       }
@@ -479,54 +637,59 @@ async function initQrCameraScanner() {
     scanFrame();
 
   } catch (err) {
+    clearTimeout(hrFallbackTimer); clearTimeout(globalTimeout);
     stopQrCameraScanner();
-    _qrDB("error", err.name + ": " + err.message);
+    const code = err.message || err.name;
+    _qrDB("error", code);
+    _qrDB("step", "ERROR");
     if (retryBtn) retryBtn.style.display = "";
+    const hrFallback = document.getElementById("qrHrFallback");
+    if (hrFallback) hrFallback.style.display = "";
 
-    const errCode = err.message || err.name;
-    let title = "Camera không thể khởi động";
-    let body = `Mã lỗi: ${errCode}`;
+    const msgMap = {
+      STREAM_TIMEOUT:        ["Hết thời gian", "STREAM_TIMEOUT — Không nhận được phản hồi camera sau 15 giây.\n\nCài đặt iPhone → Safari → Camera → Cho phép"],
+      NO_VIDEO_TRACK:        ["Không có luồng video", "NO_VIDEO_TRACK — Camera trả stream nhưng không có video track."],
+      TRACK_NOT_LIVE:        ["Camera không hoạt động", "TRACK_NOT_LIVE — Camera track không ở trạng thái live."],
+      METADATA_TIMEOUT:      ["Camera không phản hồi", "METADATA_TIMEOUT — Safari không trả metadata sau 8 giây.\n\nCài đặt iPhone → Safari → Camera → Cho phép\nRồi đóng tab và mở lại."],
+      NO_VIDEO_FRAME:        ["Camera đen", "NO_VIDEO_FRAME — Camera đã mở nhưng không có hình sau 10 giây."],
+      PLAY_REJECTED:         ["Safari từ chối phát", "PLAY_REJECTED — Đóng tab và thử lại."],
+      VIDEO_ELEMENT_REPLACED:["Lỗi DOM", "VIDEO_ELEMENT_REPLACED — Trình quét bị render lại sau khi camera mở."],
+      VIDEO_ELEMENT_ERROR:   ["Lỗi video element", "VIDEO_ELEMENT_ERROR — Video element báo lỗi."],
+      CAMERA_NOT_FOUND:      ["Không tìm thấy camera", "Không có camera hoặc camera đang bị app khác dùng."],
+    };
+    const [title, body] = msgMap[code] || ["Lỗi camera", `${code}\n${err.name}`];
 
-    if (err.name === "NotAllowedError" || err.name === "SecurityError" || errCode.includes("PERMISSION")) {
+    if (err.name === "NotAllowedError" || err.name === "SecurityError") {
       _qrCameraConsentGiven = false;
-      title = "Cần quyền truy cập camera";
-      body = "Mã lỗi: CAMERA_PERMISSION_DENIED\n\nNếu trước đó đã chọn Không cho phép, Safari sẽ không hỏi lại.\n\nCài đặt iPhone → Safari → Camera → Cho phép\nhoặc: Cài đặt → Quyền riêng tư & Bảo mật → Camera → Safari → Bật.";
+      if (status) status.textContent = "Camera bị chặn — xem hướng dẫn bên dưới.";
+      openDialog({ type: "alert", title: "Cần quyền camera", body: "CAMERA_PERMISSION_DENIED\n\nCài đặt iPhone → Safari → Camera → Cho phép\nhoặc: Cài đặt → Quyền riêng tư & Bảo mật → Camera → Safari → Bật." });
     } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
-      title = "Không tìm thấy camera";
-      body = "Mã lỗi: CAMERA_NOT_FOUND\n\nĐiện thoại không có camera hoặc camera đang bị ứng dụng khác sử dụng.";
-    } else if (errCode === "VIDEO_ELEMENT_REPLACED") {
-      title = "Lỗi DOM scanner";
-      body = "Mã lỗi: VIDEO_ELEMENT_REPLACED\n\nTrình quét đã bị render lại sau khi camera được mở. Nhấn Thử lại.";
-    } else if (errCode === "NO_VIDEO_TRACK") {
-      title = "Không có luồng video";
-      body = "Mã lỗi: NO_VIDEO_TRACK\n\nCamera trả stream nhưng không có video track. Hãy đóng app khác đang dùng camera.";
-    } else if (errCode.includes("TRACK_NOT_LIVE")) {
-      title = "Camera track không hoạt động";
-      body = "Mã lỗi: " + errCode + "\n\nCamera track không ở trạng thái live. Thử tắt và bật lại camera.";
-    } else if (errCode === "PLAY_REJECTED") {
-      title = "Không thể phát video camera";
-      body = "Mã lỗi: PLAY_REJECTED\n\nSafari từ chối play(). Đóng tab và thử lại.";
-    } else if (errCode === "METADATA_TIMEOUT") {
-      title = "Camera không phản hồi";
-      body = "Mã lỗi: METADATA_TIMEOUT\n\nSafari không trả metadata sau 8 giây. Kiểm tra quyền Camera trong Cài đặt rồi đóng tab và thử lại.";
-    } else if (errCode === "NO_VIDEO_FRAME") {
-      title = "Camera không hiển thị hình";
-      body = "Mã lỗi: NO_VIDEO_FRAME\n\nCamera đã mở nhưng không có frame sau 10 giây. Đóng app khác đang dùng camera rồi thử lại.";
-    } else if (errCode === "STREAM_TIMEOUT") {
-      title = "Hết thời gian xin quyền camera";
-      body = "Mã lỗi: STREAM_TIMEOUT\n\nKhông nhận được phản hồi camera sau 15 giây. Kiểm tra quyền Camera trong Cài đặt Safari.";
+      if (status) status.textContent = "Không tìm thấy camera.";
+      openDialog({ type: "alert", title: "Không tìm thấy camera", body: "CAMERA_NOT_FOUND — Camera đang bị app khác dùng hoặc không tồn tại." });
+    } else {
+      if (status) status.textContent = code + " — Nhấn Thử lại hoặc nhập mã HR.";
+      openDialog({ type: "alert", title, body });
     }
-
-    status.textContent = "Lỗi: " + errCode + " — Nhấn Thử lại.";
-    openDialog({ type: "alert", title, body });
   }
 }
 
-// Entry point from "Khởi động camera" button tap — gesture chain must stay intact
+// Entry point from button tap — keeps iOS gesture chain intact
 async function handleQrStartButton(btn) {
   btn.disabled = true;
   btn.textContent = "Đang mở camera...";
+  const overlay = document.getElementById("qrCameraStartOverlay");
+  if (overlay) overlay.style.display = "none";
   await initQrCameraScanner();
+}
+
+// HR manual code entry — navigate to scan?token=... same as QR decode result
+function handleQrHrCodeSubmit(input) {
+  const raw = (input?.value || "").trim();
+  if (!raw) { input?.focus(); return; }
+  let token = raw;
+  try { const u = new URL(raw); token = u.searchParams.get("token") || u.pathname.split("/").pop() || raw; } catch {}
+  stopQrCameraScanner();
+  navigate(`/attendance/scan?token=${encodeURIComponent(token)}`);
 }
 
 function destroyYoutubePlayer() {
