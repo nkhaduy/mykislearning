@@ -12,11 +12,11 @@ const KNOWN_EMPLOYEE_IDS = new Set(["acc-001", "acc-002", "acc-003", "acc-004", 
 
 export function resolveAccount(req) {
   const accountId = req.headers["x-account-id"];
-  const roleHeader = req.headers["x-account-role"];
   if (!accountId) return null;
 
-  // Role: trust header, but clamp to known HR set for elevated operations
-  const isKnownHr = KNOWN_HR_IDS.has(accountId) || roleHeader === "hr";
+  // Never grant elevated access from a client-controlled role header.
+  // TODO: replace this compatibility allow-list with Supabase JWT + user_roles.
+  const isKnownHr = KNOWN_HR_IDS.has(accountId);
   const role = isKnownHr ? "hr" : "employee";
   return { accountId, role };
 }

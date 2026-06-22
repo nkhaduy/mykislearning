@@ -7,6 +7,9 @@ import { createClient } from "@supabase/supabase-js";
 import { cors, requireAuth, requireHr } from "./_auth.js";
 
 function supabase() {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("Supabase server configuration is missing");
+  }
   return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -16,7 +19,9 @@ export default async function handler(req, res) {
   cors(res);
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const db = supabase();
+  let db;
+  try { db = supabase(); }
+  catch (error) { return res.status(503).json({ error: error.message, code: "supabase_not_configured" }); }
   const { searchParams } = new URL(req.url, `https://${req.headers.host}`);
 
   // ── GET: list participants ──────────────────────────────────────────────────
@@ -30,7 +35,7 @@ export default async function handler(req, res) {
       .from("training_participants")
       .select("*")
       .eq("session_id", sessionId)
-      .order("data->addedAt", { ascending: true });
+      .order("id", { ascending: true });
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json((data || []).map((row) => ({ ...row.data, id: row.id })));
@@ -48,16 +53,20 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "session_id and participants[] required" });
     }
 
-    const normalized = participants.map((participant) => ({
+    const normalizedByAccount = new Map(participants.map((participant) => {
+      const accountId = String(participant.account_id || participant.accountId || "").trim();
+      return [accountId, {
       id: String(participant.id || crypto.randomUUID()),
       sessionId: String(participant.session_id || participant.sessionId || sessionId),
-      accountId: String(participant.account_id || participant.accountId || "").trim(),
+      accountId,
       role: String(participant.role || "learner"),
       status: String(participant.status || "assigned"),
       createdAt: String(participant.created_at || participant.createdAt || new Date().toISOString()),
       source: String(participant.source || "manual"),
       addedBy: String(participant.added_by || participant.addedBy || acct.accountId),
+      }];
     }));
+    const normalized = [...normalizedByAccount.values()];
     if (normalized.some((participant) => !participant.accountId || participant.sessionId !== String(sessionId))) {
       return res.status(400).json({ error: "Each participant requires matching session_id and account_id" });
     }
