@@ -371,6 +371,8 @@ let selectedSessionDepartments = [];
 let sessionEmployeeSearch = "";
 let sessionEmployeeDepartment = "";
 let sessionEmployeePage = 1;
+let sessionParticipantDraft = null;
+let participantSyncState = { saving: false, error: "" };
 
 // Async calendar state — populated by fetchCalendarEvents(), read by learningCalendarPageV3()
 let _calendarEvents = null;       // null = not yet loaded
