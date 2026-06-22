@@ -679,6 +679,7 @@ async function handleQrStartButton(btn) {
   btn.textContent = "Đang mở camera...";
   const overlay = document.getElementById("qrCameraStartOverlay");
   if (overlay) overlay.style.display = "none";
+  window._qrStartTime = Date.now();
   await initQrCameraScanner();
 }
 
