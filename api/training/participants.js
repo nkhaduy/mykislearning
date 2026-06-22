@@ -17,12 +17,13 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const db = supabase();
+  const { searchParams } = new URL(req.url, `https://${req.headers.host}`);
 
   // ── GET: list participants ──────────────────────────────────────────────────
   if (req.method === "GET") {
     const acct = requireAuth(req, res);
     if (!acct) return;
-    const { sessionId } = req.query;
+    const sessionId = searchParams.get("sessionId");
     if (!sessionId) return res.status(400).json({ error: "sessionId required" });
 
     const { data, error } = await db
