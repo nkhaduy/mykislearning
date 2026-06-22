@@ -2952,26 +2952,39 @@ function attendanceScanPage(tokenValue) {
   const _isIOS = /iPhone|iPad|iPod/.test(_ua);
   const _isHttps = location.protocol === "https:";
   const _hasGUM = "mediaDevices" in navigator && "getUserMedia" in navigator.mediaDevices;
-  const _debugPanel = _showDebug ? `<div id="qrDebugPanel" style="margin-top:14px;padding:12px 14px;background:#040d1a;border:1px solid #1e3a5f;border-radius:10px;font:11px/1.8 monospace;color:#7dd3fc;text-align:left;word-break:break-all">
-    <div style="color:#38bdf8;font-weight:bold;margin-bottom:4px">QR Debug${_previewOnly ? " [preview-only]" : ""}</div>
-    <div data-dbk="device">device: ${_isIOS ? "iOS" : "non-iOS"} / ${_isSafari ? "Safari" : "Chrome/other"}</div>
-    <div data-dbk="https">https: ${_isHttps ? "yes ✓" : "NO ✗"}</div>
-    <div data-dbk="getUserMedia">getUserMedia: ${_hasGUM ? "available ✓" : "NOT AVAILABLE ✗"}</div>
-    <div data-dbk="init">init: —</div>
-    <div data-dbk="camPermission">camPermission: —</div>
-    <div data-dbk="step">step: waiting</div>
-    <div data-dbk="stream">stream: —</div>
-    <div data-dbk="track">track: —</div>
-    <div data-dbk="srcObject">srcObject: —</div>
-    <div data-dbk="play()">play(): —</div>
-    <div data-dbk="videoSize">videoSize: —</div>
-    <div data-dbk="sameElement">sameElement: —</div>
-    <div data-dbk="connected">connected: —</div>
-    <div data-dbk="cssDisplay">cssDisplay: —</div>
-    <div data-dbk="cssHeight">cssHeight: —</div>
-    <div data-dbk="renderedSize">renderedSize: —</div>
-    <div data-dbk="error" style="color:#f87171">error: —</div>
-  </div>` : "";
+  const _debugPanel = _showDebug ? `
+    <div id="qrDebugPanel" style="margin-top:16px;background:#040d1a;border:1px solid #1e3a5f;border-radius:12px;overflow:hidden;font-size:13px;text-align:left">
+      <div style="padding:10px 14px;background:#0b1a2e;display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span style="color:#38bdf8;font-weight:700;font-size:13px">QR Debug${_previewOnly ? " [preview-only]" : ""}</span>
+        <span style="color:#475569;font-size:11px">${_isIOS ? "iOS" : "non-iOS"} / ${_isSafari ? "Safari" : "other"} / ${_isHttps ? "HTTPS ✓" : "HTTP ✗"}</span>
+      </div>
+      <div class="qr-dbg-rows" style="padding:10px 14px;font:12px/2 monospace;color:#94a3b8;word-break:break-all">
+        <div data-dbk="getUserMedia">getUserMedia: ${_hasGUM ? "available ✓" : "NOT AVAILABLE ✗"}</div>
+        <div data-dbk="camPermission">camPermission: —</div>
+        <div data-dbk="locPermission">locPermission: —</div>
+        <div data-dbk="step" style="color:#7dd3fc">step: waiting</div>
+        <div data-dbk="elapsed">elapsed: —</div>
+        <div data-dbk="stream">stream: —</div>
+        <div data-dbk="trackState">trackState: —</div>
+        <div data-dbk="trackEnabled">trackEnabled: —</div>
+        <div data-dbk="sameElement">sameElement: —</div>
+        <div data-dbk="connected">connected: —</div>
+        <div data-dbk="srcObject">srcObject: —</div>
+        <div data-dbk="videoRS">videoRS: —</div>
+        <div data-dbk="videoSize">videoSize: —</div>
+        <div data-dbk="renderedSize">renderedSize: —</div>
+        <div data-dbk="cssDisplay">cssDisplay: —</div>
+        <div data-dbk="cssHeight">cssHeight: —</div>
+        <div data-dbk="cssOpacity">cssOpacity: —</div>
+        <div data-dbk="play()">play(): —</div>
+        <div data-dbk="error" style="color:#f87171">error: —</div>
+        <div id="qrReportCode" style="display:none;color:#4ade80;font-weight:bold;margin-top:4px"></div>
+      </div>
+      <div style="padding:10px 14px;display:flex;gap:8px;border-top:1px solid #1e3a5f;flex-wrap:wrap">
+        <button id="qrCopyDiag" style="flex:1;min-width:140px;padding:10px;background:#0e7a70;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Sao chép chẩn đoán</button>
+        <button id="qrSendReport" style="flex:1;min-width:140px;padding:10px;background:#1e3a5f;color:#7dd3fc;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Gửi báo cáo lỗi</button>
+      </div>
+    </div>` : "";
 
   return `<div class="page">${header()}
     <section class="section"><div class="container">
