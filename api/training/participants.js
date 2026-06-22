@@ -76,10 +76,14 @@ export default async function handler(req, res) {
     }
 
     if (mode === "replace") {
-      let deleteQuery = db.from("training_participants").delete().eq("session_id", sessionId);
-      if (normalized.length) deleteQuery = deleteQuery.not("account_id", "in", `(${normalized.map((participant) => `"${participant.accountId.replaceAll('"', '')}"`).join(",")})`);
-      const { error: deleteError } = await deleteQuery;
-      if (deleteError) return res.status(500).json({ error: deleteError.message, code: deleteError.code || "participant_cleanup_failed" });
+      const desiredIds = new Set(normalized.map((participant) => participant.accountId));
+      const { data: existing, error: existingError } = await db.from("training_participants").select("account_id").eq("session_id", sessionId);
+      if (existingError) return res.status(500).json({ error: existingError.message, code: existingError.code || "participant_cleanup_read_failed" });
+      const staleIds = (existing || []).map((row) => row.account_id).filter((accountId) => !desiredIds.has(accountId));
+      if (staleIds.length) {
+        const { error: deleteError } = await db.from("training_participants").delete().eq("session_id", sessionId).in("account_id", staleIds);
+        if (deleteError) return res.status(500).json({ error: deleteError.message, code: deleteError.code || "participant_cleanup_failed" });
+      }
     }
 
     const { data: saved, error: verifyError } = await db
