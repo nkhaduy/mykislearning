@@ -374,6 +374,8 @@ let sessionEmployeeDepartment = "";
 let sessionEmployeePage = 1;
 let sessionParticipantDraft = null;
 let participantSyncState = { saving: false, error: "" };
+// Tracks accounts that were successfully synced in the last save (for ✓ badge UI)
+let _recentlySyncedParticipants = new Set();
 // Tracks which sessions have been auto-synced to Supabase in this browser session
 const _participantSyncedSessions = new Set();
 
