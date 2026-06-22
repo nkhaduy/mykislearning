@@ -665,11 +665,11 @@ function closeDialog() {
 
 function sharedDialog() {
   if (!dialogState) return "";
-  const ICON_SYMBOLS = { "?": "💬", "!": "⚠", "i": "ℹ", "✓": "✓", "×": "✕" };
+  const ICON_SYMBOLS = { "?": "💬", "!": "⚠", "i": "ℹ", "✓": "✓", "×": "✕", phone: "▣" };
   const ICON_CLASSES = {
     support: "info", invalidCredentials: "warning", locked: "warning",
     inactive: "warning", pending: "info", system: "error",
-    unsaved: "warning", alert: "info", confirm: "warning", gradeInput: "info",
+    unsaved: "warning", alert: "info", confirm: "warning", gradeInput: "info", phoneQr: "info",
   };
   const configs = {
     support: { title: "Hỗ trợ đặt lại mật khẩu", body: `Vui lòng liên hệ ${HR_SUPPORT_NAME} để được hỗ trợ đặt lại mật khẩu.`, icon: "?" },
@@ -682,6 +682,7 @@ function sharedDialog() {
     alert: { title: dialogState.title || "Thông báo", body: dialogState.body || "", icon: "i" },
     confirm: { title: dialogState.title || "Xác nhận thao tác", body: dialogState.body || "", icon: "!" },
     gradeInput: { title: dialogState.title || "Chấm điểm câu hỏi tự luận", body: dialogState.body || "", icon: "i" },
+    phoneQr: { title: "Điểm danh bằng điện thoại", body: "Để đảm bảo xác thực vị trí và sử dụng camera, vui lòng mở MyKIS Learning trên điện thoại và thực hiện quét mã QR tại đó.", icon: "phone" },
   };
   const config = configs[dialogState.type] || configs.alert;
   const iconClass = ICON_CLASSES[dialogState.type] || "info";
@@ -689,6 +690,7 @@ function sharedDialog() {
   const isConfirm = dialogState.type === "confirm";
   const isGradeInput = dialogState.type === "gradeInput";
   const isSupport = dialogState.type === "support";
+  const isPhoneQr = dialogState.type === "phoneQr";
 
   const inputHtml = isGradeInput ? `
     ${dialogState.answer ? `<p class="shared-dialog__answer-label">Câu trả lời của nhân viên</p><div class="shared-dialog__answer-box">${escapeHtml(dialogState.answer)}</div>` : ""}
@@ -698,7 +700,9 @@ function sharedDialog() {
       <span class="input-error" id="sdGradeError" aria-live="polite"></span>
     </div>` : "";
 
-  const actionsHtml = isUnsaved
+  const actionsHtml = isPhoneQr
+    ? `<button class="btn btn-outline" data-dialog-close>Đóng</button><button class="btn btn-primary" data-qr-confirm-mobile>Tôi đang dùng điện thoại</button>`
+    : isUnsaved
     ? `<button class="btn btn-outline" data-dialog-close>Tiếp tục học</button><button class="btn btn-primary" data-dialog-leave>Rời khỏi</button>`
     : isConfirm
     ? `<button class="btn btn-outline" data-dialog-close>Hủy</button><button class="btn btn-primary" data-dialog-confirm>Xác nhận</button>`
