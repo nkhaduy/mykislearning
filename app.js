@@ -2711,14 +2711,17 @@ async function hydrateQrCanvases(){const targets=[...document.querySelectorAll("
 function revokeGalleryUrls(){document.querySelectorAll("[data-object-url]").forEach(el=>{URL.revokeObjectURL(el.dataset.objectUrl);delete el.dataset.objectUrl;});}
 async function saveSessionParticipants(accountIds,{mode="replace",source="manual"}={}){
   if(participantSyncState.saving)return {ok:false,error:"saving"};
+  _recentlySyncedParticipants=new Set();
   participantSyncState={saving:true,error:""};
-  document.querySelectorAll("[data-session-participant],[data-session-select-visible],[data-session-clear-selection],[data-session-add-assigned]").forEach(el=>{el.disabled=true;});
+  render(); // immediate re-render so checkboxes show loading state
   toast("Đang lưu danh sách học viên...");
   const result=await offlineTrainingService.setParticipantsAsync(selectedOfflineSessionId,accountIds,session.accountId,{mode,source});
   participantSyncState={saving:false,error:result.ok?"":result.message||"Không thể lưu học viên vào lớp trực tiếp."};
-  if(!result.ok){openDialog({type:"alert",title:"Không thể lưu danh sách học viên",body:participantSyncState.error});return result;}
+  if(!result.ok){render();openDialog({type:"alert",title:"Không thể lưu danh sách học viên",body:participantSyncState.error});return result;}
   _participantSyncedSessions.add(selectedOfflineSessionId);
-  toast(`Đã đồng bộ ${result.remoteCount??result.participants.length} học viên vào lớp.`);
+  _recentlySyncedParticipants=new Set((result.participants||[]).map(p=>p.accountId));
+  const count=result.remoteCount??result.participants.length;
+  toast(`Đã đồng bộ ${count} học viên vào lớp ✓`);
   render();
   return result;
 }
