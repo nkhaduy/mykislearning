@@ -6488,15 +6488,12 @@ textarea:focus-visible {
   }
 }
 
-/* ── Mobile landing page overflow guard ── */
+/* ── Mobile image guard ── */
 @media (max-width: 640px) {
-  .hero-proof {
-    grid-template-columns: 1fr;
-  }
-  .hero-proof--refined {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
   .about-premium-hero {
-    overflow: hidden;
+    overflow-x: clip;
+  }
+  .section {
+    overflow-x: clip;
   }
 }
