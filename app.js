@@ -62,6 +62,7 @@ import {calculateEmployeeTrainingTime,getCompanyTrainingAnalytics,getTrainingOve
 import {sessionService} from "./lib/services/sessionService.js";
 import {qrAttendanceService} from "./lib/services/qrAttendanceService.js";
 import {calendarService} from "./lib/services/calendarService.js";
+import {courseApiService} from "./lib/services/courseApiService.js";
 import {excelImportService} from "./lib/services/excelImportService.js";
 
 const app = document.getElementById("app");
@@ -382,6 +383,16 @@ let _calendarLoading = false;
 let _calendarError = null;
 let _calendarSource = "";         // "api" | "local"
 let _calendarAccountId = "";      // detect account switch
+
+// ── Course API cache ─────────────────────────────────────────────
+let _courses = null;          // null = not loaded, [] = loaded but empty
+let _coursesLoading = false;
+let _coursesError = null;
+let _coursesAccountId = "";
+let _enrollments = null;
+let _enrollmentsLoading = false;
+let _enrollmentsAccountId = "";
+
 let sessionImportPreviewRows = [];
 
 const GALLERY_KEY = "mykis.galleryAlbums.v1";
