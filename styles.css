@@ -6434,8 +6434,23 @@ textarea:focus-visible {
 .attendance-modal table input[type="checkbox"]:checked{transform:scale(1.1)}
 
 /* ── Selected summary panel ── */
-.selected-summary-card{background:#f0f5ff;border:1px solid #c7d7f0;border-radius:10px;padding:14px 16px;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.selected-summary-card strong{color:#0b2e59;font-size:15px}
+.selected-summary-card{background:#f0f5ff;border:1px solid #c7d7f0;border-radius:10px;padding:14px 16px;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;transition:border-color .2s}
+.selected-summary-card--active{border-color:#3b82f6;background:#eff6ff}
+.selected-count-row{display:flex;align-items:center;gap:8px}
+.selected-count{color:#0b2e59;font-size:24px;line-height:1}
+.selected-count-row span{color:var(--text-secondary);font-size:13px}
+
+/* ── Sync badge ── */
+.sync-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
+.sync-badge.saving{background:#fef3c7;color:#92400e}
+.sync-badge.synced{background:#d1fae5;color:#065f46}
+
+/* ── Row states during save ── */
+.row--saving{opacity:0.65;pointer-events:none}
+.row--synced td:first-child{position:relative}
+.sync-indicator{display:inline-block;margin-left:4px;font-size:11px;font-weight:700}
+.sync-indicator.saving{color:#92400e}
+.sync-indicator.synced{color:#065f46}
 
 /* ── Sync button loading state ── */
 [data-sync-participants][disabled]{opacity:0.7;cursor:not-allowed}
