@@ -2781,17 +2781,33 @@ function attendanceScanPage(tokenValue) {
     </div>`;
   }
 
-  const _showDebug = location.hostname.includes("vercel.app") || new URLSearchParams(location.search).has("debugQr");
+  const _qrParams = new URLSearchParams(location.search);
+  const _showDebug = location.hostname.includes("vercel.app") || _qrParams.has("debugQr");
+  const _previewOnly = _qrParams.has("previewOnly");
   const _ua = navigator.userAgent;
   const _isSafari = /Safari/.test(_ua) && !/Chrome/.test(_ua);
   const _isIOS = /iPhone|iPad|iPod/.test(_ua);
   const _isHttps = location.protocol === "https:";
-  const _debugPanel = _showDebug ? `<div id="qrDebugPanel" style="margin-top:12px;padding:10px;background:#0b1220;border:1px solid #1e3a5f;border-radius:8px;font:12px/1.6 monospace;color:#7dd3fc;text-align:left">
-    <div data-dbk="device">device: ${_isIOS ? "iOS" : "non-iOS"} / ${_isSafari ? "Safari" : "non-Safari"}</div>
-    <div data-dbk="https">https: ${_isHttps}</div>
-    <div data-dbk="getUserMedia">getUserMedia: ${"mediaDevices" in navigator && "getUserMedia" in navigator.mediaDevices ? "available" : "NOT AVAILABLE"}</div>
-    <div data-dbk="step">step: waiting for start</div>
-    <div data-dbk="error">error: —</div>
+  const _hasGUM = "mediaDevices" in navigator && "getUserMedia" in navigator.mediaDevices;
+  const _debugPanel = _showDebug ? `<div id="qrDebugPanel" style="margin-top:14px;padding:12px 14px;background:#040d1a;border:1px solid #1e3a5f;border-radius:10px;font:11px/1.8 monospace;color:#7dd3fc;text-align:left;word-break:break-all">
+    <div style="color:#38bdf8;font-weight:bold;margin-bottom:4px">QR Debug${_previewOnly ? " [preview-only]" : ""}</div>
+    <div data-dbk="device">device: ${_isIOS ? "iOS" : "non-iOS"} / ${_isSafari ? "Safari" : "Chrome/other"}</div>
+    <div data-dbk="https">https: ${_isHttps ? "yes ✓" : "NO ✗"}</div>
+    <div data-dbk="getUserMedia">getUserMedia: ${_hasGUM ? "available ✓" : "NOT AVAILABLE ✗"}</div>
+    <div data-dbk="init">init: —</div>
+    <div data-dbk="camPermission">camPermission: —</div>
+    <div data-dbk="step">step: waiting</div>
+    <div data-dbk="stream">stream: —</div>
+    <div data-dbk="track">track: —</div>
+    <div data-dbk="srcObject">srcObject: —</div>
+    <div data-dbk="play()">play(): —</div>
+    <div data-dbk="videoSize">videoSize: —</div>
+    <div data-dbk="sameElement">sameElement: —</div>
+    <div data-dbk="connected">connected: —</div>
+    <div data-dbk="cssDisplay">cssDisplay: —</div>
+    <div data-dbk="cssHeight">cssHeight: —</div>
+    <div data-dbk="renderedSize">renderedSize: —</div>
+    <div data-dbk="error" style="color:#f87171">error: —</div>
   </div>` : "";
 
   return `<div class="page">${header()}
