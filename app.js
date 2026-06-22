@@ -381,7 +381,7 @@ async function _qrSendReport(videoEl, startTime, btn) {
     accountIdMasked: session?.accountId ? session.accountId.slice(0, 4) + "****" : "—",
   };
   try {
-    const res = await fetch("/api/debug/qr", {
+    const res = await fetch("/api/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
