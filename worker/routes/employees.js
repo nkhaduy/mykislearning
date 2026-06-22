@@ -68,5 +68,25 @@ export async function handleEmployees(request, env) {
     return json({ certification: data });
   }
 
+  // DELETE /api/employees/:id/certifications/:certId  — soft-delete (revoke)
+  if (employeeId && subResource === "certifications" && subId && method === "DELETE") {
+    const acct = requireHr(request);
+    if (!acct) return json({ error: "HR only" }, 403);
+    const { data, error } = await supabase.from("employee_certifications")
+      .update({ status: "revoked", revoked_at: new Date().toISOString(), revoked_by: acct.accountId, updated_at: new Date().toISOString() })
+      .eq("id", subId).eq("account_id", employeeId).select().single();
+    if (error) return json({ error: error.message }, 500);
+    return json({ certification: data });
+  }
+
+  // GET /api/employees — list all with optional search/filter
+  if (!employeeId && method === "GET") {
+    const acct = requireHr(request);
+    if (!acct) return json({ error: "HR only" }, 403);
+    const { data, error } = await supabase.from("profiles").select("*").order("full_name");
+    if (error) return json({ error: error.message }, 500);
+    return json({ employees: data || [] });
+  }
+
   return json({ error: "NOT_FOUND" }, 404);
 }
