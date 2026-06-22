@@ -2841,15 +2841,15 @@ function bindEvents() {
   document.querySelectorAll("[data-timeline-year]").forEach((el) => el.addEventListener("click", () => {
     activeTimelineYear = el.dataset.timelineYear;
     render();
-    document.getElementById("kis-history")?.scrollIntoView({ behavior: "smooth", block: "start" });
     requestAnimationFrame(() => {
-      const activeNode = document.querySelector(".timeline-node.active");
+      const activeNode = document.querySelector(".tl-nav__pill.active");
       activeNode?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      activeNode?.focus({ preventScroll: true });
     });
   }));
   // Auto-scroll active timeline node into view on page load
   requestAnimationFrame(() => {
-    const activeNode = document.querySelector(".timeline-node.active");
+    const activeNode = document.querySelector(".tl-nav__pill.active");
     activeNode?.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
   });
   document.querySelectorAll("[data-close-employee-form]").forEach(el=>el.addEventListener("click",()=>{employeeFormOpen=false;employeeCreateResult=null;render();}));
