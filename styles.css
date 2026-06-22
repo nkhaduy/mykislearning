@@ -5223,7 +5223,7 @@ body.modal-open { overflow: hidden; }
 #featured-courses .course-card-body .card-meta{margin-top:auto}
 #featured-courses .course-card-body .btn{display:flex;width:100%;min-height:44px;align-items:center;justify-content:center;margin-top:4px}
 .kis-banner-section{padding-top:0}
-.kis-about-banner{position:relative;isolation:isolate;display:flex;min-height:170px;flex-direction:column;justify-content:flex-end;gap:6px;overflow:hidden;border-radius:16px;padding:28px;color:#fff;background:url('/public/images/kis-head-office.webp') center 42%/cover no-repeat}
+.kis-about-banner{position:relative;isolation:isolate;display:flex;min-height:170px;flex-direction:column;justify-content:flex-end;gap:6px;overflow:hidden;border-radius:16px;padding:28px;color:#fff;background:#0b2e59 url('/public/images/hoiso.webp') center/contain no-repeat}
 .kis-about-banner::before{content:"";position:absolute;inset:0;z-index:-1;background:rgba(6,25,52,.68)}
 .kis-about-banner span{font-size:14px}.kis-about-banner strong{font-size:clamp(20px,3vw,30px)}
 img,video,canvas{max-width:100%}

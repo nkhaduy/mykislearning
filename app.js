@@ -1357,9 +1357,13 @@ function progress(value) {
 }
 
 function landingPage() {
-  const stats = getLmsOverviewStats();
-  const training = getTrainingOverviewStats();
-  const publishedCourses = getCourses().filter((course) => course.status === "published" && course.showOnLanding !== false).slice(0, 2);
+  const featuredTitles = new Set(["Đào tạo hội nhập nhân viên mới", "AI for Beginners"]);
+  const publishedCourses = getCourses().filter((course) => course.status === "published" && featuredTitles.has(course.title));
+  const featuredFallback = [
+    { id:"featured-onboarding", title:"Đào tạo hội nhập nhân viên mới", description:"Nội dung hội nhập, văn hóa, quy trình và chính sách dành cho nhân viên mới.", category:"Onboarding", durationHours:8, status:"published", imageUrl:"/images/communication-training-course.png" },
+    { id:"featured-ai", title:"AI for Beginners", description:"Kiến thức nền tảng và cách ứng dụng AI an toàn, hiệu quả trong công việc.", category:"Công nghệ", durationHours:4, status:"published", imageUrl:"/images/leadership-training-course.png" },
+  ].filter((fallback) => !publishedCourses.some((course) => course.title === fallback.title));
+  const featuredCourses = [...publishedCourses, ...featuredFallback].slice(0, 2);
   const purposes = [
     ["building", "purpose.onboarding", "Giúp nhân viên mới nắm rõ lịch sử công ty, văn hóa doanh nghiệp, quy trình nội bộ và các chính sách nhân sự bắt buộc."],
     ["message", "purpose.softSkills", "Cung cấp các khóa học thực chiến về kỹ năng giao tiếp, kỹ năng bán hàng (FAB) và quy trình phối hợp liên phòng ban."],
@@ -1383,7 +1387,7 @@ function landingPage() {
         </div>
       </section>
       <section class="section" id="purpose"><div class="container"><h2 class="section-title">${t("landing.purpose")}</h2><p class="section-lead">${t("landing.purposeLead")}</p><div class="grid-4 purpose-grid">${purposes.map(([i, key, desc]) => `<article class="card info-card purpose-card">${icon(i)}<h3>${t(key)}</h3><p>${desc}</p></article>`).join("")}</div></div></section>
-      <section class="section" id="featured-courses"><div class="container"><h2 class="section-title">Khóa học nổi bật</h2>${publishedCourses.length ? `<div class="landing-course-grid">${publishedCourses.map(realCourseCard).join("")}</div><a class="btn btn-primary landing-more-courses" href="/login" data-link>Xem thêm khóa học</a>` : `<div class="empty-state">${icon("book")}<h3>${overviewText("noOpenCourses")}</h3></div>`}</div></section>
+      <section class="section" id="featured-courses"><div class="container"><h2 class="section-title">Khóa học nổi bật</h2><div class="landing-course-grid">${featuredCourses.map(realCourseCard).join("")}</div><a class="btn btn-primary landing-more-courses" href="${session ? (hasAdminAccess()?"/admin/courses":"/dashboard/courses") : "/login"}" data-link>Xem thêm khóa học</a></div></section>
       <section class="section kis-banner-section"><div class="container"><a class="kis-about-banner" href="/about-kis" data-link><span>Tìm hiểu thêm về KIS Việt Nam</span><strong>Khám phá hành trình và giá trị của KIS →</strong></a></div></section>
       ${footer()}
       ${activeSessionForLandingModal()}
