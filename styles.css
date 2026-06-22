@@ -6458,3 +6458,45 @@ textarea:focus-visible {
 
 /* ── Sync button loading state ── */
 [data-sync-participants][disabled]{opacity:0.7;cursor:not-allowed}
+
+/* ── Large-screen dashboard (≥1440px) ── */
+@media (min-width: 1440px) {
+  .app-layout {
+    grid-template-columns: 280px 1fr;
+  }
+  .app-sidebar {
+    min-height: 100vh;
+  }
+  .kpi-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .overview-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .content {
+    padding: 28px 36px;
+  }
+}
+
+/* ── Wide-screen dashboard (≥1920px) ── */
+@media (min-width: 1920px) {
+  .app-layout {
+    grid-template-columns: 320px 1fr;
+  }
+  .content {
+    padding: 36px 48px;
+  }
+}
+
+/* ── Mobile landing page overflow guard ── */
+@media (max-width: 640px) {
+  .hero-proof {
+    grid-template-columns: 1fr;
+  }
+  .hero-proof--refined {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .about-premium-hero {
+    overflow: hidden;
+  }
+}
