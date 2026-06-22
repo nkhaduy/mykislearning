@@ -2974,11 +2974,9 @@ function attendanceScanPage(tokenValue) {
   const _isHttps = location.protocol === "https:";
   const _hasGUM = "mediaDevices" in navigator && "getUserMedia" in navigator.mediaDevices;
 
-  // Build marker — always visible, unconditional
-  const _debugBadge = `<div style="position:fixed;top:8px;right:8px;z-index:9999;background:${_dbg ? "#ef4444" : "#1e40af"};color:#fff;font:bold 11px/1 monospace;padding:4px 8px;border-radius:6px;pointer-events:none">${_dbg ? "DEBUG QR ON" : ""} BUILD: 2026-06-22-01</div>`;
+  const _debugBadge = _dbg ? `<div style="position:fixed;top:8px;right:8px;z-index:9999;background:#ef4444;color:#fff;font:bold 11px/1 monospace;padding:4px 8px;border-radius:6px;pointer-events:none">DEBUG QR ON</div>` : "";
 
-  // Debug panel — ALWAYS rendered unconditionally so we can confirm template is correct
-  const _debugPanel = `
+  const _debugPanel = _dbg ? `
     <div id="qrDebugPanel" style="display:block;margin-top:16px;background:#040d1a;border:2px solid #ef4444;border-radius:12px;overflow:visible;font-size:13px;text-align:left;position:relative;z-index:50;opacity:1;visibility:visible">
       <div style="padding:10px 14px;background:#0b1a2e;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
         <span style="color:#38bdf8;font-weight:700;font-size:13px">QR Diagnostics${_prev ? " [preview-only]" : ""}</span>
