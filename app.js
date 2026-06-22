@@ -3161,43 +3161,20 @@ function bindEvents() {
       // Request geolocation with user-facing status update
       if (navigator.geolocation) {
         const locText = document.getElementById("qrLocText");
-        if (locText) locText.textContent = "Đang xác định vị trí...";
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            _qrScanLocationData = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy, timestamp: new Date().toISOString(), device: "mobile", userAgent: navigator.userAgent };
-            _qrScanLocationStatus = "acquired";
-            doScan(_qrScanLocationData);
-          },
-          (error) => {
+        if (locText) locText.textContent = "Đang yêu cầu quyền vị trí...";
+        requestQrLocationPermission().then(doScan).catch((error) => {
             _qrScanLocationStatus = "unavailable";
             submitScanBtn.disabled = false;
             if (locText) locText.textContent = "Chưa thể xác định vị trí";
-            const reason = error?.code === 1 ? "Quyền vị trí đang bị từ chối. Hãy cho phép Location trong cài đặt Safari/Chrome rồi thử lại." : "Không lấy được vị trí chính xác. Hãy bật GPS, đứng gần cửa sổ và thử lại.";
+            const reason = error?.code === 1 ? "Quyền vị trí đã bị từ chối trước đó nên trình duyệt sẽ không hiện popup lần nữa. Hãy cấp Location trong cài đặt Safari/Chrome rồi thử lại." : error?.code === "INSECURE_CONTEXT" ? "Location chỉ hoạt động trên HTTPS. Hãy mở đúng địa chỉ Vercel HTTPS, không dùng HTTP hoặc trình duyệt nhúng." : "Không lấy được vị trí chính xác. Hãy bật GPS, đứng gần cửa sổ và thử lại.";
             openDialog({ type: "alert", title: "Cần vị trí để điểm danh", body: reason });
-          },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
+          });
       } else {
         openDialog({ type: "alert", title: "Thiết bị không hỗ trợ vị trí", body: "Không thể điểm danh vì trình duyệt không cung cấp Location." });
       }
     });
   }
 
-  // Start background geolocation for scan page (non-blocking)
-  if (route === "/attendance/scan" && routeParams.get("token") && !_qrScanLocationData && navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        _qrScanLocationData = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy, timestamp: new Date().toISOString(), device: isMobileQrDevice() ? "mobile" : "desktop", userAgent: navigator.userAgent };
-        _qrScanLocationStatus = "acquired";
-        const statusEl = document.getElementById("qrLocationStatus");
-        const textEl = document.getElementById("qrLocText");
-        if (statusEl) statusEl.className = "qr-location-info qr-location-info--ok";
-        if (textEl) textEl.textContent = `Vị trí đã xác định · Độ chính xác ~${Math.round(pos.coords.accuracy)}m`;
-      },
-      () => { _qrScanLocationStatus = "unavailable"; },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  }
   // Camera QR scanner init (only on /attendance/scan without token)
   if (document.getElementById("qrCameraViewport")) { initQrCameraScanner(); }
   document.querySelectorAll("[data-qr-slot]").forEach(el=>el.addEventListener("click",()=>{selectedQrSlotId=el.dataset.qrSlot;render();}));
