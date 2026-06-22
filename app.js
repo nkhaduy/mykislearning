@@ -3634,38 +3634,46 @@ function bindEvents() {
     if (e.key === "Enter") handleQrHrCodeSubmit(e.currentTarget);
   });
 
-  // HR fallback timer — starts when scanner page renders, not when camera starts
-  // Shows "Nhập mã HR" after 5s regardless of camera success/failure
+  // Scanner rendered — auto-send diagnostic immediately and set up tracking
   if (document.getElementById("qrCameraViewport")) {
     window._qrStartTime = window._qrStartTime || Date.now();
-    const _hrTimer = setTimeout(() => {
-      const hr = document.getElementById("qrHrFallback");
-      const video = document.getElementById("qrCameraVideo");
-      if (hr && !video?.classList.contains("is-playing")) hr.style.display = "";
-      _qrDB("step", (_qrDiagState.step || "waiting") + " [fallback-visible]");
-    }, 5000);
-    // Clear timer only when camera goes live or user navigates away
-    const _clearHrTimer = () => clearTimeout(_hrTimer);
-    window.addEventListener("popstate", _clearHrTimer, { once: true });
+    // Auto-send diagnostic event on render so Vercel logs confirm page is loading
+    fetch("/api/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: "scanner_rendered",
+        build: "2026-06-22-01",
+        route: location.pathname + location.search,
+        ua: navigator.userAgent,
+        isHttps: location.protocol === "https:",
+        isSafari: /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent),
+        iosVersion: navigator.userAgent.match(/OS (\d+)_/)?.[1] || null,
+        debugEnabled: isQrDebugEnabled(),
+        timestamp: new Date().toISOString(),
+      }),
+    }).then(r => r.json()).then(d => {
+      _qrDB("autoReport", d.code || "sent");
+    }).catch(() => {});
+
+    // HR fallback is already visible (display:block in template)
+    // Hide it only if camera actually starts playing
     document.getElementById("qrCameraVideo")?.addEventListener("playing", () => {
-      clearTimeout(_hrTimer);
       const hr = document.getElementById("qrHrFallback");
       if (hr) hr.style.display = "none";
     }, { once: true });
 
-    // Auto-error after 20s if still in loading
+    // Auto-error after 20s if still loading
     const _autoErrorTimer = setTimeout(() => {
       const video = document.getElementById("qrCameraVideo");
       const status = document.getElementById("qrCameraStatus");
       const retryBtn = document.getElementById("qrCameraRetry");
-      const hr = document.getElementById("qrHrFallback");
       if (!video?.classList.contains("is-playing")) {
         _qrDB("step", "GLOBAL_TIMEOUT");
         _qrDB("error", "GLOBAL_TIMEOUT — 20s elapsed with no frame");
         stopQrCameraScanner();
         if (status) status.textContent = "Hết thời gian. Nhấn Thử lại hoặc nhập mã HR.";
         if (retryBtn) retryBtn.style.display = "";
-        if (hr) hr.style.display = "";
       }
     }, 20000);
     window.addEventListener("popstate", () => clearTimeout(_autoErrorTimer), { once: true });
