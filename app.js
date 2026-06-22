@@ -2738,7 +2738,11 @@ function bindEvents() {
     if(session&&(!_courses||_coursesAccountId!==session.accountId)&&!_coursesLoading)fetchCoursesFromApi(session.accountId,session.role);
     render();
   });
-  document.querySelectorAll("[data-edit-session]").forEach(el=>el.addEventListener("click",()=>{selectedOfflineSessionId=el.dataset.editSession;sessionFormOpen=true;render();}));
+  document.querySelectorAll("[data-edit-session]").forEach(el=>el.addEventListener("click",()=>{
+    selectedOfflineSessionId=el.dataset.editSession;sessionFormOpen=true;
+    if(session&&(!_courses||_coursesAccountId!==session.accountId)&&!_coursesLoading)fetchCoursesFromApi(session.accountId,session.role);
+    render();
+  }));
   document.querySelectorAll("[data-manage-session]").forEach(el=>el.addEventListener("click",()=>{selectedOfflineSessionId=el.dataset.manageSession;sessionFormOpen=false;render();autoSyncParticipantsIfNeeded(el.dataset.manageSession);}));
   document.querySelectorAll("[data-close-session-form]").forEach(el=>el.addEventListener("click",()=>{sessionFormOpen=false;selectedOfflineSessionId="";render();}));
   document.querySelector("[data-close-attendance]")?.addEventListener("click",()=>{selectedOfflineSessionId="";sessionEmployeeSearch="";sessionEmployeeDepartment="";render();});
