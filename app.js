@@ -3221,7 +3221,9 @@ async function saveSessionParticipants(accountIds,{mode="replace",source="manual
   participantSyncState={saving:true,error:""};
   render(); // immediate re-render so checkboxes show loading state
   toast("Đang lưu danh sách học viên...");
-  const result=await offlineTrainingService.setParticipantsAsync(selectedOfflineSessionId,accountIds,session.accountId,{mode,source});
+  let result;
+  try{result=await offlineTrainingService.setParticipantsAsync(selectedOfflineSessionId,accountIds,session.accountId,{mode,source});}
+  catch(e){result={ok:false,error:"unexpected",message:e?.message||"Lỗi không xác định"};}
   participantSyncState={saving:false,error:result.ok?"":result.message||"Không thể lưu học viên vào lớp trực tiếp."};
   if(!result.ok){render();openDialog({type:"alert",title:"Không thể lưu danh sách học viên",body:participantSyncState.error});return result;}
   _participantSyncedSessions.add(selectedOfflineSessionId);
