@@ -2638,8 +2638,9 @@ function render() {
   else if (route === "/dashboard/resources") app.innerHTML = employeeResourcesPage();
   else if (route === "/dashboard/history") app.innerHTML = learningHistoryPage();
   else if (route === "/dashboard/calendar") {
-    // Trigger async fetch if: no data yet, not currently loading, or account changed
-    if (session && (!_calendarEvents || _calendarAccountId !== session.accountId) && !_calendarLoading) {
+    // Trigger async fetch if: no data yet, account changed, or cache older than 60s
+    const calendarStale = Date.now() - _calendarLoadedAt > 60_000;
+    if (session && (!_calendarEvents || _calendarAccountId !== session.accountId || calendarStale) && !_calendarLoading) {
       fetchCalendarEvents(session.accountId); // async, triggers re-render on completion
     }
     app.innerHTML = learningCalendarPageV3();
