@@ -310,12 +310,13 @@ async function initQrCameraScanner() {
     }
     scanFrame();
   } catch (err) {
+    _qrCameraConsentGiven = false;
     if (err.name === "NotAllowedError") {
-      status.textContent = "Camera bị từ chối. Vui lòng cấp quyền trong cài đặt trình duyệt.";
+      openDialog({ type: "alert", title: "Cần quyền truy cập camera", body: "Vui lòng cho phép MyKIS Learning sử dụng camera sau của điện thoại để quét mã QR." });
     } else if (err.name === "NotFoundError") {
-      status.textContent = "Không tìm thấy camera. Vui lòng dùng link QR.";
+      openDialog({ type: "alert", title: "Không tìm thấy camera", body: "Điện thoại không có camera phù hợp hoặc camera đang được ứng dụng khác sử dụng." });
     } else {
-      status.textContent = "Không thể khởi động camera: " + err.message;
+      openDialog({ type: "alert", title: "Không thể mở camera", body: "Vui lòng kiểm tra quyền camera và thử lại." });
     }
   }
 }
