@@ -3538,7 +3538,7 @@ function bindEvents() {
       await requestQrLocationPermission();
       dialogState = null;
       _qrCameraConsentGiven = true;
-      navigate("/attendance/scan");
+      navigate("/attendance/scan" + (isQrDebugEnabled() ? "?debugQr=1" : ""));
     } catch {
       openDialog({ type: "alert", title: "Cần quyền truy cập vị trí", body: "Vui lòng bật GPS và cho phép truy cập vị trí để tiếp tục." });
     }
@@ -3546,7 +3546,7 @@ function bindEvents() {
 
   // QR retry — back to camera scanner
   document.querySelector("[data-qr-retry]")?.addEventListener("click", () => {
-    navigate("/attendance/scan");
+    navigate("/attendance/scan" + (isQrDebugEnabled() ? "?debugQr=1" : ""));
   });
 
   // QR submit — geolocation then scan
