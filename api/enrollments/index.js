@@ -26,7 +26,8 @@ export default async function handler(req, res) {
     const acct = requireAuth(req, res);
     if (!acct) return;
 
-    const { accountId, courseId } = req.query;
+    const accountId = searchParams.get("accountId");
+    const courseId = searchParams.get("courseId");
 
     // Employees can only query their own enrollments
     const targetAccount = acct.role === "hr" ? (accountId || null) : acct.accountId;
@@ -119,7 +120,7 @@ export default async function handler(req, res) {
     const acct = requireHr(req, res);
     if (!acct) return;
 
-    const id = req.query.id || req.body?.id;
+    const id = searchParams.get("id") || req.body?.id;
     if (!id) return res.status(400).json({ error: "id required" });
 
     const { error } = await supabase.from("enrollments").delete().eq("id", id);
