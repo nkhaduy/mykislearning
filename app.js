@@ -3292,8 +3292,17 @@ function bindEvents() {
     });
   }
 
-  // Camera QR scanner init (only on /attendance/scan without token)
-  if (document.getElementById("qrCameraViewport")) { initQrCameraScanner(); }
+  // Camera QR scanner — wire up "Khởi động camera" button.
+  // initQrCameraScanner() must NOT be called here (outside user gesture).
+  // iOS Safari requires video.play() to originate synchronously from a user tap.
+  const qrStartBtn = document.getElementById("qrCameraStart");
+  if (qrStartBtn) {
+    qrStartBtn.addEventListener("click", async () => {
+      const overlay = document.getElementById("qrCameraStartOverlay");
+      if (overlay) overlay.style.display = "none";
+      await handleQrStartButton(qrStartBtn);
+    });
+  }
   document.querySelectorAll("[data-qr-slot]").forEach(el=>el.addEventListener("click",()=>{selectedQrSlotId=el.dataset.qrSlot;render();}));
   document.querySelectorAll("[data-qr-action]").forEach(el=>el.addEventListener("click",()=>{selectedQrAction=el.dataset.qrAction;render();}));
   document.querySelector("[data-generate-qr]")?.addEventListener("click",()=>{const result=qrAttendanceService.createToken({slotId:selectedQrSlotId,action:selectedQrAction},session.accountId);if(!result.ok)return toast("error");currentQrTokenId=result.token.id;qrProjectorOpen=true;render();});
