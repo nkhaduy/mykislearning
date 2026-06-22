@@ -374,11 +374,17 @@ async function initQrCameraScanner() {
   status.textContent = "Đang mở camera...";
   _qrDebugLog("step", "getUserMedia");
 
+  // Log permission state if Permissions API available
+  if (navigator.permissions?.query) {
+    navigator.permissions.query({ name: "camera" }).then(p => _qrDebugLog("cam-perm", p.state)).catch(() => {});
+  }
+
   try {
     const stream = await _qrGetStream();
     _qrCameraStream = stream;
+    _qrDebugLog("stream", "yes — " + stream.getVideoTracks().length + " video track(s)");
     const track = stream.getVideoTracks()[0];
-    _qrDebugLog("track", track ? track.readyState + " / " + track.label : "none");
+    _qrDebugLog("track", track ? track.readyState + " / " + (track.label || "unknown") : "none");
 
     await _qrAttachStream(video, stream);
 
