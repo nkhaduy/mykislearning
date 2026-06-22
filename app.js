@@ -501,6 +501,8 @@ function uiText(key) {
   return labels[key]?.[language] || labels[key]?.vi || key;
 }
 
+let _calendarLoadedAt = 0; // timestamp of last successful load
+
 async function fetchCalendarEvents(accountId) {
   if (_calendarLoading) return;
   _calendarLoading = true;
@@ -511,6 +513,7 @@ async function fetchCalendarEvents(accountId) {
     const result = await calendarService.getEventsForAccountAsync(accountId, { includeCancelled: true });
     _calendarEvents = result.events;
     _calendarSource = result.source;
+    _calendarLoadedAt = Date.now();
   } catch (err) {
     _calendarError = String(err);
     _calendarEvents = [];
