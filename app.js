@@ -2548,6 +2548,13 @@ function attendanceScanPage(tokenValue) {
   }
 
   // No token — show camera scanner UI with consent gate
+  if (!isMobileQrDevice()) {
+    return `<div class="page">${header()}<section class="section"><div class="container"><div class="card panel qr-camera-wrap"><h2>${uiText("qrAttendance")}</h2><p>Điểm danh QR yêu cầu camera và GPS của điện thoại.</p></div></div></section>
+      <div class="modal-backdrop open shared-dialog-backdrop"><section class="shared-dialog" role="dialog" aria-modal="true" aria-labelledby="phone-qr-title" aria-describedby="phone-qr-desc">
+        <div class="shared-dialog__header"><div class="shared-dialog__icon shared-dialog__icon--info shared-dialog__icon--phone-qr" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="10" height="20" rx="2"/><path d="M9 18h2"/></svg><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM18 18h3v3h-3z"/></svg></div><div class="shared-dialog__content"><h2 id="phone-qr-title">Điểm danh bằng điện thoại</h2><p id="phone-qr-desc">Để đảm bảo xác thực vị trí và sử dụng camera, vui lòng mở MyKIS Learning trên điện thoại và thực hiện quét mã QR tại đó.</p></div></div>
+        <div class="shared-dialog__actions"><a class="btn btn-outline" href="/dashboard/calendar" data-link>Đóng</a><button class="btn btn-primary" data-qr-confirm-mobile>Tôi đang dùng điện thoại</button></div>
+      </section></div></div>`;
+  }
   if (!_qrCameraConsentGiven) {
     return `<div class="page">${header()}
       <section class="section"><div class="container">
