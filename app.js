@@ -1137,7 +1137,7 @@ function kisTimelineSection() {
   return `<section class="section" id="kis-history">
     <div class="container">
       <h2 class="section-title">Lịch sử phát triển</h2>
-      <div class="tl-nav" role="tablist" aria-label="Chọn năm">
+      <div class="tl-nav" role="tablist" aria-label="Chọn năm" style="--timeline-count:${years.length}">
         ${years.map((year) => `<button
           class="tl-nav__pill${activeTimelineYear === year ? " active" : ""}"
           data-timeline-year="${year}"
@@ -1150,10 +1150,11 @@ function kisTimelineSection() {
       <div class="tl-panel" id="tl-panel" role="tabpanel" aria-labelledby="tl-tab-${activeTimelineYear}">
         <div class="tl-panel__inner">
           <div class="tl-panel__photo">
-            <img src="${item.image}" alt="KIS Vietnam ${activeTimelineYear}" loading="lazy">
+            <img src="${item.image}" alt="KIS Vietnam ${activeTimelineYear}" loading="lazy" decoding="async">
           </div>
           <div class="tl-panel__body">
             <span class="tl-panel__year">${activeTimelineYear}</span>
+            <h3>Dấu ấn phát triển</h3>
             <ul class="tl-panel__events">
               ${item.events.map((ev) => `<li>${ev}</li>`).join("")}
             </ul>
