@@ -2658,7 +2658,12 @@ function render() {
   else if (route === "/admin/notifications") app.innerHTML = hasAdminAccess() ? notificationsPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/reports") app.innerHTML = hasAdminAccess() ? reportsPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/gallery") app.innerHTML = adminGalleryPageV2();
-  else if (route === "/admin/sessions") app.innerHTML = adminSessionsPage();
+  else if (route === "/admin/sessions") {
+    if (session && (!_courses || _coursesAccountId !== session.accountId) && !_coursesLoading) {
+      fetchCoursesFromApi(session.accountId, session.role);
+    }
+    app.innerHTML = adminSessionsPage();
+  }
   else if (route === "/change-password") app.innerHTML = changePasswordPage();
   else app.innerHTML = landingPage();
   app.insertAdjacentHTML("beforeend", sharedDialog());
