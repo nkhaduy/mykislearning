@@ -5205,6 +5205,16 @@ body.modal-open { overflow: hidden; }
 
 /* Landing/mobile hardening */
 .landing-more-courses{display:flex;width:100%;justify-content:center;margin-top:20px}
+#featured-courses .landing-course-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px;width:100%;align-items:stretch}
+#featured-courses .course-category{min-height:430px;height:100%;padding:0;overflow:hidden;transition:transform 180ms ease-out,box-shadow 180ms ease-out,border-color 180ms ease-out}
+#featured-courses .course-category:hover{transform:translateY(-4px);border-color:#b6c8da!important;box-shadow:0 16px 34px rgba(11,31,58,.12)!important}
+#featured-courses .course-card-image{width:100%;aspect-ratio:16/8.6;margin:0;border:0;border-radius:0;object-fit:cover}
+#featured-courses .course-card-body{display:flex;flex:1;flex-direction:column;align-items:flex-start;gap:12px;padding:22px 24px 24px}
+#featured-courses .course-card-body .badge{align-self:flex-start;padding:6px 10px;border:1px solid #c9d9e8;border-radius:999px;background:#edf4fa;color:#174a72;font-size:12px;font-weight:800}
+#featured-courses .course-card-body h3{display:-webkit-box;min-height:2.7em;margin:0;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:2;font-size:20px;line-height:1.35;text-wrap:balance}
+#featured-courses .course-card-body p{display:-webkit-box;min-height:3em;margin:0;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.5}
+#featured-courses .course-card-body .card-meta{margin-top:auto}
+#featured-courses .course-card-body .btn{display:flex;width:100%;min-height:44px;align-items:center;justify-content:center;margin-top:4px}
 .kis-banner-section{padding-top:0}
 .kis-about-banner{position:relative;isolation:isolate;display:flex;min-height:170px;flex-direction:column;justify-content:flex-end;gap:6px;overflow:hidden;border-radius:16px;padding:28px;color:#fff;background:url('/public/images/kis-head-office.webp') center 42%/cover no-repeat}
 .kis-about-banner::before{content:"";position:absolute;inset:0;z-index:-1;background:rgba(6,25,52,.68)}
@@ -5223,7 +5233,10 @@ img,video,canvas{max-width:100%}
   .hero h1{font-size:clamp(34px,11vw,42px);overflow-wrap:anywhere}.hero h2{font-size:18px;line-height:1.35}
   .hero-actions{display:grid;grid-template-columns:1fr;margin-top:22px}.hero-actions .btn{width:100%}
   .hero-learning-image{width:100%;min-width:0}.hero-learning-image img{width:100%;height:auto;object-fit:cover}
-  .landing-course-grid{grid-template-columns:1fr}.course-card-image{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
+  #featured-courses .landing-course-grid{grid-template-columns:1fr;gap:18px}
+  #featured-courses .course-category{min-height:0}
+  #featured-courses .course-card-image{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
+  #featured-courses .course-card-body{padding:18px}
   .kis-about-banner{min-height:150px;padding:20px}
   .qr-camera-viewport{max-width:min(100%,360px);aspect-ratio:3/4}
 }
