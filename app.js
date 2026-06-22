@@ -221,6 +221,7 @@ function isMobileQrDevice() {
 
 function requestQrLocationPermission() {
   return new Promise((resolve, reject) => {
+    if (!window.isSecureContext) return reject(Object.assign(new Error("location_requires_https"), { code: "INSECURE_CONTEXT" }));
     if (!navigator.geolocation) return reject(new Error("location_unsupported"));
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -298,6 +299,7 @@ async function initQrCameraScanner() {
       video.addEventListener("loadedmetadata", () => { clearTimeout(timer); resolve(); }, { once: true });
     });
     if (stopBtn) stopBtn.style.display = "";
+    video.classList.add("is-playing");
     status.textContent = "Đang quét... Hướng camera vào mã QR.";
 
     function scanFrame() {
@@ -322,12 +324,16 @@ async function initQrCameraScanner() {
     }
     scanFrame();
   } catch (err) {
+    stopQrCameraScanner();
     _qrCameraConsentGiven = false;
     if (err.name === "NotAllowedError") {
-      openDialog({ type: "alert", title: "Cần quyền truy cập camera", body: "Vui lòng cho phép MyKIS Learning sử dụng camera sau của điện thoại để quét mã QR." });
+      status.textContent = "Camera đang bị chặn. Hãy cấp lại quyền trong cài đặt trình duyệt.";
+      openDialog({ type: "alert", title: "Cần quyền truy cập camera", body: "Nếu trước đó đã chọn Không cho phép, trình duyệt sẽ không hỏi lại. Hãy mở Cài đặt Safari/Chrome và cấp quyền Camera cho MyKIS Learning." });
     } else if (err.name === "NotFoundError") {
+      status.textContent = "Không tìm thấy camera phù hợp.";
       openDialog({ type: "alert", title: "Không tìm thấy camera", body: "Điện thoại không có camera phù hợp hoặc camera đang được ứng dụng khác sử dụng." });
     } else {
+      status.textContent = "Camera đã mở nhưng không nhận được hình ảnh.";
       openDialog({ type: "alert", title: "Camera không hiển thị", body: "Đã mở camera nhưng không nhận được hình ảnh. Hãy đóng ứng dụng khác đang dùng camera, kiểm tra quyền Camera trong Safari/Chrome rồi thử lại." });
     }
   }
