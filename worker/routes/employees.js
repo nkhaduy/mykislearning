@@ -79,14 +79,5 @@ export async function handleEmployees(request, env) {
     return json({ certification: data });
   }
 
-  // GET /api/employees — list all with optional search/filter
-  if (!employeeId && method === "GET") {
-    const acct = requireHr(request);
-    if (!acct) return json({ error: "HR only" }, 403);
-    const { data, error } = await supabase.from("profiles").select("*").order("full_name");
-    if (error) return json({ error: error.message }, 500);
-    return json({ employees: data || [] });
-  }
-
   return json({ error: "NOT_FOUND" }, 404);
 }
