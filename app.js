@@ -2860,6 +2860,8 @@ function bindEvents() {
     _calendarLoading = false;
     _calendarError = null;
     _calendarAccountId = "";
+    _calendarLoadedAt = 0;
+    _recentlySyncedParticipants = new Set();
     _courses = null; _coursesLoading = false; _coursesError = null; _coursesAccountId = "";
     _enrollments = null; _enrollmentsLoading = false; _enrollmentsAccountId = "";
     navigate("/login");
