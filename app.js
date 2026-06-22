@@ -2619,7 +2619,12 @@ function render() {
     }
     app.innerHTML = hasAdminAccess() ? coursesPage() : session ? restrictedPage() : loginPage();
   }
-  else if (route === "/admin/assign") app.innerHTML = hasAdminAccess() ? assignPage() : session ? restrictedPage() : loginPage();
+  else if (route === "/admin/assign") {
+    if (session && (!_courses || _coursesAccountId !== session.accountId) && !_coursesLoading) {
+      fetchCoursesFromApi(session.accountId, session.role);
+    }
+    app.innerHTML = hasAdminAccess() ? assignPage() : session ? restrictedPage() : loginPage();
+  }
   else if (route === "/admin/quizzes") app.innerHTML = hasAdminAccess() ? adminQuizzesPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/notifications") app.innerHTML = hasAdminAccess() ? notificationsPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/reports") app.innerHTML = hasAdminAccess() ? reportsPage() : session ? restrictedPage() : loginPage();
