@@ -1464,7 +1464,21 @@ function continueLearningHero(enrollment){
   return `<section class="card continue-hero"><div class="continue-hero__media">${image}</div><div class="continue-hero__body"><span class="eyebrow">${uiText("continueLearning")}</span><h2>${escapeHtml(course.title||"—")}</h2><p class="continue-hero__lesson">${current?escapeHtml(current.title):uiText("courseIntro")}</p><div class="continue-hero__progress"><span>${uiText("progressLabel")}</span><strong>${enrollment.progressPercent}%</strong>${progress(enrollment.progressPercent)}</div><p class="continue-hero__meta">Còn khoảng ${estimated} phút${enrollment.deadline?` · ${uiText("deadline")} ${escapeHtml(enrollment.deadline)}`:""}</p><div class="continue-hero__actions"><a class="btn btn-primary" href="/dashboard/courses/${escapeHtmlAttribute(enrollment.courseId)}${current?`?content=${encodeURIComponent(current.id)}`:""}" data-link>${uiText("continueLearning")} →</a><a class="btn btn-outline" href="/dashboard/courses/${escapeHtmlAttribute(enrollment.courseId)}" data-link>Xem nội dung</a></div></div></section>`;
 }
 
-function employeeEnrollments(){return getEnrollmentsByAccountId(session.accountId).map(e=>{const x=calculateCourseProgress({accountId:session.accountId,courseId:e.courseId});const status=x.completed?"completed":x.percent?"inProgress":"notStarted";return {...e,progressPercent:x.percent,status:getDisplayEnrollmentStatus({...e,status}),pendingGrading:x.pendingGrading};});}
+function employeeEnrollments(){
+  // Build a course lookup that includes Supabase cache (covers courses not yet in localStorage)
+  const supabaseCourseMap = new Map((_courses||[]).map(c=>[c.id,c]));
+  // Use Supabase enrollment cache if available and non-empty, otherwise fall back to localStorage
+  const baseEnrollments = (_enrollments && _enrollments.length > 0)
+    ? _enrollments.filter(e => e.accountId === session.accountId || e.course_id === undefined)
+    : getEnrollmentsByAccountId(session.accountId);
+  return baseEnrollments.map(e=>{
+    const x=calculateCourseProgress({accountId:session.accountId,courseId:e.courseId});
+    const status=x.completed?"completed":x.percent?"inProgress":"notStarted";
+    // Resolve course from Supabase cache first, then localStorage
+    const course = e.course || supabaseCourseMap.get(e.courseId) || getCourseById(e.courseId) || null;
+    return {...e,course,progressPercent:x.percent,status:getDisplayEnrollmentStatus({...e,status}),pendingGrading:x.pendingGrading};
+  });
+}
 
 function getCurrentEmployeeContext() {
   if (!session?.accountId) return { account: null, employee: null };
