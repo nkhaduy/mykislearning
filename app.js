@@ -2592,6 +2592,18 @@ function enhanceEmployeePhotoManager(){if(!accountDrawerOpen||!selectedAccountId
 async function hydrateGalleryMedia(){for(const el of document.querySelectorAll("[data-media-blob]")){if(el.dataset.hydrated)return;try{const blob=await getGalleryMedia(el.dataset.mediaBlob);if(!blob)continue;const url=URL.createObjectURL(blob),node=el.dataset.mediaKind==="video"?document.createElement("video"):document.createElement("img");node.src=url;node.dataset.objectUrl=url;if(node.tagName==="VIDEO"){node.preload="metadata";node.muted=true;}else{node.loading="lazy";node.alt="";}el.replaceChildren(node);el.dataset.hydrated="1";}catch{}}const viewer=document.querySelector("[data-viewer-blob]");if(viewer){try{const blob=await getGalleryMedia(viewer.dataset.viewerBlob);if(blob){const url=URL.createObjectURL(blob);viewer.src=url;viewer.dataset.objectUrl=url;}}catch{}}}
 async function hydrateQrCanvases(){const targets=[...document.querySelectorAll("[data-qr-render]")];if(!targets.length)return;try{if(!window.QRCode){await new Promise((resolve,reject)=>{const s=document.createElement("script");s.src="/vendor/qrcode.min.js";s.onload=resolve;s.onerror=reject;document.head.appendChild(s);});}for(const el of targets){if(el.dataset.hydratedQr==="1")continue;const canvas=document.createElement("canvas");await window.QRCode.toCanvas(canvas,el.dataset.qrRender,{width:280,margin:1,color:{dark:"#0b1f3a",light:"#ffffff"}});el.replaceChildren(canvas);el.dataset.hydratedQr="1";}}catch{targets.forEach(el=>{el.innerHTML=`<div class="empty-state"><p>Không thể tạo QR lúc này.</p><small>${escapeHtml(el.dataset.qrRender||"")}</small></div>`;});}}
 function revokeGalleryUrls(){document.querySelectorAll("[data-object-url]").forEach(el=>{URL.revokeObjectURL(el.dataset.objectUrl);delete el.dataset.objectUrl;});}
+async function saveSessionParticipants(accountIds,{mode="replace",source="manual"}={}){
+  if(participantSyncState.saving)return {ok:false,error:"saving"};
+  participantSyncState={saving:true,error:""};
+  document.querySelectorAll("[data-session-participant],[data-session-select-visible],[data-session-clear-selection],[data-session-add-assigned]").forEach(el=>{el.disabled=true;});
+  toast("Đang lưu danh sách học viên...");
+  const result=await offlineTrainingService.setParticipantsAsync(selectedOfflineSessionId,accountIds,session.accountId,{mode,source});
+  participantSyncState={saving:false,error:result.ok?"":result.message||"Không thể lưu học viên vào lớp trực tiếp."};
+  if(!result.ok){openDialog({type:"alert",title:"Không thể lưu danh sách học viên",body:participantSyncState.error});return result;}
+  toast(`Đã đồng bộ ${result.remoteCount??result.participants.length} học viên vào lớp.`);
+  render();
+  return result;
+}
 function bindEvents() {
   document.querySelector("[data-create-session]")?.addEventListener("click",()=>{selectedOfflineSessionId="";sessionFormOpen=true;render();});
   document.querySelectorAll("[data-edit-session]").forEach(el=>el.addEventListener("click",()=>{selectedOfflineSessionId=el.dataset.editSession;sessionFormOpen=true;render();}));
