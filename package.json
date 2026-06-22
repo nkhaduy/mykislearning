@@ -1,7 +1,13 @@
 {
   "type": "module",
   "scripts": {
-    "start:spa": "node scripts/spa-fallback-server.mjs"
+    "start:spa": "node scripts/spa-fallback-server.mjs",
+    "build": "node scripts/build-static.mjs",
+    "cf:dev": "npm run build && NODE_TLS_REJECT_UNAUTHORIZED=0 npx wrangler dev",
+    "cf:deploy": "npm run build && NODE_TLS_REJECT_UNAUTHORIZED=0 npx wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.103.0"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",

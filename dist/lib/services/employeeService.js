@@ -1,0 +1,9 @@
+import {createEmployeeRecord,updateEmployeeProfile,getEmployees,getAccountById,updateAccount,addSecurityAuditLog} from "../mockDatabase.js";
+import {saveEmployeePhoto,deleteEmployeePhoto} from "../blobStore.js";
+export const employeeService={
+  list(){return getEmployees();},
+  create(data){return createEmployeeRecord({...data,role:"employee"});},
+  update(employeeId,data){const employee=getEmployees().find(e=>e.id===employeeId);if(!employee)return {ok:false,error:"not_found"};const updated=updateEmployeeProfile(employeeId,data);if(updated?.accountId)updateAccount(updated.accountId,{fullName:updated.fullName,email:updated.email,department:updated.department,position:updated.position});addSecurityAuditLog({action:"Update employee",targetAccountId:updated?.accountId,targetEmployeeName:updated?.fullName,description:"HR updated employee profile."});return {ok:true,employee:updated};},
+  setStatus(accountId,status){const account=getAccountById(accountId);if(!account)return false;updateAccount(accountId,{accountStatus:status});addSecurityAuditLog({action:status==="active"?"Activate account":"Disable account",targetAccountId:accountId,targetEmployeeName:account.fullName,description:`Account status changed to ${status}.`});return true;},
+  async uploadPhoto(employeeId,file){const employee=getEmployees().find(e=>e.id===employeeId);if(!employee)throw new Error("not_found");const photoBlobId=await saveEmployeePhoto(file);if(employee.photoBlobId)await deleteEmployeePhoto(employee.photoBlobId);updateEmployeeProfile(employeeId,{photoBlobId,photoFileName:file.name,photoUpdatedAt:new Date().toISOString()});addSecurityAuditLog({action:"Upload employee photo",targetAccountId:employee.accountId,targetEmployeeName:employee.fullName,description:"HR updated employee profile photo."});return photoBlobId;},
+};
