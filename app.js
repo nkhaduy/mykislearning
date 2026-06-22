@@ -1155,7 +1155,6 @@ function kisTimelineSection() {
           </div>
           <div class="tl-panel__body">
             <span class="tl-panel__year">${activeTimelineYear}</span>
-            <h3>Dấu ấn phát triển</h3>
             <ul class="tl-panel__events">
               ${item.events.map((ev) => `<li>${ev}</li>`).join("")}
             </ul>
