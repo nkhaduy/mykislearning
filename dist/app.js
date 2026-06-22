@@ -81,6 +81,16 @@ let accountSearch = "";
 let accountFilters = { department: "", role: "", accountStatus: "", passwordStatus: "" };
 let selectedAccountId = "";
 let accountDrawerOpen = false;
+let employeeEditId = "";
+let employeeEditOpen = false;
+let employeeEditSaving = false;
+let certModalEmployeeId = "";
+let certModalOpen = false;
+let certEditId = "";
+let certEditOpen = false;
+let certSaving = false;
+let _certList = [];
+let _certListLoading = false;
 let resetModalOpen = false;
 let resetTargetId = "";
 let temporaryPasswordResult = "";
@@ -1742,7 +1752,7 @@ function employeeDirectoryTable(rows, offset = 0) {
     <td>${trainingValueLabel(employee.leadershipTraining)}</td>
     <td>${trainingValueLabel(employee.communicationTraining)}</td>
     <td>${employee.certificateType ? t("admin.hasCchn") : ""}</td>
-    <td><div class="row-actions">${employee.dataIssue ? `<button class="btn btn-outline mini-action" data-edit-employee-email="${employee.id}">${t("admin.editEmail")}</button>` : ""}${employee.accountId ? `<button class="btn btn-outline mini-action" data-account-detail="${employee.accountId}">${t("admin.detail")}</button><button class="btn btn-outline mini-action" data-activate-account="${employee.accountId}">${t("admin.activate")}</button><button class="btn btn-outline mini-action" data-reset-account="${employee.accountId}">${t("admin.resetPassword")}</button><button type="button" class="btn btn-outline mini-action" data-quick-assign="${escapeHtmlAttribute(employee.accountId)}">${t("enrollment.assign")}</button>` : `<button class="btn btn-outline mini-action" disabled>${t("admin.needsReview")}</button>`}</div></td>
+    <td><div class="row-actions">${employee.dataIssue ? `<button class="btn btn-outline mini-action" data-edit-employee-email="${employee.id}">${t("admin.editEmail")}</button>` : ""}${employee.accountId ? `<button class="btn btn-outline mini-action" data-edit-employee="${employee.accountId}">Sửa</button><button class="btn btn-outline mini-action" data-open-certs="${employee.accountId}">Chứng chỉ</button><button class="btn btn-outline mini-action" data-account-detail="${employee.accountId}">${t("admin.detail")}</button><button class="btn btn-outline mini-action" data-reset-account="${employee.accountId}">${t("admin.resetPassword")}</button><button type="button" class="btn btn-outline mini-action" data-quick-assign="${escapeHtmlAttribute(employee.accountId)}">${t("enrollment.assign")}</button>` : `<button class="btn btn-outline mini-action" disabled>${t("admin.needsReview")}</button>`}</div></td>
   </tr>`).join("")}</tbody></table></div>`;
 }
 
@@ -2138,9 +2148,112 @@ function auditTable() {
   return `<div class="table-wrap"><table><thead><tr><th>${t("admin.auditTime")}</th><th>${t("admin.auditActor")}</th><th>${t("admin.auditAction")}</th><th>${t("admin.auditTarget")}</th><th>${t("admin.auditResult")}</th></tr></thead><tbody>${getSecurityAuditLog().slice(0, 8).map((l) => `<tr><td>${l.createdAt}</td><td>${l.actorName}</td><td>${l.action}</td><td>${l.targetEmployeeName}</td><td>${l.result}</td></tr>`).join("")}</tbody></table></div>`;
 }
 
+function employeeEditModal() {
+  if (!employeeEditOpen || !employeeEditId) return "";
+  const a = getAccountById(employeeEditId);
+  if (!a) return "";
+  const depts = uniqueValues(getEmployees(), "department");
+  const positions = uniqueValues(getEmployees(), "position");
+  return `<div class="modal-backdrop open"><form id="employeeEditForm" class="modal modal--xlarge modal--structured" role="dialog" aria-modal="true">
+    <header class="modal__header"><div><span class="eyebrow">Chỉnh sửa hồ sơ</span><h2>${escapeHtml(a.fullName)}</h2></div><button type="button" class="icon-btn" data-close-employee-edit>×</button></header>
+    <div class="modal__body"><div class="employee-form-grid"><section><h3>Thông tin cơ bản</h3><div class="form-2col">
+      <div class="field"><label>Họ và tên *</label><input name="fullName" required value="${escapeHtmlAttribute(a.fullName||"")}"></div>
+      <div class="field"><label>Mã nhân viên</label><input name="employeeCode" value="${escapeHtmlAttribute(a.employeeCode||"")}"></div>
+      <div class="field"><label>Email *</label><input name="email" type="email" required value="${escapeHtmlAttribute(a.email||"")}"></div>
+      <div class="field"><label>Số điện thoại</label><input name="phone" type="tel" value="${escapeHtmlAttribute(a.phone||"")}"></div>
+      <div class="field"><label>Phòng ban</label><input name="department" list="edit-departments" value="${escapeHtmlAttribute(a.department||"")}"><datalist id="edit-departments">${depts.map(x=>`<option value="${escapeHtmlAttribute(x)}">`).join("")}</datalist></div>
+      <div class="field"><label>Chức danh</label><input name="position" list="edit-positions" value="${escapeHtmlAttribute(a.position||"")}"><datalist id="edit-positions">${positions.map(x=>`<option value="${escapeHtmlAttribute(x)}">`).join("")}</datalist></div>
+      <div class="field"><label>Ngày vào làm</label><input name="joined_date" type="date" value="${escapeHtmlAttribute(a.joinDate||"")}"></div>
+      <div class="field"><label>Trạng thái tài khoản</label><select name="account_status">
+        <option value="active" ${a.accountStatus==="active"?"selected":""}>Đang hoạt động</option>
+        <option value="pendingActivation" ${a.accountStatus==="pendingActivation"?"selected":""}>Chờ kích hoạt</option>
+        <option value="disabled" ${a.accountStatus==="disabled"?"selected":""}>Đã khóa</option>
+        <option value="locked" ${a.accountStatus==="locked"?"selected":""}>Locked</option>
+      </select></div>
+      <div class="field"><label>Role</label><select name="role">
+        <option value="employee" ${a.role==="employee"?"selected":""}>Employee</option>
+        <option value="hr" ${a.role==="hr"?"selected":""}>HR</option>
+        <option value="trainer" ${a.role==="trainer"?"selected":""}>Trainer</option>
+      </select></div>
+      <div class="field"><label>Quản lý trực tiếp</label><input name="manager_name" value="${escapeHtmlAttribute(a.managerName||"")}"></div>
+      <div class="field"><label>Địa điểm làm việc</label><input name="location" value="${escapeHtmlAttribute(a.location||"")}"></div>
+    </div></section>
+    <aside><h3>Ghi chú</h3><div class="field"><textarea name="notes" rows="6">${escapeHtml(a.notes||"")}</textarea></div>
+    <div class="field" style="margin-top:16px"><h3>Chứng chỉ / CCHN</h3><p style="color:#64748b;font-size:13px">Quản lý chứng chỉ của nhân viên này.</p><button type="button" class="btn btn-outline" data-open-certs="${escapeHtmlAttribute(employeeEditId)}">Mở quản lý chứng chỉ</button></div>
+    </aside></div>
+    <div class="field-error" id="employeeEditError" role="alert" style="margin-top:8px"></div></div>
+    <footer class="modal__footer"><button type="button" class="btn btn-outline" data-close-employee-edit>Hủy</button><button type="submit" class="btn btn-primary" ${employeeEditSaving?"disabled":""}>${employeeEditSaving?"Đang lưu...":"Lưu thay đổi"}</button></footer>
+  </form></div>`;
+}
+
+function certListHtml(certs, today, expiringSoon) {
+  if (!certs.length) return "<div class=\"empty-state\"><p>Chưa có chứng chỉ nào.</p></div>";
+  const rows = certs.map(c => {
+    const expClass = expiringSoon(c.expiry_date) ? "text-warn" : (c.expiry_date && c.expiry_date < today ? "text-error" : "");
+    const statusLabel = c.status === "valid" ? "Còn hiệu lực" : c.status === "expired" ? "Hết hạn" : c.status === "pending" ? "Chờ duyệt" : "Thu hồi";
+    const statusClass = c.status === "valid" ? "active" : c.status === "expired" ? "disabled" : "pending";
+    return `<tr><td><strong>${escapeHtml(c.name)}</strong>${c.certificate_number ? `<small>${escapeHtml(c.certificate_number)}</small>` : ""}</td><td>${escapeHtml(c.certificate_type||"")}</td><td>${escapeHtml(c.issuer||"")}</td><td>${escapeHtml(c.issue_date||"")}</td><td class="${expClass}">${escapeHtml(c.expiry_date||"—")}${expiringSoon(c.expiry_date)?" ⚠":""}</td><td><span class="badge ${statusClass}">${statusLabel}</span></td><td><div class="row-actions"><button class="btn btn-outline mini-action" data-edit-cert="${c.id}">Sửa</button><button class="btn btn-outline mini-action" data-revoke-cert="${c.id}">Thu hồi</button></div></td></tr>`;
+  }).join("");
+  return `<div class="table-wrap"><table><thead><tr><th>Tên chứng chỉ</th><th>Loại</th><th>Đơn vị cấp</th><th>Ngày cấp</th><th>Hết hạn</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function certModal() {
+  if (!certModalOpen || !certModalEmployeeId) return "";
+  const a = getAccountById(certModalEmployeeId);
+  const certs = _certList || [];
+  const today = new Date().toISOString().slice(0,10);
+  const expiringSoon = (d) => d && d > today && d < new Date(Date.now()+60*24*3600*1000).toISOString().slice(0,10);
+  if (certEditOpen) {
+    const cert = certs.find(c=>c.id===certEditId) || {};
+    const isNew = !certEditId;
+    return `<div class="modal-backdrop open"><form id="certEditForm" class="modal modal--large modal--structured" role="dialog" aria-modal="true">
+      <header class="modal__header"><div><span class="eyebrow">Chứng chỉ / CCHN</span><h2>${isNew?"Thêm chứng chỉ":"Sửa chứng chỉ"}</h2></div><button type="button" class="icon-btn" data-close-cert-edit>×</button></header>
+      <div class="modal__body"><div class="form-2col">
+        <div class="field"><label>Tên chứng chỉ *</label><input name="name" required value="${escapeHtmlAttribute(cert.name||"")}"></div>
+        <div class="field"><label>Loại chứng chỉ *</label><input name="certificate_type" required value="${escapeHtmlAttribute(cert.certificate_type||"")}"></div>
+        <div class="field"><label>Số chứng chỉ</label><input name="certificate_number" value="${escapeHtmlAttribute(cert.certificate_number||"")}"></div>
+        <div class="field"><label>Đơn vị cấp *</label><input name="issuer" required value="${escapeHtmlAttribute(cert.issuer||"")}"></div>
+        <div class="field"><label>Ngày cấp *</label><input name="issue_date" type="date" required value="${escapeHtmlAttribute(cert.issue_date||"")}"></div>
+        <div class="field"><label>Ngày hết hạn</label><input name="expiry_date" type="date" value="${escapeHtmlAttribute(cert.expiry_date||"")}"></div>
+        <div class="field"><label>Trạng thái</label><select name="status">
+          <option value="valid" ${(cert.status||"valid")==="valid"?"selected":""}>Còn hiệu lực</option>
+          <option value="expired" ${cert.status==="expired"?"selected":""}>Hết hạn</option>
+          <option value="pending" ${cert.status==="pending"?"selected":""}>Chờ xét duyệt</option>
+          <option value="revoked" ${cert.status==="revoked"?"selected":""}>Đã thu hồi</option>
+        </select></div>
+        <div class="field" style="grid-column:1/-1"><label>Link file minh chứng</label><input name="evidence_path" type="url" placeholder="https://..." value="${escapeHtmlAttribute(cert.evidence_path||"")}"></div>
+        <div class="field" style="grid-column:1/-1"><label>Ghi chú</label><textarea name="notes" rows="2">${escapeHtml(cert.notes||"")}</textarea></div>
+      </div>
+      <div class="field-error" id="certEditError" role="alert" style="margin-top:8px"></div></div>
+      <footer class="modal__footer"><button type="button" class="btn btn-outline" data-back-cert-list>← Danh sách</button><button type="submit" class="btn btn-primary" ${certSaving?"disabled":""}>${certSaving?"Đang lưu...":isNew?"Thêm chứng chỉ":"Lưu thay đổi"}</button></footer>
+    </form></div>`;
+  }
+  return `<div class="modal-backdrop open"><section class="modal modal--large modal--structured" role="dialog" aria-modal="true">
+    <header class="modal__header"><div><span class="eyebrow">${escapeHtml(a?.fullName||"")}</span><h2>Chứng chỉ / CCHN</h2></div><button class="icon-btn" data-close-cert-modal>×</button></header>
+    <div class="modal__body">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn btn-primary" data-add-cert>+ Thêm chứng chỉ</button></div>
+      ${_certListLoading ? "<div class=\"empty-state\"><div class=\"spinner\"></div><p>Đang tải...</p></div>" : certListHtml(certs, today, expiringSoon)}
+    </div>
+    <footer class="modal__footer"><button class="btn btn-outline" data-close-cert-modal>Đóng</button></footer>
+  </section></div>`;
+}
+
+async function loadCertsForEmployee(accountId) {
+  if (!accountId) return;
+  _certListLoading = true; _certList = []; render();
+  try {
+    const res = await fetch(`/api/employees/${encodeURIComponent(accountId)}/certifications`, {
+      headers: {"X-Account-Id": session?.accountId||"", "X-Account-Role":"hr"}
+    });
+    const body = await res.json().catch(()=>({}));
+    _certList = body.certifications || [];
+  } catch { _certList = []; }
+  _certListLoading = false; render();
+}
+
 function employeesPage() {
   if (!hasAdminAccess()) return restrictedPage();
-  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("Admin", t("admin.employees"), "hr")}<div class="content">${hrEmployeeDirectory()}</div></main>${accountDrawer()}${employeeFormModal()}</div>`;
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("Admin", t("admin.employees"), "hr")}<div class="content">${hrEmployeeDirectory()}</div></main>${accountDrawer()}${employeeFormModal()}${employeeEditModal()}${certModal()}</div>`;
 }
 function employeeFormModal(){if(!employeeFormOpen)return "";if(employeeCreateResult)return `<div class="modal-backdrop open"><section class="modal modal--large modal--structured" role="dialog" aria-modal="true"><header class="modal__header"><div><span class="eyebrow">Hoàn tất</span><h2>Tài khoản đã được tạo</h2></div><button class="icon-btn" data-close-employee-form>×</button></header><div class="modal__body"><div class="creation-success"><p><strong>${escapeHtml(employeeCreateResult.account.fullName)}</strong></p><p>Email: ${escapeHtml(employeeCreateResult.account.email)}</p><div class="temp-password-box"><div><span>Mật khẩu tạm thời</span><strong>${escapeHtml(employeeCreateResult.temporaryPassword)}</strong></div><button class="btn btn-outline" data-copy-created-account>Sao chép thông tin</button></div><p>Nhân viên phải đổi mật khẩu trong lần đăng nhập đầu tiên. Hệ thống chưa gửi email tự động.</p></div></div><footer class="modal__footer"><button class="btn btn-primary" data-close-employee-form>Đóng</button><a class="btn btn-outline" href="/admin/assign?accountId=${employeeCreateResult.account.id}&open=1" data-link>Giao khóa onboarding</a></footer></section></div>`;return `<div class="modal-backdrop open"><form id="employeeCreateForm" class="modal modal--xlarge modal--structured" role="dialog" aria-modal="true" aria-labelledby="employee-form-title"><header class="modal__header"><div><span class="eyebrow">Hồ sơ & tài khoản</span><h2 id="employee-form-title">Thêm nhân viên</h2></div><button type="button" class="icon-btn" data-close-employee-form>×</button></header><div class="modal__body"><div class="employee-form-grid"><section><h3>Thông tin bắt buộc</h3><div class="form-2col"><div class="field"><label>Mã nhân viên *</label><input name="employeeCode" required autocomplete="off"><span class="field-error" data-error-for="employeeCode"></span></div><div class="field"><label>Họ và tên *</label><input name="fullName" required></div><div class="field"><label>Email công ty *</label><input name="email" type="email" required></div><div class="field"><label>Ngày vào làm</label><input name="joinDate" type="date"></div><div class="field"><label>Phòng ban *</label><input name="department" list="departments" required><datalist id="departments">${uniqueValues(getEmployees(),"department").map(x=>`<option value="${escapeHtmlAttribute(x)}">`).join("")}</datalist></div><div class="field"><label>Chức danh *</label><input name="position" list="positions" required><datalist id="positions">${uniqueValues(getEmployees(),"position").map(x=>`<option value="${escapeHtmlAttribute(x)}">`).join("")}</datalist></div><div class="field"><label>Ngôn ngữ mặc định</label><select name="defaultLanguage"><option value="vi">VI</option><option value="en">EN</option><option value="kr">KR</option></select></div><div class="field"><label>Trạng thái</label><select name="accountStatus"><option value="active">Kích hoạt</option><option value="pendingActivation">Chờ kích hoạt</option></select></div></div></section><aside><h3>Ảnh đại diện</h3><label class="employee-photo-drop" for="newEmployeePhoto"><span class="employee-photo-preview">Ảnh</span><strong>Chọn hoặc thả ảnh vào đây</strong><small>JPG, PNG, WebP · tối đa 5 MB</small></label><input id="newEmployeePhoto" name="photo" type="file" accept="image/jpeg,image/png,image/webp" hidden><div class="field"><label>Quản lý trực tiếp</label><input name="managerName"></div><div class="field"><label>Địa điểm làm việc</label><input name="location"></div><div class="field"><label>Ghi chú</label><textarea name="notes" rows="3"></textarea></div></aside></div><p class="form-note">Role được cố định là Employee. Mật khẩu tạm thời chỉ hiển thị một lần sau khi tạo.</p><div class="field-error" data-employee-form-error role="alert"></div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-close-employee-form>Hủy</button><button type="submit" class="btn btn-primary">Tạo hồ sơ & tài khoản</button></footer></form></div>`;}
 
@@ -2974,11 +3087,9 @@ function attendanceScanPage(tokenValue) {
   const _isHttps = location.protocol === "https:";
   const _hasGUM = "mediaDevices" in navigator && "getUserMedia" in navigator.mediaDevices;
 
-  // Build marker — always visible, unconditional
-  const _debugBadge = `<div style="position:fixed;top:8px;right:8px;z-index:9999;background:${_dbg ? "#ef4444" : "#1e40af"};color:#fff;font:bold 11px/1 monospace;padding:4px 8px;border-radius:6px;pointer-events:none">${_dbg ? "DEBUG QR ON" : ""} BUILD: 2026-06-22-01</div>`;
+  const _debugBadge = _dbg ? `<div style="position:fixed;top:8px;right:8px;z-index:9999;background:#ef4444;color:#fff;font:bold 11px/1 monospace;padding:4px 8px;border-radius:6px;pointer-events:none">DEBUG QR ON</div>` : "";
 
-  // Debug panel — ALWAYS rendered unconditionally so we can confirm template is correct
-  const _debugPanel = `
+  const _debugPanel = _dbg ? `
     <div id="qrDebugPanel" style="display:block;margin-top:16px;background:#040d1a;border:2px solid #ef4444;border-radius:12px;overflow:visible;font-size:13px;text-align:left;position:relative;z-index:50;opacity:1;visibility:visible">
       <div style="padding:10px 14px;background:#0b1a2e;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
         <span style="color:#38bdf8;font-weight:700;font-size:13px">QR Diagnostics${_prev ? " [preview-only]" : ""}</span>
@@ -3010,7 +3121,7 @@ function attendanceScanPage(tokenValue) {
         <button id="qrCopyDiag" style="flex:1;min-width:130px;padding:12px 8px;background:#0e7a70;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation">Sao chép chẩn đoán</button>
         <button id="qrSendReport" style="flex:1;min-width:130px;padding:12px 8px;background:#1e3a5f;color:#7dd3fc;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation">Gửi báo cáo lỗi</button>
       </div>
-    </div>`;
+    </div>` : "";
 
   return `<div class="page">${header()}
     ${_debugBadge}
@@ -3037,7 +3148,7 @@ function attendanceScanPage(tokenValue) {
           <button class="btn btn-outline" id="qrCameraRetry" style="display:none">Thử lại camera</button>
           <a class="btn btn-ghost" href="/dashboard/calendar" data-link>Huỷ</a>
         </div>
-        <div id="qrHrFallback" style="display:block;margin-top:20px;padding:16px;background:var(--surface,#f8fafc);border:1.5px solid var(--border,#e2e8f0);border-radius:12px;text-align:left">
+        <div id="qrHrFallback" style="display:none;margin-top:20px;padding:16px;background:var(--surface,#f8fafc);border:1.5px solid var(--border,#e2e8f0);border-radius:12px;text-align:left">
           <p style="margin:0 0 4px;font-weight:600;font-size:15px">Camera chưa sẵn sàng?</p>
           <p style="margin:0 0 12px;color:#64748b;font-size:13px">Nhập mã điểm danh do HR cung cấp.</p>
           <div style="display:flex;gap:8px">
@@ -3221,7 +3332,9 @@ async function saveSessionParticipants(accountIds,{mode="replace",source="manual
   participantSyncState={saving:true,error:""};
   render(); // immediate re-render so checkboxes show loading state
   toast("Đang lưu danh sách học viên...");
-  const result=await offlineTrainingService.setParticipantsAsync(selectedOfflineSessionId,accountIds,session.accountId,{mode,source});
+  let result;
+  try{result=await offlineTrainingService.setParticipantsAsync(selectedOfflineSessionId,accountIds,session.accountId,{mode,source});}
+  catch(e){result={ok:false,error:"unexpected",message:e?.message||"Lỗi không xác định"};}
   participantSyncState={saving:false,error:result.ok?"":result.message||"Không thể lưu học viên vào lớp trực tiếp."};
   if(!result.ok){render();openDialog({type:"alert",title:"Không thể lưu danh sách học viên",body:participantSyncState.error});return result;}
   _participantSyncedSessions.add(selectedOfflineSessionId);
@@ -3710,6 +3823,68 @@ function bindEvents() {
   document.querySelectorAll("[data-page-kind]").forEach((el) => el.addEventListener("click", () => { if (el.dataset.pageKind === "employees") employeeDirectoryPage = Number(el.dataset.page); if (el.dataset.pageKind === "cchn") cchnPage = Number(el.dataset.page); if (el.dataset.pageKind === "session-employees") sessionEmployeePage = Number(el.dataset.page); render(); }));
   document.querySelectorAll("[data-account-detail]").forEach((el) => el.addEventListener("click", () => { selectedAccountId = el.dataset.accountDetail; accountDrawerOpen = true; render(); }));
   document.querySelector("[data-close-drawer]")?.addEventListener("click", () => { accountDrawerOpen = false; render(); });
+
+  // HR employee edit modal
+  document.querySelectorAll("[data-edit-employee]").forEach((el) => el.addEventListener("click", () => { employeeEditId = el.dataset.editEmployee; employeeEditOpen = true; employeeEditSaving = false; render(); }));
+  document.querySelector("[data-close-employee-edit]")?.addEventListener("click", () => { employeeEditOpen = false; render(); });
+  document.getElementById("employeeEditForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (employeeEditSaving) return;
+    employeeEditSaving = true; render();
+    const data = Object.fromEntries(new FormData(event.currentTarget));
+    // Update locally first
+    updateAccount(employeeEditId, { fullName: data.fullName, email: data.email, department: data.department, position: data.position, accountStatus: data.account_status, role: data.role, phone: data.phone, managerName: data.manager_name, location: data.location, notes: data.notes, joinDate: data.joined_date });
+    // Sync to Supabase
+    try {
+      const res = await fetch(`/api/employees/${encodeURIComponent(employeeEditId)}`, {
+        method: "PATCH",
+        headers: {"Content-Type":"application/json","X-Account-Id":session?.accountId||"","X-Account-Role":"hr"},
+        body: JSON.stringify({ full_name: data.fullName, email: data.email, department: data.department, position: data.position, account_status: data.account_status, role: data.role, phone: data.phone, manager_name: data.manager_name, location: data.location, notes: data.notes, joined_date: data.joined_date || null, employee_code: data.employeeCode }),
+      });
+      if (!res.ok) { const b = await res.json().catch(()=>({error:"Lỗi server"})); throw new Error(b.error); }
+      toast("Đã cập nhật nhân viên ✓");
+      employeeEditOpen = false;
+    } catch (e) {
+      document.getElementById("employeeEditError").textContent = e.message || "Không thể lưu lên Supabase.";
+    }
+    employeeEditSaving = false; render();
+  });
+
+  // Certification modal
+  document.querySelectorAll("[data-open-certs]").forEach((el) => el.addEventListener("click", () => { certModalEmployeeId = el.dataset.openCerts; certModalOpen = true; certEditOpen = false; certEditId = ""; loadCertsForEmployee(certModalEmployeeId); }));
+  document.querySelector("[data-close-cert-modal]")?.addEventListener("click", () => { certModalOpen = false; render(); });
+  document.querySelector("[data-back-cert-list]")?.addEventListener("click", () => { certEditOpen = false; certEditId = ""; render(); });
+  document.querySelector("[data-close-cert-edit]")?.addEventListener("click", () => { certEditOpen = false; certEditId = ""; render(); });
+  document.querySelector("[data-add-cert]")?.addEventListener("click", () => { certEditId = ""; certEditOpen = true; render(); });
+  document.querySelectorAll("[data-edit-cert]").forEach((el) => el.addEventListener("click", () => { certEditId = el.dataset.editCert; certEditOpen = true; render(); }));
+  document.querySelectorAll("[data-revoke-cert]").forEach((el) => el.addEventListener("click", () => {
+    openDialog({type:"confirm",title:"Thu hồi chứng chỉ",body:"Chứng chỉ sẽ được đánh dấu là đã thu hồi.",onConfirm:async()=>{
+      const res = await fetch(`/api/employees/${encodeURIComponent(certModalEmployeeId)}/certifications/${el.dataset.revokeCert}`,{method:"PATCH",headers:{"Content-Type":"application/json","X-Account-Id":session?.accountId||"","X-Account-Role":"hr"},body:JSON.stringify({status:"revoked",revoked_at:new Date().toISOString(),revoked_by:session?.accountId||""})});
+      if(res.ok){toast("Đã thu hồi chứng chỉ");loadCertsForEmployee(certModalEmployeeId);}else{toast("error");}
+    }});
+  }));
+  document.getElementById("certEditForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (certSaving) return;
+    certSaving = true; render();
+    const data = Object.fromEntries(new FormData(event.currentTarget));
+    const payload = { name: data.name, certificate_type: data.certificate_type, certificate_number: data.certificate_number||null, issuer: data.issuer, issue_date: data.issue_date, expiry_date: data.expiry_date||null, status: data.status||"valid", evidence_path: data.evidence_path||null, notes: data.notes||null };
+    try {
+      let res;
+      if (certEditId) {
+        res = await fetch(`/api/employees/${encodeURIComponent(certModalEmployeeId)}/certifications/${certEditId}`,{method:"PATCH",headers:{"Content-Type":"application/json","X-Account-Id":session?.accountId||"","X-Account-Role":"hr"},body:JSON.stringify(payload)});
+      } else {
+        res = await fetch(`/api/employees/${encodeURIComponent(certModalEmployeeId)}/certifications`,{method:"POST",headers:{"Content-Type":"application/json","X-Account-Id":session?.accountId||"","X-Account-Role":"hr"},body:JSON.stringify(payload)});
+      }
+      if (!res.ok) { const b = await res.json().catch(()=>({error:"Lỗi server"})); throw new Error(b.error); }
+      toast(certEditId?"Đã cập nhật chứng chỉ ✓":"Đã thêm chứng chỉ ✓");
+      certEditOpen = false; certEditId = "";
+      loadCertsForEmployee(certModalEmployeeId);
+    } catch (e) {
+      document.getElementById("certEditError").textContent = e.message || "Không thể lưu.";
+    }
+    certSaving = false; render();
+  });
   document.querySelectorAll("[data-reset-account]").forEach((el) => el.addEventListener("click", () => { resetTargetId = el.dataset.resetAccount; resetModalOpen = true; temporaryPasswordResult = ""; render(); }));
   document.querySelectorAll("[data-force-account]").forEach((el) => el.addEventListener("click", () => { forcePasswordChange(el.dataset.forceAccount); toast("success"); render(); }));
   document.querySelectorAll("[data-activate-account]").forEach((el) => el.addEventListener("click", () => { updateAccount(el.dataset.activateAccount, { accountStatus: "active" }); toast("success"); render(); }));

@@ -18,11 +18,20 @@ function headers(accountId, role) {
   };
 }
 
-async function apiFetch(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, options);
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-  return body;
+async function apiFetch(path, options = {}, timeoutMs = 30000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${BASE}${path}`, { ...options, signal: ctrl.signal });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return body;
+  } catch (err) {
+    if (err.name === "AbortError") throw new Error(`API_TIMEOUT after ${timeoutMs}ms`);
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export const trainingApiService = {
