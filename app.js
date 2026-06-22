@@ -875,7 +875,7 @@ function footer() {
       <div class="container footer-grid">
         <div class="footer-brand">
           <strong>${t("brand")}</strong>
-          <p>Hệ thống Đào tạo Hội nhập và Phát triển chuyên môn KIS Việt Nam</p>
+          <p>Nền tảng Học tập và Phát triển năng lực KIS Việt Nam</p>
           <span>${uiText("employeeOnly")}</span>
         </div>
         <nav class="footer-column">
@@ -943,7 +943,7 @@ function landingPage() {
           <div>
             <span class="eyebrow">${language === "kr" ? "Welcome to" : "Welcome to"}</span>
             <h1>MyKIS Learning</h1>
-            <h2>Hệ thống Đào tạo Hội nhập và Phát triển chuyên môn KIS Việt Nam</h2>
+            <h2>Nền tảng Học tập và Phát triển năng lực KIS Việt Nam</h2>
             <p>Nơi lưu trữ tài liệu, khóa học kỹ năng mềm, chuyên môn và kiểm tra tiến độ; giúp nhân viên nhanh chóng hòa nhập và nâng cao năng lực làm việc.</p>
             <p class="hero-subnote">Dành riêng cho nhân viên KIS Việt Nam</p>
             <div class="hero-actions">${session ? `<button class="btn btn-primary btn--hero" data-auth-target="${session.role === "hr" ? "/admin" : "/dashboard"}" data-auth-role="${session.role}">${uiText("goToLearning")}</button>` : `<a class="btn btn-primary btn--hero" href="/login" data-link>Đăng nhập</a>`}<button class="btn btn-outline" data-scroll="featured-courses">${uiText("exploreCourses")}</button></div>
