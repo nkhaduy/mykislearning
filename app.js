@@ -2638,7 +2638,7 @@ function attendanceScanPage(tokenValue) {
         <h2>Quét mã QR điểm danh</h2>
         <p class="text-muted">Hướng camera vào mã QR được chiếu bởi HR.</p>
         <div class="qr-camera-viewport" id="qrCameraViewport">
-          <video id="qrCameraVideo" autoplay muted playsinline></video>
+          <video id="qrCameraVideo" autoplay muted playsinline webkit-playsinline></video>
           <canvas id="qrCameraCanvas" style="display:none"></canvas>
           <div class="qr-camera-corner qr-camera-corner--tl"></div>
           <div class="qr-camera-corner qr-camera-corner--tr"></div>
@@ -2646,9 +2646,10 @@ function attendanceScanPage(tokenValue) {
           <div class="qr-camera-corner qr-camera-corner--br"></div>
           <div class="qr-scan-line"></div>
         </div>
-        <p class="qr-camera-status" id="qrCameraStatus">Đang khởi động camera...</p>
+        <p class="qr-camera-status" id="qrCameraStatus">Đang mở camera...</p>
         <div class="qr-camera-actions">
           <button class="btn btn-outline" id="qrCameraStop" style="display:none">Dừng camera</button>
+          <button class="btn btn-outline" id="qrCameraRetry" style="display:none">Thử lại</button>
           <a class="btn btn-ghost" href="/dashboard/calendar" data-link>Huỷ</a>
         </div>
       </div>
