@@ -3065,9 +3065,35 @@ function bindEvents() {
     render();
   });
   // QR camera consent
-  document.querySelector("[data-qr-consent-accept]")?.addEventListener("click", () => {
-    _qrCameraConsentGiven = true;
-    render();
+  document.querySelector("[data-qr-consent-accept]")?.addEventListener("click", async (event) => {
+    if (!isMobileQrDevice()) return openPhoneAttendanceGuide();
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = "Đang xin quyền vị trí...";
+    try {
+      await requestQrLocationPermission();
+      _qrCameraConsentGiven = true;
+      render();
+    } catch {
+      openDialog({ type: "alert", title: "Cần quyền truy cập vị trí", body: "Vui lòng cho phép MyKIS Learning truy cập vị trí chính xác để tiếp tục quét QR điểm danh." });
+    }
+  });
+
+  document.querySelector("[data-qr-confirm-mobile]")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    if (!isMobileQrDevice() || !navigator.mediaDevices?.getUserMedia || !navigator.geolocation) {
+      return openDialog({ type: "alert", title: "Thiết bị chưa phù hợp", body: "Thiết bị này chưa được nhận diện là điện thoại có camera và GPS. Vui lòng mở MyKIS Learning trên điện thoại để điểm danh." });
+    }
+    button.disabled = true;
+    button.textContent = "Đang kiểm tra quyền...";
+    try {
+      await requestQrLocationPermission();
+      dialogState = null;
+      _qrCameraConsentGiven = true;
+      navigate("/attendance/scan");
+    } catch {
+      openDialog({ type: "alert", title: "Cần quyền truy cập vị trí", body: "Vui lòng bật GPS và cho phép truy cập vị trí để tiếp tục." });
+    }
   });
 
   // QR retry — back to camera scanner
@@ -3154,7 +3180,7 @@ function bindEvents() {
   document.querySelector("[data-open-projector]")?.addEventListener("click",()=>{const token=qrAttendanceService.listTokens(selectedQrSlotId).find(row=>row.action===selectedQrAction&&row.status==="open");if(!token)return toast("error");currentQrTokenId=token.id;qrProjectorOpen=true;render();});
   document.querySelectorAll("[data-close-projector]").forEach(el=>el.addEventListener("click",()=>{qrProjectorOpen=false;render();}));
   document.querySelectorAll("[data-close-qr-token]").forEach(el=>el.addEventListener("click",()=>{const token=qrAttendanceService.listTokens(selectedQrSlotId).find(row=>row.action===selectedQrAction&&row.status==="open");if(token)qrAttendanceService.closeToken(token.id,session.accountId);qrProjectorOpen=false;render();}));
-  document.querySelectorAll("[data-open-scan-entry]").forEach(el=>el.addEventListener("click",()=>{openDialog({type:"confirm",title:"Nhập token QR",body:"Tính năng nhập thủ công token QR hiện chỉ hỗ trợ bằng cách quét mã trực tiếp. Vui lòng quét mã QR bằng camera.",onConfirm:()=>{}});}));
+  document.querySelectorAll("[data-open-scan-entry]").forEach(el=>el.addEventListener("click",()=>{if(isMobileQrDevice())navigate("/attendance/scan");else openPhoneAttendanceGuide();}));
   document.getElementById("changePasswordForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
