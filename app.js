@@ -317,6 +317,8 @@ async function initQrCameraScanner() {
   }
 
   stopBtn?.addEventListener("click", () => { stopQrCameraScanner(); render(); });
+  const retryBtn = document.getElementById("qrCameraRetry");
+  retryBtn?.addEventListener("click", () => { stopQrCameraScanner(); initQrCameraScanner(); });
 
   // Load jsQR if not already loaded
   if (!window.jsQR) {
