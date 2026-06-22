@@ -2611,7 +2611,12 @@ function render() {
   else if (route === "/admin") app.innerHTML = hasAdminAccess() ? adminDashboard(false) : session ? restrictedPage() : loginPage();
   else if (route === "/admin/employees") app.innerHTML = employeesPage();
   else if (route === "/admin/accounts") app.innerHTML = accountsPage();
-  else if (route === "/admin/courses") app.innerHTML = hasAdminAccess() ? coursesPage() : session ? restrictedPage() : loginPage();
+  else if (route === "/admin/courses") {
+    if (session && (!_courses || _coursesAccountId !== session.accountId) && !_coursesLoading) {
+      fetchCoursesFromApi(session.accountId, session.role);
+    }
+    app.innerHTML = hasAdminAccess() ? coursesPage() : session ? restrictedPage() : loginPage();
+  }
   else if (route === "/admin/assign") app.innerHTML = hasAdminAccess() ? assignPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/quizzes") app.innerHTML = hasAdminAccess() ? adminQuizzesPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/notifications") app.innerHTML = hasAdminAccess() ? notificationsPage() : session ? restrictedPage() : loginPage();
@@ -2796,6 +2801,8 @@ function bindEvents() {
     _calendarLoading = false;
     _calendarError = null;
     _calendarAccountId = "";
+    _courses = null; _coursesLoading = false; _coursesError = null; _coursesAccountId = "";
+    _enrollments = null; _enrollmentsLoading = false; _enrollmentsAccountId = "";
     navigate("/login");
     toast(uiText("logoutSuccess"));
   });
