@@ -2010,9 +2010,11 @@ function assignModal() {
   const accounts = getAccounts()
     .filter((account) => account.role === "employee" && account.accountStatus !== "disabled")
     .sort((a, b) => String(a.fullName || "").localeCompare(String(b.fullName || ""), "vi", { sensitivity: "base" }));
-  const publishedCourses = getCourses()
-    .filter((course) => course.status === "published")
+  // HR sees ALL non-archived courses (draft + published) — use Supabase cache if loaded
+  const allHrCourses = (_courses && _courses.length ? _courses : getCourses())
+    .filter((course) => course.status !== "archived")
     .sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), "vi", { sensitivity: "base" }));
+  const publishedCourses = allHrCourses; // keep var name for template compat
   const selectedCourseId = assignTargetCourseId || assignCourseId;
   const departments = [...new Set(accounts.map((a) => a.department).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"vi"));
   const visible = accounts.filter((a) => (!bulkEmployeeSearch || `${a.fullName} ${a.email}`.toLowerCase().includes(bulkEmployeeSearch.toLowerCase())) && (!bulkDepartmentFilter || a.department === bulkDepartmentFilter));
