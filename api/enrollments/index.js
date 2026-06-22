@@ -19,6 +19,7 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const supabase = db();
+  const { searchParams } = new URL(req.url, `https://${req.headers.host}`);
 
   // ── GET ─────────────────────────────────────────────────────────────────────
   if (req.method === "GET") {

@@ -45,7 +45,7 @@ export default async function handler(req, res) {
     const acct = requireAuth(req, res);
     if (!acct) return;
 
-    const { courseId } = req.query;
+    const courseId = searchParams.get("courseId");
     if (!courseId) return res.status(400).json({ error: "courseId required" });
 
     const { data, error } = await supabase
@@ -114,7 +114,7 @@ export default async function handler(req, res) {
     const acct = requireHr(req, res);
     if (!acct) return;
 
-    const id = req.query.id || req.body?.id;
+    const id = searchParams.get("id") || req.body?.id;
     if (!id) return res.status(400).json({ error: "id required" });
 
     const { error } = await supabase.from("course_content").delete().eq("id", id);
