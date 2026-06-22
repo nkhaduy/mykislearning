@@ -373,6 +373,8 @@ let sessionEmployeeDepartment = "";
 let sessionEmployeePage = 1;
 let sessionParticipantDraft = null;
 let participantSyncState = { saving: false, error: "" };
+// Tracks which sessions have been auto-synced to Supabase in this browser session
+const _participantSyncedSessions = new Set();
 
 // Async calendar state — populated by fetchCalendarEvents(), read by learningCalendarPageV3()
 let _calendarEvents = null;       // null = not yet loaded
