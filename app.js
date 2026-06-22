@@ -460,9 +460,8 @@ async function _qrGetStream() {
 
 // Main camera init — MUST originate directly from user tap
 async function initQrCameraScanner() {
-  const params = new URLSearchParams(location.search);
-  const isDebug = location.hostname.includes("vercel.app") || params.has("debugQr");
-  const previewOnly = params.has("previewOnly");
+  const isDebug = isQrDebugEnabled();
+  const previewOnly = isQrPreviewOnly();
   const startTime = Date.now();
   _qrDiagState = {};
 
