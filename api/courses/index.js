@@ -17,6 +17,7 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const supabase = db();
+  const { searchParams } = new URL(req.url, `https://${req.headers.host}`);
 
   // ── GET: list courses ───────────────────────────────────────────────────────
   if (req.method === "GET") {
@@ -78,7 +79,7 @@ export default async function handler(req, res) {
     const acct = requireHr(req, res);
     if (!acct) return;
 
-    const id = req.query.id || req.body?.id;
+    const id = searchParams.get("id") || req.body?.id;
     if (!id) return res.status(400).json({ error: "id required" });
 
     const { error } = await supabase.from("courses").delete().eq("id", id);
