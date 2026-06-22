@@ -5203,6 +5203,31 @@ body.modal-open { overflow: hidden; }
   margin-top: 12px;
 }
 
+/* Landing/mobile hardening */
+.landing-more-courses{display:flex;width:100%;justify-content:center;margin-top:20px}
+.kis-banner-section{padding-top:0}
+.kis-about-banner{position:relative;isolation:isolate;display:flex;min-height:170px;flex-direction:column;justify-content:flex-end;gap:6px;overflow:hidden;border-radius:16px;padding:28px;color:#fff;background:url('/public/images/kis-head-office.webp') center 42%/cover no-repeat}
+.kis-about-banner::before{content:"";position:absolute;inset:0;z-index:-1;background:rgba(6,25,52,.68)}
+.kis-about-banner span{font-size:14px}.kis-about-banner strong{font-size:clamp(20px,3vw,30px)}
+img,video,canvas{max-width:100%}
+
+@media(max-width:640px){
+  html,body,.page{max-width:100%;overflow-x:hidden}
+  .header-inner{gap:8px;min-height:58px}
+  .brand{gap:6px;min-width:0}.brand-logo{width:84px}.brand span{display:none}
+  .nav{display:none}.header-actions{gap:6px;min-width:0}
+  .header-actions .language-switch{display:none}
+  .topbar-user__name{display:none}.topbar-user>summary{min-width:44px;min-height:44px;justify-content:center;padding:8px}
+  .header-actions>.btn{min-height:42px;padding-inline:13px;font-size:13px}
+  .hero{padding:34px 0 30px}.hero-grid{grid-template-columns:1fr;gap:26px}
+  .hero h1{font-size:clamp(34px,11vw,42px);overflow-wrap:anywhere}.hero h2{font-size:18px;line-height:1.35}
+  .hero-actions{display:grid;grid-template-columns:1fr;margin-top:22px}.hero-actions .btn{width:100%}
+  .hero-learning-image{width:100%;min-width:0}.hero-learning-image img{width:100%;height:auto;object-fit:cover}
+  .landing-course-grid{grid-template-columns:1fr}.course-card-image{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
+  .kis-about-banner{min-height:150px;padding:20px}
+  .qr-camera-viewport{max-width:min(100%,360px);aspect-ratio:3/4}
+}
+
 /* ============================================================
    LOGIN PAGE — COMPLETE REDESIGN OVERRIDES (v4)
    Phong cách: Corporate, Navy, Modern, Clean
