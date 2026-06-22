@@ -3586,14 +3586,31 @@ function bindEvents() {
   // Camera QR scanner — wire up "Khởi động camera" button.
   // initQrCameraScanner() must NOT be called here (outside user gesture).
   // iOS Safari requires video.play() to originate synchronously from a user tap.
+  // "Khởi động camera" — direct user tap, gesture chain intact
   const qrStartBtn = document.getElementById("qrCameraStart");
   if (qrStartBtn) {
-    qrStartBtn.addEventListener("click", async () => {
-      const overlay = document.getElementById("qrCameraStartOverlay");
-      if (overlay) overlay.style.display = "none";
-      await handleQrStartButton(qrStartBtn);
-    });
+    qrStartBtn.addEventListener("click", () => handleQrStartButton(qrStartBtn));
   }
+
+  // Debug panel: copy diagnostics
+  document.getElementById("qrCopyDiag")?.addEventListener("click", function() {
+    const videoEl = document.getElementById("qrCameraVideo");
+    _qrCopyDiagnostic(videoEl, window._qrStartTime, this);
+  });
+
+  // Debug panel: send report
+  document.getElementById("qrSendReport")?.addEventListener("click", function() {
+    const videoEl = document.getElementById("qrCameraVideo");
+    _qrSendReport(videoEl, window._qrStartTime, this);
+  });
+
+  // HR manual code fallback
+  document.getElementById("qrHrSubmit")?.addEventListener("click", () => {
+    handleQrHrCodeSubmit(document.getElementById("qrHrCodeInput"));
+  });
+  document.getElementById("qrHrCodeInput")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleQrHrCodeSubmit(e.currentTarget);
+  });
   document.querySelectorAll("[data-qr-slot]").forEach(el=>el.addEventListener("click",()=>{selectedQrSlotId=el.dataset.qrSlot;render();}));
   document.querySelectorAll("[data-qr-action]").forEach(el=>el.addEventListener("click",()=>{selectedQrAction=el.dataset.qrAction;render();}));
   document.querySelector("[data-generate-qr]")?.addEventListener("click",()=>{const result=qrAttendanceService.createToken({slotId:selectedQrSlotId,action:selectedQrAction},session.accountId);if(!result.ok)return toast("error");currentQrTokenId=result.token.id;qrProjectorOpen=true;render();});
