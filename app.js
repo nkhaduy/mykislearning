@@ -781,6 +781,22 @@ let qrScanInput="";
 let _qrScanLocationData = null;
 let _qrScanLocationStatus = "pending";
 let _qrCameraConsentGiven = false;
+
+// Persist debugQr/previewOnly across SPA route transitions (query is lost on navigate())
+;(function() {
+  const p = new URLSearchParams(window.location.search);
+  if (p.get("debugQr") === "1") sessionStorage.setItem("mykis.debugQr", "1");
+  if (p.get("previewOnly") === "1") sessionStorage.setItem("mykis.previewOnly", "1");
+})();
+
+function isQrDebugEnabled() {
+  return new URLSearchParams(window.location.search).get("debugQr") === "1"
+    || sessionStorage.getItem("mykis.debugQr") === "1";
+}
+function isQrPreviewOnly() {
+  return new URLSearchParams(window.location.search).has("previewOnly")
+    || sessionStorage.getItem("mykis.previewOnly") === "1";
+}
 let selectedSessionDepartments = [];
 let sessionEmployeeSearch = "";
 let sessionEmployeeDepartment = "";
