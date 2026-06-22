@@ -2690,6 +2690,19 @@ function attendanceScanPage(tokenValue) {
     </div>`;
   }
 
+  const _showDebug = location.hostname.includes("vercel.app") || new URLSearchParams(location.search).has("debugQr");
+  const _ua = navigator.userAgent;
+  const _isSafari = /Safari/.test(_ua) && !/Chrome/.test(_ua);
+  const _isIOS = /iPhone|iPad|iPod/.test(_ua);
+  const _isHttps = location.protocol === "https:";
+  const _debugPanel = _showDebug ? `<div id="qrDebugPanel" style="margin-top:12px;padding:10px;background:#0b1220;border:1px solid #1e3a5f;border-radius:8px;font:12px/1.6 monospace;color:#7dd3fc;text-align:left">
+    <div data-dbk="device">device: ${_isIOS ? "iOS" : "non-iOS"} / ${_isSafari ? "Safari" : "non-Safari"}</div>
+    <div data-dbk="https">https: ${_isHttps}</div>
+    <div data-dbk="getUserMedia">getUserMedia: ${"mediaDevices" in navigator && "getUserMedia" in navigator.mediaDevices ? "available" : "NOT AVAILABLE"}</div>
+    <div data-dbk="step">step: waiting for start</div>
+    <div data-dbk="error">error: —</div>
+  </div>` : "";
+
   return `<div class="page">${header()}
     <section class="section"><div class="container">
       <div class="card panel qr-camera-wrap">
@@ -2697,20 +2710,24 @@ function attendanceScanPage(tokenValue) {
         <h2>Quét mã QR điểm danh</h2>
         <p class="text-muted">Hướng camera vào mã QR được chiếu bởi HR.</p>
         <div class="qr-camera-viewport" id="qrCameraViewport">
-          <video id="qrCameraVideo" autoplay muted playsinline webkit-playsinline></video>
-          <canvas id="qrCameraCanvas" style="display:none"></canvas>
+          <video id="qrCameraVideo" autoplay muted playsinline webkit-playsinline style="position:relative;z-index:1;display:block;width:100%;height:100%;min-height:280px;object-fit:cover;background:#000"></video>
+          <canvas id="qrCameraCanvas" style="display:none;position:absolute;top:-9999px"></canvas>
           <div class="qr-camera-corner qr-camera-corner--tl"></div>
           <div class="qr-camera-corner qr-camera-corner--tr"></div>
           <div class="qr-camera-corner qr-camera-corner--bl"></div>
           <div class="qr-camera-corner qr-camera-corner--br"></div>
           <div class="qr-scan-line"></div>
+          <div id="qrCameraStartOverlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);z-index:2;border-radius:inherit">
+            <button id="qrCameraStart" class="btn btn-primary" style="font-size:15px;padding:12px 24px">Khởi động camera</button>
+          </div>
         </div>
-        <p class="qr-camera-status" id="qrCameraStatus">Đang mở camera...</p>
+        <p class="qr-camera-status" id="qrCameraStatus">Nhấn để mở camera.</p>
         <div class="qr-camera-actions">
           <button class="btn btn-outline" id="qrCameraStop" style="display:none">Dừng camera</button>
           <button class="btn btn-outline" id="qrCameraRetry" style="display:none">Thử lại</button>
           <a class="btn btn-ghost" href="/dashboard/calendar" data-link>Huỷ</a>
         </div>
+        ${_debugPanel}
       </div>
     </div></section>
   </div>`;
