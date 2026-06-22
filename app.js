@@ -2973,19 +2973,20 @@ function attendanceScanPage(tokenValue) {
   const _isHttps = location.protocol === "https:";
   const _hasGUM = "mediaDevices" in navigator && "getUserMedia" in navigator.mediaDevices;
 
-  // Debug badge — always visible top-right when debug on, so user can confirm flag survived navigation
-  const _debugBadge = _dbg
-    ? `<div style="position:fixed;top:8px;right:8px;z-index:9999;background:#ef4444;color:#fff;font:bold 11px/1 monospace;padding:4px 8px;border-radius:6px;pointer-events:none">DEBUG QR ON</div>`
-    : "";
+  // Build marker — always visible, unconditional
+  const _debugBadge = `<div style="position:fixed;top:8px;right:8px;z-index:9999;background:${_dbg ? "#ef4444" : "#1e40af"};color:#fff;font:bold 11px/1 monospace;padding:4px 8px;border-radius:6px;pointer-events:none">${_dbg ? "DEBUG QR ON" : ""} BUILD: 2026-06-22-01</div>`;
 
-  // Debug panel — rendered immediately, not gated on camera state
-  const _debugPanel = _dbg ? `
+  // Debug panel — ALWAYS rendered unconditionally so we can confirm template is correct
+  const _debugPanel = `
     <div id="qrDebugPanel" style="display:block;margin-top:16px;background:#040d1a;border:2px solid #ef4444;border-radius:12px;overflow:visible;font-size:13px;text-align:left;position:relative;z-index:50;opacity:1;visibility:visible">
       <div style="padding:10px 14px;background:#0b1a2e;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-        <span style="color:#38bdf8;font-weight:700;font-size:13px">QR Debug${_prev ? " [preview-only]" : ""}</span>
+        <span style="color:#38bdf8;font-weight:700;font-size:13px">QR Diagnostics${_prev ? " [preview-only]" : ""}</span>
         <span style="color:#64748b;font-size:11px;font-family:monospace">${_isIOS ? "iOS" : "non-iOS"} / ${_isSafari ? "Safari" : "non-Safari"} / ${_isHttps ? "HTTPS✓" : "HTTP✗"}</span>
       </div>
       <div class="qr-dbg-rows" style="padding:10px 14px;font:12px/2.2 monospace;color:#94a3b8;word-break:break-all;white-space:pre-wrap">
+        <div data-dbk="build" style="color:#4ade80">build: 2026-06-22-01</div>
+        <div data-dbk="route">route: ${location.pathname}</div>
+        <div data-dbk="debugFlag">debugFlag: ${_dbg ? "yes (sessionStorage)" : "no"}</div>
         <div data-dbk="gum">gum: ${_hasGUM ? "available ✓" : "NOT AVAILABLE ✗"}</div>
         <div data-dbk="step" style="color:#7dd3fc;font-weight:bold">step: scanner-rendered</div>
         <div data-dbk="elapsed">elapsed: 0s</div>
@@ -3008,7 +3009,7 @@ function attendanceScanPage(tokenValue) {
         <button id="qrCopyDiag" style="flex:1;min-width:130px;padding:12px 8px;background:#0e7a70;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation">Sao chép chẩn đoán</button>
         <button id="qrSendReport" style="flex:1;min-width:130px;padding:12px 8px;background:#1e3a5f;color:#7dd3fc;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation">Gửi báo cáo lỗi</button>
       </div>
-    </div>` : "";
+    </div>`;
 
   return `<div class="page">${header()}
     ${_debugBadge}
