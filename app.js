@@ -2602,9 +2602,21 @@ async function saveSessionParticipants(accountIds,{mode="replace",source="manual
   const result=await offlineTrainingService.setParticipantsAsync(selectedOfflineSessionId,accountIds,session.accountId,{mode,source});
   participantSyncState={saving:false,error:result.ok?"":result.message||"Không thể lưu học viên vào lớp trực tiếp."};
   if(!result.ok){openDialog({type:"alert",title:"Không thể lưu danh sách học viên",body:participantSyncState.error});return result;}
+  _participantSyncedSessions.add(selectedOfflineSessionId);
   toast(`Đã đồng bộ ${result.remoteCount??result.participants.length} học viên vào lớp.`);
   render();
   return result;
+}
+// Silently pushes any existing localStorage participants to Supabase when HR opens a session.
+// Runs once per session ID per page load to backfill data from before the async sync was deployed.
+async function autoSyncParticipantsIfNeeded(sessionId){
+  if(!sessionId||!session||_participantSyncedSessions.has(sessionId))return;
+  const ids=offlineTrainingService.getParticipantAccountIds(sessionId);
+  if(!ids.length)return;
+  _participantSyncedSessions.add(sessionId);
+  const result=await offlineTrainingService.setParticipantsAsync(sessionId,ids,session.accountId,{mode:"merge",source:"auto-sync"});
+  if(result.ok)console.info("[participant-sync] backfilled",result.remoteCount,"participants for session",sessionId);
+  else console.warn("[participant-sync] backfill failed for session",sessionId,":",result.message);
 }
 function bindEvents() {
   document.querySelector("[data-create-session]")?.addEventListener("click",()=>{selectedOfflineSessionId="";sessionFormOpen=true;render();});
