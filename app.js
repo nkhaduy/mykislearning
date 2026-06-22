@@ -247,7 +247,9 @@ function openPhoneAttendanceGuide() {
 
 function stopQrCameraScanner() {
   if (_qrScanRafId) { cancelAnimationFrame(_qrScanRafId); _qrScanRafId = null; }
+  const video = document.getElementById("qrCameraVideo");
   if (_qrCameraStream) { _qrCameraStream.getTracks().forEach(t => t.stop()); _qrCameraStream = null; }
+  if (video) { video.pause(); video.srcObject = null; }
 }
 
 async function initQrCameraScanner() {
@@ -282,9 +284,19 @@ async function initQrCameraScanner() {
   status.textContent = "Đang yêu cầu quyền truy cập camera...";
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
     _qrCameraStream = stream;
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+    video.muted = true;
+    video.autoplay = true;
     video.srcObject = stream;
+    await video.play();
+    await new Promise((resolve, reject) => {
+      if (video.videoWidth > 0) return resolve();
+      const timer = setTimeout(() => reject(new Error("camera_render_timeout")), 5000);
+      video.addEventListener("loadedmetadata", () => { clearTimeout(timer); resolve(); }, { once: true });
+    });
     if (stopBtn) stopBtn.style.display = "";
     status.textContent = "Đang quét... Hướng camera vào mã QR.";
 
@@ -316,7 +328,7 @@ async function initQrCameraScanner() {
     } else if (err.name === "NotFoundError") {
       openDialog({ type: "alert", title: "Không tìm thấy camera", body: "Điện thoại không có camera phù hợp hoặc camera đang được ứng dụng khác sử dụng." });
     } else {
-      openDialog({ type: "alert", title: "Không thể mở camera", body: "Vui lòng kiểm tra quyền camera và thử lại." });
+      openDialog({ type: "alert", title: "Camera không hiển thị", body: "Đã mở camera nhưng không nhận được hình ảnh. Hãy đóng ứng dụng khác đang dùng camera, kiểm tra quyền Camera trong Safari/Chrome rồi thử lại." });
     }
   }
 }
@@ -975,7 +987,7 @@ function progress(value) {
 function landingPage() {
   const stats = getLmsOverviewStats();
   const training = getTrainingOverviewStats();
-  const publishedCourses = getCourses().filter((course) => course.status === "published" && course.showOnLanding !== false);
+  const publishedCourses = getCourses().filter((course) => course.status === "published" && course.showOnLanding !== false).slice(0, 2);
   const purposes = [
     ["building", "purpose.onboarding", "Giúp nhân viên mới nắm rõ lịch sử công ty, văn hóa doanh nghiệp, quy trình nội bộ và các chính sách nhân sự bắt buộc."],
     ["message", "purpose.softSkills", "Cung cấp các khóa học thực chiến về kỹ năng giao tiếp, kỹ năng bán hàng (FAB) và quy trình phối hợp liên phòng ban."],
@@ -994,15 +1006,13 @@ function landingPage() {
             <p>Nơi lưu trữ tài liệu, khóa học kỹ năng mềm, chuyên môn và kiểm tra tiến độ; giúp nhân viên nhanh chóng hòa nhập và nâng cao năng lực làm việc.</p>
             <p class="hero-subnote">Dành riêng cho nhân viên KIS Việt Nam</p>
             <div class="hero-actions">${session ? `<button class="btn btn-primary btn--hero" data-auth-target="${session.role === "hr" ? "/admin" : "/dashboard"}" data-auth-role="${session.role}">${uiText("goToLearning")}</button>` : `<a class="btn btn-primary btn--hero" href="/login" data-link>Đăng nhập</a>`}<button class="btn btn-outline" data-scroll="featured-courses">${uiText("exploreCourses")}</button></div>
-            <div class="hero-proof hero-proof--refined"><button class="proof-item" data-auth-target="/dashboard/courses" data-auth-role="employee"><strong>${stats.totalActiveEmployees.toLocaleString()}</strong><span>${overviewText("learnersCount")}</span></button><button class="proof-item" data-auth-target="/dashboard/courses" data-auth-role="employee"><strong>${stats.totalPublishedCourses}</strong><span>${overviewText("openCoursesCount")}</span></button><button class="proof-item" data-auth-target="/admin/reports" data-auth-role="hr"><strong>${formatTrainingDuration(training.totalTrainingSeconds,language,true)}</strong><span>${overviewText("totalHoursCount")}</span></button></div>
           </div>
           ${heroMockup()}
         </div>
       </section>
       <section class="section" id="purpose"><div class="container"><h2 class="section-title">${t("landing.purpose")}</h2><p class="section-lead">${t("landing.purposeLead")}</p><div class="grid-4 purpose-grid">${purposes.map(([i, key, desc]) => `<article class="card info-card purpose-card">${icon(i)}<h3>${t(key)}</h3><p>${desc}</p></article>`).join("")}</div></div></section>
-      <section class="section" id="featured-courses"><div class="container"><h2 class="section-title">${overviewText("openCourses")}</h2>${publishedCourses.length ? `<div class="landing-course-grid">${publishedCourses.map(realCourseCard).join("")}</div>` : `<div class="empty-state">${icon("book")}<h3>${overviewText("noOpenCourses")}</h3></div>`}</div></section>
-      <section class="section alt" id="support"><div class="container"><div class="support-panel card"><div><h2>${t("nav.support")}</h2><p>Liên hệ hỗ trợ đào tạo, tài khoản và phân quyền nội bộ.</p><div class="hero-actions"><button class="btn btn-outline" data-auth-target="/dashboard/gallery" data-auth-role="employee">Xem thư viện ảnh</button><button class="btn btn-outline" data-auth-target="/dashboard/resources" data-auth-role="employee">Xem tài liệu</button></div></div><strong>${hrContact}</strong></div></div></section>
-      ${hrAnnouncementsSection()}
+      <section class="section" id="featured-courses"><div class="container"><h2 class="section-title">Khóa học nổi bật</h2>${publishedCourses.length ? `<div class="landing-course-grid">${publishedCourses.map(realCourseCard).join("")}</div><a class="btn btn-primary landing-more-courses" href="/login" data-link>Xem thêm khóa học</a>` : `<div class="empty-state">${icon("book")}<h3>${overviewText("noOpenCourses")}</h3></div>`}</div></section>
+      <section class="section kis-banner-section"><div class="container"><a class="kis-about-banner" href="/about-kis" data-link><span>Tìm hiểu thêm về KIS Việt Nam</span><strong>Khám phá hành trình và giá trị của KIS →</strong></a></div></section>
       ${footer()}
       ${activeSessionForLandingModal()}
       ${hasEmployeeAccess()?notificationModal():""}
