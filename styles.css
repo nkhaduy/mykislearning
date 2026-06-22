@@ -4942,6 +4942,24 @@ body.modal-open { overflow: hidden; }
 .shared-dialog__icon--warning { background: #e8f3fc; color: var(--navy, #0b1f3a); }
 .shared-dialog__icon--success { background: #e6f4f1; color: #0d7a6b; }
 .shared-dialog__icon--error   { background: #e8eef5; color: var(--navy, #0b1f3a); }
+.shared-dialog__icon--phone-qr {
+  display: flex;
+  width: 64px;
+  gap: 5px;
+}
+.shared-dialog__icon--phone-qr svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.shared-dialog__icon--phone-qr svg:last-child {
+  fill: currentColor;
+  stroke: none;
+}
 
 /* Content area */
 .shared-dialog__content {
@@ -6479,6 +6497,7 @@ textarea:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .tl-panel, .leader-card, .btn, .btn--hero,
   .tl-nav__pill, .demo-slot__use, .auth-home-btn,
+  .tl-panel__photo img,
   .topbar-user__chevron, .demo-accounts__chevron {
     animation: none !important;
     transition: none !important;
