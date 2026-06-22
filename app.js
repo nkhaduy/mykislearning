@@ -528,11 +528,19 @@ async function fetchCoursesFromApi(accountId, role) {
     const data = await courseApiService.listCourses(accountId, role);
     if (Array.isArray(data)) {
       _courses = data;
-      const { localStorageAdapter } = await import("./lib/storage/localStorageAdapter.js");
-      localStorageAdapter.write("mykis.courses.v1", data);
+      // Only overwrite localStorage when Supabase has data — never wipe existing seed/local data
+      if (data.length > 0) {
+        const { localStorageAdapter } = await import("./lib/storage/localStorageAdapter.js");
+        // Merge: Supabase wins for records it knows about, local keeps anything not yet in Supabase
+        const local = localStorageAdapter.read("mykis.courses.v1", []);
+        const supabaseIds = new Set(data.map((c) => c.id));
+        const localOnly = local.filter((c) => !supabaseIds.has(c.id));
+        localStorageAdapter.write("mykis.courses.v1", [...data, ...localOnly]);
+      }
     }
   } catch (err) {
     _coursesError = String(err);
+    console.warn("[course-fetch] API error, using localStorage:", err?.message);
     if (_courses === null) _courses = [];
   } finally {
     _coursesLoading = false;
@@ -548,10 +556,17 @@ async function fetchEnrollmentsFromApi(accountId, role) {
     const data = await courseApiService.listEnrollments(accountId, role);
     if (Array.isArray(data)) {
       _enrollments = data;
-      const { localStorageAdapter } = await import("./lib/storage/localStorageAdapter.js");
-      localStorageAdapter.write("mykis.enrollments.v1", data);
+      // Only merge when Supabase has data — never wipe existing local enrollments
+      if (data.length > 0) {
+        const { localStorageAdapter } = await import("./lib/storage/localStorageAdapter.js");
+        const local = localStorageAdapter.read("mykis.enrollments.v1", []);
+        const supabaseIds = new Set(data.map((e) => e.id));
+        const localOnly = local.filter((e) => !supabaseIds.has(e.id));
+        localStorageAdapter.write("mykis.enrollments.v1", [...data, ...localOnly]);
+      }
     }
   } catch (err) {
+    console.warn("[enrollment-fetch] API error, using localStorage:", err?.message);
     if (_enrollments === null) _enrollments = [];
   } finally {
     _enrollmentsLoading = false;
