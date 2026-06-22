@@ -211,6 +211,40 @@ function ytFlushRanges(final = false) {
 let _qrCameraStream = null;
 let _qrScanRafId = null;
 
+function isMobileQrDevice() {
+  if (navigator.userAgentData && typeof navigator.userAgentData.mobile === "boolean") return navigator.userAgentData.mobile;
+  const mobileUa = /Android|iPhone|iPad|iPod|Mobile|IEMobile|Opera Mini/i.test(navigator.userAgent || "");
+  const touchCapable = navigator.maxTouchPoints > 0 || "ontouchstart" in window;
+  const compactScreen = Math.min(screen.width || innerWidth, screen.height || innerHeight) <= 1024;
+  return mobileUa && touchCapable && compactScreen;
+}
+
+function requestQrLocationPermission() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error("location_unsupported"));
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        _qrScanLocationData = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: new Date().toISOString(),
+          device: isMobileQrDevice() ? "mobile" : "desktop",
+          userAgent: navigator.userAgent,
+        };
+        _qrScanLocationStatus = "acquired";
+        resolve(_qrScanLocationData);
+      },
+      (error) => { _qrScanLocationStatus = "unavailable"; reject(error); },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
+  });
+}
+
+function openPhoneAttendanceGuide() {
+  openDialog({ type: "phoneQr", important: false });
+}
+
 function stopQrCameraScanner() {
   if (_qrScanRafId) { cancelAnimationFrame(_qrScanRafId); _qrScanRafId = null; }
   if (_qrCameraStream) { _qrCameraStream.getTracks().forEach(t => t.stop()); _qrCameraStream = null; }
@@ -222,6 +256,12 @@ async function initQrCameraScanner() {
   const status = document.getElementById("qrCameraStatus");
   const stopBtn = document.getElementById("qrCameraStop");
   if (!video || !canvas || !status) return;
+
+  if (!isMobileQrDevice()) {
+    stopQrCameraScanner();
+    openPhoneAttendanceGuide();
+    return;
+  }
 
   stopBtn?.addEventListener("click", () => { stopQrCameraScanner(); render(); });
 
