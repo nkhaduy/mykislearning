@@ -3008,7 +3008,7 @@ function attendanceScanPage(tokenValue) {
         <button id="qrCopyDiag" style="flex:1;min-width:130px;padding:12px 8px;background:#0e7a70;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation">Sao chép chẩn đoán</button>
         <button id="qrSendReport" style="flex:1;min-width:130px;padding:12px 8px;background:#1e3a5f;color:#7dd3fc;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation">Gửi báo cáo lỗi</button>
       </div>
-    </div>`;
+    </div>` : "";
 
   return `<div class="page">${header()}
     ${_debugBadge}
