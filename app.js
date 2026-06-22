@@ -2961,78 +2961,82 @@ function attendanceScanPage(tokenValue) {
     </div>`;
   }
 
-  const _qrParams = new URLSearchParams(location.search);
-  const _showDebug = location.hostname.includes("vercel.app") || _qrParams.has("debugQr");
-  const _previewOnly = _qrParams.has("previewOnly");
+  const _dbg = isQrDebugEnabled();
+  const _prev = isQrPreviewOnly();
   const _ua = navigator.userAgent;
   const _isSafari = /Safari/.test(_ua) && !/Chrome/.test(_ua);
   const _isIOS = /iPhone|iPad|iPod/.test(_ua);
   const _isHttps = location.protocol === "https:";
   const _hasGUM = "mediaDevices" in navigator && "getUserMedia" in navigator.mediaDevices;
-  const _debugPanel = _showDebug ? `
-    <div id="qrDebugPanel" style="margin-top:16px;background:#040d1a;border:1px solid #1e3a5f;border-radius:12px;overflow:hidden;font-size:13px;text-align:left">
-      <div style="padding:10px 14px;background:#0b1a2e;display:flex;align-items:center;justify-content:space-between;gap:8px">
-        <span style="color:#38bdf8;font-weight:700;font-size:13px">QR Debug${_previewOnly ? " [preview-only]" : ""}</span>
-        <span style="color:#475569;font-size:11px">${_isIOS ? "iOS" : "non-iOS"} / ${_isSafari ? "Safari" : "other"} / ${_isHttps ? "HTTPS ✓" : "HTTP ✗"}</span>
+
+  // Debug badge — always visible top-right when debug on, so user can confirm flag survived navigation
+  const _debugBadge = _dbg
+    ? `<div style="position:fixed;top:8px;right:8px;z-index:9999;background:#ef4444;color:#fff;font:bold 11px/1 monospace;padding:4px 8px;border-radius:6px;pointer-events:none">DEBUG QR ON</div>`
+    : "";
+
+  // Debug panel — rendered immediately, not gated on camera state
+  const _debugPanel = _dbg ? `
+    <div id="qrDebugPanel" style="display:block;margin-top:16px;background:#040d1a;border:2px solid #ef4444;border-radius:12px;overflow:visible;font-size:13px;text-align:left;position:relative;z-index:50;opacity:1;visibility:visible">
+      <div style="padding:10px 14px;background:#0b1a2e;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <span style="color:#38bdf8;font-weight:700;font-size:13px">QR Debug${_prev ? " [preview-only]" : ""}</span>
+        <span style="color:#64748b;font-size:11px;font-family:monospace">${_isIOS ? "iOS" : "non-iOS"} / ${_isSafari ? "Safari" : "non-Safari"} / ${_isHttps ? "HTTPS✓" : "HTTP✗"}</span>
       </div>
-      <div class="qr-dbg-rows" style="padding:10px 14px;font:12px/2 monospace;color:#94a3b8;word-break:break-all">
-        <div data-dbk="getUserMedia">getUserMedia: ${_hasGUM ? "available ✓" : "NOT AVAILABLE ✗"}</div>
+      <div class="qr-dbg-rows" style="padding:10px 14px;font:12px/2.2 monospace;color:#94a3b8;word-break:break-all;white-space:pre-wrap">
+        <div data-dbk="gum">gum: ${_hasGUM ? "available ✓" : "NOT AVAILABLE ✗"}</div>
+        <div data-dbk="step" style="color:#7dd3fc;font-weight:bold">step: scanner-rendered</div>
+        <div data-dbk="elapsed">elapsed: 0s</div>
         <div data-dbk="camPermission">camPermission: —</div>
         <div data-dbk="locPermission">locPermission: —</div>
-        <div data-dbk="step" style="color:#7dd3fc">step: waiting</div>
-        <div data-dbk="elapsed">elapsed: —</div>
-        <div data-dbk="stream">stream: —</div>
+        <div data-dbk="stream">stream: no</div>
         <div data-dbk="trackState">trackState: —</div>
-        <div data-dbk="trackEnabled">trackEnabled: —</div>
         <div data-dbk="sameElement">sameElement: —</div>
         <div data-dbk="connected">connected: —</div>
         <div data-dbk="srcObject">srcObject: —</div>
         <div data-dbk="videoRS">videoRS: —</div>
-        <div data-dbk="videoSize">videoSize: —</div>
+        <div data-dbk="videoSize">videoSize: 0×0</div>
         <div data-dbk="renderedSize">renderedSize: —</div>
-        <div data-dbk="cssDisplay">cssDisplay: —</div>
-        <div data-dbk="cssHeight">cssHeight: —</div>
-        <div data-dbk="cssOpacity">cssOpacity: —</div>
+        <div data-dbk="cssH">cssH: —</div>
         <div data-dbk="play()">play(): —</div>
-        <div data-dbk="error" style="color:#f87171">error: —</div>
-        <div id="qrReportCode" style="display:none;color:#4ade80;font-weight:bold;margin-top:4px"></div>
+        <div data-dbk="error" style="color:#f87171">error: none</div>
+        <div id="qrReportCode" style="display:none;color:#4ade80;font-weight:bold;padding-top:4px"></div>
       </div>
       <div style="padding:10px 14px;display:flex;gap:8px;border-top:1px solid #1e3a5f;flex-wrap:wrap">
-        <button id="qrCopyDiag" style="flex:1;min-width:140px;padding:10px;background:#0e7a70;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Sao chép chẩn đoán</button>
-        <button id="qrSendReport" style="flex:1;min-width:140px;padding:10px;background:#1e3a5f;color:#7dd3fc;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Gửi báo cáo lỗi</button>
+        <button id="qrCopyDiag" style="flex:1;min-width:130px;padding:12px 8px;background:#0e7a70;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation">Sao chép chẩn đoán</button>
+        <button id="qrSendReport" style="flex:1;min-width:130px;padding:12px 8px;background:#1e3a5f;color:#7dd3fc;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation">Gửi báo cáo lỗi</button>
       </div>
     </div>` : "";
 
   return `<div class="page">${header()}
+    ${_debugBadge}
     <section class="section"><div class="container">
       <div class="card panel qr-camera-wrap">
         <span class="eyebrow">${uiText("qrAttendance")}</span>
         <h2>Quét mã QR điểm danh</h2>
         <p class="text-muted">Hướng camera vào mã QR được chiếu bởi HR.</p>
         <div class="qr-camera-viewport" id="qrCameraViewport">
-          <video id="qrCameraVideo" autoplay muted playsinline webkit-playsinline style="position:relative;z-index:1;display:block;width:100%;height:100%;min-height:280px;object-fit:cover;background:#000"></video>
-          <canvas id="qrCameraCanvas" style="display:none;position:absolute;top:-9999px"></canvas>
+          <video id="qrCameraVideo" autoplay muted playsinline webkit-playsinline style="position:relative;z-index:1;display:block;width:100%;height:100%;min-height:280px;object-fit:cover;background:#000;opacity:1;visibility:visible"></video>
+          <canvas id="qrCameraCanvas" style="display:none;position:absolute;top:-9999px;left:-9999px"></canvas>
           <div class="qr-camera-corner qr-camera-corner--tl"></div>
           <div class="qr-camera-corner qr-camera-corner--tr"></div>
           <div class="qr-camera-corner qr-camera-corner--bl"></div>
           <div class="qr-camera-corner qr-camera-corner--br"></div>
           <div class="qr-scan-line"></div>
-          <div id="qrCameraStartOverlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);z-index:2;border-radius:inherit">
-            <button id="qrCameraStart" class="btn btn-primary" style="font-size:15px;padding:12px 24px">Khởi động camera</button>
+          <div id="qrCameraStartOverlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);z-index:2;border-radius:inherit">
+            <button id="qrCameraStart" class="btn btn-primary" style="font-size:16px;padding:14px 28px;touch-action:manipulation">Khởi động camera</button>
           </div>
         </div>
-        <p class="qr-camera-status" id="qrCameraStatus">Nhấn để mở camera.</p>
+        <p class="qr-camera-status" id="qrCameraStatus" style="min-height:20px">Nhấn để mở camera.</p>
         <div class="qr-camera-actions">
           <button class="btn btn-outline" id="qrCameraStop" style="display:none">Dừng camera</button>
-          <button class="btn btn-outline" id="qrCameraRetry" style="display:none">Thử lại</button>
+          <button class="btn btn-outline" id="qrCameraRetry" style="display:none">Thử lại camera</button>
           <a class="btn btn-ghost" href="/dashboard/calendar" data-link>Huỷ</a>
         </div>
-        <div id="qrHrFallback" style="display:none;margin-top:20px;padding:16px;background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:12px;text-align:left">
-          <p style="margin:0 0 4px;font-weight:600;font-size:14px">Camera chưa sẵn sàng?</p>
+        <div id="qrHrFallback" style="display:none;margin-top:20px;padding:16px;background:var(--surface,#f8fafc);border:1.5px solid var(--border,#e2e8f0);border-radius:12px;text-align:left">
+          <p style="margin:0 0 4px;font-weight:600;font-size:15px">Camera chưa sẵn sàng?</p>
           <p style="margin:0 0 12px;color:#64748b;font-size:13px">Nhập mã điểm danh do HR cung cấp.</p>
           <div style="display:flex;gap:8px">
-            <input id="qrHrCodeInput" type="text" placeholder="Nhập mã hoặc dán link QR" style="flex:1;padding:10px 12px;border:1.5px solid var(--border,#e2e8f0);border-radius:8px;font-size:14px;background:var(--bg,#fff);color:inherit" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-            <button id="qrHrSubmit" style="padding:10px 16px;background:var(--teal,#0e7a70);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">Xác nhận</button>
+            <input id="qrHrCodeInput" type="text" placeholder="Nhập mã hoặc dán link QR" style="flex:1;padding:11px 12px;border:1.5px solid var(--border,#e2e8f0);border-radius:8px;font-size:15px;background:var(--bg,#fff);color:inherit;-webkit-appearance:none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            <button id="qrHrSubmit" style="padding:11px 16px;background:var(--teal,#0e7a70);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;white-space:nowrap;touch-action:manipulation">Xác nhận</button>
           </div>
         </div>
         ${_debugPanel}
