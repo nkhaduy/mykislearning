@@ -2182,7 +2182,7 @@ function employeeEditModal() {
     <div class="field" style="margin-top:16px"><h3>Chứng chỉ / CCHN</h3><p style="color:#64748b;font-size:13px">Quản lý chứng chỉ của nhân viên này.</p><button type="button" class="btn btn-outline" data-open-certs="${escapeHtmlAttribute(employeeEditId)}">Mở quản lý chứng chỉ</button></div>
     </aside></div>
     <div class="field-error" id="employeeEditError" role="alert" style="margin-top:8px"></div></div>
-    <footer class="modal__footer"><button type="button" class="btn btn-outline" data-close-employee-edit>Hủy</button><button type="submit" class="btn btn-primary" ${employeeEditSaving?"disabled":"">${employeeEditSaving?"Đang lưu...":"Lưu thay đổi"}</button></footer>
+    <footer class="modal__footer"><button type="button" class="btn btn-outline" data-close-employee-edit>Hủy</button><button type="submit" class="btn btn-primary" ${employeeEditSaving?"disabled":""}>${employeeEditSaving?"Đang lưu...":"Lưu thay đổi"}</button></footer>
   </form></div>`;
 }
 
