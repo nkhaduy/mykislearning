@@ -2221,17 +2221,7 @@ function certModal() {
     <header class="modal__header"><div><span class="eyebrow">${escapeHtml(a?.fullName||"")}</span><h2>Chứng chỉ / CCHN</h2></div><button class="icon-btn" data-close-cert-modal>×</button></header>
     <div class="modal__body">
       <div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn btn-primary" data-add-cert>+ Thêm chứng chỉ</button></div>
-      ${_certListLoading?`<div class="empty-state"><div class="spinner"></div><p>Đang tải...</p></div>`:
-        certs.length?`<div class="table-wrap"><table><thead><tr><th>Tên chứng chỉ</th><th>Loại</th><th>Đơn vị cấp</th><th>Ngày cấp</th><th>Hết hạn</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${certs.map(c=>`<tr>
-          <td><strong>${escapeHtml(c.name)}</strong>${c.certificate_number?`<small>${escapeHtml(c.certificate_number)}</small>`:""}</td>
-          <td>${escapeHtml(c.certificate_type||"")}</td>
-          <td>${escapeHtml(c.issuer||"")}</td>
-          <td>${escapeHtml(c.issue_date||"")}</td>
-          <td class="${expiringSoon(c.expiry_date)?"text-warn":c.expiry_date&&c.expiry_date<today?"text-error":""}">${escapeHtml(c.expiry_date||"—")}${expiringSoon(c.expiry_date)?" ⚠":""}</td>
-          <td><span class="badge ${c.status==="valid"?"active":c.status==="expired"?"disabled":"pending"}">${c.status==="valid"?"Còn hiệu lực":c.status==="expired"?"Hết hạn":c.status==="pending"?"Chờ duyệt":"Thu hồi"}</span></td>
-          <td><div class="row-actions"><button class="btn btn-outline mini-action" data-edit-cert="${c.id}">Sửa</button><button class="btn btn-outline mini-action" data-revoke-cert="${c.id}">Thu hồi</button></div></td>
-        </tr>`).join("")}</tbody></table></div>`
-        :`<div class="empty-state"><p>Chưa có chứng chỉ nào.</p></div>`}
+      ${_certListLoading ? "<div class=\"empty-state\"><div class=\"spinner\"></div><p>Đang tải...</p></div>" : certListHtml(certs, today, expiringSoon)}
     </div>
     <footer class="modal__footer"><button class="btn btn-outline" data-close-cert-modal>Đóng</button></footer>
   </section></div>`;
