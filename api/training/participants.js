@@ -40,26 +40,54 @@ export default async function handler(req, res) {
     const acct = requireHr(req, res);
     if (!acct) return;
 
-    const { sessionId, participants } = req.body;
+    const sessionId = req.body?.session_id || req.body?.sessionId;
+    const participants = req.body?.participants;
+    const mode = req.body?.mode === "replace" ? "replace" : "merge";
     if (!sessionId || !Array.isArray(participants)) {
-      return res.status(400).json({ error: "sessionId and participants[] required" });
+      return res.status(400).json({ error: "session_id and participants[] required" });
     }
 
-    if (participants.length === 0) return res.json({ ok: true });
+    const normalized = participants.map((participant) => ({
+      id: String(participant.id || crypto.randomUUID()),
+      sessionId: String(participant.session_id || participant.sessionId || sessionId),
+      accountId: String(participant.account_id || participant.accountId || "").trim(),
+      role: String(participant.role || "learner"),
+      status: String(participant.status || "assigned"),
+      createdAt: String(participant.created_at || participant.createdAt || new Date().toISOString()),
+      source: String(participant.source || "manual"),
+      addedBy: String(participant.added_by || participant.addedBy || acct.accountId),
+    }));
+    if (normalized.some((participant) => !participant.accountId || participant.sessionId !== String(sessionId))) {
+      return res.status(400).json({ error: "Each participant requires matching session_id and account_id" });
+    }
 
-    const rows = participants.map((p) => ({
-      id: p.id,
+    const rows = normalized.map((participant) => ({
+      id: participant.id,
       session_id: sessionId,
-      account_id: p.accountId,
-      data: p,
+      account_id: participant.accountId,
+      data: participant,
     }));
 
-    const { error } = await db
-      .from("training_participants")
-      .upsert(rows, { onConflict: "session_id,account_id" });
+    if (rows.length) {
+      const { error } = await db
+        .from("training_participants")
+        .upsert(rows, { onConflict: "session_id,account_id" });
+      if (error) return res.status(500).json({ error: error.message, code: error.code || "participant_upsert_failed" });
+    }
 
-    if (error) return res.status(500).json({ error: error.message });
-    return res.json({ ok: true });
+    if (mode === "replace") {
+      let deleteQuery = db.from("training_participants").delete().eq("session_id", sessionId);
+      if (normalized.length) deleteQuery = deleteQuery.not("account_id", "in", `(${normalized.map((participant) => `"${participant.accountId.replaceAll('"', '')}"`).join(",")})`);
+      const { error: deleteError } = await deleteQuery;
+      if (deleteError) return res.status(500).json({ error: deleteError.message, code: deleteError.code || "participant_cleanup_failed" });
+    }
+
+    const { data: saved, error: verifyError } = await db
+      .from("training_participants")
+      .select("id, session_id, account_id, data")
+      .eq("session_id", sessionId);
+    if (verifyError) return res.status(500).json({ error: verifyError.message, code: verifyError.code || "participant_verify_failed" });
+    return res.json({ ok: true, participants: saved || [], count: saved?.length || 0 });
   }
 
   // ── DELETE: remove participant ──────────────────────────────────────────────
