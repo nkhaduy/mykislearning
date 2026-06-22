@@ -3010,6 +3010,14 @@ function attendanceScanPage(tokenValue) {
           <button class="btn btn-outline" id="qrCameraRetry" style="display:none">Thử lại</button>
           <a class="btn btn-ghost" href="/dashboard/calendar" data-link>Huỷ</a>
         </div>
+        <div id="qrHrFallback" style="display:none;margin-top:20px;padding:16px;background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:12px;text-align:left">
+          <p style="margin:0 0 4px;font-weight:600;font-size:14px">Camera chưa sẵn sàng?</p>
+          <p style="margin:0 0 12px;color:#64748b;font-size:13px">Nhập mã điểm danh do HR cung cấp.</p>
+          <div style="display:flex;gap:8px">
+            <input id="qrHrCodeInput" type="text" placeholder="Nhập mã hoặc dán link QR" style="flex:1;padding:10px 12px;border:1.5px solid var(--border,#e2e8f0);border-radius:8px;font-size:14px;background:var(--bg,#fff);color:inherit" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            <button id="qrHrSubmit" style="padding:10px 16px;background:var(--teal,#0e7a70);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">Xác nhận</button>
+          </div>
+        </div>
         ${_debugPanel}
       </div>
     </div></section>
