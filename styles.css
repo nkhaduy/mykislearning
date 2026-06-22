@@ -6470,11 +6470,11 @@ textarea:focus-visible {
   .kpi-grid {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
-  .overview-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
   .content {
     padding: 28px 36px;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   }
 }
 
@@ -6483,8 +6483,11 @@ textarea:focus-visible {
   .app-layout {
     grid-template-columns: 320px 1fr;
   }
+  .kpi-grid {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
   .content {
-    padding: 36px 48px;
+    padding: 36px 52px;
   }
 }
 
