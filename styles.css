@@ -113,6 +113,10 @@ body[data-route="/admin/notifications"] #notificationForm .setting-row{grid-colu
   box-sizing: border-box;
 }
 
+img, video, iframe, embed, object {
+  max-width: 100%;
+}
+
 html {
   scroll-behavior: smooth;
 }
