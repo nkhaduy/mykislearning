@@ -3822,6 +3822,68 @@ function bindEvents() {
   document.querySelectorAll("[data-page-kind]").forEach((el) => el.addEventListener("click", () => { if (el.dataset.pageKind === "employees") employeeDirectoryPage = Number(el.dataset.page); if (el.dataset.pageKind === "cchn") cchnPage = Number(el.dataset.page); if (el.dataset.pageKind === "session-employees") sessionEmployeePage = Number(el.dataset.page); render(); }));
   document.querySelectorAll("[data-account-detail]").forEach((el) => el.addEventListener("click", () => { selectedAccountId = el.dataset.accountDetail; accountDrawerOpen = true; render(); }));
   document.querySelector("[data-close-drawer]")?.addEventListener("click", () => { accountDrawerOpen = false; render(); });
+
+  // HR employee edit modal
+  document.querySelectorAll("[data-edit-employee]").forEach((el) => el.addEventListener("click", () => { employeeEditId = el.dataset.editEmployee; employeeEditOpen = true; employeeEditSaving = false; render(); }));
+  document.querySelector("[data-close-employee-edit]")?.addEventListener("click", () => { employeeEditOpen = false; render(); });
+  document.getElementById("employeeEditForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (employeeEditSaving) return;
+    employeeEditSaving = true; render();
+    const data = Object.fromEntries(new FormData(event.currentTarget));
+    // Update locally first
+    updateAccount(employeeEditId, { fullName: data.fullName, email: data.email, department: data.department, position: data.position, accountStatus: data.account_status, role: data.role, phone: data.phone, managerName: data.manager_name, location: data.location, notes: data.notes, joinDate: data.joined_date });
+    // Sync to Supabase
+    try {
+      const res = await fetch(`/api/employees/${encodeURIComponent(employeeEditId)}`, {
+        method: "PATCH",
+        headers: {"Content-Type":"application/json","X-Account-Id":session?.accountId||"","X-Account-Role":"hr"},
+        body: JSON.stringify({ full_name: data.fullName, email: data.email, department: data.department, position: data.position, account_status: data.account_status, role: data.role, phone: data.phone, manager_name: data.manager_name, location: data.location, notes: data.notes, joined_date: data.joined_date || null, employee_code: data.employeeCode }),
+      });
+      if (!res.ok) { const b = await res.json().catch(()=>({error:"Lỗi server"})); throw new Error(b.error); }
+      toast("Đã cập nhật nhân viên ✓");
+      employeeEditOpen = false;
+    } catch (e) {
+      document.getElementById("employeeEditError").textContent = e.message || "Không thể lưu lên Supabase.";
+    }
+    employeeEditSaving = false; render();
+  });
+
+  // Certification modal
+  document.querySelectorAll("[data-open-certs]").forEach((el) => el.addEventListener("click", () => { certModalEmployeeId = el.dataset.openCerts; certModalOpen = true; certEditOpen = false; certEditId = ""; loadCertsForEmployee(certModalEmployeeId); }));
+  document.querySelector("[data-close-cert-modal]")?.addEventListener("click", () => { certModalOpen = false; render(); });
+  document.querySelector("[data-back-cert-list]")?.addEventListener("click", () => { certEditOpen = false; certEditId = ""; render(); });
+  document.querySelector("[data-close-cert-edit]")?.addEventListener("click", () => { certEditOpen = false; certEditId = ""; render(); });
+  document.querySelector("[data-add-cert]")?.addEventListener("click", () => { certEditId = ""; certEditOpen = true; render(); });
+  document.querySelectorAll("[data-edit-cert]").forEach((el) => el.addEventListener("click", () => { certEditId = el.dataset.editCert; certEditOpen = true; render(); }));
+  document.querySelectorAll("[data-revoke-cert]").forEach((el) => el.addEventListener("click", () => {
+    openDialog({type:"confirm",title:"Thu hồi chứng chỉ",body:"Chứng chỉ sẽ được đánh dấu là đã thu hồi.",onConfirm:async()=>{
+      const res = await fetch(`/api/employees/${encodeURIComponent(certModalEmployeeId)}/certifications/${el.dataset.revokeCert}`,{method:"PATCH",headers:{"Content-Type":"application/json","X-Account-Id":session?.accountId||"","X-Account-Role":"hr"},body:JSON.stringify({status:"revoked",revoked_at:new Date().toISOString(),revoked_by:session?.accountId||""})});
+      if(res.ok){toast("Đã thu hồi chứng chỉ");loadCertsForEmployee(certModalEmployeeId);}else{toast("error");}
+    }});
+  }));
+  document.getElementById("certEditForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (certSaving) return;
+    certSaving = true; render();
+    const data = Object.fromEntries(new FormData(event.currentTarget));
+    const payload = { name: data.name, certificate_type: data.certificate_type, certificate_number: data.certificate_number||null, issuer: data.issuer, issue_date: data.issue_date, expiry_date: data.expiry_date||null, status: data.status||"valid", evidence_path: data.evidence_path||null, notes: data.notes||null };
+    try {
+      let res;
+      if (certEditId) {
+        res = await fetch(`/api/employees/${encodeURIComponent(certModalEmployeeId)}/certifications/${certEditId}`,{method:"PATCH",headers:{"Content-Type":"application/json","X-Account-Id":session?.accountId||"","X-Account-Role":"hr"},body:JSON.stringify(payload)});
+      } else {
+        res = await fetch(`/api/employees/${encodeURIComponent(certModalEmployeeId)}/certifications`,{method:"POST",headers:{"Content-Type":"application/json","X-Account-Id":session?.accountId||"","X-Account-Role":"hr"},body:JSON.stringify(payload)});
+      }
+      if (!res.ok) { const b = await res.json().catch(()=>({error:"Lỗi server"})); throw new Error(b.error); }
+      toast(certEditId?"Đã cập nhật chứng chỉ ✓":"Đã thêm chứng chỉ ✓");
+      certEditOpen = false; certEditId = "";
+      loadCertsForEmployee(certModalEmployeeId);
+    } catch (e) {
+      document.getElementById("certEditError").textContent = e.message || "Không thể lưu.";
+    }
+    certSaving = false; render();
+  });
   document.querySelectorAll("[data-reset-account]").forEach((el) => el.addEventListener("click", () => { resetTargetId = el.dataset.resetAccount; resetModalOpen = true; temporaryPasswordResult = ""; render(); }));
   document.querySelectorAll("[data-force-account]").forEach((el) => el.addEventListener("click", () => { forcePasswordChange(el.dataset.forceAccount); toast("success"); render(); }));
   document.querySelectorAll("[data-activate-account]").forEach((el) => el.addEventListener("click", () => { updateAccount(el.dataset.activateAccount, { accountStatus: "active" }); toast("success"); render(); }));
