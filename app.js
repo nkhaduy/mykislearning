@@ -2526,7 +2526,7 @@ function attendanceScanPage(tokenValue) {
     const actionLabel = preview.token.action === "check_in" ? uiText("checkIn") : uiText("checkOut");
     const locationCapture = _qrScanLocationData
       ? `<p class="qr-location-info"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg> Vị trí đã xác định · Độ chính xác ~${Math.round(_qrScanLocationData.accuracy)}m</p>`
-      : `<p class="qr-location-info qr-location-info--pending" id="qrLocationStatus"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> <span id="qrLocText">Đang lấy vị trí...</span></p>`;
+      : `<p class="qr-location-info qr-location-info--pending" id="qrLocationStatus"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> <span id="qrLocText">Vị trí sẽ được yêu cầu khi bạn bấm điểm danh</span></p>`;
 
     return `<div class="page">${header()}
       <section class="section"><div class="container">
