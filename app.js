@@ -1,3 +1,4 @@
+window.__MYKIS_BUILD__ = "2026-06-22-01";
 import { dictionaries, getInitialLanguage, saveLanguage } from "./lib/i18n/index.js";
 import {
   addSecurityAuditLog,
