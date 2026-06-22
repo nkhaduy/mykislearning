@@ -912,10 +912,9 @@ function header() {
           <a href="/" data-link>${t("nav.home")}</a>
           <a href="/about-kis" data-link>${t("nav.about")}</a>
           <button class="nav-button" ${activeSession ? 'data-auth-target="/dashboard/courses" data-auth-role="employee"' : 'data-scroll="featured-courses"'}>${activeSession ? uiText("exploreCourses") : t("nav.courses")}</button>
-          ${activeSession ? `<button class="nav-button" data-open-notifications>${uiText("announcements")}</button>` : `<button class="nav-button" data-announcements-link>${uiText("announcements")}</button>`}
+          ${activeSession ? `<button class="nav-button" data-open-notifications>${uiText("announcements")}</button>` : ""}
           ${activeAccount?.role === "employee" ? `<button class="nav-button" data-auth-target="/dashboard/calendar" data-auth-role="employee">${uiText("calendar")}</button>` : ""}
           ${activeAccount?.role === "hr" ? `<button class="nav-button" data-auth-target="/admin/reports" data-auth-role="hr">${t("admin.reports")}</button>` : ""}
-          <button class="nav-button" data-scroll="support">${t("nav.support")}</button>
         </nav>
         <div class="header-actions">
           ${languageSwitcher()}
@@ -942,11 +941,9 @@ function footer() {
           <a href="/" data-link>${t("nav.home")}</a>
           <a href="/about-kis" data-link>${t("nav.about")}</a>
           <a href="/#featured-courses" data-link>${t("nav.courses")}</a>
-          <a href="/#hr-announcements" data-link>${uiText("announcements")}</a>
         </nav>
         <nav class="footer-column">
-          <h3>${uiText("support")}</h3>
-          <a href="#support" data-scroll="support">Hướng dẫn sử dụng</a>
+          <h3>Thông tin</h3>
           <a href="mailto:thanh.ntc@kisvn.vn">Liên hệ HR</a>
           <a href="/about-kis" data-link>${uiText("privacy")}</a>
           <a href="/change-password" data-link>Đổi mật khẩu</a>
@@ -3165,14 +3162,17 @@ function bindEvents() {
             _qrScanLocationStatus = "acquired";
             doScan(_qrScanLocationData);
           },
-          () => {
+          (error) => {
             _qrScanLocationStatus = "unavailable";
-            doScan(null);
+            submitScanBtn.disabled = false;
+            if (locText) locText.textContent = "Chưa thể xác định vị trí";
+            const reason = error?.code === 1 ? "Quyền vị trí đang bị từ chối. Hãy cho phép Location trong cài đặt Safari/Chrome rồi thử lại." : "Không lấy được vị trí chính xác. Hãy bật GPS, đứng gần cửa sổ và thử lại.";
+            openDialog({ type: "alert", title: "Cần vị trí để điểm danh", body: reason });
           },
           { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
       } else {
-        doScan(null);
+        openDialog({ type: "alert", title: "Thiết bị không hỗ trợ vị trí", body: "Không thể điểm danh vì trình duyệt không cung cấp Location." });
       }
     });
   }
