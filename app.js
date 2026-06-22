@@ -2186,6 +2186,17 @@ function employeeEditModal() {
   </form></div>`;
 }
 
+function certListHtml(certs, today, expiringSoon) {
+  if (!certs.length) return "<div class=\"empty-state\"><p>Chưa có chứng chỉ nào.</p></div>";
+  const rows = certs.map(c => {
+    const expClass = expiringSoon(c.expiry_date) ? "text-warn" : (c.expiry_date && c.expiry_date < today ? "text-error" : "");
+    const statusLabel = c.status === "valid" ? "Còn hiệu lực" : c.status === "expired" ? "Hết hạn" : c.status === "pending" ? "Chờ duyệt" : "Thu hồi";
+    const statusClass = c.status === "valid" ? "active" : c.status === "expired" ? "disabled" : "pending";
+    return `<tr><td><strong>${escapeHtml(c.name)}</strong>${c.certificate_number ? `<small>${escapeHtml(c.certificate_number)}</small>` : ""}</td><td>${escapeHtml(c.certificate_type||"")}</td><td>${escapeHtml(c.issuer||"")}</td><td>${escapeHtml(c.issue_date||"")}</td><td class="${expClass}">${escapeHtml(c.expiry_date||"—")}${expiringSoon(c.expiry_date)?" ⚠":""}</td><td><span class="badge ${statusClass}">${statusLabel}</span></td><td><div class="row-actions"><button class="btn btn-outline mini-action" data-edit-cert="${c.id}">Sửa</button><button class="btn btn-outline mini-action" data-revoke-cert="${c.id}">Thu hồi</button></div></td></tr>`;
+  }).join("");
+  return `<div class="table-wrap"><table><thead><tr><th>Tên chứng chỉ</th><th>Loại</th><th>Đơn vị cấp</th><th>Ngày cấp</th><th>Hết hạn</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
 function certModal() {
   if (!certModalOpen || !certModalEmployeeId) return "";
   const a = getAccountById(certModalEmployeeId);
