@@ -253,6 +253,56 @@ function stopQrCameraScanner() {
   if (video) { video.pause(); video.srcObject = null; }
 }
 
+async function startMobileCamera(videoEl) {
+  // Must set all attributes BEFORE assigning srcObject — iOS Safari ignores late attributes
+  videoEl.setAttribute("playsinline", "true");
+  videoEl.setAttribute("webkit-playsinline", "true");
+  videoEl.setAttribute("muted", "true");
+  videoEl.setAttribute("autoplay", "true");
+  videoEl.playsInline = true;
+  videoEl.muted = true;
+  videoEl.autoplay = true;
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    });
+  } catch (envErr) {
+    // Safari may reject facingMode constraint — fallback to any camera
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  }
+
+  videoEl.srcObject = stream;
+
+  // Wait for loadedmetadata BEFORE calling play()
+  await new Promise((resolve, reject) => {
+    if (videoEl.readyState >= 1) return resolve();
+    const timer = setTimeout(() => reject(new Error("camera_metadata_timeout")), 8000);
+    videoEl.addEventListener("loadedmetadata", () => { clearTimeout(timer); resolve(); }, { once: true });
+    videoEl.addEventListener("error", (e) => { clearTimeout(timer); reject(e.error || new Error("camera_error")); }, { once: true });
+  });
+
+  try { await videoEl.play(); } catch (playErr) {
+    // Some iOS versions reject play() then recover — tolerate and continue
+    if (playErr.name !== "AbortError") throw playErr;
+  }
+
+  // Wait for first real frame (videoWidth > 0)
+  await new Promise((resolve, reject) => {
+    if (videoEl.videoWidth > 0) return resolve();
+    const timer = setTimeout(() => reject(new Error("camera_render_timeout")), 8000);
+    const check = () => {
+      if (videoEl.videoWidth > 0) { clearTimeout(timer); resolve(); }
+      else requestAnimationFrame(check);
+    };
+    requestAnimationFrame(check);
+  });
+
+  return stream;
+}
+
 async function initQrCameraScanner() {
   const video = document.getElementById("qrCameraVideo");
   const canvas = document.getElementById("qrCameraCanvas");
@@ -276,28 +326,16 @@ async function initQrCameraScanner() {
     await new Promise((res, rej) => { script.onload = res; script.onerror = rej; });
   }
 
-  // Check if camera is available
   if (!navigator.mediaDevices?.getUserMedia) {
     status.textContent = "Thiết bị không hỗ trợ camera. Vui lòng dùng link QR.";
     return;
   }
 
-  status.textContent = "Đang yêu cầu quyền truy cập camera...";
+  status.textContent = "Đang mở camera...";
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    const stream = await startMobileCamera(video);
     _qrCameraStream = stream;
-    video.setAttribute("playsinline", "");
-    video.setAttribute("webkit-playsinline", "");
-    video.muted = true;
-    video.autoplay = true;
-    video.srcObject = stream;
-    await video.play();
-    await new Promise((resolve, reject) => {
-      if (video.videoWidth > 0) return resolve();
-      const timer = setTimeout(() => reject(new Error("camera_render_timeout")), 5000);
-      video.addEventListener("loadedmetadata", () => { clearTimeout(timer); resolve(); }, { once: true });
-    });
     if (stopBtn) stopBtn.style.display = "";
     video.classList.add("is-playing");
     status.textContent = "Đang quét... Hướng camera vào mã QR.";
@@ -313,7 +351,6 @@ async function initQrCameraScanner() {
       if (code?.data) {
         stopQrCameraScanner();
         const url = code.data;
-        // Extract token from URL or use raw value
         let token = url;
         try { const u = new URL(url); token = u.searchParams.get("token") || u.pathname.split("/").pop() || url; } catch {}
         status.textContent = "Đã nhận mã. Đang xác nhận điểm danh...";
@@ -328,13 +365,16 @@ async function initQrCameraScanner() {
     _qrCameraConsentGiven = false;
     if (err.name === "NotAllowedError") {
       status.textContent = "Camera đang bị chặn. Hãy cấp lại quyền trong cài đặt trình duyệt.";
-      openDialog({ type: "alert", title: "Cần quyền truy cập camera", body: "Nếu trước đó đã chọn Không cho phép, trình duyệt sẽ không hỏi lại. Hãy mở Cài đặt Safari/Chrome và cấp quyền Camera cho MyKIS Learning." });
+      openDialog({ type: "alert", title: "Cần quyền truy cập camera", body: "Nếu trước đó đã chọn Không cho phép, Safari sẽ không hỏi lại.\n\nĐể cấp lại: Cài đặt iPhone → Safari → Camera → Cho phép\nhoặc: Cài đặt → Quyền riêng tư → Camera → Safari → Bật." });
     } else if (err.name === "NotFoundError") {
       status.textContent = "Không tìm thấy camera phù hợp.";
       openDialog({ type: "alert", title: "Không tìm thấy camera", body: "Điện thoại không có camera phù hợp hoặc camera đang được ứng dụng khác sử dụng." });
+    } else if (err.message === "camera_render_timeout" || err.message === "camera_metadata_timeout") {
+      status.textContent = "Không thể hiển thị camera.";
+      openDialog({ type: "alert", title: "Không thể hiển thị camera", body: "Safari chưa trả khung hình camera. Vui lòng kiểm tra quyền Camera trong Cài đặt, đóng tab và mở lại MyKIS Learning trên iPhone." });
     } else {
       status.textContent = "Camera đã mở nhưng không nhận được hình ảnh.";
-      openDialog({ type: "alert", title: "Camera không hiển thị", body: "Đã mở camera nhưng không nhận được hình ảnh. Hãy đóng ứng dụng khác đang dùng camera, kiểm tra quyền Camera trong Safari/Chrome rồi thử lại." });
+      openDialog({ type: "alert", title: "Camera không hiển thị", body: "Đã mở camera nhưng không nhận được hình ảnh. Hãy đóng ứng dụng khác đang dùng camera, kiểm tra quyền Camera trong Safari rồi thử lại." });
     }
   }
 }
