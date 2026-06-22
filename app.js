@@ -364,16 +364,18 @@ async function initQrCameraScanner() {
     scanFrame();
   } catch (err) {
     stopQrCameraScanner();
-    _qrCameraConsentGiven = false;
+    const retryBtn2 = document.getElementById("qrCameraRetry");
+    if (retryBtn2) retryBtn2.style.display = "";
     if (err.name === "NotAllowedError") {
-      status.textContent = "Camera đang bị chặn. Hãy cấp lại quyền trong cài đặt trình duyệt.";
-      openDialog({ type: "alert", title: "Cần quyền truy cập camera", body: "Nếu trước đó đã chọn Không cho phép, Safari sẽ không hỏi lại.\n\nĐể cấp lại: Cài đặt iPhone → Safari → Camera → Cho phép\nhoặc: Cài đặt → Quyền riêng tư → Camera → Safari → Bật." });
+      _qrCameraConsentGiven = false;
+      status.textContent = "Camera đang bị chặn. Hãy cấp lại quyền trong cài đặt.";
+      openDialog({ type: "alert", title: "Cần quyền truy cập camera", body: "Nếu trước đó đã chọn Không cho phép, Safari sẽ không hỏi lại.\n\nĐể cấp lại quyền:\nCài đặt iPhone → Safari → Camera → Cho phép\nhoặc: Cài đặt → Quyền riêng tư & Bảo mật → Camera → Safari → Bật." });
     } else if (err.name === "NotFoundError") {
       status.textContent = "Không tìm thấy camera phù hợp.";
       openDialog({ type: "alert", title: "Không tìm thấy camera", body: "Điện thoại không có camera phù hợp hoặc camera đang được ứng dụng khác sử dụng." });
     } else if (err.message === "camera_render_timeout" || err.message === "camera_metadata_timeout") {
-      status.textContent = "Không thể hiển thị camera.";
-      openDialog({ type: "alert", title: "Không thể hiển thị camera", body: "Safari chưa trả khung hình camera. Vui lòng kiểm tra quyền Camera trong Cài đặt, đóng tab và mở lại MyKIS Learning trên iPhone." });
+      status.textContent = "Không thể hiển thị camera. Vui lòng thử lại.";
+      openDialog({ type: "alert", title: "Không thể hiển thị camera", body: "Safari chưa trả khung hình camera.\n\nVui lòng:\n1. Kiểm tra Cài đặt iPhone → Safari → Camera → Cho phép\n2. Đóng tab và mở lại MyKIS Learning\n3. Thử lại sau khi đảm bảo không có ứng dụng nào khác đang dùng camera." });
     } else {
       status.textContent = "Camera đã mở nhưng không nhận được hình ảnh.";
       openDialog({ type: "alert", title: "Camera không hiển thị", body: "Đã mở camera nhưng không nhận được hình ảnh. Hãy đóng ứng dụng khác đang dùng camera, kiểm tra quyền Camera trong Safari rồi thử lại." });
