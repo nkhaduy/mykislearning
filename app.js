@@ -519,6 +519,46 @@ async function fetchCalendarEvents(accountId) {
   render(); // show data
 }
 
+async function fetchCoursesFromApi(accountId, role) {
+  if (_coursesLoading) return;
+  _coursesLoading = true;
+  _coursesError = null;
+  _coursesAccountId = accountId;
+  try {
+    const data = await courseApiService.listCourses(accountId, role);
+    if (Array.isArray(data)) {
+      _courses = data;
+      const { localStorageAdapter } = await import("./lib/storage/localStorageAdapter.js");
+      localStorageAdapter.write("mykis.courses.v1", data);
+    }
+  } catch (err) {
+    _coursesError = String(err);
+    if (_courses === null) _courses = [];
+  } finally {
+    _coursesLoading = false;
+  }
+  render();
+}
+
+async function fetchEnrollmentsFromApi(accountId, role) {
+  if (_enrollmentsLoading) return;
+  _enrollmentsLoading = true;
+  _enrollmentsAccountId = accountId;
+  try {
+    const data = await courseApiService.listEnrollments(accountId, role);
+    if (Array.isArray(data)) {
+      _enrollments = data;
+      const { localStorageAdapter } = await import("./lib/storage/localStorageAdapter.js");
+      localStorageAdapter.write("mykis.enrollments.v1", data);
+    }
+  } catch (err) {
+    if (_enrollments === null) _enrollments = [];
+  } finally {
+    _enrollmentsLoading = false;
+  }
+  render();
+}
+
 function navigate(path) {
   stopQrCameraScanner();
   _qrScanLocationData = null;
@@ -2537,8 +2577,24 @@ function render() {
   else if (route === "/about-kis") app.innerHTML = aboutPage();
   else if (route === "/login") app.innerHTML = loginPage();
   else if (route === "/attendance/scan") app.innerHTML = attendanceScanPage(routeParams.get("token") || "");
-  else if (route === "/dashboard") app.innerHTML = hasEmployeeAccess() ? employeeDashboard(false) : session ? restrictedPage() : loginPage();
-  else if (route === "/dashboard/courses") app.innerHTML = hasEmployeeAccess() ? myCoursesPage() : session ? restrictedPage() : loginPage();
+  else if (route === "/dashboard") {
+    if (session && (!_courses || _coursesAccountId !== session.accountId) && !_coursesLoading) {
+      fetchCoursesFromApi(session.accountId, session.role);
+    }
+    if (session && session.role === "employee" && (!_enrollments || _enrollmentsAccountId !== session.accountId) && !_enrollmentsLoading) {
+      fetchEnrollmentsFromApi(session.accountId, "employee");
+    }
+    app.innerHTML = hasEmployeeAccess() ? employeeDashboard(false) : session ? restrictedPage() : loginPage();
+  }
+  else if (route === "/dashboard/courses") {
+    if (session && (!_courses || _coursesAccountId !== session.accountId) && !_coursesLoading) {
+      fetchCoursesFromApi(session.accountId, session.role);
+    }
+    if (session && session.role === "employee" && (!_enrollments || _enrollmentsAccountId !== session.accountId) && !_enrollmentsLoading) {
+      fetchEnrollmentsFromApi(session.accountId, "employee");
+    }
+    app.innerHTML = hasEmployeeAccess() ? myCoursesPage() : session ? restrictedPage() : loginPage();
+  }
   else if (route.startsWith("/dashboard/courses/")) app.innerHTML = coursePlayerPage(decodeURIComponent(route.split("/").pop()));
   else if (route === "/dashboard/quizzes") app.innerHTML = hasEmployeeAccess() ? employeeQuizzesPage() : session ? restrictedPage() : loginPage();
   else if (route === "/dashboard/gallery") app.innerHTML = galleryPageV2();
