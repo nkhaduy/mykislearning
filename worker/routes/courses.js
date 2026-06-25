@@ -29,7 +29,7 @@ export async function handleCourses(request, env) {
   // ── /api/courses/content ────────────────────────────────────────────────────
   if (path === "/api/courses/content") {
     if (method === "GET") {
-      const acct = requireAuth(request);
+      const acct = await requireAuth(request, env);
       if (!acct) return json({ error: "Unauthorized" }, 401);
 
       const courseId = url.searchParams.get("courseId");
@@ -51,7 +51,7 @@ export async function handleCourses(request, env) {
     }
 
     if (method === "POST") {
-      const acct = requireHr(request);
+      const acct = await requireHr(request, env);
       if (!acct) return json({ error: "HR only" }, 403);
       const body = await readJson(request);
       const { courseId, items } = body;
@@ -78,7 +78,7 @@ export async function handleCourses(request, env) {
     }
 
     if (method === "DELETE") {
-      const acct = requireHr(request);
+      const acct = await requireHr(request, env);
       if (!acct) return json({ error: "HR only" }, 403);
       const body = await readJson(request);
       const id = url.searchParams.get("id") || body?.id;
@@ -93,7 +93,7 @@ export async function handleCourses(request, env) {
 
   // ── /api/courses ────────────────────────────────────────────────────────────
   if (method === "GET") {
-    const acct = requireAuth(request);
+    const acct = await requireAuth(request, env);
     if (!acct) return json({ error: "Unauthorized" }, 401);
 
     if (acct.role === "hr") {
@@ -117,7 +117,7 @@ export async function handleCourses(request, env) {
   }
 
   if (method === "POST") {
-    const acct = requireHr(request);
+    const acct = await requireHr(request, env);
     if (!acct) return json({ error: "HR only" }, 403);
     const course = await readJson(request);
     if (!course?.id) return json({ error: "course.id required" }, 400);
@@ -133,14 +133,31 @@ export async function handleCourses(request, env) {
   }
 
   if (method === "DELETE") {
-    const acct = requireHr(request);
+    const acct = await requireHr(request, env);
     if (!acct) return json({ error: "HR only" }, 403);
     const body = await readJson(request);
-    const id = new URL(request.url).searchParams.get("id") || body?.id;
+    const id = url.searchParams.get("id") || body?.id;
     if (!id) return json({ error: "id required" }, 400);
-    const { error } = await supabase.from("courses").delete().eq("id", id);
-    if (error) return json({ error: error.message }, 500);
-    return json({ ok: true });
+
+    // Check if enrollments, sessions, or content exist → archive
+    const { data: enrollments } = await supabase.from("enrollments")
+      .select("id").eq("course_id", id).limit(1);
+    const { data: sessions } = await supabase.from("training_sessions")
+      .select("id").eq("course_id", id).limit(1);
+
+    const hasRelatedData = (enrollments?.length || 0) + (sessions?.length || 0) > 0;
+    if (hasRelatedData) {
+      // Soft delete: archive
+      const { error } = await supabase.from("courses")
+        .update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", id);
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true, id, status: "archived", method: "soft" });
+    } else {
+      // Hard delete if no related data
+      const { error } = await supabase.from("courses").delete().eq("id", id);
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true, id, status: "deleted", method: "hard" });
+    }
   }
 
   return methodNotAllowed();

@@ -8,7 +8,7 @@ export async function handleContentProgress(request, env) {
 
   const url = new URL(request.url);
   const supabase = getSupabase(env);
-  const acct = requireAuth(request);
+  const acct = await requireAuth(request, env);
   if (!acct) return json({ error: "Unauthorized" }, 401);
 
   if (method === "GET") {

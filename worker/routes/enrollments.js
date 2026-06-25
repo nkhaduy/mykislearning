@@ -10,7 +10,7 @@ export async function handleEnrollments(request, env) {
   const supabase = getSupabase(env);
 
   if (method === "GET") {
-    const acct = requireAuth(request);
+    const acct = await requireAuth(request, env);
     if (!acct) return json({ error: "Unauthorized" }, 401);
 
     const accountId = url.searchParams.get("accountId");
@@ -30,7 +30,7 @@ export async function handleEnrollments(request, env) {
   }
 
   if (method === "POST") {
-    const acct = requireHr(request);
+    const acct = await requireHr(request, env);
     if (!acct) return json({ error: "HR only" }, 403);
     const body = await readJson(request);
     const { enrollments } = body;
@@ -52,7 +52,7 @@ export async function handleEnrollments(request, env) {
   }
 
   if (method === "PATCH") {
-    const acct = requireAuth(request);
+    const acct = await requireAuth(request, env);
     if (!acct) return json({ error: "Unauthorized" }, 401);
     const body = await readJson(request);
     const { id, courseId, accountId, patch } = body;
@@ -76,7 +76,7 @@ export async function handleEnrollments(request, env) {
   }
 
   if (method === "DELETE") {
-    const acct = requireHr(request);
+    const acct = await requireHr(request, env);
     if (!acct) return json({ error: "HR only" }, 403);
     const body = await readJson(request);
     const id = url.searchParams.get("id") || body?.id;

@@ -13,7 +13,7 @@ export async function handleTraining(request, env) {
   // ── /api/training/sessions ──────────────────────────────────────────────────
   if (path === "/api/training/sessions") {
     if (method === "GET") {
-      const acct = requireAuth(request);
+      const acct = await requireAuth(request, env);
       if (!acct) return json({ error: "Unauthorized" }, 401);
 
       let query = supabase.from("training_sessions").select("*").order("start_at", { ascending: true });
@@ -30,7 +30,7 @@ export async function handleTraining(request, env) {
     }
 
     if (method === "POST") {
-      const acct = requireHr(request);
+      const acct = await requireHr(request, env);
       if (!acct) return json({ error: "HR only" }, 403);
       const session = await readJson(request);
       if (!session?.id) return json({ error: "session.id required" }, 400);
@@ -43,19 +43,35 @@ export async function handleTraining(request, env) {
       };
       const { error } = await supabase.from("training_sessions").upsert(row, { onConflict: "id" });
       if (error) return json({ error: error.message }, 500);
-      return json({ ok: true });
+      return json({ ok: true, id: session.id });
     }
 
     if (method === "DELETE") {
-      const acct = requireHr(request);
+      const acct = await requireHr(request, env);
       if (!acct) return json({ error: "HR only" }, 403);
       const body = await readJson(request);
-      const { id } = body;
+      const id = url.searchParams.get("id") || body?.id;
       if (!id) return json({ error: "id required" }, 400);
-      await supabase.from("training_participants").delete().eq("session_id", id);
-      const { error } = await supabase.from("training_sessions").delete().eq("id", id);
-      if (error) return json({ error: error.message }, 500);
-      return json({ ok: true });
+
+      // Check if any participants or registrations exist → soft delete
+      const { data: participants } = await supabase.from("training_participants")
+        .select("id").eq("session_id", id).limit(1);
+      const { data: registrations } = await supabase.from("training_registrations")
+        .select("id").eq("session_id", id).limit(1);
+
+      const hasRelatedData = (participants?.length || 0) + (registrations?.length || 0) > 0;
+      if (hasRelatedData) {
+        // Soft delete: mark as cancelled
+        const { error } = await supabase.from("training_sessions")
+          .update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("id", id);
+        if (error) return json({ error: error.message }, 500);
+        return json({ ok: true, id, status: "cancelled", method: "soft" });
+      } else {
+        // Hard delete if no related data
+        const { error } = await supabase.from("training_sessions").delete().eq("id", id);
+        if (error) return json({ error: error.message }, 500);
+        return json({ ok: true, id, status: "deleted", method: "hard" });
+      }
     }
 
     return methodNotAllowed();
@@ -64,7 +80,7 @@ export async function handleTraining(request, env) {
   // ── /api/training/participants ──────────────────────────────────────────────
   if (path === "/api/training/participants") {
     if (method === "GET") {
-      const acct = requireAuth(request);
+      const acct = await requireAuth(request, env);
       if (!acct) return json({ error: "Unauthorized" }, 401);
       const sessionId = url.searchParams.get("sessionId");
       if (!sessionId) return json({ error: "sessionId required" }, 400);
@@ -75,7 +91,7 @@ export async function handleTraining(request, env) {
     }
 
     if (method === "POST") {
-      const acct = requireHr(request);
+      const acct = await requireHr(request, env);
       if (!acct) return json({ error: "HR only" }, 403);
       const body = await readJson(request);
       const sessionId = body?.session_id || body?.sessionId;
@@ -124,7 +140,7 @@ export async function handleTraining(request, env) {
     }
 
     if (method === "DELETE") {
-      const acct = requireHr(request);
+      const acct = await requireHr(request, env);
       if (!acct) return json({ error: "HR only" }, 403);
       const body = await readJson(request);
       const { sessionId, accountId } = body;
@@ -140,7 +156,7 @@ export async function handleTraining(request, env) {
   // ── /api/training/calendar ──────────────────────────────────────────────────
   if (path === "/api/training/calendar") {
     if (method !== "GET") return methodNotAllowed();
-    const acct = requireAuth(request);
+    const acct = await requireAuth(request, env);
     if (!acct) return json({ error: "Unauthorized" }, 401);
     const { accountId } = acct;
 
@@ -168,7 +184,7 @@ export async function handleTraining(request, env) {
 
   // ── /api/training/registrations ─────────────────────────────────────────────
   if (path === "/api/training/registrations") {
-    const acct = requireAuth(request);
+    const acct = await requireAuth(request, env);
     if (!acct) return json({ error: "Unauthorized" }, 401);
 
     if (method === "GET") {

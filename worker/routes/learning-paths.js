@@ -346,6 +346,7 @@ async function hrUpdateStep(request, env, pathId, stepId) {
   const patch = {};
   if (body.title_override !== undefined) patch.title_override = body.title_override || null;
   if (body.description_override !== undefined) patch.description_override = body.description_override || null;
+  if (body.resource_id !== undefined) patch.resource_id = body.resource_id || null;
   if (body.is_required !== undefined) patch.is_required = Boolean(body.is_required);
   if (body.prerequisite_step_id !== undefined) patch.prerequisite_step_id = body.prerequisite_step_id || null;
   if (body.due_offset_days !== undefined) patch.due_offset_days = body.due_offset_days || null;

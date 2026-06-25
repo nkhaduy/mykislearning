@@ -1,0 +1,44 @@
+{
+  "source": {
+    "url": "https://kisvn.vn/",
+    "extractedAt": "2026-06-22T14:43:44.909Z",
+    "extractor": "dembrandt"
+  },
+  "colors": {
+    "primary": "rgb(75, 75, 78)",
+    "palette": [
+      "rgb(75, 75, 78)"
+    ],
+    "cssVariables": {}
+  },
+  "typography": {
+    "headingFont": "Montserrat",
+    "bodyFont": "Montserrat"
+  },
+  "spacing": {
+    "scale": [
+      "3.4px",
+      "6.8px",
+      "10.2px",
+      "13.6px",
+      "15.3px",
+      "16px",
+      "17px",
+      "17.4375px",
+      "20.4px",
+      "27.2px",
+      "34px",
+      "44.2px",
+      "54.4px",
+      "61.2px",
+      "85px",
+      "180.141px"
+    ]
+  },
+  "radius": {
+    "scale": []
+  },
+  "shadows": {
+    "scale": []
+  }
+}

@@ -9,7 +9,7 @@ export async function handleExternalTraining(request, env) {
   const supabase = getSupabase(env);
 
   if (method === "GET") {
-    const acct = requireAuth(request);
+    const acct = await requireAuth(request, env);
     if (!acct) return json({ error: "Unauthorized" }, 401);
     let query = supabase.from("external_training_requests").select("*").order("created_at", { ascending: false });
     if (acct.role !== "hr") query = query.eq("account_id", acct.accountId);
@@ -19,7 +19,7 @@ export async function handleExternalTraining(request, env) {
   }
 
   if (method === "POST") {
-    const acct = requireAuth(request);
+    const acct = await requireAuth(request, env);
     if (!acct) return json({ error: "Unauthorized" }, 401);
     const b = await readJson(request);
     if (![b.course_name, b.provider, b.learning_content, b.study_time].every((v) => String(v || "").trim())) {
@@ -38,11 +38,21 @@ export async function handleExternalTraining(request, env) {
     };
     const { data, error } = await supabase.from("external_training_requests").insert(row).select().single();
     if (error) return json({ error: error.message }, 500);
+    await supabase.from("hr_tasks").insert({
+      task_type: "external_training",
+      requester_account_id: acct.accountId,
+      reference_type: "external_training_request",
+      reference_id: data.id,
+      title: `Yêu cầu đào tạo bên ngoài: ${data.course_name}`,
+      description: `${data.provider} · ${data.study_time}`,
+      priority: "normal",
+      status: "new",
+    }).then(null, () => {});
     return json({ request: data }, 201);
   }
 
   if (method === "PATCH") {
-    const acct = requireHr(request);
+    const acct = await requireHr(request, env);
     if (!acct) return json({ error: "HR only" }, 403);
     const body = await readJson(request);
     const { id, status, hr_feedback } = body;
@@ -52,6 +62,12 @@ export async function handleExternalTraining(request, env) {
       reviewed_by: acct.accountId, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     }).eq("id", id).select().single();
     if (error) return json({ error: error.message }, 500);
+    await supabase.from("hr_tasks").update({
+      status: status === "rejected" ? "rejected" : status === "needs_info" ? "in_progress" : "done",
+      resolved_by: status === "needs_info" ? null : acct.accountId,
+      resolved_at: status === "needs_info" ? null : new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("task_type", "external_training").eq("reference_type", "external_training_request").eq("reference_id", id).in("status", ["new", "in_progress"]);
     return json({ request: data });
   }
 
