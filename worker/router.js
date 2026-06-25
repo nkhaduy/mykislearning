@@ -16,6 +16,7 @@ import { handleAdminOverview } from "./routes/admin-overview.js";
 import { handleAccountSupport, handleHrAccountActions } from "./routes/account-support.js";
 import { handleLearningRecords } from "./routes/learning-records.js";
 import { handleLearningPaths } from "./routes/learning-paths.js";
+import { handleCompliance } from "./routes/compliance.js";
 
 export async function handleApiRequest(request, env) {
   const url = new URL(request.url);
@@ -91,6 +92,13 @@ export async function handleApiRequest(request, env) {
       path.startsWith("/api/admin/learning-paths/") ||
       path.startsWith("/api/admin/learning-path-assignments/")
     ) return await handleLearningPaths(request, env);
+
+    if (
+      path === "/api/compliance/my" ||
+      path.startsWith("/api/compliance/my/") ||
+      path === "/api/admin/compliance/overview" ||
+      path.startsWith("/api/admin/compliance/")
+    ) return await handleCompliance(request, env);
 
     return json({ ok: false, error: "NOT_FOUND" }, 404);
   } catch (error) {

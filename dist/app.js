@@ -921,6 +921,21 @@ let _myLpLoading = false;
 let _myLpError = "";
 let _myLpDetail = null;
 let _myLpDetailAssignmentId = "";
+// ── Compliance Training state ────────────────────────────────
+let _complianceOverview = null;
+let _compliancePrograms = null;
+let _complianceCycles = null;
+let _complianceAssignments = {};
+let _complianceLoading = false;
+let _complianceError = "";
+let _complianceProgramFormOpen = false;
+let _complianceCycleFormOpen = false;
+let _complianceTargetProgramId = "";
+let _compliancePreview = null;
+let _complianceMy = null;
+let _complianceMyDetail = null;
+let _complianceMyLoading = false;
+let _complianceActionError = "";
 let _learningSubmitting = false;
 let _adminLearning = { summary: null, records: [], certifications: [], totalRecords: 0, totalCertifications: 0, page: 1, tab: "pending", status: "", q: "", loading: false, error: "" };
 let _adminLearningDetail = null;
@@ -2450,6 +2465,220 @@ async function lpApiCall(method, path, body) {
   return data;
 }
 
+// ─── Compliance Training API functions ───────────────────────────────────────
+
+async function complianceApiCall(method, path, body) {
+  const res = await fetch(path, {
+    method,
+    headers: apiHeaders({ "Content-Type": "application/json" }),
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || data.message || "request_failed");
+  return data;
+}
+
+async function fetchComplianceAdmin() {
+  if (!session || _complianceLoading) return;
+  _complianceLoading = true; _complianceError = "";
+  try {
+    const [overview, programs, cycles] = await Promise.all([
+      fetch("/api/admin/compliance/overview", { headers: apiHeaders() }).then((r) => r.json().then((b) => ({ ok: r.ok, b }))),
+      fetch("/api/admin/compliance/programs", { headers: apiHeaders() }).then((r) => r.json().then((b) => ({ ok: r.ok, b }))),
+      fetch("/api/admin/compliance/cycles", { headers: apiHeaders() }).then((r) => r.json().then((b) => ({ ok: r.ok, b }))),
+    ]);
+    for (const res of [overview, programs, cycles]) if (!res.ok) throw new Error(res.b.error || "load_failed");
+    _complianceOverview = overview.b;
+    _compliancePrograms = programs.b.data || [];
+    _complianceCycles = cycles.b.data || [];
+  } catch (e) { _complianceError = e.message || "load_failed"; }
+  finally { _complianceLoading = false; if (route.startsWith("/admin/compliance")) render(); }
+}
+
+async function fetchComplianceCycleAssignments(cycleId) {
+  if (!cycleId) return;
+  try {
+    const res = await fetch(`/api/admin/compliance/cycles/${cycleId}/assignments`, { headers: apiHeaders() });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || "load_failed");
+    _complianceAssignments[cycleId] = body.data || [];
+  } catch (e) { _complianceActionError = e.message || "load_failed"; }
+  finally { if (route.startsWith("/admin/compliance/cycles/")) render(); }
+}
+
+async function fetchMyCompliance() {
+  if (!session || _complianceMyLoading) return;
+  _complianceMyLoading = true; _complianceError = "";
+  try {
+    const res = await fetch("/api/compliance/my", { headers: apiHeaders() });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || "load_failed");
+    _complianceMy = body.data || [];
+  } catch (e) { _complianceError = e.message || "load_failed"; }
+  finally { _complianceMyLoading = false; if (route === "/dashboard/compliance") render(); }
+}
+
+async function fetchMyComplianceDetail(assignmentId) {
+  if (!session || _complianceMyLoading) return;
+  _complianceMyLoading = true; _complianceError = "";
+  try {
+    const res = await fetch(`/api/compliance/my/${assignmentId}`, { headers: apiHeaders() });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || "load_failed");
+    _complianceMyDetail = body;
+  } catch (e) { _complianceError = e.message || "load_failed"; }
+  finally { _complianceMyLoading = false; if (route.startsWith("/dashboard/compliance/")) render(); }
+}
+
+function complianceStatusLabel(status) {
+  const labels = {
+    vi: { draft: "Nháp", published: "Đã công bố", archived: "Lưu trữ", active: "Đang hoạt động", scheduled: "Đã lên lịch", closed: "Đã đóng", cancelled: "Đã hủy", not_started: "Chưa bắt đầu", in_progress: "Đang học", completed: "Hoàn thành", overdue: "Quá hạn", failed: "Không đạt", exempted: "Miễn trừ" },
+    en: { draft: "Draft", published: "Published", archived: "Archived", active: "Active", scheduled: "Scheduled", closed: "Closed", cancelled: "Cancelled", not_started: "Not started", in_progress: "In progress", completed: "Completed", overdue: "Overdue", failed: "Failed", exempted: "Exempted" },
+    kr: { draft: "초안", published: "공개됨", archived: "보관됨", active: "진행 중", scheduled: "예약됨", closed: "종료됨", cancelled: "취소됨", not_started: "시작 전", in_progress: "학습 중", completed: "완료", overdue: "기한 초과", failed: "불합격", exempted: "면제" },
+  };
+  return labels[language]?.[status] || labels.vi[status] || status || "—";
+}
+
+function complianceBadge(status) {
+  const cls = ({ completed: "success", published: "active", active: "active", in_progress: "active", overdue: "danger", failed: "danger", exempted: "muted", archived: "muted", cancelled: "muted" })[status] || "pending";
+  return `<span class="badge ${cls}">${complianceStatusLabel(status)}</span>`;
+}
+
+function complianceResourceTitle(item) {
+  const type = item.resourceType || item.resource_type;
+  const id = item.resourceId || item.resource_id;
+  if (type === "course") return (_courses || []).find((c) => c.id === id)?.title || id;
+  if (type === "learning_path") return (_lpList || []).find((p) => p.id === id)?.title || id;
+  return id || "—";
+}
+
+function adminCompliancePage() {
+  if (!hasAdminAccess()) return restrictedPage();
+  const c = t("compliance");
+  const programs = _compliancePrograms || [];
+  const cycles = _complianceCycles || [];
+  const overview = _complianceOverview || {};
+  const kpis = [
+    [c.activePrograms || "Active programs", overview.activePrograms ?? "—"],
+    [c.assignedEmployees || "Assigned employees", overview.assignedEmployees ?? "—"],
+    [c.completedOnTime || "Completed on time", overview.completedOnTime ?? "—"],
+    [c.overdue, overview.overdue ?? "—"],
+    [c.failed, overview.failed ?? "—"],
+    [c.dueSoon || "Due soon", overview.dueSoon ?? "—"],
+  ].map(([label, value]) => `<div class="compliance-kpi"><span>${label}</span><strong>${value}</strong></div>`).join("");
+
+  const rows = programs.map((p) => {
+    const activeCycle = cycles.find((c) => c.programId === p.id && c.status === "active");
+    return `<tr>
+      <td><strong>${escapeHtml(p.code)}</strong><small>${escapeHtml(p.title)}</small></td>
+      <td>${escapeHtml(complianceResourceTitle(p))}</td>
+      <td>${escapeHtml(p.recurrenceType || "one_time")}</td>
+      <td>${complianceBadge(p.status)}</td>
+      <td>${activeCycle ? `<a href="/admin/compliance/cycles/${activeCycle.id}" data-link>${escapeHtml(activeCycle.title)}</a>` : "—"}</td>
+      <td>${p.updatedAt ? formatDateTime(p.updatedAt) : "—"}</td>
+    </tr>`;
+  }).join("");
+
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D",c.title,"hr")}<div class="content route-content">
+    <section class="compliance-head"><div><h1>${c.title}</h1><p>${c.adminIntro || "Manage compliance programs, cycles, targets, and completion evidence."}</p></div>
+      <div class="compliance-actions"><button class="btn btn-outline" data-compliance-reload>${c.retry}</button><button class="btn btn-primary" data-compliance-new-program>${c.createProgram || "Create program"}</button></div></section>
+    ${_complianceError ? `<div class="card empty-state"><p>${c.loadError}</p><button class="btn btn-outline" data-compliance-reload>${c.retry}</button></div>` : ""}
+    ${_complianceLoading && !programs.length ? `<div class="hr-overview-skeleton">${Array(6).fill("<span></span>").join("")}</div>` : `<section class="compliance-kpi-grid">${kpis}</section>`}
+    <section class="card compliance-panel"><div class="panel-head"><h2>${c.program}</h2><button class="btn btn-primary" data-compliance-new-cycle ${programs.some((p) => p.status === "published") ? "" : "disabled"}>${c.createCycle || "Create cycle"}</button></div>
+      ${programs.length ? `<div class="table-wrap"><table><thead><tr><th>${c.codeName || "Code / title"}</th><th>Resource</th><th>${c.recurrence}</th><th>${c.status || "Status"}</th><th>${c.activeCycle || "Active cycle"}</th><th>${c.updated || "Updated"}</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty-state"><h3>${c.emptyPrograms}</h3></div>`}
+    </section>
+    <section class="compliance-cycle-grid">${cycles.slice(0, 8).map((cy) => `<article class="card compliance-cycle-card"><div><h3>${escapeHtml(cy.title)}</h3><p>${escapeHtml(cy.cycleCode)} · ${escapeHtml(cy.program?.code || "")}</p></div>${complianceBadge(cy.status)}<dl><div><dt>${c.deadline}</dt><dd>${new Date(cy.dueAt).toLocaleDateString(language==="kr"?"ko-KR":language==="en"?"en-US":"vi-VN")}</dd></div><div><dt>${c.passScore}</dt><dd>${cy.passScore || "—"}</dd></div></dl><a class="btn btn-outline" href="/admin/compliance/cycles/${cy.id}" data-link>${c.monitor || "Monitor"}</a></article>`).join("")}</section>
+    ${complianceProgramModal()}${complianceCycleModal()}
+  </div></main></div>`;
+}
+
+function complianceProgramModal() {
+  if (!_complianceProgramFormOpen) return "";
+  const c = t("compliance");
+  const courses = (_courses || []).filter((c) => c.status === "published");
+  const paths = (_lpList || []).filter((p) => p.status === "published");
+  return `<div class="modal-backdrop open"><form id="complianceProgramForm" class="modal modal--large modal--structured" role="dialog" aria-modal="true">
+    <header class="modal__header"><div><h2>${c.createProgram || "Create program"}</h2></div><button type="button" class="icon-btn" data-compliance-close>×</button></header>
+    <div class="modal__body">
+      <div class="form-2col"><div class="field"><label>${c.programCode || "Program code"}</label><input name="code" required placeholder="AML-2026"></div><div class="field"><label>${c.programName || "Program name"}</label><input name="title" required></div></div>
+      <div class="field"><label>${c.description || "Description"}</label><textarea name="description" rows="3"></textarea></div>
+      <div class="form-2col"><div class="field"><label>Resource type</label><select name="resourceType"><option value="course">${c.course || "Course"}</option><option value="learning_path">${c.learningPath || "Learning Path"}</option></select></div><div class="field"><label>${c.resource || "Resource"}</label><select name="resourceId">${courses.map((course) => `<option value="${escapeHtmlAttribute(course.id)}">${escapeHtml(course.title || course.id)}</option>`).join("")}${paths.map((p) => `<option value="${escapeHtmlAttribute(p.id)}" data-kind="learning_path">${escapeHtml(p.title || p.id)}</option>`).join("")}</select></div></div>
+      <div class="form-2col"><div class="field"><label>${c.recurrence}</label><select name="recurrenceType"><option value="one_time">${c.oneTime || "One-time"}</option><option value="annual">${c.annual || "Annual"}</option><option value="semiannual">${c.semiannual || "Semiannual"}</option><option value="custom_months">${c.customMonths || "Custom months"}</option></select></div><div class="field"><label>${c.defaultDuration || "Default duration (days)"}</label><input name="defaultDurationDays" type="number" min="1" value="30"></div></div>
+      <div class="form-2col"><div class="field"><label>${c.passScore}</label><input name="defaultPassScore" type="number" min="0" max="100" value="0"></div><div class="field"><label>${c.attempts}</label><input name="defaultMaxAttempts" type="number" min="0" value="0"></div></div>
+      <div class="form-2col"><div class="field"><label>${c.gracePeriod}</label><input name="defaultGracePeriodDays" type="number" min="0" value="0"></div><label class="setting-row"><span>${c.retrainOnChange || "Retrain when resource changes"}</span><input name="requiresRetrainingOnResourceChange" type="checkbox"></label></div>
+      <div class="field"><label>${c.target || "Target"}</label><select name="targetType"><option value="individual">${c.targetIndividual}</option><option value="all_employees">${c.targetAll}</option><option value="department">${c.targetDepartment}</option><option value="job_title">${c.targetJobTitle}</option></select></div>
+      <div class="field"><label>Target value</label><input name="targetValue" placeholder="employee id / phòng ban / chức danh"></div>
+      <div class="field-error" role="alert">${escapeHtml(_complianceActionError)}</div>
+    </div>
+    <footer class="modal__footer"><button type="button" class="btn btn-outline" data-compliance-close>${t("content.cancel")}</button><button class="btn btn-primary">${c.createProgram || "Create program"}</button></footer>
+  </form></div>`;
+}
+
+function complianceCycleModal() {
+  if (!_complianceCycleFormOpen) return "";
+  const c = t("compliance");
+  const programs = (_compliancePrograms || []).filter((p) => p.status === "published");
+  return `<div class="modal-backdrop open"><form id="complianceCycleForm" class="modal modal--large modal--structured" role="dialog" aria-modal="true">
+    <header class="modal__header"><div><h2>${c.createCycle || "Create cycle"}</h2></div><button type="button" class="icon-btn" data-compliance-cycle-close>×</button></header>
+    <div class="modal__body">
+      <div class="field"><label>${c.program}</label><select name="programId">${programs.map((p) => `<option value="${escapeHtmlAttribute(p.id)}">${escapeHtml(p.code)} — ${escapeHtml(p.title)}</option>`).join("")}</select></div>
+      <div class="form-2col"><div class="field"><label>${c.cycleCode || "Cycle code"}</label><input name="cycleCode" required placeholder="AML-2026"></div><div class="field"><label>${c.cycle}</label><input name="title" required></div></div>
+      <div class="form-2col"><div class="field"><label>${c.startDate || "Start date"}</label><input name="startAt" type="datetime-local" required></div><div class="field"><label>${c.deadline}</label><input name="dueAt" type="datetime-local" required></div></div>
+      <div class="form-2col"><div class="field"><label>${c.passScore}</label><input name="passScore" type="number" min="0" max="100"></div><div class="field"><label>${c.attempts}</label><input name="maxAttempts" type="number" min="0"></div></div>
+      <div class="field-error" role="alert">${escapeHtml(_complianceActionError)}</div>
+    </div>
+    <footer class="modal__footer"><button type="button" class="btn btn-outline" data-compliance-cycle-close>${t("content.cancel")}</button><button class="btn btn-primary">${c.createCycle || "Create cycle"}</button></footer>
+  </form></div>`;
+}
+
+function adminComplianceCyclePage() {
+  if (!hasAdminAccess()) return restrictedPage();
+  const c = t("compliance");
+  const cycleId = route.split("/")[4];
+  const cycle = (_complianceCycles || []).find((c) => c.id === cycleId);
+  const assignments = _complianceAssignments[cycleId] || [];
+  if (!cycle) return `<div class="app-layout">${sideNav("hr")}<main class="app-main"><div class="content"><div class="hr-overview-skeleton">${Array(5).fill("<span></span>").join("")}</div></div></main></div>`;
+  const counts = ["not_started", "in_progress", "completed", "overdue", "failed", "exempted"].map((s) => [s, assignments.filter((a) => a.status === s).length]);
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D",cycle.title,"hr")}<div class="content route-content">
+    <a href="/admin/compliance" data-link class="btn btn-ghost">← ${c.title}</a>
+    <section class="compliance-head"><div><h1>${escapeHtml(cycle.title)}</h1><p>${escapeHtml(cycle.cycleCode)} · ${c.deadline} ${new Date(cycle.dueAt).toLocaleDateString(language==="kr"?"ko-KR":language==="en"?"en-US":"vi-VN")}</p></div><div class="compliance-actions">${complianceBadge(cycle.status)}<button class="btn btn-outline" data-compliance-preview="${escapeHtmlAttribute(cycle.id)}">${c.preview || "Preview target"}</button><button class="btn btn-primary" data-compliance-activate="${escapeHtmlAttribute(cycle.id)}">${c.activateAssign || "Activate & assign"}</button></div></section>
+    ${_compliancePreview ? `<section class="card compliance-preview"><strong>${_compliancePreview.willCreate} assignment mới</strong><span>${_compliancePreview.alreadyAssigned} đã tồn tại</span><span>${_compliancePreview.totalMatched} nhân viên phù hợp</span></section>` : ""}
+    <section class="compliance-kpi-grid">${counts.map(([s, n]) => `<div class="compliance-kpi"><span>${complianceStatusLabel(s)}</span><strong>${n}</strong></div>`).join("")}</section>
+    <section class="card compliance-panel"><div class="panel-head"><h2>${c.assignmentMonitoring || "Assignment monitoring"}</h2><button class="btn btn-outline" data-compliance-load-assignments="${escapeHtmlAttribute(cycle.id)}">${c.retry}</button></div>
+      <div class="table-wrap"><table><thead><tr><th>${c.employee || "Employee"}</th><th>${c.targetDepartment}</th><th>${c.targetJobTitle}</th><th>${c.progress || "Progress"}</th><th>${c.deadline}</th><th>${c.status || "Status"}</th><th>Action</th></tr></thead><tbody>${assignments.map((a) => `<tr><td>${escapeHtml(a.data?.employeeName || a.employeeId)}</td><td>${escapeHtml(a.data?.department || "—")}</td><td>${escapeHtml(a.data?.jobTitle || "—")}</td><td>${a.progressPercent}%</td><td>${new Date(a.dueAt).toLocaleDateString(language==="kr"?"ko-KR":language==="en"?"en-US":"vi-VN")}</td><td>${complianceBadge(a.status)}</td><td><button class="btn btn-outline mini-action" data-compliance-exempt="${escapeHtmlAttribute(a.id)}">${c.exempt}</button><button class="btn btn-outline mini-action" data-compliance-manual="${escapeHtmlAttribute(a.id)}">${c.manualComplete}</button></td></tr>`).join("") || `<tr><td colspan="7">${c.emptyTargets}</td></tr>`}</tbody></table></div>
+    </section>
+  </div></main></div>`;
+}
+
+function myCompliancePage() {
+  if (!hasEmployeeAccess()) return session ? restrictedPage() : loginPage();
+  const labels = t("compliance");
+  const items = (_complianceMy || []).slice().sort((a, b) => {
+    const rank = { overdue: 0, in_progress: 1, not_started: 2, failed: 3, completed: 4, exempted: 5 };
+    return (rank[a.status] ?? 9) - (rank[b.status] ?? 9) || new Date(a.dueAt) - new Date(b.dueAt);
+  });
+  const card = (a) => {
+    const cy = a.cycle || {};
+    const p = cy.program || {};
+    const days = Math.ceil((new Date(a.dueAt).getTime() - Date.now()) / 86400000);
+    const cta = a.status === "completed" ? labels.viewResult : a.status === "not_started" ? labels.start : labels.continue;
+    const dayText = days < 0 ? `${labels.overdue} ${Math.abs(days)}` : days === 0 ? labels.dueToday : `${labels.daysLeft || "Days left"} ${days}`;
+    return `<article class="card compliance-my-card ${a.status === "overdue" ? "is-overdue" : ""}"><div><h2>${escapeHtml(p.title || cy.title || labels.title)}</h2><p>${escapeHtml(cy.title || "")}</p>${lpProgressBar(a.progressPercent || 0, true)}<div class="lp-my-meta"><span>${complianceBadge(a.status)}</span><span>${dayText}</span></div></div><a class="btn btn-primary" href="/dashboard/compliance/${a.id}" data-link>${cta}</a></article>`;
+  };
+  return `<div class="app-layout">${sideNav("employee")}<main class="app-main">${topbar(t("learning.learning"),labels.title,"employee")}<div class="content route-content"><section class="compliance-head"><div><h1>${labels.title}</h1><p>${labels.employeeIntro || "Track mandatory compliance items and deadlines."}</p></div><button class="btn btn-outline" data-my-compliance-reload>${labels.retry}</button></section>${_complianceError ? `<div class="card empty-state"><p>${labels.loadError}</p></div>` : ""}${_complianceMyLoading && !items.length ? `<div class="hr-overview-skeleton">${Array(4).fill("<span></span>").join("")}</div>` : items.length ? `<div class="lp-my-grid">${items.map(card).join("")}</div>` : `<div class="card empty-state"><h3>${labels.emptyEmployee}</h3></div>`}</div></main></div>`;
+}
+
+function myComplianceDetailPage() {
+  if (!hasEmployeeAccess()) return session ? restrictedPage() : loginPage();
+  const labels = t("compliance");
+  const assignmentId = route.split("/")[3];
+  const detail = _complianceMyDetail;
+  if (_complianceMyLoading || !detail?.assignment || detail.assignment.id !== assignmentId) return `<div class="app-layout">${sideNav("employee")}<main class="app-main"><div class="content"><div class="hr-overview-skeleton">${Array(5).fill("<span></span>").join("")}</div></div></main></div>`;
+  const a = detail.assignment, cy = a.cycle || {}, p = cy.program || {};
+  const target = cy.resourceType === "course" ? `/dashboard/courses/${cy.resourceId}` : `/dashboard/learning-paths`;
+  return `<div class="app-layout">${sideNav("employee")}<main class="app-main">${topbar(t("learning.learning"),p.title || labels.title,"employee")}<div class="content route-content"><a href="/dashboard/compliance" data-link class="btn btn-ghost">← ${labels.title}</a><section class="card compliance-detail"><div class="panel-head"><div><h1>${escapeHtml(p.title || labels.title)}</h1><p>${escapeHtml(cy.title || "")}</p></div>${complianceBadge(a.status)}</div><dl class="compliance-detail-grid"><div><dt>${labels.reason}</dt><dd>${escapeHtml(p.description || labels.mandatory)}</dd></div><div><dt>${labels.deadline}</dt><dd>${new Date(a.dueAt).toLocaleDateString(language==="kr"?"ko-KR":language==="en"?"en-US":"vi-VN")}</dd></div><div><dt>${labels.gracePeriod}</dt><dd>${a.graceUntil ? new Date(a.graceUntil).toLocaleDateString(language==="kr"?"ko-KR":language==="en"?"en-US":"vi-VN") : "—"}</dd></div><div><dt>Resource</dt><dd>${escapeHtml(complianceResourceTitle(cy))}</dd></div><div><dt>${labels.passScore}</dt><dd>${cy.passScore || "—"}</dd></div><div><dt>${labels.attempts}</dt><dd>${a.attemptCount || 0}${cy.maxAttempts ? ` / ${cy.maxAttempts}` : ""}</dd></div></dl>${lpProgressBar(a.progressPercent || 0)}<div class="compliance-actions"><button class="btn btn-outline" data-compliance-start="${escapeHtmlAttribute(a.id)}">${labels.start || "Start"}</button><a class="btn btn-primary" href="${escapeHtmlAttribute(target)}" data-link>${labels.goToResource || "Go to resource"}</a><button class="btn btn-outline" data-compliance-sync="${escapeHtmlAttribute(a.id)}">${labels.sync || "Sync result"}</button></div>${_complianceActionError ? `<p class="field-error" role="alert">${escapeHtml(_complianceActionError)}</p>` : ""}<h2>${labels.completion}</h2>${(detail.completionRecords || []).map((r) => `<div class="compliance-record"><strong>${escapeHtml(r.completion_source)}</strong><span>${formatDateTime(r.completed_at)} · ${r.was_completed_on_time ? (labels.onTime || "On time") : (labels.late || "Late")}</span></div>`).join("") || `<div class="empty-state">${labels.noEvidence || "No completion evidence yet."}</div>`}</section></div></main></div>`;
+}
+
 // ─── HR Learning Path Pages ───────────────────────────────────────────────────
 
 function lpStatusBadge(status) {
@@ -3344,12 +3573,12 @@ function sideNav(role) {
   const groups = role === "hr"
     ? [
         ["TỔNG QUAN", [["/admin","Tổng quan"],["/admin/reports","Báo cáo đào tạo"]]],
-        ["ĐÀO TẠO", [["/admin/learning-records","Hồ sơ học tập"],["/admin/courses","Khóa học"],["/admin/sessions","Lớp trực tiếp"],["/admin/assign","Giao khóa học"],["/admin/quizzes","Bài kiểm tra"],["/admin/learning-paths","Lộ trình học tập"]]],
+        ["ĐÀO TẠO", [["/admin/learning-records","Hồ sơ học tập"],["/admin/courses","Khóa học"],["/admin/sessions","Lớp trực tiếp"],["/admin/assign","Giao khóa học"],["/admin/quizzes","Bài kiểm tra"],["/admin/learning-paths","Lộ trình học tập"],["/admin/compliance",t("compliance.title")]]],
         ["QUẢN TRỊ NỘI DUNG", [["/admin/gallery","Ảnh"],["/admin/notifications","Thông báo"]]],
         ["NHÂN SỰ", [["/admin/employees","Nhân viên"],["/admin/accounts","Tài khoản & Mật khẩu"]]],
       ]
     : [
-        ["HỌC TẬP", [["/dashboard","Tổng quan"],["/dashboard/courses","Khóa học của tôi"],["/dashboard/learning-paths","Lộ trình của tôi"],["/dashboard/quizzes","Bài kiểm tra"],["/dashboard/calendar","Lịch học"],["/dashboard/learning-history","Lịch sử học tập"]]],
+        ["HỌC TẬP", [["/dashboard","Tổng quan"],["/dashboard/courses","Khóa học của tôi"],["/dashboard/learning-paths","Lộ trình của tôi"],["/dashboard/compliance",t("compliance.title")],["/dashboard/quizzes","Bài kiểm tra"],["/dashboard/calendar","Lịch học"],["/dashboard/learning-history","Lịch sử học tập"]]],
         ["THƯ VIỆN", [["/dashboard/resources","Tài liệu"],["/dashboard/gallery","Ảnh"]]],
       ];
   const items = groups.flatMap(x => x[1]);
@@ -4671,6 +4900,22 @@ function render() {
   else if (route === "/admin/reports") app.innerHTML = hasAdminAccess() ? reportsPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/learning-records") app.innerHTML = hasAdminAccess() ? adminLearningPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/certifications") { history.replaceState({}, "", "/admin/learning-records"); route="/admin/learning-records"; app.innerHTML = hasAdminAccess() ? adminLearningPage() : session ? restrictedPage() : loginPage(); }
+  else if (route === "/admin/compliance") {
+    if (hasAdminAccess()) {
+      if ((!_courses || _coursesAccountId !== session.accountId) && !_coursesLoading) fetchCoursesFromApi(session.accountId, session.role);
+      if (!_lpListLoading) fetchLearningPathList();
+      if (!_complianceLoading) fetchComplianceAdmin();
+      app.innerHTML = adminCompliancePage();
+    } else app.innerHTML = session ? restrictedPage() : loginPage();
+  }
+  else if (route.startsWith("/admin/compliance/cycles/")) {
+    if (hasAdminAccess()) {
+      const cycleId = route.split("/")[4];
+      if (!_complianceLoading && !_complianceCycles) fetchComplianceAdmin();
+      if (cycleId && !_complianceAssignments[cycleId]) fetchComplianceCycleAssignments(cycleId);
+      app.innerHTML = adminComplianceCyclePage();
+    } else app.innerHTML = session ? restrictedPage() : loginPage();
+  }
   else if (route === "/admin/learning-paths") {
     if (hasAdminAccess()) { if (!_lpListLoading) fetchLearningPathList(); app.innerHTML = adminLearningPathsPage(); }
     else app.innerHTML = session ? restrictedPage() : loginPage();
@@ -4685,6 +4930,14 @@ function render() {
   }
   else if (route.startsWith("/dashboard/learning-paths/")) {
     if (hasEmployeeAccess()) { const aid = route.split("/")[3]; if (aid && !_lpDetailLoading) fetchMyLpDetail(aid); app.innerHTML = myLpDetailPage(); }
+    else app.innerHTML = session ? restrictedPage() : loginPage();
+  }
+  else if (route === "/dashboard/compliance") {
+    if (hasEmployeeAccess()) { if (!_complianceMyLoading) fetchMyCompliance(); app.innerHTML = myCompliancePage(); }
+    else app.innerHTML = session ? restrictedPage() : loginPage();
+  }
+  else if (route.startsWith("/dashboard/compliance/")) {
+    if (hasEmployeeAccess()) { const aid = route.split("/")[3]; if (aid && !_complianceMyLoading) fetchMyComplianceDetail(aid); app.innerHTML = myComplianceDetailPage(); }
     else app.innerHTML = session ? restrictedPage() : loginPage();
   }
   else if (route === "/admin/gallery") app.innerHTML = adminGalleryPageV2();
@@ -5016,6 +5269,101 @@ const {localStorageAdapter:lsa}=await import("./lib/storage/localStorageAdapter.
   document.querySelector("[data-notification-prev]")?.addEventListener("click",()=>{const typed=getNotifications(session.accountId).filter(n=>notificationFilter==="all"||(notificationFilter==="unread"?!n.isRead:String(n.type||"").includes(notificationFilter)));const index=typed.findIndex(n=>n.id===selectedNotificationId);if(index>0){selectedNotificationId=typed[index-1].id;markAsRead(selectedNotificationId);notificationService.markRead(selectedNotificationId,session.accountId).catch(()=>{});render();}});
   document.querySelector("[data-notification-next]")?.addEventListener("click",()=>{const typed=getNotifications(session.accountId).filter(n=>notificationFilter==="all"||(notificationFilter==="unread"?!n.isRead:String(n.type||"").includes(notificationFilter)));const index=typed.findIndex(n=>n.id===selectedNotificationId);if(index>=0&&index<typed.length-1){selectedNotificationId=typed[index+1].id;markAsRead(selectedNotificationId);notificationService.markRead(selectedNotificationId,session.accountId).catch(()=>{});render();}});
   document.querySelectorAll("[data-auth-target]").forEach(el=>el.addEventListener("click",event=>{event.preventDefault();const target=el.dataset.authTarget||"/dashboard";navigateWithAuth(target,el.dataset.authRole||"employee");}));
+  document.querySelectorAll("[data-compliance-reload]").forEach((el) => el.addEventListener("click", () => {
+    _compliancePrograms = null; _complianceCycles = null; _complianceOverview = null; fetchComplianceAdmin(); render();
+  }));
+  document.querySelector("[data-compliance-new-program]")?.addEventListener("click", () => {
+    _complianceProgramFormOpen = true; _complianceActionError = ""; render();
+  });
+  document.querySelectorAll("[data-compliance-close]").forEach((el) => el.addEventListener("click", () => {
+    _complianceProgramFormOpen = false; _complianceActionError = ""; render();
+  }));
+  document.getElementById("complianceProgramForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const fd = new FormData(event.currentTarget);
+    const resourceSelect = event.currentTarget.querySelector("[name=resourceId]");
+    const selected = resourceSelect?.selectedOptions?.[0];
+    const resourceType = selected?.dataset?.kind || String(fd.get("resourceType") || "course");
+    try {
+      const created = await complianceApiCall("POST", "/api/admin/compliance/programs", {
+        code: fd.get("code"), title: fd.get("title"), description: fd.get("description"),
+        resourceType, resourceId: fd.get("resourceId"), recurrenceType: fd.get("recurrenceType"),
+        defaultDurationDays: Number(fd.get("defaultDurationDays") || 30),
+        defaultPassScore: Number(fd.get("defaultPassScore") || 0),
+        defaultMaxAttempts: Number(fd.get("defaultMaxAttempts") || 0),
+        defaultGracePeriodDays: Number(fd.get("defaultGracePeriodDays") || 0),
+        requiresRetrainingOnResourceChange: fd.get("requiresRetrainingOnResourceChange") === "on",
+      });
+      const targetType = String(fd.get("targetType") || "individual");
+      await complianceApiCall("POST", `/api/admin/compliance/programs/${created.id}/targets`, {
+        targetType,
+        targetValue: targetType === "all_employees" ? null : fd.get("targetValue"),
+      });
+      await complianceApiCall("POST", `/api/admin/compliance/programs/${created.id}/publish`, {});
+      _complianceProgramFormOpen = false; _compliancePrograms = null; _complianceCycles = null;
+      await fetchComplianceAdmin();
+      toast("success");
+    } catch (e) {
+      _complianceActionError = e.message || "request_failed"; render();
+    }
+  });
+  document.querySelector("[data-compliance-new-cycle]")?.addEventListener("click", () => {
+    _complianceCycleFormOpen = true; _complianceActionError = ""; render();
+  });
+  document.querySelectorAll("[data-compliance-cycle-close]").forEach((el) => el.addEventListener("click", () => {
+    _complianceCycleFormOpen = false; _complianceActionError = ""; render();
+  }));
+  document.getElementById("complianceCycleForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const fd = new FormData(event.currentTarget);
+    try {
+      await complianceApiCall("POST", "/api/admin/compliance/cycles", {
+        programId: fd.get("programId"), cycleCode: fd.get("cycleCode"), title: fd.get("title"),
+        startAt: fd.get("startAt"), dueAt: fd.get("dueAt"),
+        passScore: fd.get("passScore") ? Number(fd.get("passScore")) : undefined,
+        maxAttempts: fd.get("maxAttempts") ? Number(fd.get("maxAttempts")) : undefined,
+      });
+      _complianceCycleFormOpen = false; _complianceCycles = null; await fetchComplianceAdmin(); toast("success");
+    } catch (e) { _complianceActionError = e.message || "request_failed"; render(); }
+  });
+  document.querySelectorAll("[data-compliance-preview]").forEach((el) => el.addEventListener("click", async () => {
+    try { _compliancePreview = await complianceApiCall("GET", `/api/admin/compliance/cycles/${el.dataset.compliancePreview}/preview-target`); render(); }
+    catch (e) { _complianceActionError = e.message || "request_failed"; render(); }
+  }));
+  document.querySelectorAll("[data-compliance-activate]").forEach((el) => el.addEventListener("click", async () => {
+    const id = el.dataset.complianceActivate;
+    try {
+      await complianceApiCall("POST", `/api/admin/compliance/cycles/${id}/activate`, {});
+      await complianceApiCall("POST", `/api/admin/compliance/cycles/${id}/assign`, {});
+      _complianceCycles = null; await fetchComplianceAdmin(); await fetchComplianceCycleAssignments(id); toast("success");
+    } catch (e) { _complianceActionError = e.message || "request_failed"; render(); }
+  }));
+  document.querySelectorAll("[data-compliance-load-assignments]").forEach((el) => el.addEventListener("click", () => fetchComplianceCycleAssignments(el.dataset.complianceLoadAssignments)));
+  document.querySelectorAll("[data-compliance-exempt]").forEach((el) => el.addEventListener("click", async () => {
+    const reason = prompt("Nhập lý do miễn trừ");
+    if (!reason) return;
+    try { await complianceApiCall("POST", `/api/admin/compliance/assignments/${el.dataset.complianceExempt}/exempt`, { reason }); _complianceAssignments = {}; render(); }
+    catch (e) { _complianceActionError = e.message || "request_failed"; render(); }
+  }));
+  document.querySelectorAll("[data-compliance-manual]").forEach((el) => el.addEventListener("click", async () => {
+    const reason = prompt("Nhập lý do xác nhận thủ công");
+    if (!reason) return;
+    const evidence = prompt("Nhập bằng chứng/ghi chú xác nhận");
+    if (!evidence) return;
+    try { await complianceApiCall("POST", `/api/admin/compliance/assignments/${el.dataset.complianceManual}/manual-complete`, { reason, evidence }); _complianceAssignments = {}; render(); }
+    catch (e) { _complianceActionError = e.message || "request_failed"; render(); }
+  }));
+  document.querySelector("[data-my-compliance-reload]")?.addEventListener("click", () => {
+    _complianceMy = null; fetchMyCompliance(); render();
+  });
+  document.querySelectorAll("[data-compliance-start]").forEach((el) => el.addEventListener("click", async () => {
+    try { await complianceApiCall("POST", `/api/compliance/my/${el.dataset.complianceStart}/start`, {}); await fetchMyComplianceDetail(el.dataset.complianceStart); }
+    catch (e) { _complianceActionError = e.message || "request_failed"; render(); }
+  }));
+  document.querySelectorAll("[data-compliance-sync]").forEach((el) => el.addEventListener("click", async () => {
+    try { await complianceApiCall("POST", `/api/compliance/my/${el.dataset.complianceSync}/sync`, {}); await fetchMyComplianceDetail(el.dataset.complianceSync); toast("success"); }
+    catch (e) { _complianceActionError = e.message || "RESOURCE_NOT_COMPLETED"; render(); }
+  }));
   document.querySelector("[data-create-album]")?.addEventListener("click",()=>{selectedAlbumId="";galleryEditorOpen=true;render();});
   document.querySelectorAll("[data-edit-album]").forEach(el=>el.addEventListener("click",()=>{selectedAlbumId=el.dataset.editAlbum;galleryEditorOpen=true;render();}));
   document.querySelectorAll("[data-close-album-editor]").forEach(el=>el.addEventListener("click",()=>{galleryEditorOpen=false;selectedAlbumId="";render();}));

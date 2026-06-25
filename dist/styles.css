@@ -8130,3 +8130,160 @@ body { overflow-x: clip; }
 @media (prefers-reduced-motion: reduce) {
   .lp-my-card, .lp-step-row { transition: none; }
 }
+
+/* Compliance Training */
+.compliance-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.compliance-head h1 {
+  margin: 0 0 6px;
+  font-size: 1.5rem;
+  line-height: 1.25;
+}
+.compliance-head p {
+  margin: 0;
+  color: var(--color-muted);
+  max-width: 68ch;
+}
+.compliance-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+}
+.compliance-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.compliance-kpi {
+  min-height: 84px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.compliance-kpi span {
+  color: var(--color-muted);
+  font-size: .84rem;
+  line-height: 1.35;
+}
+.compliance-kpi strong {
+  font-size: 1.55rem;
+  line-height: 1;
+}
+.compliance-panel {
+  padding: 16px;
+  margin-bottom: 18px;
+}
+.compliance-panel table td small {
+  display: block;
+  color: var(--color-muted);
+  margin-top: 3px;
+}
+.compliance-cycle-grid,
+.lp-my-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+.compliance-cycle-card {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.compliance-cycle-card h3,
+.compliance-my-card h2 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+.compliance-cycle-card p,
+.compliance-my-card p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: .88rem;
+}
+.compliance-cycle-card dl,
+.compliance-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+.compliance-cycle-card dt,
+.compliance-detail-grid dt {
+  color: var(--color-muted);
+  font-size: .78rem;
+}
+.compliance-cycle-card dd,
+.compliance-detail-grid dd {
+  margin: 2px 0 0;
+  font-weight: 650;
+}
+.compliance-preview {
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.compliance-my-card {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  justify-content: space-between;
+}
+.compliance-my-card.is-overdue {
+  border-color: var(--color-danger, #c62828);
+  background: color-mix(in srgb, var(--color-danger, #c62828) 5%, var(--card-bg));
+}
+.compliance-detail {
+  margin-top: 16px;
+  padding: 18px;
+}
+.compliance-detail-grid {
+  margin: 16px 0;
+}
+.compliance-record {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  font-size: .9rem;
+}
+.compliance-record span {
+  color: var(--color-muted);
+}
+@media (max-width: 760px) {
+  .compliance-head {
+    flex-direction: column;
+  }
+  .compliance-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .compliance-actions .btn,
+  .compliance-my-card .btn {
+    min-height: 44px;
+  }
+  .compliance-panel {
+    padding: 12px;
+  }
+  .compliance-record {
+    flex-direction: column;
+  }
+}
