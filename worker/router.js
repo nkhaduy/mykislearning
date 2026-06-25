@@ -8,6 +8,14 @@ import { handleTraining } from "./routes/training.js";
 import { handleAttendance } from "./routes/attendance.js";
 import { handleExternalTraining } from "./routes/external-training.js";
 import { handleEmployees } from "./routes/employees.js";
+import { handleBackfill } from "./routes/backfill.js";
+import { handleNotifications } from "./routes/notifications.js";
+import { handleQuizzes } from "./routes/quizzes.js";
+import { handleActivity } from "./routes/activity.js";
+import { handleAdminOverview } from "./routes/admin-overview.js";
+import { handleAccountSupport, handleHrAccountActions } from "./routes/account-support.js";
+import { handleLearningRecords } from "./routes/learning-records.js";
+import { handleLearningPaths } from "./routes/learning-paths.js";
 
 export async function handleApiRequest(request, env) {
   const url = new URL(request.url);
@@ -38,7 +46,51 @@ export async function handleApiRequest(request, env) {
 
     if (path === "/api/external-training" || path.startsWith("/api/external-training/")) return await handleExternalTraining(request, env);
 
+    if (
+      path === "/api/learning-history" ||
+      path.startsWith("/api/learning-history/") ||
+      path === "/api/certifications" ||
+      path.startsWith("/api/certifications/") ||
+      path.startsWith("/api/admin/learning-records") ||
+      path.startsWith("/api/admin/certifications") ||
+      path.startsWith("/api/learning-evidence/")
+    ) return await handleLearningRecords(request, env);
+
     if (path === "/api/employees" || path.startsWith("/api/employees/")) return await handleEmployees(request, env);
+
+    if (path === "/api/admin/backfill") return await handleBackfill(request, env);
+
+    if (path === "/api/activity/heartbeat") return await handleActivity(request, env);
+
+    if (
+      path === "/api/admin/overview" ||
+      path === "/api/admin/online-users" ||
+      path === "/api/admin/pending-actions" ||
+      path === "/api/admin/tasks"
+    ) return await handleAdminOverview(request, env);
+
+    if (path === "/api/account-support/requests") return await handleAccountSupport(request, env);
+
+    if (path === "/api/admin/account-support/requests" ||
+        path.startsWith("/api/admin/account-support/requests/")) return await handleAccountSupport(request, env);
+
+    if (path === "/api/admin/hr-account-actions") return await handleHrAccountActions(request, env);
+
+    if (path === "/api/notifications") return await handleNotifications(request, env);
+
+    if (
+      path === "/api/quizzes" ||
+      path === "/api/quizzes/attempts" ||
+      path.match(/^\/api\/quizzes\/[^/]+\/questions$/)
+    ) return await handleQuizzes(request, env);
+
+    if (
+      path === "/api/learning-paths/my" ||
+      path.startsWith("/api/learning-paths/my/") ||
+      path === "/api/admin/learning-paths" ||
+      path.startsWith("/api/admin/learning-paths/") ||
+      path.startsWith("/api/admin/learning-path-assignments/")
+    ) return await handleLearningPaths(request, env);
 
     return json({ ok: false, error: "NOT_FOUND" }, 404);
   } catch (error) {
