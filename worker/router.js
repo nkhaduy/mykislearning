@@ -17,6 +17,7 @@ import { handleAccountSupport, handleHrAccountActions } from "./routes/account-s
 import { handleLearningRecords } from "./routes/learning-records.js";
 import { handleLearningPaths } from "./routes/learning-paths.js";
 import { handleCompliance } from "./routes/compliance.js";
+import { handleCertificates } from "./routes/certificates.js";
 
 export async function handleApiRequest(request, env) {
   const url = new URL(request.url);
@@ -46,6 +47,13 @@ export async function handleApiRequest(request, env) {
     if (path.startsWith("/api/attendance/")) return await handleAttendance(request, env);
 
     if (path === "/api/external-training" || path.startsWith("/api/external-training/")) return await handleExternalTraining(request, env);
+
+    if (
+      path === "/api/certificates/my" ||
+      path.startsWith("/api/certificates/my/") ||
+      path === "/api/admin/certificates" ||
+      path.startsWith("/api/admin/certificates/")
+    ) return await handleCertificates(request, env);
 
     if (
       path === "/api/learning-history" ||

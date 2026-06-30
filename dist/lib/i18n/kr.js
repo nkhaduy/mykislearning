@@ -117,5 +117,13 @@ export const kr = {
     start:"시작",continue:"계속",dueToday:"오늘 마감",daysLeft:"남은 일수",goToResource:"콘텐츠로 이동",
     sync:"결과 동기화",onTime:"기한 내",late:"지연",noEvidence:"완료 증빙이 없습니다.",
   },
+  certificates:{
+    certificate:"자격증",certificateType:"자격증 유형",certificateNumber:"자격증 번호",
+    issuer:"발급 기관",issuedDate:"발급일",expiryDate:"만료일",noExpiration:"만료 없음",
+    pendingVerification:"확인 대기",verified:"확인됨",rejected:"반려됨",revoked:"취소됨",
+    valid:"유효",expiringSoon:"곧 만료",expired:"만료됨",superseded:"이전 버전",
+    renewal:"갱신",upload:"업로드",download:"다운로드",requirement:"필수 요건",
+    missingCertificate:"누락된 자격증",verificationReason:"확인 사유",rejectionReason:"반려 사유",
+  },
   learning:{learning:"학습 공간",trackingNotice:"시스템은 사내 교육 관리를 위해 콘텐츠 시청 시간, 탭 전환 및 진도를 기록합니다.",courseProgress:"과정 진도",locked:"잠긴 콘텐츠",completedLesson:"학습 완료",slideLesson:"학습 슬라이드",videoLesson:"교육 영상",quickQuiz:"간단 퀴즈",previousLesson:"이전 학습",nextLesson:"다음 학습",lessonNavigation:"학습 탐색",minimumViewing:"계속하려면 최소 확인 시간을 완료하세요",videoCompletionRule:"필수 내용을 시청하거나 허용된 경우 스크립트를 이용하세요",passQuizToContinue:"계속하려면 퀴즈에 합격하세요",previous:"이전",next:"다음",transcript:"스크립트",completeViaTranscript:"스크립트로 완료",videoPolicy:"영상 재생 중이며 탭이 보이고 오디오가 사용 가능한 경우에만 시간이 계산됩니다. 허용된 스크립트 대안을 사용할 수 있습니다.",videoUnavailable:"사내 영상 소스를 사용할 수 없습니다",useTranscript:"대체 스크립트를 이용해 주세요.",enableSound:"소리를 켜거나 대체 스크립트를 이용해 주세요.",invalidSeek:"아직 시청하지 않은 구간으로 이동할 수 없습니다.",pausedOnLeave:"학습 탭을 떠난 동안 콘텐츠가 일시 중지되었습니다.",rapidWarning:"계속하기 전에 이 내용을 더 확인해 주세요.",rapidWarningLogged:"콘텐츠를 너무 빠르게 이동하고 있습니다. 이 활동은 HR 확인을 위해 학습 기록에 남습니다.",pendingGrading:"채점 대기",resetReason:"진도 초기화 사유",resetReasonRequired:"초기화 사유를 입력해 주세요.",resetConfirm:"학습 기록이 삭제되고 감사 로그에 기록됩니다. 계속하시겠습니까?",noActivity:"학습 활동이 없습니다.",noContent:"이 과정에는 아직 콘텐츠가 없습니다."},
 };

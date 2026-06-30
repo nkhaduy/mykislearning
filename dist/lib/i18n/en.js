@@ -117,5 +117,13 @@ export const en = {
     start:"Start",continue:"Continue",dueToday:"Due today",daysLeft:"Days left",goToResource:"Go to resource",
     sync:"Sync result",onTime:"On time",late:"Late",noEvidence:"No completion evidence yet.",
   },
+  certificates:{
+    certificate:"Certificate",certificateType:"Certificate type",certificateNumber:"Certificate number",
+    issuer:"Issuer",issuedDate:"Issued date",expiryDate:"Expiry date",noExpiration:"No expiration",
+    pendingVerification:"Pending verification",verified:"Verified",rejected:"Rejected",revoked:"Revoked",
+    valid:"Valid",expiringSoon:"Expiring soon",expired:"Expired",superseded:"Superseded",
+    renewal:"Renewal",upload:"Upload",download:"Download",requirement:"Requirement",
+    missingCertificate:"Missing certificate",verificationReason:"Verification reason",rejectionReason:"Rejection reason",
+  },
   learning:{learning:"Learning space",trackingNotice:"The system records content viewing time, tab changes, and progress for internal training management.",courseProgress:"Course progress",locked:"Content locked",completedLesson:"Lesson completed",slideLesson:"Lesson slide",videoLesson:"Training video",quickQuiz:"Quick quiz",previousLesson:"Previous lesson",nextLesson:"Next lesson",lessonNavigation:"Lesson navigation",minimumViewing:"Complete the minimum viewing time to continue",videoCompletionRule:"Watch the required content or use the transcript where permitted",passQuizToContinue:"Pass the quiz to continue",previous:"Previous",next:"Next",transcript:"Transcript",completeViaTranscript:"Complete via transcript",videoPolicy:"Time counts only while video is playing, the tab is visible, and audio is available. An approved transcript alternative may be used.",videoUnavailable:"The internal video source is unavailable",useTranscript:"Please use the transcript alternative.",enableSound:"Please enable sound or use the transcript alternative.",invalidSeek:"You cannot seek to an unwatched section.",pausedOnLeave:"Content was paused while you were away from the learning tab.",rapidWarning:"Please review this content longer before continuing.",rapidWarningLogged:"You are moving through content too quickly. This activity will be recorded for HR review.",pendingGrading:"Pending grading",resetReason:"Reason for resetting progress",resetReasonRequired:"Please enter a reset reason.",resetConfirm:"Learning evidence will be cleared and this action audited. Continue?",noActivity:"No learning activity yet.",noContent:"This course has no content yet."},
 };
