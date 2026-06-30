@@ -18,6 +18,7 @@ import { handleLearningRecords } from "./routes/learning-records.js";
 import { handleLearningPaths } from "./routes/learning-paths.js";
 import { handleCompliance } from "./routes/compliance.js";
 import { handleCertificates } from "./routes/certificates.js";
+import { handleReports } from "./routes/reports.js";
 
 export async function handleApiRequest(request, env) {
   const url = new URL(request.url);
@@ -100,6 +101,11 @@ export async function handleApiRequest(request, env) {
       path.startsWith("/api/admin/learning-paths/") ||
       path.startsWith("/api/admin/learning-path-assignments/")
     ) return await handleLearningPaths(request, env);
+
+    if (
+      path === "/api/admin/reports" ||
+      path.startsWith("/api/admin/reports/")
+    ) return await handleReports(request, env);
 
     if (
       path === "/api/compliance/my" ||

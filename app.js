@@ -152,12 +152,22 @@ let assignModalOpen = false;
 let assignTargetAccountId = "";
 let assignTargetCourseId = "";
 let assignRouteSearch = null;
+let reportRouteSearch = null;
 let myCourseFilter = "";
-let reportDateRange = "all";
+let reportDateRange = "30d";
 let reportDateFrom = "";
 let reportDateTo = "";
 let reportDeptFilter = "";
 let reportCourseFilter = "";
+let reportActiveType = "overview";
+let reportStatusFilter = "";
+let reportPage = 1;
+let reportPageSize = 25;
+let reportData = null;
+let reportLoading = false;
+let reportError = "";
+let reportLoadedKey = "";
+let reportExporting = "";
 let employeeNotificationPanelOpen = false;
 let assignMethod = "individual";
 let bulkSelectedAccountIds = [];
@@ -4360,66 +4370,141 @@ function assignPage() {
 }
 
 function getReportDateBounds() {
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
+  const vnNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+  const today = vnNow.toISOString().slice(0, 10);
   if (reportDateRange === "today") return { from: today, to: today };
-  if (reportDateRange === "7d") { const d = new Date(now); d.setDate(d.getDate() - 6); return { from: d.toISOString().slice(0, 10), to: today }; }
-  if (reportDateRange === "month") return { from: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`, to: today };
-  if (reportDateRange === "quarter") { const q = Math.floor(now.getMonth() / 3); return { from: `${now.getFullYear()}-${String(q * 3 + 1).padStart(2, "0")}-01`, to: today }; }
-  if (reportDateRange === "year") return { from: `${now.getFullYear()}-01-01`, to: today };
-  if (reportDateRange === "custom") { const f = reportDateFrom, t2 = reportDateTo; if (f && t2 && f <= t2) return { from: f, to: t2 }; }
-  return { from: "", to: "" };
+  if (reportDateRange === "7d") { const d = new Date(vnNow); d.setDate(d.getDate() - 6); return { from: d.toISOString().slice(0, 10), to: today }; }
+  if (reportDateRange === "30d") { const d = new Date(vnNow); d.setDate(d.getDate() - 29); return { from: d.toISOString().slice(0, 10), to: today }; }
+  if (reportDateRange === "month") return { from: `${vnNow.getFullYear()}-${String(vnNow.getMonth() + 1).padStart(2, "0")}-01`, to: today };
+  if (reportDateRange === "quarter") { const q = Math.floor(vnNow.getMonth() / 3); return { from: `${vnNow.getFullYear()}-${String(q * 3 + 1).padStart(2, "0")}-01`, to: today }; }
+  if (reportDateRange === "year") return { from: `${vnNow.getFullYear()}-01-01`, to: today };
+  if (reportDateRange === "custom" && reportDateFrom && reportDateTo && reportDateFrom <= reportDateTo) return { from: reportDateFrom, to: reportDateTo };
+  const d = new Date(vnNow); d.setDate(d.getDate() - 29); return { from: d.toISOString().slice(0, 10), to: today };
+}
+
+function reportTypeLabel(type) {
+  const labels = {
+    overview: t("reports.overview"), employees: t("reports.employees"), departments: t("reports.departments"), courses: t("reports.courses"),
+    "learning-paths": t("reports.learningPaths"), compliance: t("reports.compliance"), certificates: t("reports.certificates"), quizzes: t("reports.quizzes"), "training-sessions": t("reports.trainingSessions")
+  };
+  return labels[type] || type;
+}
+
+function reportQueryParams(extra = {}) {
+  const { from, to } = getReportDateBounds();
+  const params = new URLSearchParams({ from_date: from, to_date: to, page: String(reportPage), pageSize: String(reportPageSize), ...extra });
+  if (reportDeptFilter) params.set("department", reportDeptFilter);
+  if (reportCourseFilter) params.set("courseId", reportCourseFilter);
+  if (reportStatusFilter) params.set("status", reportStatusFilter);
+  return params;
+}
+
+function syncReportUrl() {
+  const params = new URLSearchParams();
+  params.set("type", reportActiveType);
+  params.set("range", reportDateRange);
+  if (reportDateFrom) params.set("from", reportDateFrom);
+  if (reportDateTo) params.set("to", reportDateTo);
+  if (reportDeptFilter) params.set("department", reportDeptFilter);
+  if (reportCourseFilter) params.set("courseId", reportCourseFilter);
+  if (reportStatusFilter) params.set("status", reportStatusFilter);
+  if (reportPage > 1) params.set("page", String(reportPage));
+  history.replaceState({}, "", `/admin/reports?${params.toString()}`);
+}
+
+function readReportUrl(params) {
+  const type = params.get("type");
+  if (type) reportActiveType = type;
+  reportDateRange = params.get("range") || reportDateRange;
+  reportDateFrom = params.get("from") || reportDateFrom;
+  reportDateTo = params.get("to") || reportDateTo;
+  reportDeptFilter = params.get("department") || reportDeptFilter;
+  reportCourseFilter = params.get("courseId") || reportCourseFilter;
+  reportStatusFilter = params.get("status") || reportStatusFilter;
+  reportPage = Number(params.get("page") || reportPage) || 1;
+}
+
+async function loadReports(force = false) {
+  if (!hasAdminAccess() || reportLoading) return;
+  const key = `${reportActiveType}:${reportQueryParams().toString()}`;
+  if (!force && reportLoadedKey === key && reportData) return;
+  reportLoading = true; reportError = ""; render();
+  try {
+    const endpoint = reportActiveType === "overview" ? "/api/admin/reports/overview" : `/api/admin/reports/${reportActiveType}`;
+    reportData = await apiJson(`${endpoint}?${reportQueryParams()}`);
+    reportLoadedKey = key;
+  } catch (e) {
+    reportError = e.message || t("reports.loadFailed");
+  } finally {
+    reportLoading = false; render();
+  }
+}
+
+function reportKpi(label, value, hint = "") {
+  const display = value === null || value === undefined ? "—" : String(value);
+  return `<div class="card kpi report-kpi"><span>${escapeHtml(label)}</span><strong>${escapeHtml(display)}</strong>${hint ? `<small>${escapeHtml(hint)}</small>` : ""}</div>`;
+}
+
+function reportOverviewPanel() {
+  const m = reportData?.metrics || {};
+  const bars = reportData?.departmentComparison || [];
+  const max = Math.max(1, ...bars.map(r => Number(r.completionRate || 0)));
+  return `${reportLoading ? overviewSkeleton() : ""}
+    <div class="kpi-grid">
+      ${reportKpi(t("reports.totalEmployees"), m.totalEmployees)}
+      ${reportKpi(t("reports.activeLearners"), m.activeLearners)}
+      ${reportKpi(t("reports.openCourses"), m.openCourses)}
+      ${reportKpi(t("reports.completionRate"), m.completionRate == null ? "—" : `${m.completionRate}%`)}
+      ${reportKpi(t("reports.onTimeCompletion"), m.onTimeCompletionRate == null ? "—" : `${m.onTimeCompletionRate}%`)}
+      ${reportKpi(t("reports.totalCompletions"), m.totalCompletions)}
+      ${reportKpi(t("reports.learningHours"), m.estimatedLearningHours ?? "—", t("reports.noActualHours"))}
+      ${reportKpi(t("reports.overdueLearners"), m.overdueLearners)}
+    </div>
+    <section class="report-grid-2">
+      <div class="card panel"><h3>${t("reports.departmentComparison")}</h3><p class="sr-only">${t("reports.chartSummary")}</p><div class="report-bars">${bars.map(r=>`<div class="report-bar-row"><span>${escapeHtml(r.department)}</span><div><i style="width:${Math.max(2, Number(r.completionRate || 0) / max * 100)}%"></i></div><strong>${r.completionRate ?? "—"}%</strong></div>`).join("") || `<div class="empty-state">${t("reports.noData")}</div>`}</div></div>
+      <div class="card panel"><h3>${t("reports.priorityExceptions")}</h3><div class="table-wrap"><table><thead><tr><th>${t("reports.employee")}</th><th>${t("reports.content")}</th><th>${t("reports.dueDate")}</th></tr></thead><tbody>${(reportData?.priorityExceptions||[]).map(x=>`<tr><td>${escapeHtml(x.employee||"")}</td><td>${escapeHtml(x.title||"")}</td><td>${escapeHtml(x.dueAt||"")}</td></tr>`).join("") || `<tr><td colspan="3">${t("reports.noOverdue")}</td></tr>`}</tbody></table></div></div>
+    </section>`;
+}
+
+function reportColumns(type) {
+  return {
+    employees: [["employee",t("reports.employee")],["employeeCode",t("reports.employeeCode")],["department",t("reports.department")],["jobTitle",t("reports.jobTitle")],["assigned",t("reports.assigned")],["completed",t("reports.completed")],["inProgress",t("reports.inProgress")],["notStarted",t("reports.notStarted")],["overdue",t("reports.overdue")],["completionRate",t("reports.completionRate")],["lastActivityAt",t("reports.lastActivity")]],
+    departments: [["department",t("reports.department")],["totalEmployees",t("reports.totalEmployees")],["assigned",t("reports.assigned")],["completed",t("reports.completed")],["completedOnTime",t("reports.onTimeCompletion")],["overdue",t("reports.overdue")],["completionRate",t("reports.completionRate")],["participationRate",t("reports.participationRate")]],
+    courses: [["course",t("reports.course")],["status",t("reports.status")],["assigned",t("reports.assigned")],["notStarted",t("reports.notStarted")],["inProgress",t("reports.inProgress")],["completed",t("reports.completed")],["overdue",t("reports.overdue")],["completionRate",t("reports.completionRate")],["averageQuizScore",t("reports.averageQuizScore")],["averageCompletionDays",t("reports.averageCompletionTime")]],
+    "learning-paths": [["learningPath",t("reports.learningPath")],["assigned",t("reports.assigned")],["notStarted",t("reports.notStarted")],["inProgress",t("reports.inProgress")],["completed",t("reports.completed")],["overdue",t("reports.overdue")],["averageProgress",t("reports.averageProgress")],["bottleneckStep",t("reports.bottleneckStep")]],
+    compliance: [["program",t("reports.program")],["cycle",t("reports.cycle")],["targetEmployees",t("reports.targetEmployees")],["notStarted",t("reports.notStarted")],["inProgress",t("reports.inProgress")],["completedOnTime",t("reports.completedOnTime")],["completedLate",t("reports.completedLate")],["overdue",t("reports.overdue")],["failed",t("reports.failed")],["exempted",t("reports.exempted")],["completionRate",t("reports.completionRate")],["onTimeRate",t("reports.onTimeRate")]],
+    certificates: [["certificateType",t("reports.certificateType")],["employee",t("reports.employee")],["employeeCode",t("reports.employeeCode")],["department",t("reports.department")],["verified",t("reports.verified")],["pending",t("reports.pending")],["expiringSoon",t("reports.expiringSoon")],["expired",t("reports.expired")],["missingRequired",t("reports.missingRequired")],["rejected",t("reports.rejected")],["revoked",t("reports.revoked")],["expiresAt",t("reports.expiresAt")]],
+    quizzes: [["quiz",t("reports.quiz")],["attempts",t("reports.attempts")],["participants",t("reports.participants")],["averageScore",t("reports.averageScore")],["passRate",t("reports.passRate")],["retakes",t("reports.retakes")],["hardestQuestion",t("reports.hardestQuestion")]],
+    "training-sessions": [["title",t("reports.sessionTitle")],["startAt",t("reports.sessionDate")],["mode",t("reports.trainingMode")],["registered",t("reports.registered")],["present",t("reports.present")],["late",t("reports.late")],["absent",t("reports.absent")],["attendanceRate",t("reports.attendanceRate")]],
+  }[type] || [];
+}
+
+function reportTablePanel() {
+  const rows = reportData?.rows || [];
+  const cols = reportColumns(reportActiveType);
+  const pages = Math.max(1, Math.ceil((reportData?.total || 0) / reportPageSize));
+  return `<section class="card panel report-table-panel"><div class="panel-head"><div><h3>${escapeHtml(reportTypeLabel(reportActiveType))}</h3><p>${t("reports.rows")}: ${reportData?.total ?? 0}</p></div></div><div class="table-wrap report-table-wrap"><table><thead><tr>${cols.map(([,label])=>`<th scope="col">${escapeHtml(label)}</th>`).join("")}</tr></thead><tbody>${reportLoading?`<tr><td colspan="${cols.length}">${overviewSkeleton()}</td></tr>`:rows.map(row=>`<tr>${cols.map(([key])=>`<td>${escapeHtml(row[key] === true ? t("reports.yes") : row[key] === false ? t("reports.no") : row[key] ?? "—")}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${cols.length}">${t("reports.noData")}</td></tr>`}</tbody></table></div><nav class="pagination" aria-label="${t("reports.pagination")}"><button data-report-page="${reportPage-1}" ${reportPage<=1?"disabled":""}>‹</button><span>${reportPage} / ${pages}</span><button data-report-page="${reportPage+1}" ${reportPage>=pages?"disabled":""}>›</button></nav></section>`;
 }
 
 function reportsPage() {
   if (!hasAdminAccess()) return restrictedPage();
+  if (!reportLoadedKey && !reportLoading) queueMicrotask(()=>loadReports());
   const { from, to } = getReportDateBounds();
-  const allEnrollments = enrichedEnrollments().filter(e => e.account?.role === "employee");
-  const enrollments = allEnrollments.filter(e => {
-    if (reportDeptFilter && e.account?.department !== reportDeptFilter) return false;
-    if (reportCourseFilter && e.courseId !== reportCourseFilter) return false;
-    if (from && e.assignedAt && e.assignedAt < from) return false;
-    if (to && e.assignedAt && e.assignedAt > to + "T23:59:59") return false;
-    return true;
-  });
-  const allAttempts = getQuizAttempts();
-  const attempts = allAttempts.filter(a => {
-    const at = a.submittedAt || a.startedAt || "";
-    if (from && at && at < from) return false;
-    if (to && at && at > to + "T23:59:59") return false;
-    return true;
-  });
-  const completed = enrollments.filter(e => e.status === "completed").length;
-  const overdue = enrollments.filter(e => e.displayStatus === "overdue").length;
-  const completion = enrollments.length ? Math.round(completed / enrollments.length * 100) : 0;
-  const pass = attempts.filter(a => a.submittedAt).length ? Math.round(attempts.filter(a => a.passed).length / attempts.filter(a => a.submittedAt).length * 100) : 0;
-  const a = getCompanyTrainingAnalytics(from ? { dateFrom: `${from}T00:00:00+07:00`, dateTo: `${to}T23:59:59+07:00` } : {});
-  const depts = [...new Set(allEnrollments.map(e => e.account?.department).filter(Boolean))].sort();
-  const dateRangeLabel = from && to ? `${from} – ${to}` : "Toàn bộ thời gian";
-  const periodHtml = `<p class="report-period">Kỳ báo cáo: <strong>${escapeHtml(dateRangeLabel)}</strong></p>`;
-  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR/L&D Analytics", t("admin.reports"), "hr")}<div class="content">
-    <section class="card panel report-head"><div><h1>${t("admin.reports")}</h1>${periodHtml}</div><div class="report-actions"><button class="btn btn-outline" data-export-csv>Xuất CSV</button></div></section>
-    <section class="card panel report-filter-bar">
-      <div class="filter-bar" style="flex-wrap:wrap;gap:10px">
-        <select data-report-range>
-          ${[["all","Toàn bộ thời gian"],["today","Hôm nay"],["7d","7 ngày gần nhất"],["month","Tháng này"],["quarter","Quý này"],["year","Năm nay"],["custom","Khoảng tùy chọn"]].map(([v,l])=>`<option value="${v}" ${reportDateRange===v?"selected":""}>${l}</option>`).join("")}
-        </select>
-        ${reportDateRange==="custom"?`<input type="date" id="reportFrom" value="${escapeHtmlAttribute(reportDateFrom)}" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px"><span style="align-self:center">–</span><input type="date" id="reportTo" value="${escapeHtmlAttribute(reportDateTo)}" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px"><button class="btn btn-primary" id="reportApply">Áp dụng</button><button class="btn btn-outline" id="reportReset">Đặt lại</button>`:""}
-        <select data-report-dept><option value="">Tất cả phòng ban</option>${depts.map(d=>`<option value="${escapeHtmlAttribute(d)}" ${reportDeptFilter===d?"selected":""}>${escapeHtml(d)}</option>`).join("")}</select>
-        <select data-report-course><option value="">Tất cả khóa học</option>${getCourses().filter(c=>c.status==="published").map(c=>`<option value="${c.id}" ${reportCourseFilter===c.id?"selected":""}>${escapeHtml(c.title)}</option>`).join("")}</select>
-      </div>
-    </section>
-    <div class="kpi-grid">
-      <div class="card kpi"><span>Tổng giờ đào tạo</span><strong>${formatTrainingDuration(a.totalSeconds,language,true)}</strong></div>
-      <div class="card kpi"><span>Giờ online</span><strong>${formatTrainingDuration(a.onlineSeconds,language,true)}</strong></div>
-      <div class="card kpi"><span>Giờ offline</span><strong>${formatTrainingDuration(a.offlineSeconds,language,true)}</strong></div>
-      <div class="card kpi"><span>Trung bình/người</span><strong>${formatTrainingDuration(a.averageSeconds,language,true)}</strong></div>
-      <div class="card kpi"><span>Tỷ lệ hoàn thành</span><strong>${completion}%</strong></div>
-      <div class="card kpi"><span>Quá hạn</span><strong>${overdue}</strong></div>
-      <div class="card kpi"><span>${t("quiz.passRate")}</span><strong>${pass}%</strong></div>
-      <div class="card kpi"><span>Tỷ lệ tham dự</span><strong>${a.attendanceRate}%</strong></div>
-    </div>
-    <section class="card panel"><h3>${t("quiz.attemptHistory")}</h3>${attempts.filter(at=>at.submittedAt).length?`<div class="table-wrap"><table><thead><tr><th>${t("table.fullName")}</th><th>${t("nav.courses")}</th><th>${t("quiz.score")}</th><th>${t("quiz.result")}</th><th>${t("table.createdAt")}</th></tr></thead><tbody>${attempts.filter(at=>at.submittedAt).map(at=>`<tr><td>${escapeHtml(getAccountById(at.accountId)?.fullName||"")}</td><td>${escapeHtml(getCourseById(at.courseId)?.title||"")}</td><td>${at.scorePercent??"—"}%</td><td>${t(at.passed?"quiz.passed":"quiz.failed")}</td><td>${escapeHtml(at.submittedAt||"")}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty-state"><p>${t("quiz.noQuiz")}</p></div>`}</section>
+  const tabs = ["overview","employees","departments","courses","learning-paths","compliance","certificates","quizzes","training-sessions"];
+  const rangeOptions = [["today",t("reports.today")],["7d",t("reports.last7Days")],["30d",t("reports.last30Days")],["month",t("reports.thisMonth")],["quarter",t("reports.thisQuarter")],["year",t("reports.thisYear")],["custom",t("reports.custom")]];
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR/L&D Analytics", t("admin.reports"), "hr")}<div class="content reports-page">
+    <section class="card panel report-head"><div><h1>${t("reports.title")}</h1><p>${t("reports.period")}: <strong>${escapeHtml(from)} - ${escapeHtml(to)}</strong></p></div><div class="report-actions"><button class="btn btn-outline" data-report-export-format="csv" ${reportExporting?"disabled":""}>${t("reports.csv")}</button><button class="btn btn-outline" data-report-export-format="xlsx" ${reportExporting?"disabled":""}>${t("reports.excel")}</button><button class="btn btn-outline" data-report-export-format="pdf" ${reportExporting?"disabled":""}>${t("reports.pdf")}</button></div></section>
+    <section class="card panel report-filter-bar"><div class="filter-bar reports-filter">
+      <label><span>${t("reports.dateRange")}</span><select data-report-range>${rangeOptions.map(([v,l])=>`<option value="${v}" ${reportDateRange===v?"selected":""}>${l}</option>`).join("")}</select></label>
+      ${reportDateRange==="custom"?`<label><span>${t("reports.fromDate")}</span><input type="date" id="reportFrom" value="${escapeHtmlAttribute(reportDateFrom)}"></label><label><span>${t("reports.toDate")}</span><input type="date" id="reportTo" value="${escapeHtmlAttribute(reportDateTo)}"></label><button class="btn btn-primary" id="reportApply">${t("reports.apply")}</button>`:""}
+      <label><span>${t("reports.department")}</span><input data-report-dept value="${escapeHtmlAttribute(reportDeptFilter)}" placeholder="${t("reports.allDepartments")}"></label>
+      <label><span>${t("reports.course")}</span><input data-report-course value="${escapeHtmlAttribute(reportCourseFilter)}" placeholder="${t("reports.courseId")}"></label>
+      <label><span>${t("reports.status")}</span><select data-report-status><option value="">${t("reports.allStatuses")}</option>${["notStarted","inProgress","completed","overdue","pending","verified","expired","missing","failed","exempted"].map(s=>`<option value="${s}" ${reportStatusFilter===s?"selected":""}>${t(`reports.${s}`)}</option>`).join("")}</select></label>
+      <button class="btn btn-outline" id="reportReset">${t("reports.resetFilters")}</button>
+    </div></section>
+    <div class="detail-tabs report-tabs" role="tablist">${tabs.map(type=>`<button role="tab" aria-selected="${reportActiveType===type}" class="${reportActiveType===type?"active":""}" data-report-tab="${type}">${escapeHtml(reportTypeLabel(type))}</button>`).join("")}</div>
+    ${reportError?`<section class="card panel form-error">${escapeHtml(reportError)} <button class="btn btn-outline mini-action" data-report-retry>${t("reports.retry")}</button></section>`:""}
+    ${reportActiveType==="overview"?reportOverviewPanel():reportTablePanel()}
   </div></main></div>`;
 }
 
@@ -4469,7 +4554,29 @@ function adminLearningRow(x){const cert=x.kind==="certificate";const employee=x.
 function adminLearningDrawer(){if(!_adminLearningDetail)return"";const [kind,id]=_adminLearningDetail.split(":");const x=kind==="cert"?_adminLearning.certifications.find(c=>c.id===id):_adminLearning.records.find(r=>r.id===id);if(!x)return"";const cert=kind==="cert";return `<div class="modal-backdrop open"><section class="modal modal--large modal--structured"><header class="modal__header"><div><h2>${escapeHtml(cert?x.certificateName:x.title)}</h2></div><button class="icon-btn" data-close-admin-learning>×</button></header><div class="modal__body"><div class="profile-grid"><div class="profile-item"><span>Nhân viên</span><strong>${escapeHtml(x.employee?.fullName||"—")}</strong></div><div class="profile-item"><span>Phòng ban</span><strong>${escapeHtml(x.employee?.department||"—")}</strong></div><div class="profile-item"><span>Nguồn</span><strong>${escapeHtml(cert?x.issuer:x.provider||x.sourceType||"—")}</strong></div><div class="profile-item"><span>Trạng thái</span><strong>${cert?certStatusBadge(x.verificationStatus):learningStatusBadge(x.status)}</strong></div><div class="profile-item"><span>Ngày gửi</span><strong>${formatDateTime(x.submittedAt||x.createdAt)}</strong></div><div class="profile-item"><span>Kết quả</span><strong>${escapeHtml(cert?x.score:x.result||"—")}</strong></div></div>${x.revisionNote?`<p class="form-error">Yêu cầu bổ sung trước đó: ${escapeHtml(x.revisionNote)}</p>`:""}<div class="field"><label>Ghi chú/lý do khi xử lý</label><textarea data-admin-learning-note rows="3">${escapeHtml(_adminLearningActionNote)}</textarea></div></div><footer class="modal__footer"><button class="btn btn-outline" data-admin-learning-action="request-revision">Yêu cầu bổ sung</button><button class="btn btn-outline" data-admin-learning-action="reject">Từ chối</button><button class="btn btn-primary" data-admin-learning-action="approve">Phê duyệt</button></footer></section></div>`;}
 function learningCalendarPage(){if(!hasEmployeeAccess())return restrictedPage();const rows=employeeEnrollments().filter(e=>e.deadline).sort((a,b)=>a.deadline.localeCompare(b.deadline));return `<div class="app-layout">${sideNav("employee")}<main class="app-main">${topbar("Học tập","Lịch học","employee")}<div class="content"><section class="card panel"><h1>Lịch học & deadline</h1>${rows.map(e=>`<article class="calendar-row"><time>${escapeHtml(e.deadline)}</time><div><h2>${escapeHtml(e.course?.title||"")}</h2><p>${uiText(e.status)} · ${e.progressPercent}%</p></div><a href="/dashboard/courses/${e.courseId}" data-link class="btn btn-outline">Mở khóa học</a></article>`).join("")||`<div class="empty-state">Chưa có deadline.</div>`}</section></div></main></div>`;}
 function learningCalendarPageV2(){if(!hasEmployeeAccess())return restrictedPage();const today=new Date();today.setHours(0,0,0,0);const rows=employeeEnrollments().filter(e=>e.deadline).map(e=>{const date=new Date(`${e.deadline}T00:00:00`),days=Math.ceil((date-today)/86400000);return {...e,date,days};}).sort((a,b)=>a.date-b.date);const monthStart=new Date(today.getFullYear(),today.getMonth(),1),daysInMonth=new Date(today.getFullYear(),today.getMonth()+1,0).getDate(),offset=(monthStart.getDay()+6)%7;const monthCells=[...Array(offset).fill(null),...Array.from({length:daysInMonth},(_,i)=>i+1)];return `<div class="app-layout">${sideNav("employee")}<main class="app-main">${topbar("Học tập","Lịch học & deadline","employee")}<div class="content route-content"><section class="calendar-head"><div><h1>Lịch học & deadline</h1><p>Theo dõi thời hạn từ các khóa học được giao cho bạn.</p></div><div class="view-tabs" role="tablist">${[["upcoming","Sắp tới"],["month","Theo tháng"],["deadline","Deadline"]].map(([v,l])=>`<button role="tab" aria-selected="${calendarView===v}" class="${calendarView===v?"active":""}" data-calendar-view="${v}">${l}</button>`).join("")}</div></section>${calendarView==="month"?`<section class="card month-calendar"><header><h2>${today.toLocaleDateString(language==="vi"?"vi-VN":language==="kr"?"ko-KR":"en-US",{month:"long",year:"numeric"})}</h2></header><div class="month-weekdays">${["T2","T3","T4","T5","T6","T7","CN"].map(x=>`<span>${x}</span>`).join("")}</div><div class="month-grid">${monthCells.map(day=>day?`<button class="month-day ${day===today.getDate()?"today":""}" aria-label="Ngày ${day}"><span>${day}</span>${rows.some(e=>e.date.getMonth()===today.getMonth()&&e.date.getDate()===day)?`<i aria-label="Có deadline"></i>`:""}</button>`:`<span></span>`).join("")}</div></section>`:`<div class="deadline-list">${rows.filter(e=>calendarView==="deadline"||e.days>=0).map(e=>`<article class="card deadline-card ${e.days<0?"overdue":e.days===0?"today":"upcoming"}"><div class="deadline-date"><strong>${e.date.getDate()}</strong><span>${e.date.toLocaleDateString("vi-VN",{month:"short"})}</span></div><div class="deadline-card__body"><div><span class="status-text">${e.status==="completed"?"Hoàn thành":e.days<0?`Quá hạn ${Math.abs(e.days)} ngày`:e.days===0?"Hôm nay":e.days===1?"Ngày mai":`Còn ${e.days} ngày`}</span><h2>${escapeHtml(e.course?.title||"")}</h2><p>${uiText("progressLabel")}: ${e.progressPercent}%</p>${progress(e.progressPercent)}</div><a href="/dashboard/courses/${e.courseId}" data-link class="btn btn-primary">${e.progressPercent?"Tiếp tục học":"Mở khóa học"}</a></div></article>`).join("")||`<div class="empty-state">Không có deadline phù hợp.</div>`}</div>`}</div></main></div>`;}
-function exportExecutiveCsv(){if(!hasAdminAccess())return;const {from,to}=getReportDateBounds();const rows=enrichedEnrollments().filter(e=>{if(e.account?.role!=="employee")return false;if(reportDeptFilter&&e.account?.department!==reportDeptFilter)return false;if(reportCourseFilter&&e.courseId!==reportCourseFilter)return false;if(from&&e.assignedAt&&e.assignedAt<from)return false;if(to&&e.assignedAt&&e.assignedAt>to+"T23:59:59")return false;return true;});const data=[["Nhân viên","Phòng ban","Khóa học","Trạng thái","Tiến độ","Deadline"],...rows.map(e=>[e.account?.fullName||"",e.account?.department||"",e.course?.title||"",e.displayStatus||e.status,Number(e.progressPercent)||0,e.deadline||""])];const csv="﻿"+data.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\r\n");const rangeStr=from&&to?`_${from}_${to}`:`_${new Date().toISOString().slice(0,7)}`;const name=`MyKIS_Report${rangeStr}.csv`;const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);const snapshots=readLocalRows(REPORT_SNAPSHOTS_KEY);snapshots.unshift({id:crypto.randomUUID(),reportType:"executive_coo",filters:{from,to,dept:reportDeptFilter,course:reportCourseFilter},generatedAt:new Date().toISOString(),generatedBy:session.accountId,recipient:"COO",fileName:name,recordCount:rows.length});writeLocalRows(REPORT_SNAPSHOTS_KEY,snapshots.slice(0,50));}
+async function exportReportFile(format = "csv") {
+  if (!hasAdminAccess() || reportExporting) return;
+  reportExporting = format; render();
+  try {
+    const params = reportQueryParams({ report_type: reportActiveType, format });
+    const res = await fetch(`/api/admin/reports/export?${params}`, { headers: apiHeaders() });
+    if (!res.ok) {
+      const body = await res.json().catch(()=>({}));
+      throw new Error(body.error || t("reports.exportFailed"));
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const name = disposition.match(/filename="([^"]+)"/)?.[1] || `bao-cao-${reportActiveType}.${format}`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    toast(e.message || t("reports.exportFailed"));
+  } finally {
+    reportExporting = ""; render();
+  }
+}
 
 function sessionStatusLabel(event){return event.status==="cancelled"?"Đã hủy":event.attendanceStatus==="attended"?"Đã tham dự":event.attendanceStatus==="partial"?"Tham dự một phần":event.responseStatus==="attending"?"Đã xác nhận tham gia":event.responseStatus==="busy"?"Bạn đã báo bận":"Chờ phản hồi";}
 function offlineSessionCards() {
@@ -4837,6 +4944,13 @@ function render() {
     assignModalOpen = routeParams.get("open") === "1";
   }
   if (route !== "/admin/assign") assignRouteSearch = null;
+  if (route === "/admin/reports" && reportRouteSearch !== location.search) {
+    reportRouteSearch = location.search;
+    readReportUrl(routeParams);
+    reportData = null;
+    reportLoadedKey = "";
+  }
+  if (route !== "/admin/reports") reportRouteSearch = null;
   document.documentElement.lang = language;
   if (route === "/") app.innerHTML = landingPage();
   else if (route === "/about-kis") app.innerHTML = aboutPage();
@@ -5019,8 +5133,8 @@ async function enhanceCourseImageForm(){const form=document.getElementById("cour
   const input=section.querySelector("#courseCoverInput");input.addEventListener("change",async event=>{const file=event.target.files?.[0];if(!file)return;try{const id=await saveCourseImage(file);section.querySelector('[name="coverImageId"]').value=id;const image=section.querySelector("img");if(image.dataset.objectUrl)URL.revokeObjectURL(image.dataset.objectUrl);const url=URL.createObjectURL(file);image.src=url;image.dataset.objectUrl=url;}catch{toast("error");}});
 }
 
-function enhanceReportsPage(){if(route!=="/admin/reports")return;const content=document.querySelector(".app-main .content");if(!content||content.querySelector(".report-head"))return;const head=document.createElement("section");head.className="report-head";head.innerHTML=`<div><h1>Trung tâm báo cáo đào tạo</h1><p>Dữ liệu trực tiếp từ enrollment, tiến độ và kết quả kiểm tra hiện tại.</p></div><div class="report-actions"><button class="btn btn-primary" data-report-export>Xuất CSV</button><button class="btn btn-outline" data-report-print>Xuất PDF / In</button></div>`;content.prepend(head);head.querySelector("[data-report-export]").addEventListener("click",exportExecutiveCsv);head.querySelector("[data-report-print]").addEventListener("click",()=>window.print());}
-function enhanceTrainingReport(){if(route!=="/admin/reports")return;const content=document.querySelector(".app-main .content"),head=content?.querySelector(".report-head");if(!content||!head||content.querySelector(".training-report-kpis"))return;const a=getCompanyTrainingAnalytics();const section=document.createElement("section");section.className="kpi-grid training-report-kpis";section.innerHTML=`<div class="card kpi"><span>Tổng giờ đào tạo</span><strong>${formatTrainingDuration(a.totalSeconds,language,true)}</strong></div><div class="card kpi"><span>Giờ online</span><strong>${formatTrainingDuration(a.onlineSeconds,language,true)}</strong></div><div class="card kpi"><span>Giờ offline</span><strong>${formatTrainingDuration(a.offlineSeconds,language,true)}</strong></div><div class="card kpi"><span>Trung bình giờ/người</span><strong>${formatTrainingDuration(a.averageSeconds,language,true)}</strong></div><div class="card kpi"><span>Tỷ lệ tham dự</span><strong>${a.attendanceRate}%</strong></div><div class="card kpi"><span>No-show</span><strong>${a.noShowRate}%</strong></div><div class="card kpi"><span>Báo bận</span><strong>${a.busyCount}</strong></div><div class="card kpi"><span>Tổng buổi / Đã hủy</span><strong>${a.totalSessions} / ${a.cancelledSessions}</strong></div>`;head.after(section);}
+function enhanceReportsPage(){return;}
+function enhanceTrainingReport(){return;}
 const employeePhotoUrls=new Map();
 window.addEventListener("beforeunload",()=>{employeePhotoUrls.forEach(url=>URL.revokeObjectURL(url));employeePhotoUrls.clear();},{once:true});
 window.addEventListener("beforeunload", () => {
@@ -5403,14 +5517,16 @@ const {localStorageAdapter:lsa}=await import("./lib/storage/localStorageAdapter.
   document.querySelector("[data-gallery-year]")?.addEventListener("change",e=>{galleryYear=e.target.value;render();});
   document.querySelector("[data-resource-search]")?.addEventListener("input",debounce(e=>{resourceSearch=e.target.value;render();},180));
   document.querySelectorAll("[data-resource-open]").forEach(el=>el.addEventListener("click",event=>{const r=resourceRows().find(x=>x.id===el.dataset.resourceOpen),e=employeeEnrollments().find(x=>x.courseId===r?.courseId);if(!r||!e||!isResourceUnlocked(r,e)){event.preventDefault();toast("error");return;}logLearningActivity({actorAccountId:session.accountId,accountId:session.accountId,courseId:r.courseId,eventType:"resource_downloaded",metadata:{resourceId:r.id}});}));
-  document.querySelector("[data-report-export]")?.addEventListener("click",exportExecutiveCsv);
-  document.querySelector("[data-report-print]")?.addEventListener("click",()=>window.print());
-  document.querySelector("[data-export-csv]")?.addEventListener("click",exportExecutiveCsv);
-  document.querySelector("[data-report-range]")?.addEventListener("change",e=>{reportDateRange=e.target.value;if(reportDateRange!=="custom"){reportDateFrom="";reportDateTo="";}render();});
-  document.querySelector("[data-report-dept]")?.addEventListener("change",e=>{reportDeptFilter=e.target.value;render();});
-  document.querySelector("[data-report-course]")?.addEventListener("change",e=>{reportCourseFilter=e.target.value;render();});
-  document.getElementById("reportApply")?.addEventListener("click",()=>{reportDateFrom=document.getElementById("reportFrom")?.value||"";reportDateTo=document.getElementById("reportTo")?.value||"";render();});
-  document.getElementById("reportReset")?.addEventListener("click",()=>{reportDateRange="all";reportDateFrom="";reportDateTo="";reportDeptFilter="";reportCourseFilter="";render();});
+  document.querySelectorAll("[data-report-export-format]").forEach(el=>el.addEventListener("click",()=>exportReportFile(el.dataset.reportExportFormat)));
+  document.querySelectorAll("[data-report-tab]").forEach(el=>el.addEventListener("click",()=>{reportActiveType=el.dataset.reportTab;reportPage=1;reportData=null;reportLoadedKey="";syncReportUrl();loadReports(true);}));
+  document.querySelector("[data-report-range]")?.addEventListener("change",e=>{reportDateRange=e.target.value;if(reportDateRange!=="custom"){reportDateFrom="";reportDateTo="";reportPage=1;reportData=null;reportLoadedKey="";syncReportUrl();loadReports(true);}else render();});
+  document.querySelector("[data-report-dept]")?.addEventListener("input",debounce(e=>{reportDeptFilter=e.target.value;reportPage=1;reportData=null;reportLoadedKey="";syncReportUrl();loadReports(true);},300));
+  document.querySelector("[data-report-course]")?.addEventListener("input",debounce(e=>{reportCourseFilter=e.target.value;reportPage=1;reportData=null;reportLoadedKey="";syncReportUrl();loadReports(true);},300));
+  document.querySelector("[data-report-status]")?.addEventListener("change",e=>{reportStatusFilter=e.target.value;reportPage=1;reportData=null;reportLoadedKey="";syncReportUrl();loadReports(true);});
+  document.getElementById("reportApply")?.addEventListener("click",()=>{reportDateFrom=document.getElementById("reportFrom")?.value||"";reportDateTo=document.getElementById("reportTo")?.value||"";reportPage=1;reportData=null;reportLoadedKey="";syncReportUrl();loadReports(true);});
+  document.getElementById("reportReset")?.addEventListener("click",()=>{reportDateRange="30d";reportDateFrom="";reportDateTo="";reportDeptFilter="";reportCourseFilter="";reportStatusFilter="";reportPage=1;reportData=null;reportLoadedKey="";syncReportUrl();loadReports(true);});
+  document.querySelector("[data-report-retry]")?.addEventListener("click",()=>loadReports(true));
+  document.querySelectorAll("[data-report-page]").forEach(el=>el.addEventListener("click",()=>{reportPage=Math.max(1,Number(el.dataset.reportPage)||1);reportData=null;reportLoadedKey="";syncReportUrl();loadReports(true);}));
   document.getElementById("employeePhotoFolder")?.addEventListener("change",async event=>{const files=[...(event.target.files||[])].filter(file=>["image/jpeg","image/png","image/webp"].includes(file.type));const employees=getEmployees(),byCode=new Map(employees.map(employee=>{const account=employee.accountId?getAccountById(employee.accountId):null;return [String(account?.employeeCode||"").toLowerCase(),employee];}).filter(([code])=>code));const matched=[],unmatched=[];for(const file of files){const stem=file.name.replace(/\.[^.]+$/,"").toLowerCase();const employee=byCode.get(stem);if(employee)matched.push({file,employee});else unmatched.push(file.name);}if(!matched.length)return toast("error");const doPhotoImport=async()=>{for(const {file,employee} of matched){try{const photoBlobId=await saveEmployeePhoto(file);if(employee.photoBlobId)await deleteEmployeePhoto(employee.photoBlobId);updateEmployeeProfile(employee.id,{photoBlobId,photoFileName:file.name,photoUpdatedAt:new Date().toISOString(),photoUpdatedBy:session.accountId});}catch{}}}; openDialog({type:"confirm",title:"Xác nhận import ảnh",body:`${matched.length} file khớp thành công · ${unmatched.length} không tìm thấy nhân viên.`,onConfirm:()=>doPhotoImport().then(()=>{toast("success");render();})});});
   document.querySelector("[data-notification-create]")?.addEventListener("click",()=>{notificationComposerOpen=true;render();});
   document.querySelectorAll("[data-notification-close]").forEach(el=>el.addEventListener("click",()=>{notificationComposerOpen=false;render();}));

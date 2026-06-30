@@ -125,5 +125,17 @@ export const kr = {
     renewal:"갱신",upload:"업로드",download:"다운로드",requirement:"필수 요건",
     missingCertificate:"누락된 자격증",verificationReason:"확인 사유",rejectionReason:"반려 사유",
   },
+  reports:{
+    title:"교육 보고서",overview:"개요",employees:"임직원",departments:"부서",courses:"과정",learningPaths:"로드맵",compliance:"준법",certificates:"자격증",quizzes:"퀴즈",trainingSessions:"집합 교육",
+    period:"보고 기간",dateRange:"기간",today:"오늘",last7Days:"7일",last30Days:"30일",thisMonth:"이번 달",thisQuarter:"이번 분기",thisYear:"올해",custom:"사용자 지정",fromDate:"시작일",toDate:"종료일",apply:"적용",resetFilters:"필터 초기화",
+    export:"내보내기",csv:"CSV",excel:"Excel",pdf:"PDF",loadFailed:"보고서를 불러올 수 없습니다.",exportFailed:"내보내기 실패",retry:"다시 시도",rows:"행",filters:"필터",noData:"현재 필터에 맞는 데이터가 없습니다.",loading:"로딩",pagination:"페이지",yes:"예",no:"아니오",
+    totalEmployees:"전체 임직원",activeLearners:"활동 학습자",openCourses:"진행 과정",completionRate:"완료율",onTimeCompletion:"기한 내 완료",totalCompletions:"완료 건수",learningHours:"학습 시간",noActualHours:"실제 시간 데이터 없음",overdueLearners:"기한 초과자",departmentComparison:"부서 비교",chartSummary:"부서별 완료율 막대 차트입니다.",priorityExceptions:"우선 처리",noOverdue:"기한 초과자가 없습니다.",
+    employee:"임직원",employeeCode:"사번",department:"부서",jobTitle:"직책",assigned:"배정",completed:"완료",inProgress:"진행 중",notStarted:"시작 전",overdue:"기한 초과",lastActivity:"최근 활동",participationRate:"참여율",
+    course:"과정",courseId:"과정 ID",allDepartments:"전체 부서",allStatuses:"전체 상태",status:"상태",averageQuizScore:"평균 점수",averageCompletionTime:"평균 완료 시간",learningPath:"로드맵",averageProgress:"평균 진도",bottleneckStep:"병목 단계",
+    program:"프로그램",cycle:"주기",targetEmployees:"대상자",completedOnTime:"기한 내",completedLate:"지연",failed:"불합격",exempted:"면제",onTimeRate:"기한 내 비율",
+    certificateType:"자격증 유형",verified:"확인됨",pending:"대기",expiringSoon:"곧 만료",expired:"만료",missingRequired:"필수 누락",rejected:"반려",revoked:"취소",expiresAt:"만료일",missing:"누락",
+    quiz:"퀴즈",attempts:"응시",participants:"응시자",averageScore:"평균 점수",passRate:"합격률",retakes:"재응시",hardestQuestion:"오답 많은 문항",
+    sessionTitle:"교육명",sessionDate:"일자",trainingMode:"형식",registered:"등록",present:"참석",late:"지각",absent:"결석",attendanceRate:"참석률",content:"내용",dueDate:"마감",
+  },
   learning:{learning:"학습 공간",trackingNotice:"시스템은 사내 교육 관리를 위해 콘텐츠 시청 시간, 탭 전환 및 진도를 기록합니다.",courseProgress:"과정 진도",locked:"잠긴 콘텐츠",completedLesson:"학습 완료",slideLesson:"학습 슬라이드",videoLesson:"교육 영상",quickQuiz:"간단 퀴즈",previousLesson:"이전 학습",nextLesson:"다음 학습",lessonNavigation:"학습 탐색",minimumViewing:"계속하려면 최소 확인 시간을 완료하세요",videoCompletionRule:"필수 내용을 시청하거나 허용된 경우 스크립트를 이용하세요",passQuizToContinue:"계속하려면 퀴즈에 합격하세요",previous:"이전",next:"다음",transcript:"스크립트",completeViaTranscript:"스크립트로 완료",videoPolicy:"영상 재생 중이며 탭이 보이고 오디오가 사용 가능한 경우에만 시간이 계산됩니다. 허용된 스크립트 대안을 사용할 수 있습니다.",videoUnavailable:"사내 영상 소스를 사용할 수 없습니다",useTranscript:"대체 스크립트를 이용해 주세요.",enableSound:"소리를 켜거나 대체 스크립트를 이용해 주세요.",invalidSeek:"아직 시청하지 않은 구간으로 이동할 수 없습니다.",pausedOnLeave:"학습 탭을 떠난 동안 콘텐츠가 일시 중지되었습니다.",rapidWarning:"계속하기 전에 이 내용을 더 확인해 주세요.",rapidWarningLogged:"콘텐츠를 너무 빠르게 이동하고 있습니다. 이 활동은 HR 확인을 위해 학습 기록에 남습니다.",pendingGrading:"채점 대기",resetReason:"진도 초기화 사유",resetReasonRequired:"초기화 사유를 입력해 주세요.",resetConfirm:"학습 기록이 삭제되고 감사 로그에 기록됩니다. 계속하시겠습니까?",noActivity:"학습 활동이 없습니다.",noContent:"이 과정에는 아직 콘텐츠가 없습니다."},
 };
