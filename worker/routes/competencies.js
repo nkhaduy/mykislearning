@@ -1,4 +1,4 @@
-import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
+import { json, readJson, methodNotAllowed, corsPreflight, corsHeaders } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
 import { requireAuth, requireHr } from "../middleware/auth.js";
 import { writeAuditLog } from "../services/audit-service.js";
@@ -77,11 +77,11 @@ async function exportSkillsMatrix(supabase, request, acct, url) {
     ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(0, rows.length - 1), c: rows[0].length - 1 } }) };
     XLSX.utils.book_append_sheet(wb, ws, "Skills Matrix");
     return new Response(XLSX.write(wb, { type: "array", bookType: "xlsx", compression: true }), {
-      headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": "attachment; filename=\"skills-matrix.xlsx\"" },
+      headers: { ...corsHeaders(), "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": "attachment; filename=\"skills-matrix.xlsx\"" },
     });
   }
   const csv = "\ufeff" + rows.map((r) => r.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(",")).join("\r\n");
-  return new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": "attachment; filename=\"skills-matrix.csv\"" } });
+  return new Response(csv, { headers: { ...corsHeaders(), "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": "attachment; filename=\"skills-matrix.csv\"" } });
 }
 
 async function createCategory(supabase, request, acct, body) {

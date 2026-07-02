@@ -7,7 +7,7 @@ function allowed(value, values, fallback) {
 }
 
 export async function listPlans(supabase, filters = {}) {
-  let query = supabase.from("development_plans").select("*, employee:profiles(id, employee_code, full_name, email, department, position)").order("created_at", { ascending: false }).limit(1000);
+  let query = supabase.from("development_plans").select("*").order("created_at", { ascending: false }).limit(1000);
   if (filters.employeeId) query = query.eq("employee_id", filters.employeeId);
   if (filters.status) query = query.eq("status", filters.status);
   const { data, error } = await query;
@@ -19,12 +19,18 @@ export async function listPlans(supabase, filters = {}) {
     if (itemErr) throw httpError(itemErr.message, 500);
     for (const item of items || []) itemsByPlan.set(item.development_plan_id, [...(itemsByPlan.get(item.development_plan_id) || []), item]);
   }
-  return { data: (data || []).map((plan) => ({ ...plan, items: itemsByPlan.get(plan.id) || [] })) };
+  const employeeIds = [...new Set((data || []).map((plan) => plan.employee_id).filter(Boolean))];
+  const employees = new Map();
+  if (employeeIds.length) {
+    const rows = await Promise.all(employeeIds.map((id) => getEmployee(supabase, id).catch(() => null)));
+    for (const row of rows) if (row) employees.set(row.id, row);
+  }
+  return { data: (data || []).map((plan) => ({ ...plan, employee: employees.get(plan.employee_id) || null, items: itemsByPlan.get(plan.id) || [] })) };
 }
 
 export async function getPlan(supabase, id, employeeScope = "") {
   let query = supabase.from("development_plans")
-    .select("*, employee:profiles(id, employee_code, full_name, email, department, position)")
+    .select("*")
     .eq("id", id);
   if (employeeScope) query = query.eq("employee_id", employeeScope);
   const { data, error } = await query.maybeSingle();
@@ -42,7 +48,8 @@ export async function getPlan(supabase, id, employeeScope = "") {
     if (levelErr) throw httpError(levelErr.message, 500);
     for (const level of levelRows || []) levels.set(level.id, level);
   }
-  return { ...data, items: (items || []).map((item) => ({ ...item, current_level: levels.get(item.current_level_id) || null, target_level: levels.get(item.target_level_id) || null })) };
+  const employee = await getEmployee(supabase, data.employee_id).catch(() => null);
+  return { ...data, employee, items: (items || []).map((item) => ({ ...item, current_level: levels.get(item.current_level_id) || null, target_level: levels.get(item.target_level_id) || null })) };
 }
 
 export async function createPlan(supabase, request, acct, body) {
