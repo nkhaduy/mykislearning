@@ -15,6 +15,8 @@ const REPORT_TYPES = new Set([
   "certificates",
   "quizzes",
   "training-sessions",
+  "competencies",
+  "development-plans",
 ]);
 
 const SORT_FIELDS = {
@@ -26,6 +28,8 @@ const SORT_FIELDS = {
   certificates: new Set(["certificateType", "employee", "expiresAt", "status"]),
   quizzes: new Set(["quiz", "attempts", "averageScore", "passRate"]),
   "training-sessions": new Set(["title", "startAt", "registered", "attendanceRate"]),
+  competencies: new Set(["competency", "met", "minorGap", "significantGap", "notAssessed"]),
+  "development-plans": new Set(["employee", "status", "totalItems", "completedItems", "dueAt"]),
 };
 
 const STATUS_FIELDS = new Set([
@@ -41,6 +45,10 @@ const STATUS_FIELDS = new Set([
   "exempted",
   "revoked",
   "rejected",
+  "draft",
+  "active",
+  "cancelled",
+  "archived",
 ]);
 
 export function isReportType(value) {
@@ -592,6 +600,65 @@ async function buildTrainingSessionRows(supabase, base, filters) {
   return { rows: sortRows(rows, filters.sortBy, filters.sortDir), total: rows.length };
 }
 
+async function buildCompetencyReportRows(supabase, base, filters) {
+  const [compRes, reqRes, evRes, assRes] = await Promise.all([
+    supabase.from("competencies").select("id, code, name, category:competency_categories(name)").eq("status", "active").limit(1000),
+    supabase.from("competency_requirements").select("competency_id, required_level:competency_levels(rank)").eq("is_mandatory", true).limit(5000),
+    supabase.from("employee_competency_evidence").select("employee_id, competency_id, awarded_level:competency_levels(rank), status").eq("status", "active").limit(20000),
+    supabase.from("employee_competency_assessments").select("employee_id, competency_id, assessed_level:competency_levels(rank), status, assessment_type").eq("status", "verified").limit(20000),
+  ]);
+  for (const res of [compRes, reqRes, evRes, assRes]) if (res.error) throw new Error(res.error.message);
+  const employeeCount = applyEmployeeFilters(base.employees, filters).length;
+  const reqByComp = new Map();
+  for (const req of reqRes.data || []) reqByComp.set(req.competency_id, Math.max(reqByComp.get(req.competency_id) || 0, req.required_level?.rank || 0));
+  const effective = new Map();
+  for (const ev of evRes.data || []) effective.set(`${ev.employee_id}:${ev.competency_id}`, Math.max(effective.get(`${ev.employee_id}:${ev.competency_id}`) || 0, ev.awarded_level?.rank || 0));
+  for (const ass of assRes.data || []) if (["hr", "system"].includes(ass.assessment_type)) effective.set(`${ass.employee_id}:${ass.competency_id}`, Math.max(effective.get(`${ass.employee_id}:${ass.competency_id}`) || 0, ass.assessed_level?.rank || 0));
+  const employees = applyEmployeeFilters(base.employees, filters);
+  const rows = (compRes.data || []).map((comp) => {
+    const required = reqByComp.get(comp.id) || 0;
+    let met = 0, minorGap = 0, significantGap = 0, notAssessed = 0;
+    for (const emp of employees) {
+      const rank = effective.get(`${emp.id}:${comp.id}`);
+      if (rank === undefined) notAssessed += 1;
+      else if (Math.max(0, required - rank) === 0) met += 1;
+      else if (Math.max(0, required - rank) === 1) minorGap += 1;
+      else significantGap += 1;
+    }
+    return { competency: comp.name, code: comp.code, category: comp.category?.name || "", totalEmployees: employeeCount, met, minorGap, significantGap, notAssessed, coverageRate: pct(met, employeeCount) };
+  });
+  return { rows: sortRows(rows, filters.sortBy, filters.sortDir), total: rows.length };
+}
+
+async function buildDevelopmentPlanReportRows(supabase, base, filters) {
+  const { data, error } = await supabase.from("development_plans").select("*, employee:profiles(id, full_name, employee_code, department, position), items:development_plan_items(id,status,due_at,resource_type,resource_id,resource_version_id)").limit(5000);
+  if (error) throw new Error(error.message);
+  const rows = (data || []).filter((plan) => {
+    if (filters.department && plan.employee?.department !== filters.department) return false;
+    if (filters.employeeId && plan.employee_id !== filters.employeeId) return false;
+    if (filters.status && plan.status !== filters.status) return false;
+    return true;
+  }).map((plan) => {
+    const items = plan.items || [];
+    const completed = items.filter((i) => i.status === "completed").length;
+    return {
+      employee: plan.employee?.full_name || plan.employee_id,
+      employeeCode: plan.employee?.employee_code || "",
+      department: plan.employee?.department || "",
+      jobTitle: plan.employee?.position || "",
+      title: plan.title,
+      status: plan.status,
+      totalItems: items.length,
+      completedItems: completed,
+      overdueItems: items.filter((i) => i.status === "overdue" || (i.due_at && new Date(i.due_at) < new Date() && !["completed", "cancelled"].includes(i.status))).length,
+      progressRate: pct(completed, items.length),
+      dueAt: plan.target_end_at || "",
+      resourceVersions: items.map((i) => i.resource_version_id).filter(Boolean).join("; "),
+    };
+  });
+  return { rows: sortRows(rows, filters.sortBy, filters.sortDir), total: rows.length };
+}
+
 export async function getTableReport(supabase, reportType, filters) {
   const base = await fetchBase(supabase);
   let result;
@@ -603,6 +670,8 @@ export async function getTableReport(supabase, reportType, filters) {
   else if (reportType === "certificates") result = await buildCertificateRows(supabase, base, filters);
   else if (reportType === "quizzes") result = await buildQuizRows(supabase, base, filters);
   else if (reportType === "training-sessions") result = await buildTrainingSessionRows(supabase, base, filters);
+  else if (reportType === "competencies") result = await buildCompetencyReportRows(supabase, base, filters);
+  else if (reportType === "development-plans") result = await buildDevelopmentPlanReportRows(supabase, base, filters);
   else {
     const err = new Error("INVALID_REPORT_TYPE");
     err.status = 400;
@@ -620,6 +689,8 @@ const HEADERS = {
   certificates: ["Loại chứng chỉ", "Nhân viên", "Mã nhân viên", "Phòng ban", "Đã xác minh", "Chờ xác minh", "Sắp hết hạn", "Đã hết hạn", "Thiếu bắt buộc", "Bị từ chối", "Bị thu hồi", "Ngày hết hạn"],
   quizzes: ["Quiz", "Phiên bản", "Số lượt thi", "Số người thi", "Điểm trung bình", "Tỷ lệ đạt", "Số lần thi lại", "Câu hỏi sai cao"],
   "training-sessions": ["Tên lớp", "Ngày tổ chức", "Hình thức", "Số đăng ký", "Có mặt", "Đi trễ", "Vắng mặt", "Tỷ lệ tham gia"],
+  competencies: ["Năng lực", "Mã", "Danh mục", "Tổng nhân viên", "Đạt", "Thiếu nhẹ", "Thiếu đáng kể", "Chưa đánh giá", "Tỷ lệ đạt"],
+  "development-plans": ["Nhân viên", "Mã nhân viên", "Phòng ban", "Chức danh", "Kế hoạch", "Trạng thái", "Tổng mục", "Đã hoàn thành", "Quá hạn", "Tiến độ", "Hạn", "Resource versions"],
 };
 
 function rowToArray(type, r) {
@@ -631,6 +702,8 @@ function rowToArray(type, r) {
   if (type === "certificates") return [r.certificateType, r.employee, r.employeeCode, r.department, r.verified, r.pending, r.expiringSoon, r.expired, r.missingRequired, r.rejected, r.revoked, r.expiresAt];
   if (type === "quizzes") return [r.quiz, r.version, r.attempts, r.participants, r.averageScore, r.passRate, r.retakes, r.hardestQuestion];
   if (type === "training-sessions") return [r.title, r.startAt, r.mode, r.registered, r.present, r.late, r.absent, r.attendanceRate];
+  if (type === "competencies") return [r.competency, r.code, r.category, r.totalEmployees, r.met, r.minorGap, r.significantGap, r.notAssessed, r.coverageRate];
+  if (type === "development-plans") return [r.employee, r.employeeCode, r.department, r.jobTitle, r.title, r.status, r.totalItems, r.completedItems, r.overdueItems, r.progressRate, r.dueAt, r.resourceVersions];
   return Object.values(r);
 }
 

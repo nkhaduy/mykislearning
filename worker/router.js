@@ -21,6 +21,8 @@ import { handleCertificates } from "./routes/certificates.js";
 import { handleReports } from "./routes/reports.js";
 import { handleAuditLogs } from "./routes/audit-logs.js";
 import { handleContentVersions } from "./routes/content-versions.js";
+import { handleCompetencies } from "./routes/competencies.js";
+import { handleDevelopmentPlans } from "./routes/development-plans.js";
 import { withRequestContext, getRequestContext } from "./middleware/request-context.js";
 
 export async function handleApiRequest(request, env) {
@@ -121,6 +123,24 @@ export async function handleApiRequest(request, env) {
       path === "/api/admin/reports" ||
       path.startsWith("/api/admin/reports/")
     ) return await handleReports(request, env);
+
+    if (
+      path === "/api/competencies/my" ||
+      path.startsWith("/api/competencies/my/") ||
+      path === "/api/admin/competencies" ||
+      path.startsWith("/api/admin/competencies/") ||
+      path === "/api/admin/skills-matrix" ||
+      path.startsWith("/api/admin/skills-matrix/") ||
+      path === "/api/admin/competency-assessments" ||
+      path.startsWith("/api/admin/competency-assessments/")
+    ) return await handleCompetencies(request, env);
+
+    if (
+      path === "/api/development-plans/my" ||
+      path.startsWith("/api/development-plans/my/") ||
+      path === "/api/admin/development-plans" ||
+      path.startsWith("/api/admin/development-plans/")
+    ) return await handleDevelopmentPlans(request, env);
 
     if (
       path === "/api/admin/audit-logs" ||

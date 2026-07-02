@@ -30,6 +30,24 @@
   --shadow: 0 14px 32px rgba(11, 31, 58, 0.07);
 }
 
+.phase9-page .learning-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}
+.phase9-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:16px 0}
+.phase9-page .form-2col{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.phase9-page .field{display:flex;flex-direction:column;gap:6px}
+.phase9-page input,.phase9-page select,.phase9-page textarea{min-height:44px}
+.skills-matrix-wrap{overflow:auto;max-width:100%;border:1px solid var(--border);border-radius:8px}
+.skills-matrix{min-width:960px;border-collapse:separate;border-spacing:0}
+.skills-matrix th,.skills-matrix td{vertical-align:top;min-width:180px}
+.skills-matrix .sticky-col{position:sticky;left:0;z-index:2;background:var(--surface);min-width:240px;box-shadow:1px 0 0 var(--border)}
+.matrix-cell{width:100%;min-height:88px;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:10px;border:1px solid var(--border);border-radius:8px;background:#fff;text-align:left;color:var(--text)}
+.matrix-cell strong{font-size:13px}.matrix-cell span{font-size:12px;color:var(--muted)}
+.matrix-cell.significant_gap{border-color:#dc2626;background:#fff5f5}.matrix-cell.minor_gap{border-color:#d97706;background:#fffbeb}.matrix-cell.met{border-color:#059669;background:#f0fdf4}.matrix-cell.not_assessed{border-color:#64748b;background:#f8fafc}
+.skills-card-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.skill-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,340px);gap:14px;align-items:start}
+.skill-card h2{font-size:18px;margin:4px 0 10px}.skill-card dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0}.skill-card dt{font-size:12px;color:var(--muted);font-weight:700}.skill-card dd{margin:3px 0 0;font-weight:700}
+.self-assessment-form{display:grid;gap:8px}.inline-plan-item{display:grid;grid-template-columns:repeat(5,minmax(90px,1fr)) auto;gap:6px;align-items:end;margin-bottom:8px}
+@media (max-width: 900px){.phase9-page .learning-hero{align-items:flex-start;flex-direction:column}.phase9-grid,.skills-card-list{grid-template-columns:1fr}.phase9-page .form-2col,.skill-card{grid-template-columns:1fr}.skill-card dl{grid-template-columns:1fr}.skills-matrix-wrap{border:0;overflow:visible}.skills-matrix,.skills-matrix thead,.skills-matrix tbody,.skills-matrix tr,.skills-matrix th,.skills-matrix td{display:block;min-width:0}.skills-matrix thead{display:none}.skills-matrix tr{border:1px solid var(--border);border-radius:8px;margin-bottom:12px;background:#fff;overflow:hidden}.skills-matrix .sticky-col{position:static;box-shadow:none;min-width:0;background:#f8fafc}.skills-matrix td{min-width:0;border-top:1px solid var(--border)}.inline-plan-item{grid-template-columns:1fr}}
+
 /* 2026 LMS consistency pass */
 :root { --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-6:24px; --space-8:32px; --space-10:40px; --control-h:44px; }
 button, .btn, input, select { min-height:var(--control-h); }
