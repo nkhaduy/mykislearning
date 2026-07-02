@@ -84,6 +84,28 @@ async function exportSkillsMatrix(supabase, request, acct, url) {
   return new Response(csv, { headers: { ...corsHeaders(), "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": "attachment; filename=\"skills-matrix.csv\"" } });
 }
 
+async function listAdminAssessments(supabase) {
+  const { data, error } = await supabase
+    .from("employee_competency_assessments")
+    .select("*, assessed_level:competency_levels(*), competency:competencies(*)")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw httpError(error.message, 500);
+
+  const employeeIds = [...new Set((data || []).map((row) => row.employee_id).filter(Boolean))];
+  let employeeMap = new Map();
+  if (employeeIds.length) {
+    const { data: employees, error: employeeError } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, department, position")
+      .in("id", employeeIds);
+    if (employeeError) throw httpError(employeeError.message, 500);
+    employeeMap = new Map((employees || []).map((employee) => [employee.id, employee]));
+  }
+
+  return { data: (data || []).map((row) => ({ ...row, employee: employeeMap.get(row.employee_id) || null })) };
+}
+
 async function createCategory(supabase, request, acct, body) {
   const row = {
     id: cid("ccat"),
@@ -295,11 +317,7 @@ export async function handleCompetencies(request, env) {
       if (path === "/api/admin/skills-matrix" && method === "GET") return json(await buildSkillsMatrix(supabase, parseFilters(url)));
       const matrixEmp = path.match(/^\/api\/admin\/skills-matrix\/employees\/([^/]+)$/);
       if (matrixEmp && method === "GET") return json(await buildSkillsMatrix(supabase, { ...parseFilters(url), employeeId: matrixEmp[1], pageSize: 1 }));
-      if (path === "/api/admin/competency-assessments" && method === "GET") {
-        const { data, error } = await supabase.from("employee_competency_assessments").select("*, assessed_level:competency_levels(*), competency:competencies(*), employee:profiles(id, full_name, email, department, position)").order("created_at", { ascending: false }).limit(200);
-        if (error) throw httpError(error.message, 500);
-        return json({ data: data || [] });
-      }
+      if (path === "/api/admin/competency-assessments" && method === "GET") return json(await listAdminAssessments(supabase));
       const assessAction = path.match(/^\/api\/admin\/competency-assessments\/([^/]+)\/(verify|reject)$/);
       if (assessAction && method === "POST") {
         const body = await readJson(request).catch(() => ({}));
