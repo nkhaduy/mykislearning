@@ -10,29 +10,28 @@ test("timeline desktop 1280", async ({ page }) => {
   await page.goto(URL, { waitUntil: "networkidle" });
   await page.locator("#kis-history").scrollIntoViewIfNeeded();
   await page.waitForTimeout(800);
-  const items = page.locator(".tl-story__item");
-  await expect(items).toHaveCount(7);
+  const yearBtns = page.locator(".timeline-carousel__year");
+  await expect(yearBtns).toHaveCount(7);
   // horizontal overflow check
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(2);
-  // no dot/year overlap: each dot must be within node column horizontally centered
-  const overlap = await page.evaluate(() => {
-    const track = document.querySelector(".tl-story__track");
-    const r = track.getBoundingClientRect();
-    const lineX = r.left + r.width / 2;
-    let bad = 0;
-    document.querySelectorAll(".tl-story__item").forEach((it) => {
-      const dot = it.querySelector(".tl-story__dot").getBoundingClientRect();
-      const year = it.querySelector(".tl-story__year").getBoundingClientRect();
-      // dot should be near center axis
-      if (Math.abs((dot.left + dot.width / 2) - lineX) > 6) bad++;
-      // year and dot should not vertically overlap
-      if (year.bottom > dot.top + 2) bad++;
-    });
-    return bad;
-  });
-  expect(overlap).toBe(0);
-  expect(errors.filter(e => /timeline|tl-story/i.test(e)).length).toBe(0);
+  // active year must be visible and have correct aria
+  const activeYear = page.locator(".timeline-carousel__year.is-active");
+  await expect(activeYear).toHaveAttribute("aria-current", "true");
+  await expect(activeYear).toHaveAttribute("aria-selected", "true");
+  // year-big should show the active year
+  const yearBig = page.locator(".timeline-carousel__year-big");
+  await expect(yearBig).toBeVisible();
+  // image should be loaded
+  const img = page.locator(".timeline-carousel__image img");
+  await expect(img).toBeVisible();
+  // prev/next buttons should exist
+  await expect(page.locator(".timeline-carousel__btn--prev")).toBeVisible();
+  await expect(page.locator(".timeline-carousel__btn--next")).toBeVisible();
+  // events list should have content
+  const events = page.locator(".timeline-carousel__events li");
+  await expect(events.first()).toBeVisible();
+  expect(errors.filter(e => /timeline|carousel/i.test(e)).length).toBe(0);
   await page.screenshot({ path: "test-results/timeline-desktop.png", fullPage: false });
 });
 
@@ -45,27 +44,26 @@ test("timeline mobile 390", async ({ page }) => {
   await page.waitForTimeout(800);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(2);
-  // year text must not wrap char-by-char: year element width should fit content (>= 38px)
-  const minYearW = await page.evaluate(() => {
-    let m = Infinity;
-    document.querySelectorAll(".tl-story__year").forEach((y) => {
-      const r = y.getBoundingClientRect();
-      if (r.width < m) m = r.width;
-    });
-    return m;
-  });
-  expect(minYearW).toBeGreaterThan(40);
-  // no overlap between dot and year on mobile (dot in left rail, year in content)
-  const overlap = await page.evaluate(() => {
-    let bad = 0;
-    document.querySelectorAll(".tl-story__item").forEach((it) => {
-      const dot = it.querySelector(".tl-story__dot").getBoundingClientRect();
-      const year = it.querySelector(".tl-story__year").getBoundingClientRect();
-      if (dot.right > year.left + 2) bad++;
-    });
-    return bad;
-  });
-  expect(overlap).toBe(0);
+  // year nav should be scrollable (horizontal)
+  const yearNav = page.locator(".timeline-carousel__years");
+  await expect(yearNav).toBeVisible();
+  // active year button must be visible
+  const activeYear = page.locator(".timeline-carousel__year.is-active");
+  await expect(activeYear).toBeVisible();
+  // image should be visible with correct aspect
+  const img = page.locator(".timeline-carousel__image img");
+  await expect(img).toBeVisible();
+  // year-big should be visible
+  const yearBig = page.locator(".timeline-carousel__year-big");
+  await expect(yearBig).toBeVisible();
+  // events should be readable
+  const events = page.locator(".timeline-carousel__events li");
+  await expect(events.first()).toBeVisible();
+  // prev/next buttons should exist with touch-friendly size
+  const prevBtn = page.locator(".timeline-carousel__btn--prev");
+  const nextBtn = page.locator(".timeline-carousel__btn--next");
+  await expect(prevBtn).toBeVisible();
+  await expect(nextBtn).toBeVisible();
   await page.screenshot({ path: "test-results/timeline-mobile.png", fullPage: false });
   expect(errors.length).toBe(0);
 });

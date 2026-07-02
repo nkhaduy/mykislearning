@@ -31,44 +31,63 @@ async function check(viewport, label) {
   await page.waitForTimeout(500);
 
   const isMobile = viewport.width <= 767;
-  const res = await page.evaluate((isMobile) => {
-    const items = [...document.querySelectorAll(".tl-story__item")];
-    const track = document.querySelector(".tl-story__track").getBoundingClientRect();
-    const lineX = isMobile ? -1 : track.left + track.width / 2;
-    let blockComplete = 0, blockOnOneSide = 0, img2020Top = 0, yearWithBlock = 0, overflow = 0;
-    items.forEach((it) => {
-      const block = it.querySelector(".tl-story__block");
-      const year = it.querySelector(".tl-story__year");
-      const media = it.querySelector(".tl-story__media");
-      const card = it.querySelector(".tl-story__card");
-      // block cohesive: year, media, card all present and stacked
-      if (block && year && media && card) blockComplete++;
-      // year within block horizontal span
-      const br = block.getBoundingClientRect();
-      const yr = year.getBoundingClientRect();
-      if (yr.left >= br.left - 4 && yr.right <= br.right + 4) yearWithBlock++;
-      if (!isMobile) {
-        // block must be entirely on one side of the axis
-        const isLeft = it.classList.contains("tl-story__item--left");
-        if (isLeft && br.right <= lineX + 2) blockOnOneSide++;
-        if (!isLeft && br.left >= lineX - 2) blockOnOneSide++;
-      }
-    });
-    const img2020 = document.querySelector('.tl-story__item[data-timeline-year="2020"] .tl-story__media img');
-    if (img2020 && /0%$/.test(getComputedStyle(img2020).objectPosition)) img2020Top++;
-    overflow = document.documentElement.scrollWidth - window.innerWidth;
-    return { count: items.length, blockComplete, blockOnOneSide, yearWithBlock, img2020Top, overflow };
-  }, isMobile);
+  let res = await page.evaluate(() => {
+    const years = [...document.querySelectorAll(".timeline-carousel__year")];
+    const content = document.querySelector(".timeline-carousel__content");
+    const header = document.querySelector(".timeline-carousel__header");
+    const yearNav = document.querySelector(".timeline-carousel__years");
+    const image = document.querySelector(".timeline-carousel__image");
+    const yearBig = document.querySelector(".timeline-carousel__year-big");
+    const events = document.querySelector(".timeline-carousel__events");
+    const watermark = document.querySelector(".timeline-carousel__watermark");
+    const prevBtn = document.querySelector(".timeline-carousel__btn--prev");
+    const nextBtn = document.querySelector(".timeline-carousel__btn--next");
+    let checks = 0;
+    if (years.length === 7) checks++;
+    if (content) checks++;
+    if (header) checks++;
+    if (yearNav) checks++;
+    if (image) checks++;
+    if (yearBig) checks++;
+    if (events) checks++;
+    if (watermark) checks++;
+    if (prevBtn) checks++;
+    if (nextBtn) checks++;
+    const activeYear = document.querySelector(".timeline-carousel__year.is-active");
+    if (activeYear) checks++;
+    const firstDisabled = prevBtn?.disabled;
+    const lastDisabled = nextBtn?.disabled;
+    const overflow = document.documentElement.scrollWidth - window.innerWidth;
+    return { count: years.length, checks, firstDisabled, lastDisabled, overflow };
+  });
 
   await page.screenshot({ path: `test-results/timeline-${label}.png` });
   console.log(`[${label}]`, JSON.stringify(res), "errors:", errors.length);
-  if (res.count !== 7) { console.log("  FAIL: not 7"); failed++; }
-  if (res.blockComplete !== 7) { console.log("  FAIL: blocks incomplete:", res.blockComplete); failed++; }
-  if (!isMobile && res.blockOnOneSide !== 7) { console.log("  FAIL: blocks cross axis:", res.blockOnOneSide); failed++; }
-  if (res.yearWithBlock !== 7) { console.log("  FAIL: year not within block:", res.yearWithBlock); failed++; }
-  if (res.img2020Top !== 1) { console.log("  FAIL: 2020 img not top-anchored"); failed++; }
+  if (res.count !== 7) { console.log("  FAIL: not 7 years, got", res.count); failed++; }
+  if (res.checks < 10) { console.log("  FAIL: missing elements, checks:", res.checks); failed++; }
+  if (res.firstDisabled !== false) { console.log("  FAIL: prev should be enabled (starting at last year)"); failed++; }
+  if (res.lastDisabled !== true) { console.log("  FAIL: next should be disabled (starting at last year)"); failed++; }
   if (res.overflow > 2) { console.log("  FAIL: overflow:", res.overflow); failed++; }
   if (errors.length) { console.log("  FAIL: console errors:", errors.slice(0,3)); failed++; }
+
+  // Navigate to year 2020 and verify object-position
+  const btn2020 = page.locator('[data-timeline-year="2020"]');
+  if (await btn2020.count() === 1) {
+    await btn2020.click();
+    await page.waitForTimeout(600);
+    const img2020 = await page.evaluate(() => {
+      const img = document.querySelector('.timeline-carousel__image[data-year="2020"] img');
+      if (!img) return "no-img";
+      return getComputedStyle(img).objectPosition;
+    });
+    if (!/0%$/.test(img2020)) {
+      console.log(`  FAIL: 2020 img not top-anchored (got: ${img2020})`);
+      failed++;
+    }
+  } else {
+    console.log("  FAIL: 2020 year button not found");
+    failed++;
+  }
   await page.close();
 }
 

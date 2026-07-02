@@ -108,6 +108,7 @@ let _apiEmployeesError = "";
 let _apiEmployeesLoaded = false;
 // Timeline carousel state
 let activeTimelineYear = "2025";
+let _timelineDirection = "next";
 // Delete employee modal state
 let _deleteEmployeeId = "";
 let _deleteEmployeeName = "";
@@ -1060,6 +1061,7 @@ function uiText(key) {
     announcements: { vi: "Thông báo", en: "Announcements", kr: "공지사항" },
     quickLinks: { vi: "Liên kết nhanh", en: "Quick Links", kr: "빠른 링크" },
     support: { vi: "Hỗ trợ", en: "Support", kr: "지원" },
+    contactSupport: { vi: "Liên hệ hỗ trợ", en: "Contact Support", kr: "지원 문의" },
     contactPerson: { vi: "Liên hệ phụ trách", en: "Contact Person", kr: "담당자 연락처" },
     employeeOnly: { vi: "Dành riêng cho nhân viên KIS Việt Nam", en: "Exclusively for KIS Vietnam employees", kr: "KIS 베트남 임직원 전용" },
     internalOnly: { vi: "Chỉ sử dụng nội bộ", en: "Internal Use Only", kr: "내부 전용" },
@@ -1643,8 +1645,8 @@ function header() {
       <div class="container header-inner">
         ${brand()}
         <nav class="nav">
-          <a href="/" data-link>${t("nav.home")}</a>
-          <a href="/about-kis" data-link>${t("nav.about")}</a>
+          <a href="/" data-link ${route === "/" ? 'aria-current="page" class="is-active"' : ""}>${t("nav.home")}</a>
+          <a href="/about-kis" data-link ${route === "/about-kis" ? 'aria-current="page" class="is-active"' : ""}>${t("nav.about")}</a>
           <button class="nav-button" ${activeSession ? 'data-auth-target="/dashboard/courses" data-auth-role="employee"' : 'data-scroll="featured-courses"'}>${activeSession ? uiText("exploreCourses") : t("nav.courses")}</button>
           ${activeSession ? `<button class="nav-button" data-open-notifications>${uiText("announcements")}</button>` : ""}
           ${activeAccount?.role === "employee" ? `<button class="nav-button" data-auth-target="/dashboard/calendar" data-auth-role="employee">${uiText("calendar")}</button>` : ""}
@@ -1667,30 +1669,43 @@ function header() {
 }
 
 function footer() {
+  const roleLabel = language === "kr" ? "인사팀 부팀장" : language === "en" ? "Assistant Manager, Human Resources" : "Phòng Nhân sự – Đào tạo & Phát triển";
+  const ctaLabel = language === "kr" ? "이메일 보내기" : language === "en" ? "Send email" : "Gửi email";
+  const loginLabel = language === "kr" ? "로그인" : language === "en" ? "Sign in" : "Đăng nhập";
   return `
-    <footer class="footer premium-footer">
-      <div class="container footer-grid">
-        <div class="footer-brand">
-          <strong>${t("brand")}</strong>
-          <p>Nền tảng Học tập và Phát triển năng lực</p>
-          <span>${uiText("employeeOnly")}</span>
+    <footer class="footer-v2">
+      <div class="container footer-v2__grid">
+        <div class="footer-v2__brand">
+          <span class="footer-v2__brand-name">${t("brand")}</span>
+          <p class="footer-v2__brand-desc">${t("landing.footer")}</p>
+          <span class="footer-v2__brand-badge">${uiText("employeeOnly")}</span>
         </div>
-        <nav class="footer-column">
-          <h3>${uiText("quickLinks")}</h3>
-          <a href="/" data-link>${t("nav.home")}</a>
-          <a href="/about-kis" data-link>${t("nav.about")}</a>
-          <a href="/#featured-courses" data-link>${t("nav.courses")}</a>
+        <nav class="footer-v2__col footer-v2__nav-col">
+          <span class="footer-v2__col-heading">${uiText("quickLinks")}</span>
+          <div class="footer-v2__links">
+            <a href="/" data-link>${t("nav.home")}</a>
+            <a href="/about-kis" data-link>${t("nav.about")}</a>
+            <a href="/#featured-courses" data-link>${t("nav.courses")}</a>
+            <a href="/login" data-link>${loginLabel}</a>
+          </div>
         </nav>
-        <div class="footer-column footer-contact">
-          <h3>${uiText("contactPerson")}</h3>
-          <strong>${hrContact}</strong>
-          <p>Assistant Manager</p>
-          <p>Human Resources</p>
-          <a href="mailto:thanh.ntc@kisvn.vn">thanh.ntc@kisvn.vn</a>
+        <div class="footer-v2__col footer-v2__contact-col">
+          <span class="footer-v2__col-heading">${uiText("contactSupport")}</span>
+          <div class="footer-v2__support-box">
+            <div class="footer-v2__support-body">
+              <span class="footer-v2__support-name">${hrContact}</span>
+              <span class="footer-v2__support-role">${roleLabel}</span>
+              <a class="footer-v2__support-email" href="mailto:thanh.ntc@kisvn.vn">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                thanh.ntc@kisvn.vn
+              </a>
+            </div>
+            <a class="footer-v2__support-cta" href="mailto:thanh.ntc@kisvn.vn">${ctaLabel}</a>
+          </div>
         </div>
       </div>
-      <div class="container footer-bottom">
-        <span>© 2026 KIS Vietnam. All rights reserved.</span>
+      <div class="container footer-v2__bottom">
+        <span>© 2026 KIS Vietnam Securities. All rights reserved.</span>
         <span>${uiText("internalOnly")}</span>
         ${languageSwitcher()}
       </div>
@@ -1714,6 +1729,27 @@ function progress(value) {
   return `<div class="progress"><span style="--value:${value}%"></span></div>`;
 }
 
+function learningHoursNow() {
+  const BASE = 3204;
+  const BASE_DATE = "2026-07-02";
+  const PER_DAY = 8;
+  // Compute elapsed full days in Asia/Ho_Chi_Minh timezone
+  const nowVN = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+  const baseVN = new Date(new Date(BASE_DATE + "T00:00:00+07:00").toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+  const elapsedMs = nowVN - baseVN;
+  const elapsedDays = Math.max(0, Math.floor(elapsedMs / 86400000));
+  return Math.max(BASE, BASE + elapsedDays * PER_DAY);
+}
+
+function formatLearningHours(hours) {
+  try {
+    const loc = language === "vi" ? "vi-VN" : language === "kr" ? "ko-KR" : "en-US";
+    return new Intl.NumberFormat(loc).format(hours);
+  } catch {
+    return String(hours);
+  }
+}
+
 function landingPage() {
   const featuredTitles = new Set(["Đào tạo hội nhập nhân viên mới", "AI for Beginners"]);
   const publishedCourses = getCourses().filter((course) => course.status === "published" && featuredTitles.has(course.title));
@@ -1722,17 +1758,54 @@ function landingPage() {
     { id:"featured-ai", title:"AI for Beginners", description:"Kiến thức nền tảng và cách ứng dụng AI an toàn, hiệu quả trong công việc.", category:"Công nghệ", durationHours:4, status:"published", imageUrl:"/images/leadership-training-course.png" },
   ].filter((fallback) => !publishedCourses.some((course) => course.title === fallback.title));
   const featuredCourses = [...publishedCourses, ...featuredFallback].slice(0, 2);
-  const purposes = [
-    ["building", "purpose.onboarding", "Giúp nhân viên mới nắm rõ lịch sử công ty, văn hóa doanh nghiệp, quy trình nội bộ và các chính sách nhân sự bắt buộc."],
-    ["message", "purpose.softSkills", "Cung cấp các khóa học thực chiến về kỹ năng giao tiếp, kỹ năng bán hàng (FAB) và quy trình phối hợp liên phòng ban."],
-    ["award", "purpose.certificate", "Hệ thống hóa tài liệu, lộ trình học và ôn tập chuyên sâu để chuẩn bị cho các kỳ thi chứng chỉ chuyên môn của UBCKNN."],
-    ["check", "purpose.testing", "Tổ chức các bài test định kỳ, sát hạch năng lực và tự động ghi nhận tiến độ, cấp chứng nhận hoàn thành."],
-  ];
-  const ctaHref = session ? (hasAdminAccess() ? "/admin" : "/dashboard") : "/login";
+
   const ctaAttr = session
     ? `data-auth-target="${session.role === "hr" ? "/admin" : "/dashboard"}" data-auth-role="${session.role}"`
     : `href="/login" data-link`;
   const ctaTag = session ? "button" : "a";
+
+  // Live LMS stats
+  const allCourses = getCourses().filter(c => c.status === "published");
+  const allEmployees = getEmployees();
+  const totalLearningHours = learningHoursNow();
+
+  const statsHtml = `
+    <div class="home-stats" data-countup-section>
+      <div class="container home-stats__inner">
+        <div class="home-stat-item">
+          <span class="home-stat-item__value gradient-text" data-countup="${allEmployees.length || 200}" data-countup-suffix="+">${allEmployees.length || "200"}+</span>
+          <span class="home-stat-item__label">${overviewText("learnersCount")}</span>
+        </div>
+        <div class="home-stat-item">
+          <span class="home-stat-item__value gradient-text" data-countup="${allCourses.length || 12}">${allCourses.length || "12"}</span>
+          <span class="home-stat-item__label">${overviewText("openCoursesCount")}</span>
+        </div>
+        <div class="home-stat-item">
+          <span class="home-stat-item__value gradient-text" data-countup="${totalLearningHours}" data-countup-locale="true">${formatLearningHours(totalLearningHours)}</span>
+          <span class="home-stat-item__label">${overviewText("totalHoursCount")}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const coursesHtml = featuredCourses.map(course => {
+    const img = course.imageUrl
+      ? `<div class="course-card-v2__thumb"><img src="${escapeHtmlAttribute(course.imageUrl)}" alt="${escapeHtmlAttribute(course.title)}" loading="lazy"></div>`
+      : `<div class="course-card-v2__thumb"><div class="course-card-v2__thumb-icon">${icon("book")}</div></div>`;
+    return `<article class="course-card-v2" data-auth-target="/dashboard/courses" data-auth-role="employee" tabindex="0" role="button" aria-label="${escapeHtmlAttribute(course.title)}">
+      ${img}
+      <div class="course-card-v2__body">
+        <span class="course-card-v2__category">${escapeHtml(course.category || "")}</span>
+        <h3 class="course-card-v2__title">${escapeHtml(course.title)}</h3>
+        <p class="course-card-v2__desc">${escapeHtml(course.description || "")}</p>
+        <div class="course-card-v2__footer">
+          <span class="course-card-v2__meta">${Number(course.durationHours) || 0}h</span>
+          <button class="course-card-v2__cta">${language === "kr" ? "보기" : language === "en" ? "View course" : "Xem khóa học"} →</button>
+        </div>
+      </div>
+    </article>`;
+  }).join("");
+
   return `
     <div class="page landing-page">
       ${header()}
@@ -1740,32 +1813,57 @@ function landingPage() {
         ${heroMockup()}
         <div class="container hero-overlay-content">
           <div class="hero-text">
-            
-            <h1 class="hero-title--kis">MyKIS Learning</h1>
-            <p class="hero-subtitle--kis">Nền tảng Học tập và Phát triển năng lực</p>
-            <p class="hero-note--kis">Dành riêng cho nhân viên KIS Việt Nam</p>
+            <span class="eyebrow">${t("landing.eyebrow")}</span>
+            <h1 class="hero-title--kis">${t("landing.title")}</h1>
+            <p class="hero-subtitle--kis">${t("landing.subtitle")}</p>
             <div class="hero-actions hero-actions--kis">
-              <${ctaTag} class="btn btn-primary btn--hero" ${ctaAttr}>Vào trang học tập</${ctaTag}>
-              <button class="btn btn-outline btn--hero-secondary" data-scroll="featured-courses">Khám phá khóa học</button>
+              <${ctaTag} class="btn btn-primary btn--hero" ${ctaAttr}>${t("landing.cta")}</${ctaTag}>
+              <button class="btn btn-outline btn--hero-secondary" data-scroll="featured-courses">${language === "kr" ? "과정 둘러보기" : language === "en" ? "Explore courses" : "Khám phá khóa học"}</button>
             </div>
           </div>
         </div>
       </section>
-      <section class="section section--featured" id="featured-courses">
+
+      ${statsHtml}
+
+      <section class="section--featured-v2" id="featured-courses">
         <div class="container">
-          <h2 class="section-title">Khóa học nổi bật</h2>
-          <div class="landing-course-grid landing-course-grid--2">${featuredCourses.map(realCourseCard).join("")}</div>
-          <a class="btn btn-primary landing-more-courses" href="${session ? (hasAdminAccess()?"/admin/courses":"/dashboard/courses") : "/login"}" data-link>Xem thêm khóa học</a>
+          <div class="section-head" data-reveal>
+            <div>
+              <h2 class="section-title">${language === "kr" ? "주요 교육 과정" : language === "en" ? "Featured Courses" : "Khóa học nổi bật"}</h2>
+              <p class="section-lead">${language === "kr" ? "KIS Vietnam 직원을 위해 엄선된 핵심 과정." : language === "en" ? "Carefully curated courses for KIS Vietnam employees." : "Các khóa học được chọn lọc dành riêng cho nhân viên KIS Việt Nam."}</p>
+            </div>
+          </div>
+          <div class="course-grid-v2" data-stagger>${coursesHtml}</div>
+          <div style="text-align:center;margin-top:36px">
+            <a class="btn btn-primary" href="${session ? (hasAdminAccess()?"/admin/courses":"/dashboard/courses") : "/login"}" data-link>${language === "kr" ? "모든 과정 보기" : language === "en" ? "View all courses" : "Xem tất cả khóa học"}</a>
+          </div>
         </div>
       </section>
-      <section class="section kis-banner-section">
+
+      <section class="section--kis-banner">
         <div class="container">
-          <a class="kis-about-banner" href="/about-kis" data-link>
-            <span>Tìm hiểu thêm về KIS Việt Nam</span>
-            <strong>Khám phá hành trình và giá trị của KIS →</strong>
+          <a class="kis-about-banner-v2" href="/about-kis" data-link data-reveal="scale">
+            <div class="kis-about-banner-v2__text">
+              <span class="kis-about-banner-v2__eyebrow">${language === "kr" ? "회사 소개" : language === "en" ? "About KIS" : "Về KIS Việt Nam"}</span>
+              <h2 class="kis-about-banner-v2__title">${language === "kr" ? "KIS Vietnam의 여정을 탐색하세요" : language === "en" ? "Discover the KIS Vietnam journey" : "Khám phá hành trình và giá trị của KIS Việt Nam"}</h2>
+              <p class="kis-about-banner-v2__desc">${language === "kr" ? "15년 이상의 성장, 글로벌 네트워크, 전문 인재를 바탕으로 한 KIS Vietnam의 이야기." : language === "en" ? "15+ years of growth, global network and professional talent powering KIS Vietnam." : "Hơn 15 năm phát triển, mạng lưới toàn cầu và đội ngũ nhân lực chuyên nghiệp tạo nên KIS Việt Nam."}</p>
+            </div>
+            <div class="kis-about-banner-v2__arrow" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
           </a>
         </div>
       </section>
+
+      <div class="home-final-cta" data-reveal="fade">
+        <div class="container">
+          <h2>${language === "kr" ? "MyKIS Learning과 함께 시작하세요" : language === "en" ? "Start your learning journey" : "Bắt đầu hành trình học tập"}</h2>
+          <p>${language === "kr" ? "KIS Vietnam 직원 전용 학습 플랫폼에 접속하세요." : language === "en" ? "Access the internal learning platform built exclusively for KIS Vietnam employees." : "Truy cập nền tảng học tập nội bộ được xây dựng riêng cho nhân viên KIS Việt Nam."}</p>
+          <${ctaTag} class="btn btn-primary" ${ctaAttr}>${t("landing.cta")}</${ctaTag}>
+        </div>
+      </div>
+
       ${footer()}
       ${activeSessionForLandingModal()}
       ${hasEmployeeAccess()?notificationModal():""}
@@ -1817,20 +1915,34 @@ function hrAnnouncementsSection() {
 }
 
 function aboutPage() {
+  const heroStats = [
+    { value: "12/2010", label: language === "kr" ? "설립" : language === "en" ? "Founded" : "Thành lập" },
+    { value: "4.550 tỷ", label: language === "kr" ? "자본금 (VND)" : language === "en" ? "Charter capital" : "Vốn điều lệ" },
+    { value: "99.8%", label: language === "kr" ? "KIS Korea 지분" : language === "en" ? "KIS Korea stake" : "Sở hữu KIS Korea" },
+    { value: "15+", label: language === "kr" ? "운영 기간 (년)" : language === "en" ? "Years in operation" : "Năm hoạt động", countup: true },
+  ];
   return `
     <div class="page about-page">
       ${header()}
-      <section class="about-premium-hero about-image-hero">
-        <div class="container about-premium-grid">
-          <div><h1>${t("about.title")}</h1><p>Hành trình phát triển, nền tảng tài chính, mạng lưới toàn cầu và sức mạnh con người tạo nên KIS Việt Nam.</p><div class="hero-actions"><button class="btn btn-primary" data-scroll="kis-overview">${t("about.financialCta")}</button><button class="btn btn-outline light" data-scroll="kis-history">${t("about.honorCta")}</button></div></div>
-          <div class="profile-summary-card">${[["12/2010", "Thành lập"], ["4.550 tỷ VND", "Vốn điều lệ"], ["99.8%", "Sở hữu KIS Korea"], ["15+ năm", "Hoạt động tại Việt Nam"]].map(([v, l]) => `<div><span>${l}</span><strong>${v}</strong></div>`).join("")}</div>
+      <section class="about-hero-v2">
+        <div class="about-hero-v2__inner">
+          <div>
+            <h1 class="about-hero-v2__title">${t("about.title")}</h1>
+            <p class="about-hero-v2__subtitle">${t("about.subtitle")}</p>
+          </div>
+          <div class="about-hero-v2__stats" data-stagger>
+            ${heroStats.map(s => `<div class="about-hero-stat">${s.countup ? `<span class="about-hero-stat__value" data-countup="15" data-countup-suffix="+">${escapeHtml(s.value)}</span>` : `<span class="about-hero-stat__value">${escapeHtml(s.value)}</span>`}<span class="about-hero-stat__label">${escapeHtml(s.label)}</span></div>`).join("")}
+          </div>
         </div>
       </section>
       <main>
-        ${kisOverviewSection()}
+        ${kisOverviewSectionV2()}
         ${kisTimelineSection()}
-        ${globalNetworkSection()}
-        ${leadershipSection()}
+        ${leadershipSectionV2()}
+        ${coreValuesMissionSectionV2()}
+        ${corporatePhilosophySectionV2()}
+        ${globalNetworkSectionV2()}
+        ${ceoMessageSectionV2()}
       </main>
       ${footer()}
     </div>
@@ -1840,6 +1952,221 @@ function aboutPage() {
 function kisOverviewSection() {
   const stats = [["12/2010", "Thành lập"], ["99.8%", "Sở hữu KIS Korea"], ["4.550 tỷ VND", "Vốn điều lệ"], ["15+ năm", "Hoạt động tại Việt Nam"]];
   return `<section class="section" id="kis-overview"><div class="container overview-split"><div><h2 class="section-title">Tổng quan KIS Việt Nam</h2><div class="overview-copy"><p>Công ty Cổ phần Chứng khoán KIS Vietnam (KIS Vietnam) được thành lập vào tháng 12 năm 2010 bởi Công ty Cổ phần Đầu tư & Chứng khoán Hàn Quốc (KIS Korea), cùng với sự đầu tư của Tập đoàn Dệt may Việt Nam và các cổ đông khác. KIS Korea nắm giữ 48,8% cổ phần tại KIS Vietnam tính đến tháng 11 năm 2010 và đã dần dần tăng cường sở hữu trong những năm qua, với tỷ lệ sở hữu chính thức hiện tại là <strong>99,8%</strong>.</p><p>Trong suốt <strong>15 năm</strong> hoạt động tại thị trường Việt Nam, KIS Vietnam đã liên tục tăng vốn để mở rộng các hoạt động kinh doanh của công ty, với tổng vốn điều lệ đạt <strong>4.550 tỷ VND</strong>, và con số này sẽ tiếp tục tăng trong tương lai.</p><p>KIS Vietnam nhận được sự hỗ trợ mạnh mẽ từ Tập đoàn KIS tại Hàn Quốc, tận dụng kinh nghiệm trong lĩnh vực tài chính và sự hợp tác của các chuyên gia nước ngoài cùng đội ngũ nhân viên xuất sắc có nhiều năm kinh nghiệm trong ngân hàng, kiểm toán và thị trường vốn trong nước.</p><p>KIS Vietnam tập trung phát triển kỹ thuật quản lý hoạt động và quản lý rủi ro để định vị công ty như một nhà lãnh đạo trong các lĩnh vực tài chính tại Việt Nam. Chúng tôi tin rằng nguồn nhân lực là yếu tố then chốt xây dựng danh tiếng và thành công của KIS Vietnam trên thị trường chứng khoán.</p></div></div><aside class="overview-stat-card card">${stats.map(([v,l]) => `<div><span>${l}</span><strong>${v}</strong></div>`).join("")}</aside></div></section>`;
+}
+
+function kisOverviewSectionV2() {
+  const overviewParagraphs = language === "kr"
+    ? [
+        "한국투자증권 베트남(KIS Vietnam)은 2010년 12월 한국투자증권(KIS Korea)에 의해 설립되었으며, 베트남 섬유의류그룹 등과 함께 투자되었습니다. KIS Korea는 2010년 11월 기준 48.8%의 지분을 보유했으며, 이후 지속적으로 지분을 늘려 현재 <strong>99.8%</strong>의 공식 지분율을 기록하고 있습니다.",
+        "베트남 시장에서 <strong>15년 이상</strong> 운영하는 동안, KIS Vietnam은 사업 영역을 확장하기 위해 지속적으로 자본을 증가시켜 왔으며, 총 자본금은 <strong>4,550억 VND</strong>에 달합니다.",
+        "KIS Vietnam은 한국 KIS그룹의 강력한 지원을 받아 국제 금융 분야의 경험과 외국 전문가들의 협력, 은행·감사·자본시장 분야에서 다년간 경험을 쌓은 우수 인재들을 활용하고 있습니다.",
+      ]
+    : language === "en"
+    ? [
+        "Korea Investment & Securities Vietnam (KIS Vietnam) was established in December 2010 by Korea Investment & Securities (KIS Korea), together with investment from Vietnam National Textile and Garment Group and other shareholders. KIS Korea held 48.8% of shares in November 2010 and has gradually increased its stake to the current official ownership of <strong>99.8%</strong>.",
+        "Over <strong>15 years</strong> of operation in Vietnam, KIS Vietnam has continuously increased capital to expand its business activities, with total charter capital reaching <strong>4,550 billion VND</strong>, and this figure will continue to grow.",
+        "KIS Vietnam receives strong support from the KIS Group in Korea, leveraging financial expertise and collaboration from foreign experts and outstanding employees with years of experience in banking, auditing, and domestic capital markets.",
+      ]
+    : [
+        "Công ty Cổ phần Chứng khoán KIS Vietnam (KIS Vietnam) được thành lập vào tháng 12 năm 2010 bởi Công ty Cổ phần Đầu tư & Chứng khoán Hàn Quốc (KIS Korea), cùng với sự đầu tư của Tập đoàn Dệt may Việt Nam và các cổ đông khác. KIS Korea nắm giữ 48,8% cổ phần tại KIS Vietnam tính đến tháng 11 năm 2010 và đã dần dần tăng cường sở hữu trong những năm qua, với tỷ lệ sở hữu chính thức hiện tại là <strong>99,8%</strong>.",
+        "Trong suốt <strong>15 năm</strong> hoạt động tại thị trường Việt Nam, KIS Vietnam đã liên tục tăng vốn để mở rộng các hoạt động kinh doanh của công ty, với tổng vốn điều lệ đạt <strong>4.550 tỷ VND</strong>, và con số này sẽ tiếp tục tăng trong tương lai.",
+        "KIS Vietnam nhận được sự hỗ trợ mạnh mẽ từ Tập đoàn KIS tại Hàn Quốc, tận dụng kinh nghiệm trong lĩnh vực tài chính và sự hợp tác của các chuyên gia nước ngoài cùng đội ngũ nhân viên xuất sắc có nhiều năm kinh nghiệm trong ngân hàng, kiểm toán và thị trường vốn trong nước.",
+      ];
+
+  const statItems = [
+    { value: "12/2010", label: language === "kr" ? "설립일" : language === "en" ? "Founded" : "Thành lập" },
+    { value: "99.8%", label: language === "kr" ? "KIS Korea 지분" : language === "en" ? "KIS Korea stake" : "Sở hữu KIS Korea" },
+    { value: "4.550 tỷ", label: language === "kr" ? "자본금 (VND)" : language === "en" ? "Charter capital (VND)" : "Vốn điều lệ (VND)" },
+    { value: "15+", label: language === "kr" ? "경력 연수" : language === "en" ? "Years in Vietnam" : "Năm hoạt động" },
+  ];
+
+  return `
+    <section class="overview-section-v2" id="kis-overview">
+      <div class="container overview-split-v2">
+        <div class="overview-text-col" data-reveal>
+          <span class="eyebrow">${language === "kr" ? "회사 개요" : language === "en" ? "Company Overview" : "Tổng quan"}</span>
+          <h2 class="section-title">${language === "kr" ? "KIS Vietnam 소개" : language === "en" ? "About KIS Vietnam" : "Tổng quan KIS Việt Nam"}</h2>
+          <div class="overview-copy-v2">
+            ${overviewParagraphs.map(p => `<p>${p}</p>`).join("")}
+          </div>
+        </div>
+        <aside class="overview-stats-panel" data-stagger>
+          ${statItems.map(s => `<div class="overview-stat-item"><span class="overview-stat-item__val">${escapeHtml(s.value)}</span><span class="overview-stat-item__label">${escapeHtml(s.label)}</span></div>`).join("")}
+        </aside>
+      </div>
+    </section>
+  `;
+}
+
+function leadershipSectionV2() {
+  const leaders = [
+    { img: "/assets/about/leader-shin-hyun-jae.jpg", name: "Shin Hyun Jae", title: language === "kr" ? "대표이사 겸 이사회 의장" : language === "en" ? "CEO & Chairman of the Board" : "Tổng Giám đốc kiêm Chủ tịch Hội đồng Quản trị" },
+    { img: "/assets/about/leader-cho-hun-hee.jpg", name: "Cho Hun Hee", title: language === "kr" ? "운영·IT 블록 고위이사, 이사회 이사" : language === "en" ? "Senior Director of Operations & IT, Board Member" : "Giám đốc cấp cao Khối Hoạt động & KHCN, Thành viên HĐQT" },
+    { img: "/assets/about/leader-choi-eun-suk.jpg", name: "Choi Eun Suk", title: language === "kr" ? "이사회 이사" : language === "en" ? "Member of the Board" : "Thành viên Hội đồng Quản trị" },
+  ];
+  return `
+    <section class="board-section" id="kis-leadership">
+      <div class="container">
+        <div class="board-section__head" data-reveal>
+          <span class="eyebrow">${language === "kr" ? "이사회" : language === "en" ? "Board of Directors" : "Hội đồng Quản trị"}</span>
+          <h2 class="section-title">${language === "kr" ? "경영진" : language === "en" ? "Leadership" : "Ban Lãnh đạo"}</h2>
+        </div>
+        <div class="board-grid" data-board-stagger>
+          ${leaders.map((l, i) => `
+            <article class="board-member" style="--i:${i}">
+              <div class="board-member__photo-frame">
+                <img class="board-member__photo" src="${l.img}" alt="${escapeHtmlAttribute(l.name)}" loading="lazy">
+              </div>
+              <div class="board-member__info">
+                <h3 class="board-member__name">${escapeHtml(l.name)}</h3>
+                <p class="board-member__role">${escapeHtml(l.title)}</p>
+              </div>
+            </article>
+          `).join("")}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function coreValuesMissionSectionV2() {
+  const title = language === "kr" ? "핵심 가치 및 미션" : language === "en" ? "Core Values & Mission" : "Giá trị cốt lõi & Sứ mệnh";
+  const subtitle = language === "kr"
+    ? "KIS가 조직을 구축하고 변화를 추진하며 지속 가능한 가치를 창출하는 방향을 제시합니다."
+    : language === "en"
+      ? "Guiding how KIS builds its organization, drives transformation, and creates sustainable value."
+      : "Định hướng cách KIS xây dựng tổ chức, thúc đẩy đổi mới và tạo ra giá trị bền vững.";
+  const values = [
+    { num: "01", icon: "target", name: { vi: "Tổ chức hướng đến mục tiêu", en: "Goal-Oriented Organization", kr: "목표 지향적 조직" }, desc: { vi: "Xác lập mục tiêu rõ ràng, phối hợp hiệu quả và tập trung nguồn lực để tạo ra kết quả đo lường được.", en: "Setting clear objectives, coordinating effectively, and focusing resources to deliver measurable results.", kr: "명확한 목표를 설정하고 효과적으로 협업하며 자원을 집중하여 측정 가능한 성과를 창출합니다." } },
+    { num: "02", icon: "check", name: { vi: "Tổ chức thúc đẩy chuyển đổi", en: "A Transformative Organization", kr: "변화를 주도하는 조직" }, desc: { vi: "Không ngừng đổi mới phương thức làm việc, ứng dụng công nghệ và phát triển năng lực để thích ứng với thay đổi.", en: "Continuously improving ways of working, adopting technology, and building capabilities to adapt to change.", kr: "업무 방식을 지속적으로 개선하고 기술을 도입하며 변화에 대응할 수 있는 역량을 강화합니다." } },
+    { num: "03", icon: "users", name: { vi: "Công ty lấy khách hàng làm trọng tâm", en: "A Customer-Focused Company", kr: "고객 중심 기업" }, desc: { vi: "Thấu hiểu nhu cầu khách hàng, nâng cao trải nghiệm và tạo ra giải pháp tài chính có giá trị lâu dài.", en: "Understanding customer needs, improving experiences, and delivering financial solutions with long-term value.", kr: "고객의 요구를 이해하고 경험을 향상시키며 장기적인 가치를 제공하는 금융 솔루션을 제공합니다." } },
+  ];
+  return `
+    <section class="core-values-v2">
+      <div class="container">
+        <div class="section-head" data-reveal>
+          <div>
+            <span class="eyebrow">${language === "kr" ? "핵심 가치" : language === "en" ? "Core Values" : "Giá trị cốt lõi"}</span>
+            <h2 class="section-title">${title}</h2>
+            <p class="section-lead">${subtitle}</p>
+          </div>
+        </div>
+        <div class="core-values-grid" data-stagger>
+          ${values.map(v => `
+            <article class="core-value-v2">
+              <span class="core-value-v2__num" aria-hidden="true">${v.num}</span>
+              <div class="core-value-v2__icon">${icon(v.icon)}</div>
+              <h3 class="core-value-v2__title">${escapeHtml(v.name[language] || v.name.vi)}</h3>
+              <p class="core-value-v2__desc">${escapeHtml(v.desc[language] || v.desc.vi)}</p>
+            </article>
+          `).join("")}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function corporatePhilosophySectionV2() {
+  const pillars = [
+    { num: "01", name: language === "kr" ? "고객 만족" : language === "en" ? "Customer Satisfaction" : "Làm hài lòng khách hàng", bullets: language === "kr"
+      ? ["증권회사가 존재하는 이유는 고객입니다.", "고객의 관점에서 의사결정을 내립니다.", "고객 만족을 통해 고객과 함께 성장합니다."]
+      : language === "en"
+      ? ["Customers are the reason a securities company exists.", "Make decisions based on the customer's perspective.", "Grow with customers by ensuring their satisfaction."]
+      : ["Khách hàng là lý do mà công ty chứng khoán tồn tại.", "Ra quyết định dựa trên góc nhìn của khách hàng.", "Phát triển cùng với khách hàng bằng cách đảm bảo sự hài lòng của họ."] },
+    { num: "02", name: language === "kr" ? "새로운 가치 창출" : language === "en" ? "Creating New Value" : "Kiến tạo giá trị mới", bullets: language === "kr"
+      ? ["사회를 위해 지속적으로 새로운 가치를 창출합니다.", "조직 역량을 강화하여 도전 정신으로 혁신합니다.", "최고의 목표와 탁월함을 추구합니다."]
+      : language === "en"
+      ? ["Continuously create new value for society.", "Innovate with a spirit of challenge by enhancing organizational capability.", "Pursue the highest goals and excellence."]
+      : ["Liên tục tạo ra giá trị mới cho xã hội.", "Đổi mới với tinh thần thử thách bằng cách nâng cao năng lực tổ chức.", "Theo đuổi những mục tiêu cao nhất và sự xuất sắc."] },
+    { num: "03", name: language === "kr" ? "개인 존중" : language === "en" ? "Respecting the Individual" : "Tôn trọng cá nhân", bullets: language === "kr"
+      ? ["팀의 모든 개인을 항상 존중합니다.", "직장에서 개인이 자신의 능력을 발전시킬 수 있도록 장려합니다.", "각 개인이 탁월한 직원이 되도록 지원합니다."]
+      : language === "en"
+      ? ["We always respect each individual on our team.", "Encourage individuals to develop their abilities in the workplace.", "Support each individual to become outstanding employees."]
+      : ["Chúng tôi luôn tôn trọng từng cá nhân trong đội ngũ của mình.", "Khuyến khích cá nhân phát triển khả năng của họ tại nơi làm việc.", "Hỗ trợ mỗi cá nhân trở thành những nhân viên xuất sắc."] },
+  ];
+  return `
+    <section class="philosophy-v2">
+      <div class="container">
+        <div class="section-head" data-reveal>
+          <div>
+            <span class="eyebrow">${language === "kr" ? "경영 철학" : language === "en" ? "Philosophy" : "Triết lý"}</span>
+            <h2 class="section-title">${language === "kr" ? "기업 철학" : language === "en" ? "Corporate Philosophy" : "Triết lý tập đoàn"}</h2>
+          </div>
+        </div>
+        <div class="philosophy-pillars" data-stagger>
+          ${pillars.map(p => `
+            <div class="pillar-v2">
+              <span class="pillar-v2__number" aria-hidden="true">${p.num}</span>
+              <div class="pillar-v2__icon">${icon("check")}</div>
+              <h3 class="pillar-v2__title">${escapeHtml(p.name)}</h3>
+              <ul class="pillar-v2__body">${p.bullets.map(b => `<li>${escapeHtml(b)}</li>`).join("")}</ul>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function globalNetworkSectionV2() {
+  const cards = [
+    { title: "Korea Investment & Securities (KIS)", meta: language === "kr" ? "자회사 8개 · 대표사무소 1개" : language === "en" ? "8 subsidiaries · 1 representative office" : "8 công ty con · 1 văn phòng đại diện" },
+    { title: "Korea Investment Management (KIM)", meta: language === "kr" ? "자회사 1개 · 대표사무소 1개" : language === "en" ? "1 subsidiary · 1 representative office" : "1 công ty con · 1 văn phòng đại diện" },
+    { title: "Korea Investment Partners (KIP)", meta: language === "kr" ? "자회사 1개 · 대표사무소 2개" : language === "en" ? "1 subsidiary · 2 representative offices" : "1 công ty con · 2 văn phòng đại diện" },
+    { title: "KIARA Advisors", meta: language === "kr" ? "글로벌 자문 네트워크" : language === "en" ? "Global advisory network" : "Global advisory network" },
+  ];
+  return `
+    <section class="network-v2">
+      <div class="container">
+        <div class="section-head" data-reveal>
+          <div>
+            <span class="eyebrow">${language === "kr" ? "글로벌 네트워크" : language === "en" ? "Global Network" : "Mạng lưới toàn cầu"}</span>
+            <h2 class="section-title">${t("about.network")}</h2>
+            <p class="section-lead">${language === "kr" ? "KIS는 금융, 투자, 국제 거버넌스 역량을 연결하여 베트남 시장에서의 지속 가능한 발전을 지원합니다." : language === "en" ? "KIS connects financial, investment and international governance capabilities to support sustainable development in the Vietnamese market." : "KIS kết nối năng lực tài chính, đầu tư và quản trị quốc tế nhằm hỗ trợ sự phát triển bền vững tại thị trường Việt Nam."}</p>
+          </div>
+        </div>
+        <div class="network-cards-v2" data-stagger>
+          ${cards.map(c => `<article class="network-card-v2"><h3 class="network-card-v2__title">${escapeHtml(c.title)}</h3><p class="network-card-v2__meta">${escapeHtml(c.meta)}</p></article>`).join("")}
+        </div>
+        <div class="network-reference-map">
+          <img src="/assets/about/global-network.png" alt="${language === "kr" ? "KIS 글로벌 네트워크 지도" : language === "en" ? "KIS Global Network Map" : "Mạng lưới KIS toàn cầu"}">
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function ceoMessageSectionV2() {
+  const paragraphs = language === "kr"
+    ? ["존경하는 투자자 및 파트너 여러분,", "KIS Vietnam을 대표하여 15년 이상의 여정 동안 KIS Vietnam을 신뢰하고 동행해 주신 모든 투자자와 파트너 분들께 진심으로 감사드립니다.", "창립 초기부터 KIS Vietnam은 고객 중심의 방향을 굳건히 유지하며, 서비스 품질을 지속적으로 향상시키고 현대 기술을 적용하여 국내외 개인 및 기관 투자자들에게 포괄적인 금융 상품과 솔루션을 제공해 왔습니다. 고객의 성공이 KIS Vietnam의 지속 가능한 발전의 기반이라고 믿습니다.", "베트남 자본 시장에서 선도적인 금융 기관 중 하나가 되겠다는 목표를 향해 나아가는 KIS Vietnam은 한국 KIS 그룹의 강력한 금융 기반, 경영 경험, 글로벌 네트워크를 계승할 뿐만 아니라, 우수한 인적 자원, 기술, 현대적 거래 인프라에 지속적으로 투자하여 고객 경험을 향상시키고 있습니다.", "풍부한 경험을 갖춘 전문가 팀과 첨단 기술 솔루션의 지원을 바탕으로, 고객과 파트너의 투자 여정에서 지속적으로 동반자가 되어 실질적이고 지속 가능하며 효과적인 가치를 제공할 것을 약속드립니다.", "다시 한번 여러분의 신뢰와 동행에 진심으로 감사드립니다. 투자자, 파트너 및 가족 모두의 건강, 행복, 성공을 기원합니다.", "진심을 담아."]
+    : language === "en"
+    ? ["Dear Investors and Partners,", "On behalf of KIS Vietnam Securities, I would like to extend my sincere gratitude to all investors and partners who have always trusted, accompanied, and supported KIS Vietnam throughout our 15-year journey of development.", "From our earliest days, KIS Vietnam has remained steadfast in its customer-centric direction, continuously improving service quality and applying modern technology to bring comprehensive financial products and solutions to individual and institutional investors, both domestic and international. We believe that customers' success is the foundation for KIS Vietnam's sustainable development.", "With the goal of becoming one of the leading financial institutions in Vietnam's capital market, KIS Vietnam not only inherits the strong financial foundation, management experience, and global network from KIS Korea, but also continuously invests in high-quality human resources, technology, and modern trading infrastructure to enhance the customer experience.", "With a team of experienced experts and the support of advanced technology solutions, we are committed to continuing to accompany our customers and partners on their investment journey, delivering practical, sustainable, and effective values.", "Once again, I sincerely thank you for your trust and companionship. I wish all investors, partners and their families health, happiness and success.", "Respectfully."]
+    : ["Kính gửi Quý Nhà đầu tư và Đối tác,", "Thay mặt Công ty Cổ phần Chứng khoán KIS Việt Nam, tôi xin gửi lời cảm ơn chân thành tới Quý Nhà đầu tư và Đối tác đã luôn tin tưởng, đồng hành và ủng hộ KIS Việt Nam trong suốt chặng đường phát triển hơn 15 năm qua.", "Ngay từ những ngày đầu thành lập, KIS Việt Nam luôn kiên định với định hướng lấy khách hàng làm trung tâm, không ngừng nâng cao chất lượng dịch vụ và ứng dụng công nghệ hiện đại nhằm mang đến các sản phẩm, giải pháp tài chính toàn diện cho nhà đầu tư cá nhân, tổ chức trong nước và quốc tế.", "Với mục tiêu trở thành một trong những định chế tài chính hàng đầu trên thị trường vốn Việt Nam, KIS Việt Nam không chỉ kế thừa nền tảng tài chính vững mạnh, kinh nghiệm quản trị và mạng lưới toàn cầu từ KIS Hàn Quốc, mà còn không ngừng đầu tư vào nguồn nhân lực chất lượng cao, công nghệ và hạ tầng giao dịch hiện đại để nâng cao trải nghiệm khách hàng.", "Sở hữu đội ngũ chuyên gia giàu kinh nghiệm cùng sự hỗ trợ từ các giải pháp công nghệ tiên tiến, chúng tôi cam kết tiếp tục đồng hành cùng Quý khách hàng và đối tác trên hành trình đầu tư, mang đến những giá trị thiết thực, bền vững và hiệu quả.", "Một lần nữa, xin chân thành cảm ơn sự tin tưởng và đồng hành của Quý vị. Kính chúc Quý Nhà đầu tư, Đối tác cùng gia đình sức khỏe, hạnh phúc và thành công.", "Trân trọng."];
+  return `
+    <section class="ceo-v2">
+      <div class="container">
+        <div class="section-head" data-reveal>
+          <div>
+            <span class="eyebrow">${language === "kr" ? "대표 메시지" : language === "en" ? "CEO Message" : "Thông điệp lãnh đạo"}</span>
+            <h2 class="section-title">${language === "kr" ? "대표이사의 말씀" : language === "en" ? "Message from the CEO" : "Lời Tổng Giám đốc"}</h2>
+          </div>
+        </div>
+        <div class="ceo-card-v2" data-reveal>
+          <span class="ceo-card-v2__quote" aria-hidden="true">"</span>
+          <div class="ceo-card-v2__photo">
+            <img src="/assets/about/tgd.jpeg" alt="Shin, Hyun Jae" loading="lazy">
+          </div>
+          <div class="ceo-card-v2__body">
+            <h3 class="ceo-card-v2__name">Shin, Hyun Jae</h3>
+            <span class="ceo-card-v2__role">${language === "kr" ? "대표이사" : language === "en" ? "Chief Executive Officer" : "Tổng Giám đốc"}</span>
+            <div class="ceo-card-v2__letter">
+              ${paragraphs.map(p => `<p>${escapeHtml(p)}</p>`).join("")}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
 }
 
 function globalNetworkSection() {
@@ -1900,26 +2227,31 @@ function kisTimelineSection() {
   const item = timelineData[year];
   const years = Object.keys(timelineData);
   const idx = years.indexOf(year);
+  const totalYears = years.length;
   const prevDisabled = idx === 0 ? " disabled" : "";
   const nextDisabled = idx === years.length - 1 ? " disabled" : "";
   const chevronLeft = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>';
   const chevronRight = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
-  return `<section class="section timeline-carousel" id="kis-history">
-    <div class="timeline-carousel__container">
+  return `<section class="section timeline-carousel" id="kis-history" data-timeline-entry>
+    <div class="container">
       <div class="timeline-carousel__header">
-        <h2 class="timeline-carousel__title">${t("about.timeline")}</h2>
+        <h2 class="section-title" data-reveal>${t("about.timeline")}</h2>
         <div class="timeline-carousel__nav-buttons">
           <button class="timeline-carousel__btn timeline-carousel__btn--prev" aria-label="Previous year"${prevDisabled}>${chevronLeft}</button>
           <button class="timeline-carousel__btn timeline-carousel__btn--next" aria-label="Next year"${nextDisabled}>${chevronRight}</button>
         </div>
       </div>
-      <div class="timeline-carousel__years" role="tablist" aria-label="Select year">
+      <div class="timeline-carousel__years" role="tablist" aria-label="Select year" style="--active-index:${idx};--total-years:${totalYears}">
+        <div class="timeline-carousel__years-line" aria-hidden="true"></div>
+        <div class="timeline-carousel__years-progress" aria-hidden="true"></div>
         ${years.map(y => `
-          <button class="timeline-carousel__year${y === year ? " is-active" : ""}" role="tab" aria-selected="${y === year}"${y === year ? ' aria-current="true"' : ""} data-timeline-year="${y}">${y}
+          <button class="timeline-carousel__year${y === year ? " is-active" : ""}" role="tab" aria-selected="${y === year}"${y === year ? ' aria-current="true"' : ""} data-timeline-year="${y}">
+            <span class="timeline-carousel__year-label">${y}</span>
+            <span class="timeline-carousel__year-dot"></span>
           </button>
         `).join("")}
       </div>
-      <div class="timeline-carousel__content">
+      <div class="timeline-carousel__content" data-direction="${_timelineDirection}">
         <div class="timeline-carousel__watermark" aria-hidden="true">${year}</div>
         <div class="timeline-carousel__image"${year === "2020" ? ' data-year="2020"' : ""}>
           <img src="${item.image}" alt="KIS Vietnam ${year}" loading="lazy" decoding="async">
@@ -1927,7 +2259,7 @@ function kisTimelineSection() {
         <div class="timeline-carousel__info">
           <span class="timeline-carousel__year-big">${year}</span>
           <ul class="timeline-carousel__events">
-            ${item.events.map(ev => `<li>${ev}</li>`).join("")}
+            ${item.events.map((ev, i) => `<li style="--i:${i}">${ev}</li>`).join("")}
           </ul>
         </div>
       </div>
@@ -4131,11 +4463,11 @@ async function openAuditDetail(id){auditState.detailLoading=true;auditState.deta
 function auditJsonBlock(value){return `<pre class="audit-json">${escapeHtml(JSON.stringify(value??{},null,2))}</pre>`;}
 function auditDiff(row){const fields=row?.changed_fields||[];if(!fields.length)return `<p class="muted">${auditText("hidden")}</p>`;return `<div class="audit-diff">${fields.map(f=>`<div><strong>${escapeHtml(f)}</strong><span>${escapeHtml(String(row.before_data?.[f]??"—"))} → ${escapeHtml(String(row.after_data?.[f]??"—"))}</span></div>`).join("")}</div>`;}
 
+function auditLogPage(){if(!hasAdminAccess())return restrictedPage();if(!auditState.rows.length&&!auditState.loading&&!auditState.error)queueMicrotask(()=>loadAuditLogs());const ov=auditState.overview||{};const pages=Math.max(1,Math.ceil((auditState.total||0)/auditState.pageSize));const kpis=[["Hôm nay",ov.totalToday??"—"],[auditText("critical"),ov.criticalToday??"—"],["Login fail",ov.failedLoginsToday??"—"],["Role change",ov.roleChangesToday??"—"],["Export",ov.reportExportsToday??"—"],["Scheduler lỗi",ov.schedulerErrorsToday??"—"]];const rows=auditState.rows||[];return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D",auditText("title"),"hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h1>${auditText("title")}</h1><p>${auditText("subtitle")}</p></div><div class="learning-actions"><button class="btn btn-outline" data-audit-refresh>Tải lại</button><button class="btn btn-outline" data-audit-export="csv">${auditText("export")} CSV</button><button class="btn btn-outline" data-audit-export="xlsx">${auditText("export")} XLSX</button></div></div><div class="kpi-grid">${kpis.map(([l,v])=>`<div class="card kpi"><span class="label">${escapeHtml(l)}</span><strong>${escapeHtml(String(v))}</strong></div>`).join("")}</div><form class="filter-bar audit-filter" data-audit-filter><input name="search" type="search" value="${escapeHtmlAttribute(auditFilters.search)}" placeholder="Tên, entity, request ID, action"><input name="date_from" type="date" value="${escapeHtmlAttribute(auditFilters.date_from)}"><input name="date_to" type="date" value="${escapeHtmlAttribute(auditFilters.date_to)}"><select name="severity"><option value="">${auditText("severity")}</option>${["info","warning","critical"].map(x=>`<option value="${x}" ${auditFilters.severity===x?"selected":""}>${x}</option>`).join("")}</select><select name="category"><option value="">Category</option>${["authentication","account","employee","course","learning_path","compliance","certificate","report","notification","system","security"].map(x=>`<option value="${x}" ${auditFilters.category===x?"selected":""}>${x}</option>`).join("")}</select><select name="source"><option value="">${auditText("source")}</option>${["web","api","cron","system"].map(x=>`<option value="${x}" ${auditFilters.source===x?"selected":""}>${x}</option>`).join("")}</select><button class="btn btn-primary">Lọc</button></form>${auditState.error?`<div class="error-card">${escapeHtml(auditState.error)} <button class="btn btn-outline" data-audit-refresh>Thử lại</button></div>`:""}${auditState.loading?`<div class="skeleton-list"><div></div><div></div><div></div></div>`:rows.length?`<div class="table-wrap"><table><thead><tr><th>Thời gian</th><th>${auditText("actor")}</th><th>Vai trò</th><th>${auditText("action")}</th><th>${auditText("entity")}</th><th>${auditText("severity")}</th><th>${auditText("source")}</th><th>${auditText("status")}</th><th>${auditText("requestId")}</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td>${escapeHtml(formatDateTime(r.occurred_at))}</td><td>${escapeHtml(r.actor_display_name_snapshot||r.actor_user_id||"System")}</td><td>${escapeHtml(r.actor_role||"—")}</td><td><code>${escapeHtml(r.action)}</code></td><td>${escapeHtml(r.entity_display_name_snapshot||r.entity_id||r.entity_type||"—")}</td><td><span class="badge ${r.severity==="critical"?"danger":r.severity==="warning"?"pending":"active"}">${escapeHtml(r.severity)}</span></td><td>${escapeHtml(r.source||"")}</td><td>${escapeHtml(r.status||"")}</td><td><button class="link-btn" data-copy="${escapeHtmlAttribute(r.request_id||"")}" aria-label="Copy Request ID">${escapeHtml((r.request_id||"").slice(0,12))}</button></td><td><button class="btn btn-outline" data-audit-detail="${escapeHtmlAttribute(r.id)}">Xem</button></td></tr>`).join("")}</tbody></table></div><div class="pagination"><button class="btn btn-outline" data-audit-page="${auditState.page-1}" ${auditState.page<=1?"disabled":""}>Trước</button><span>${auditState.page} / ${pages}</span><button class="btn btn-outline" data-audit-page="${auditState.page+1}" ${auditState.page>=pages?"disabled":""}>Sau</button></div>`:`<div class="empty-state"><h3>${auditText("empty")}</h3></div>`}</section>${auditState.detail||auditState.detailLoading?auditDetailDrawer():""}</div></main></div>`;}
+
 async function loadRetrainingReviews(force=false){if(!hasAdminAccess()||retrainingState.loading)return;if(retrainingState.rows.length&&!force)return;retrainingState.loading=true;retrainingState.error="";render();try{const res=await fetch("/api/admin/retraining-reviews",{headers:apiHeaders()});const body=await res.json().catch(()=>({}));if(!res.ok)throw new Error(body.error||"load_failed");retrainingState.rows=body.data||[];}catch(e){retrainingState.error=e.message||"Không thể tải danh sách tái đào tạo.";}finally{retrainingState.loading=false;if(route==="/admin/retraining")render();}}
 async function retrainingAction(id,action){try{const res=await fetch(`/api/admin/retraining-reviews/${encodeURIComponent(id)}/${action}`,{method:"POST",headers:{...apiHeaders(),"Content-Type":"application/json"},body:JSON.stringify({})});const body=await res.json().catch(()=>({}));if(!res.ok)throw new Error(body.error||"action_failed");if(action==="preview")retrainingState.preview={id,...body};else retrainingState.preview=null;retrainingState.rows=[];toast("success");await loadRetrainingReviews(true);}catch(e){retrainingState.error=e.message||"Không thể áp dụng thao tác.";render();}}
 function retrainingPage(){if(!hasAdminAccess())return restrictedPage();if(!retrainingState.rows.length&&!retrainingState.loading&&!retrainingState.error)queueMicrotask(()=>loadRetrainingReviews());const rows=retrainingState.rows||[];return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D","Tái đào tạo","hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h1>Tái đào tạo</h1><p>Xem các cập nhật nội dung quan trọng và quyết định ai cần học lại.</p></div><button class="btn btn-outline" data-retraining-refresh>Tải lại</button></div>${retrainingState.error?`<div class="error-card">${escapeHtml(retrainingState.error)} <button class="btn btn-outline" data-retraining-refresh>Thử lại</button></div>`:""}${retrainingState.preview?`<div class="card panel"><h3>Preview</h3><p>Nhân viên bị ảnh hưởng: <strong>${escapeHtml(String(retrainingState.preview.affectedEmployeeCount||0))}</strong></p></div>`:""}${retrainingState.loading?`<div class="skeleton-list"><div></div><div></div><div></div></div>`:rows.length?`<div class="table-wrap"><table><thead><tr><th>Entity</th><th>From</th><th>To</th><th>Ảnh hưởng</th><th>Trạng thái</th><th>Quyết định</th><th>Ngày tạo</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td>${escapeHtml(r.entity_type)}<br><code>${escapeHtml(r.entity_id)}</code></td><td><code>${escapeHtml(r.from_version_id||"—")}</code></td><td><code>${escapeHtml(r.to_version_id||"")}</code></td><td>${escapeHtml(String(r.affected_employee_count||0))}</td><td><span class="badge ${r.status==="pending"?"pending":r.status==="applied"?"active":""}">${escapeHtml(r.status)}</span></td><td>${escapeHtml(r.decision||"—")}</td><td>${escapeHtml(formatDateTime(r.created_at))}</td><td><div class="learning-actions"><button class="btn btn-outline mini-action" data-retraining-action="preview" data-retraining-id="${escapeHtmlAttribute(r.id)}">Preview</button><button class="btn btn-outline mini-action" data-retraining-action="approve" data-retraining-id="${escapeHtmlAttribute(r.id)}" ${r.status!=="pending"?"disabled":""}>Duyệt</button><button class="btn btn-outline mini-action" data-retraining-action="dismiss" data-retraining-id="${escapeHtmlAttribute(r.id)}" ${r.status!=="pending"?"disabled":""}>Bỏ qua</button><button class="btn btn-primary mini-action" data-retraining-action="apply" data-retraining-id="${escapeHtmlAttribute(r.id)}" ${r.status!=="approved"?"disabled":""}>Áp dụng</button></div></td></tr>`).join("")}</tbody></table></div>`:`<div class="empty-state"><h3>Không có nhân viên cần tái đào tạo.</h3></div>`}</section></div></main></div>`;}
-
-function auditLogPage(){if(!hasAdminAccess())return restrictedPage();if(!auditState.rows.length&&!auditState.loading&&!auditState.error)queueMicrotask(()=>loadAuditLogs());const ov=auditState.overview||{};const pages=Math.max(1,Math.ceil((auditState.total||0)/auditState.pageSize));const kpis=[["Hôm nay",ov.totalToday??"—"],[auditText("critical"),ov.criticalToday??"—"],["Login fail",ov.failedLoginsToday??"—"],["Role change",ov.roleChangesToday??"—"],["Export",ov.reportExportsToday??"—"],["Scheduler lỗi",ov.schedulerErrorsToday??"—"]];const rows=auditState.rows||[];return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D",auditText("title"),"hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h1>${auditText("title")}</h1><p>${auditText("subtitle")}</p></div><div class="learning-actions"><button class="btn btn-outline" data-audit-refresh>Tải lại</button><button class="btn btn-outline" data-audit-export="csv">${auditText("export")} CSV</button><button class="btn btn-outline" data-audit-export="xlsx">${auditText("export")} XLSX</button></div></div><div class="kpi-grid">${kpis.map(([l,v])=>`<div class="card kpi"><span class="label">${escapeHtml(l)}</span><strong>${escapeHtml(String(v))}</strong></div>`).join("")}</div><form class="filter-bar audit-filter" data-audit-filter><input name="search" type="search" value="${escapeHtmlAttribute(auditFilters.search)}" placeholder="Tên, entity, request ID, action"><input name="date_from" type="date" value="${escapeHtmlAttribute(auditFilters.date_from)}"><input name="date_to" type="date" value="${escapeHtmlAttribute(auditFilters.date_to)}"><select name="severity"><option value="">${auditText("severity")}</option>${["info","warning","critical"].map(x=>`<option value="${x}" ${auditFilters.severity===x?"selected":""}>${x}</option>`).join("")}</select><select name="category"><option value="">Category</option>${["authentication","account","employee","course","learning_path","compliance","certificate","report","notification","system","security"].map(x=>`<option value="${x}" ${auditFilters.category===x?"selected":""}>${x}</option>`).join("")}</select><select name="source"><option value="">${auditText("source")}</option>${["web","api","cron","system"].map(x=>`<option value="${x}" ${auditFilters.source===x?"selected":""}>${x}</option>`).join("")}</select><button class="btn btn-primary">Lọc</button></form>${auditState.error?`<div class="error-card">${escapeHtml(auditState.error)} <button class="btn btn-outline" data-audit-refresh>Thử lại</button></div>`:""}${auditState.loading?`<div class="skeleton-list"><div></div><div></div><div></div></div>`:rows.length?`<div class="table-wrap"><table><thead><tr><th>Thời gian</th><th>${auditText("actor")}</th><th>Vai trò</th><th>${auditText("action")}</th><th>${auditText("entity")}</th><th>${auditText("severity")}</th><th>${auditText("source")}</th><th>${auditText("status")}</th><th>${auditText("requestId")}</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td>${escapeHtml(formatDateTime(r.occurred_at))}</td><td>${escapeHtml(r.actor_display_name_snapshot||r.actor_user_id||"System")}</td><td>${escapeHtml(r.actor_role||"—")}</td><td><code>${escapeHtml(r.action)}</code></td><td>${escapeHtml(r.entity_display_name_snapshot||r.entity_id||r.entity_type||"—")}</td><td><span class="badge ${r.severity==="critical"?"danger":r.severity==="warning"?"pending":"active"}">${escapeHtml(r.severity)}</span></td><td>${escapeHtml(r.source||"")}</td><td>${escapeHtml(r.status||"")}</td><td><button class="link-btn" data-copy="${escapeHtmlAttribute(r.request_id||"")}" aria-label="Copy Request ID">${escapeHtml((r.request_id||"").slice(0,12))}</button></td><td><button class="btn btn-outline" data-audit-detail="${escapeHtmlAttribute(r.id)}">Xem</button></td></tr>`).join("")}</tbody></table></div><div class="pagination"><button class="btn btn-outline" data-audit-page="${auditState.page-1}" ${auditState.page<=1?"disabled":""}>Trước</button><span>${auditState.page} / ${pages}</span><button class="btn btn-outline" data-audit-page="${auditState.page+1}" ${auditState.page>=pages?"disabled":""}>Sau</button></div>`:`<div class="empty-state"><h3>${auditText("empty")}</h3></div>`}</section>${auditState.detail||auditState.detailLoading?auditDetailDrawer():""}</div></main></div>`;}
 
 function auditDetailDrawer(){const r=auditState.detail;if(auditState.detailLoading||!r)return `<div class="modal-backdrop open"><div class="modal modal--large"><div class="skeleton-list"><div></div><div></div><div></div></div></div></div>`;return `<div class="modal-backdrop open"><div class="modal modal--large modal--structured" role="dialog" aria-modal="true"><header class="modal__header"><div><h2>${auditText("title")}</h2><p><code>${escapeHtml(r.id)}</code></p></div><button class="icon-btn" data-audit-close aria-label="Close">×</button></header><div class="modal__body"><div class="profile-grid">${[["Audit ID",r.id],["Occurred at",formatDateTime(r.occurred_at)],["Actor",r.actor_display_name_snapshot||r.actor_user_id||"System"],[auditText("action"),r.action],[auditText("entity"),`${r.entity_type||""} ${r.entity_id||""}`.trim()],["Request ID",r.request_id],["Correlation ID",r.correlation_id],["Source",r.source],["IP hash",r.ip_address_hash||"—"],["User-agent",r.user_agent||"—"],["Status",r.status],["Error",r.error_code||"—"]].map(([k,v])=>`<div class="profile-item"><span>${escapeHtml(k)}</span><strong>${escapeHtml(String(v||"—"))}</strong></div>`).join("")}</div><h3>${auditText("changed")}</h3>${auditDiff(r)}<details open><summary>${auditText("before")}</summary>${auditJsonBlock(r.before_data)}</details><details open><summary>${auditText("after")}</summary>${auditJsonBlock(r.after_data)}</details><details><summary>Metadata</summary>${auditJsonBlock(r.metadata)}</details></div></div></div>`;}
 
@@ -5171,6 +5503,127 @@ function render() {
   if (route === "/login" && _loginEmailRetain && !dialogState) {
     requestAnimationFrame(() => document.getElementById("loginPassword")?.focus());
   }
+  // Scroll reveal — wire up [data-reveal] and [data-stagger] elements
+  requestAnimationFrame(() => initScrollReveal());
+}
+
+function initScrollReveal() {
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // --- Reveal observer ---
+  const revealEls = document.querySelectorAll("[data-reveal],[data-stagger]");
+  if (revealEls.length) {
+    const revealObs = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+        el.classList.add("is-visible");
+        if (el.hasAttribute("data-stagger")) {
+          el.querySelectorAll(":scope > *").forEach((child, i) => {
+            child.style.transitionDelay = reduced ? "0ms" : `${i * 60}ms`;
+            child.classList.add("is-visible");
+          });
+        }
+        revealObs.unobserve(el);
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
+    revealEls.forEach(el => revealObs.observe(el));
+  }
+
+  // --- Board stagger observer ---
+  const boardGrids = document.querySelectorAll("[data-board-stagger]");
+  if (boardGrids.length) {
+    const boardObs = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const grid = entry.target;
+        grid.querySelectorAll(".board-member").forEach((m, i) => {
+          if (reduced) {
+            m.classList.add("is-visible");
+          } else {
+            setTimeout(() => m.classList.add("is-visible"), i * 100);
+          }
+        });
+        boardObs.unobserve(grid);
+      });
+    }, { threshold: 0.1 });
+    boardGrids.forEach(g => boardObs.observe(g));
+  }
+
+  // --- Count-up observer ---
+  const countSection = document.querySelector("[data-countup-section]");
+  if (!countSection) return;
+  const countObs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      countObs.unobserve(entry.target);
+      entry.target.classList.add("is-visible");
+      entry.target.querySelectorAll("[data-countup]").forEach(el => {
+        const target = parseInt(el.dataset.countup, 10);
+        const suffix = el.dataset.countupSuffix || "";
+        const useLocale = el.dataset.countupLocale === "true";
+        if (reduced || isNaN(target)) { return; }
+        const duration = 1500;
+        const start = performance.now();
+        const startVal = Math.max(0, Math.floor(target * 0.15));
+        function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+        function tick(now) {
+          const elapsed = now - start;
+          const progress = Math.min(elapsed / duration, 1);
+          const current = Math.round(startVal + (target - startVal) * easeOutCubic(progress));
+          if (useLocale) {
+            try {
+              const loc = (typeof language !== "undefined" && language === "vi") ? "vi-VN" : (typeof language !== "undefined" && language === "kr") ? "ko-KR" : "en-US";
+              el.textContent = new Intl.NumberFormat(loc).format(current) + suffix;
+            } catch { el.textContent = current + suffix; }
+          } else {
+            el.textContent = current + suffix;
+          }
+          if (progress < 1) requestAnimationFrame(tick);
+          else {
+            if (useLocale) {
+              try {
+                const loc = (typeof language !== "undefined" && language === "vi") ? "vi-VN" : (typeof language !== "undefined" && language === "kr") ? "ko-KR" : "en-US";
+                el.textContent = new Intl.NumberFormat(loc).format(target) + suffix;
+              } catch { el.textContent = target + suffix; }
+            } else {
+              el.textContent = target + suffix;
+            }
+          }
+        }
+        requestAnimationFrame(tick);
+      });
+    });
+  }, { threshold: 0.3 });
+  countObs.observe(countSection);
+
+  // About hero stat count-up (15+ years)
+  const heroStats = document.querySelector(".about-hero-v2__stats");
+  if (heroStats) {
+    const heroCountObs = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        heroCountObs.unobserve(entry.target);
+        entry.target.querySelectorAll("[data-countup]").forEach(el => {
+          const target = parseInt(el.dataset.countup, 10);
+          const suffix = el.dataset.countupSuffix || "";
+          if (reduced || isNaN(target)) { el.textContent = target + suffix; return; }
+          const duration = 900;
+          const start = performance.now();
+          function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+          function tick(now) {
+            const progress = Math.min((now - start) / duration, 1);
+            const current = Math.round(target * easeOutCubic(progress));
+            el.textContent = current + suffix;
+            if (progress < 1) requestAnimationFrame(tick);
+            else el.textContent = target + suffix;
+          }
+          requestAnimationFrame(tick);
+        });
+      });
+    }, { threshold: 0.5 });
+    heroCountObs.observe(heroStats);
+  }
 }
 
 async function enhanceCourseImageForm(){const form=document.getElementById("courseForm");if(!form||form.querySelector(".course-image-upload"))return;const course=courseFormMode==="edit"?getCourseById(selectedCourseId):null;const body=form.querySelector(".modal__body");if(!body)return;const section=document.createElement("section");section.className="course-image-upload";section.innerHTML=`<img data-course-image-preview alt="${escapeHtmlAttribute(course?.imageAlt||course?.title||"")}"><div><label class="btn btn-outline" for="courseCoverInput">Cover image</label><input id="courseCoverInput" name="coverImage" type="file" accept="image/jpeg,image/png,image/webp" hidden><input name="coverImageId" type="hidden" value="${escapeHtmlAttribute(course?.coverImageId||"")}"><div class="field"><label>Alt text</label><input name="imageAlt" value="${escapeHtmlAttribute(course?.imageAlt||course?.title||"")}"></div><small>JPG, PNG, WebP · max 5 MB · 1200×675 recommended</small></div>`;body.prepend(section);if(course?.coverImageId){try{const blob=await getCourseImage(course.coverImageId);if(blob){const image=section.querySelector("img"),url=URL.createObjectURL(blob);image.src=url;image.dataset.objectUrl=url;}}catch{}}
@@ -5267,8 +5720,9 @@ function initTimelineCarousel() {
   const years = Object.keys(timelineData);
   const prefersReduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-  const goToYear = (y) => {
+  const goToYear = (y, direction) => {
     if (y && y !== activeTimelineYear && timelineData[y]) {
+      _timelineDirection = direction || "next";
       activeTimelineYear = y;
       render();
     }
@@ -5276,7 +5730,11 @@ function initTimelineCarousel() {
 
   // Year buttons
   section.querySelectorAll("[data-timeline-year]").forEach((btn) => {
-    btn.addEventListener("click", () => goToYear(btn.dataset.timelineYear));
+    btn.addEventListener("click", () => {
+      const idx = years.indexOf(activeTimelineYear);
+      const newIdx = years.indexOf(btn.dataset.timelineYear);
+      goToYear(btn.dataset.timelineYear, newIdx > idx ? "next" : "prev");
+    });
   });
 
   // Prev / Next
@@ -5285,13 +5743,13 @@ function initTimelineCarousel() {
   if (prevBtn) {
     prevBtn.addEventListener("click", () => {
       const idx = years.indexOf(activeTimelineYear);
-      if (idx > 0) goToYear(years[idx - 1]);
+      if (idx > 0) goToYear(years[idx - 1], "prev");
     });
   }
   if (nextBtn) {
     nextBtn.addEventListener("click", () => {
       const idx = years.indexOf(activeTimelineYear);
-      if (idx < years.length - 1) goToYear(years[idx + 1]);
+      if (idx < years.length - 1) goToYear(years[idx + 1], "next");
     });
   }
 
@@ -5302,8 +5760,8 @@ function initTimelineCarousel() {
       if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
         e.preventDefault();
         const idx = years.indexOf(activeTimelineYear);
-        if (e.key === "ArrowLeft" && idx > 0) goToYear(years[idx - 1]);
-        else if (e.key === "ArrowRight" && idx < years.length - 1) goToYear(years[idx + 1]);
+        if (e.key === "ArrowLeft" && idx > 0) goToYear(years[idx - 1], "prev");
+        else if (e.key === "ArrowRight" && idx < years.length - 1) goToYear(years[idx + 1], "next");
       }
     });
   }
@@ -5319,8 +5777,8 @@ function initTimelineCarousel() {
       const diff = touchStartX - touchEndX;
       if (Math.abs(diff) > 50) {
         const idx = years.indexOf(activeTimelineYear);
-        if (diff > 0 && idx < years.length - 1) goToYear(years[idx + 1]);
-        else if (diff < 0 && idx > 0) goToYear(years[idx - 1]);
+        if (diff > 0 && idx < years.length - 1) goToYear(years[idx + 1], "next");
+        else if (diff < 0 && idx > 0) goToYear(years[idx - 1], "prev");
       }
     }, { passive: true });
   }
@@ -5329,6 +5787,18 @@ function initTimelineCarousel() {
   const activeYearEl = section.querySelector(".timeline-carousel__year.is-active");
   if (activeYearEl) {
     activeYearEl.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth", block: "nearest", inline: "center" });
+  }
+
+  // Timeline entry animation (rail draw on first scroll-into-view)
+  if (!section.classList.contains("tl-entered")) {
+    const entryObs = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add("tl-entered");
+        entryObs.unobserve(entry.target);
+      });
+    }, { threshold: 0.15 });
+    entryObs.observe(section);
   }
 
   _timelineCarouselCleanup = () => {
