@@ -11,6 +11,7 @@
 import { json, readJson, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
 import { requireAuth, requireHr } from "../middleware/auth.js";
+import { createNotificationEvent } from "../services/notificationEngine.js";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -495,7 +496,7 @@ async function hrAssign(request, env, pathId) {
   const { error } = await supabase.from("learning_path_assignments").insert(rows);
   if (error) return json({ error: error.message }, 500);
 
-  // Create in-app notifications for assigned employees
+  // Create idempotent notification events for assigned employees.
   try {
     const { data: pathInfo } = await supabase
       .from("learning_paths")
@@ -503,19 +504,18 @@ async function hrAssign(request, env, pathId) {
       .eq("id", pathId)
       .single();
 
-    const notifRows = toCreate.map((empId) => ({
-      id: uid(),
-      account_id: empId,
-      type: "learning_path_assigned",
-      title: "Lộ trình học tập mới",
-      body: `Bạn đã được giao lộ trình: ${pathInfo?.title || "—"}`,
-      link: `/dashboard/learning-paths`,
-      is_read: false,
-      created_by: acct.accountId,
-      data: { learning_path_id: pathId, learning_path_title: pathInfo?.title || "" },
-      created_at: nowIso(),
-    }));
-    await supabase.from("notifications").insert(notifRows);
+    await Promise.allSettled(rows.map((row) => createNotificationEvent(supabase, {
+      eventType: "learning_path_assigned",
+      entityType: "learning_path_assignment",
+      entityId: row.id,
+      actorId: acct.accountId,
+      recipientId: row.employee_id,
+      idempotencyKey: `learning_path_assigned:${row.id}:${row.employee_id}`,
+      payload: {
+        learning_path_title: pathInfo?.title || "Lộ trình học tập",
+        due_date: row.due_at?.slice(0, 10) || "",
+      },
+    })));
   } catch { /* non-blocking */ }
 
   return json({ ok: true, created: toCreate.length, skipped: alreadyAssigned.size });

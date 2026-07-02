@@ -67,6 +67,7 @@ import {trainingApiService} from "./lib/services/trainingApiService.js";
 import {calendarService} from "./lib/services/calendarService.js";
 import {courseApiService} from "./lib/services/courseApiService.js";
 import {excelImportService} from "./lib/services/excelImportService.js";
+import {auditService} from "./lib/services/auditService.js";
 
 const app = document.getElementById("app");
 const SHOW_DEMO_CREDENTIALS = ["localhost", "127.0.0.1", ""].includes(location.hostname);
@@ -105,6 +106,8 @@ let _apiEmployees = [];
 let _apiEmployeesLoading = false;
 let _apiEmployeesError = "";
 let _apiEmployeesLoaded = false;
+// Timeline carousel state
+let activeTimelineYear = "2025";
 // Delete employee modal state
 let _deleteEmployeeId = "";
 let _deleteEmployeeName = "";
@@ -804,6 +807,10 @@ function initYoutubeTracking(courseId, contentId, accountId, videoId, requiredPe
 let courseDetailTab = "overview";
 let notificationSearch = "";
 let notificationComposerOpen = false;
+let notificationMonitor = null;
+let notificationMonitorLoading = false;
+let auditState = { rows: [], total: 0, page: 1, pageSize: 25, loading: false, error: "", overview: null, detail: null, detailLoading: false };
+let auditFilters = { date_from: "", date_to: "", actor_role: "", action: "", category: "", severity: "", entity_type: "", source: "", status: "", search: "", page: 1, pageSize: 25 };
 let gallerySearch = "";
 let galleryYear = "";
 let resourceSearch = "";
@@ -1177,12 +1184,20 @@ async function refreshNotificationsCache() {
     const existing = JSON.parse(localStorage.getItem(NOTIF_KEY) || "[]");
     const byId = new Map(existing.map((x) => [x.id, x]));
     for (const n of items) {
-      const mapped = { id: n.id, type: n.type, title: n.title, body: n.body, targetAccountId: n.accountId || n.account_id || "", actionUrl: n.link || "", isRead: n.isRead || n.is_read || false, createdAt: n.createdAt || n.created_at || "" };
+      const mapped = { id: n.id, type: n.type, title: n.title, body: n.body, targetAccountId: n.accountId || n.account_id || "", actionUrl: n.link || "", actionLabel: n.actionLabel || "", priority: n.priority || "normal", isRead: n.isRead || n.is_read || false, readAt: n.readAt || "", createdAt: n.createdAt || n.created_at || "" };
       byId.set(n.id, { ...(byId.get(n.id) || {}), ...mapped });
     }
     localStorage.setItem(NOTIF_KEY, JSON.stringify([...byId.values()]));
     render();
   } catch { /* ignore — stale cache is fine */ }
+}
+
+async function loadNotificationMonitor(force=false) {
+  if (!hasAdminAccess() || notificationMonitorLoading) return;
+  if (notificationMonitor && !force) return;
+  notificationMonitorLoading = true;
+  try { notificationMonitor = await notificationService.monitor(); }
+  finally { notificationMonitorLoading = false; if (route === "/admin/notifications") render(); }
 }
 
 async function fetchParticipantsFromApi(sessionId, accountId) {
@@ -1880,34 +1895,40 @@ function leadershipSection() {
 }
 
 function kisTimelineSection() {
+  const year = activeTimelineYear;
+  const item = timelineData[year];
   const years = Object.keys(timelineData);
-  return `<section class="section tl-story" id="kis-history">
-    <div class="container tl-story__head">
-      <h2 class="section-title">Lịch sử phát triển</h2>
-    </div>
-    <div class="tl-story__track" data-timeline-track>
-      <span class="tl-story__line" aria-hidden="true"></span>
-      <span class="tl-story__progress" aria-hidden="true" data-timeline-progress></span>
-      <div class="tl-story__items">
-        ${years.map((year, i) => {
-          const entry = timelineData[year];
-          const side = i % 2 === 0 ? "left" : "right";
-          return `<article class="tl-story__item tl-story__item--${side}" data-timeline-item data-timeline-year="${year}">
-            <div class="tl-story__block">
-              <header class="tl-story__head-row">
-                <span class="tl-story__year">${year}</span>
-              </header>
-              <div class="tl-story__media">
-                <img src="${entry.image}" alt="KIS Vietnam ${year}" loading="lazy" decoding="async">
-              </div>
-              <div class="tl-story__card card">
-                <ul class="tl-story__events">
-                  ${entry.events.map((ev) => `<li>${ev}</li>`).join("")}
-                </ul>
-              </div>
-            </div>
-          </article>`;
-        }).join("")}
+  const idx = years.indexOf(year);
+  const prevDisabled = idx === 0 ? " disabled" : "";
+  const nextDisabled = idx === years.length - 1 ? " disabled" : "";
+  const chevronLeft = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>';
+  const chevronRight = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+  return `<section class="section timeline-carousel" id="kis-history">
+    <div class="timeline-carousel__container">
+      <div class="timeline-carousel__header">
+        <h2 class="timeline-carousel__title">${t("about.timeline")}</h2>
+        <div class="timeline-carousel__nav-buttons">
+          <button class="timeline-carousel__btn timeline-carousel__btn--prev" aria-label="Previous year"${prevDisabled}>${chevronLeft}</button>
+          <button class="timeline-carousel__btn timeline-carousel__btn--next" aria-label="Next year"${nextDisabled}>${chevronRight}</button>
+        </div>
+      </div>
+      <div class="timeline-carousel__years" role="tablist" aria-label="Select year">
+        ${years.map(y => `
+          <button class="timeline-carousel__year${y === year ? " is-active" : ""}" role="tab" aria-selected="${y === year}"${y === year ? ' aria-current="true"' : ""} data-timeline-year="${y}">${y}
+          </button>
+        `).join("")}
+      </div>
+      <div class="timeline-carousel__content">
+        <div class="timeline-carousel__watermark" aria-hidden="true">${year}</div>
+        <div class="timeline-carousel__image"${year === "2020" ? ' data-year="2020"' : ""}>
+          <img src="${item.image}" alt="KIS Vietnam ${year}" loading="lazy" decoding="async">
+        </div>
+        <div class="timeline-carousel__info">
+          <span class="timeline-carousel__year-big">${year}</span>
+          <ul class="timeline-carousel__events">
+            ${item.events.map(ev => `<li>${ev}</li>`).join("")}
+          </ul>
+        </div>
       </div>
     </div>
   </section>`;
@@ -3584,7 +3605,7 @@ function adminDashboard(compact = false) {
 function sideNav(role) {
   const groups = role === "hr"
     ? [
-        ["TỔNG QUAN", [["/admin","Tổng quan"],["/admin/reports","Báo cáo đào tạo"]]],
+        ["TỔNG QUAN", [["/admin","Tổng quan"],["/admin/reports","Báo cáo đào tạo"],["/admin/audit-log","Nhật ký hệ thống"]]],
         ["ĐÀO TẠO", [["/admin/learning-records","Hồ sơ học tập"],["/admin/certificates","Chứng chỉ hành nghề"],["/admin/courses","Khóa học"],["/admin/sessions","Lớp trực tiếp"],["/admin/assign","Giao khóa học"],["/admin/quizzes","Bài kiểm tra"],["/admin/learning-paths","Lộ trình học tập"],["/admin/compliance",t("compliance.title")]]],
         ["QUẢN TRỊ NỘI DUNG", [["/admin/gallery","Ảnh"],["/admin/notifications","Thông báo"]]],
         ["NHÂN SỰ", [["/admin/employees","Nhân viên"],["/admin/accounts","Tài khoản & Mật khẩu"]]],
@@ -4102,6 +4123,17 @@ function notificationText(key) {
   }; return values[key]?.[language] || values[key]?.vi || key;
 }
 
+function auditText(key){const m={title:{vi:"Nhật ký hệ thống",en:"System audit log",kr:"시스템 감사 로그"},subtitle:{vi:"Truy vết thao tác quản trị, bảo mật và thay đổi dữ liệu quan trọng.",en:"Trace administrative, security, and important data changes.",kr:"관리, 보안 및 주요 데이터 변경을 추적합니다."},actor:{vi:"Người thực hiện",en:"Actor",kr:"수행자"},action:{vi:"Hành động",en:"Action",kr:"작업"},entity:{vi:"Đối tượng",en:"Entity",kr:"대상"},before:{vi:"Trước",en:"Before",kr:"이전"},after:{vi:"Sau",en:"After",kr:"이후"},changed:{vi:"Trường thay đổi",en:"Changed fields",kr:"변경 필드"},requestId:{vi:"Request ID",en:"Request ID",kr:"요청 ID"},correlationId:{vi:"Correlation ID",en:"Correlation ID",kr:"상관 ID"},severity:{vi:"Mức độ",en:"Severity",kr:"심각도"},source:{vi:"Nguồn",en:"Source",kr:"소스"},status:{vi:"Trạng thái",en:"Status",kr:"상태"},critical:{vi:"Quan trọng",en:"Critical",kr:"중요"},warning:{vi:"Cảnh báo",en:"Warning",kr:"경고"},export:{vi:"Xuất",en:"Export",kr:"내보내기"},empty:{vi:"Chưa có sự kiện audit phù hợp.",en:"No matching audit events.",kr:"일치하는 감사 이벤트가 없습니다."},hidden:{vi:"Giá trị nhạy cảm đã được ẩn.",en:"Sensitive values hidden.",kr:"민감한 값은 숨겨졌습니다."},loadError:{vi:"Không thể tải nhật ký hệ thống.",en:"Unable to load audit logs.",kr:"감사 로그를 불러올 수 없습니다."},exportError:{vi:"Không thể xuất dữ liệu audit.",en:"Unable to export audit data.",kr:"감사 데이터를 내보낼 수 없습니다."}};return m[key]?.[language]||m[key]?.vi||key;}
+
+async function loadAuditLogs(force=false){if(!hasAdminAccess()||auditState.loading)return;if(auditState.rows.length&&!force)return;auditState.loading=true;auditState.error="";render();try{const filters={...auditFilters,page:auditState.page,pageSize:auditState.pageSize};const [list,overview]=await Promise.all([auditService.list(filters),auditState.overview?Promise.resolve(auditState.overview):auditService.overview()]);auditState.rows=list.rows||[];auditState.total=list.total||0;auditState.page=list.page||1;auditState.pageSize=list.pageSize||25;auditState.overview=overview;}catch{auditState.error=auditText("loadError");}finally{auditState.loading=false;if(route==="/admin/audit-log")render();}}
+async function openAuditDetail(id){auditState.detailLoading=true;auditState.detail=null;render();try{auditState.detail=await auditService.detail(id);}catch{auditState.error=auditText("loadError");}finally{auditState.detailLoading=false;render();}}
+function auditJsonBlock(value){return `<pre class="audit-json">${escapeHtml(JSON.stringify(value??{},null,2))}</pre>`;}
+function auditDiff(row){const fields=row?.changed_fields||[];if(!fields.length)return `<p class="muted">${auditText("hidden")}</p>`;return `<div class="audit-diff">${fields.map(f=>`<div><strong>${escapeHtml(f)}</strong><span>${escapeHtml(String(row.before_data?.[f]??"—"))} → ${escapeHtml(String(row.after_data?.[f]??"—"))}</span></div>`).join("")}</div>`;}
+
+function auditLogPage(){if(!hasAdminAccess())return restrictedPage();if(!auditState.rows.length&&!auditState.loading&&!auditState.error)queueMicrotask(()=>loadAuditLogs());const ov=auditState.overview||{};const pages=Math.max(1,Math.ceil((auditState.total||0)/auditState.pageSize));const kpis=[["Hôm nay",ov.totalToday??"—"],[auditText("critical"),ov.criticalToday??"—"],["Login fail",ov.failedLoginsToday??"—"],["Role change",ov.roleChangesToday??"—"],["Export",ov.reportExportsToday??"—"],["Scheduler lỗi",ov.schedulerErrorsToday??"—"]];const rows=auditState.rows||[];return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D",auditText("title"),"hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h1>${auditText("title")}</h1><p>${auditText("subtitle")}</p></div><div class="learning-actions"><button class="btn btn-outline" data-audit-refresh>Tải lại</button><button class="btn btn-outline" data-audit-export="csv">${auditText("export")} CSV</button><button class="btn btn-outline" data-audit-export="xlsx">${auditText("export")} XLSX</button></div></div><div class="kpi-grid">${kpis.map(([l,v])=>`<div class="card kpi"><span class="label">${escapeHtml(l)}</span><strong>${escapeHtml(String(v))}</strong></div>`).join("")}</div><form class="filter-bar audit-filter" data-audit-filter><input name="search" type="search" value="${escapeHtmlAttribute(auditFilters.search)}" placeholder="Tên, entity, request ID, action"><input name="date_from" type="date" value="${escapeHtmlAttribute(auditFilters.date_from)}"><input name="date_to" type="date" value="${escapeHtmlAttribute(auditFilters.date_to)}"><select name="severity"><option value="">${auditText("severity")}</option>${["info","warning","critical"].map(x=>`<option value="${x}" ${auditFilters.severity===x?"selected":""}>${x}</option>`).join("")}</select><select name="category"><option value="">Category</option>${["authentication","account","employee","course","learning_path","compliance","certificate","report","notification","system","security"].map(x=>`<option value="${x}" ${auditFilters.category===x?"selected":""}>${x}</option>`).join("")}</select><select name="source"><option value="">${auditText("source")}</option>${["web","api","cron","system"].map(x=>`<option value="${x}" ${auditFilters.source===x?"selected":""}>${x}</option>`).join("")}</select><button class="btn btn-primary">Lọc</button></form>${auditState.error?`<div class="error-card">${escapeHtml(auditState.error)} <button class="btn btn-outline" data-audit-refresh>Thử lại</button></div>`:""}${auditState.loading?`<div class="skeleton-list"><div></div><div></div><div></div></div>`:rows.length?`<div class="table-wrap"><table><thead><tr><th>Thời gian</th><th>${auditText("actor")}</th><th>Vai trò</th><th>${auditText("action")}</th><th>${auditText("entity")}</th><th>${auditText("severity")}</th><th>${auditText("source")}</th><th>${auditText("status")}</th><th>${auditText("requestId")}</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td>${escapeHtml(formatDateTime(r.occurred_at))}</td><td>${escapeHtml(r.actor_display_name_snapshot||r.actor_user_id||"System")}</td><td>${escapeHtml(r.actor_role||"—")}</td><td><code>${escapeHtml(r.action)}</code></td><td>${escapeHtml(r.entity_display_name_snapshot||r.entity_id||r.entity_type||"—")}</td><td><span class="badge ${r.severity==="critical"?"danger":r.severity==="warning"?"pending":"active"}">${escapeHtml(r.severity)}</span></td><td>${escapeHtml(r.source||"")}</td><td>${escapeHtml(r.status||"")}</td><td><button class="link-btn" data-copy="${escapeHtmlAttribute(r.request_id||"")}" aria-label="Copy Request ID">${escapeHtml((r.request_id||"").slice(0,12))}</button></td><td><button class="btn btn-outline" data-audit-detail="${escapeHtmlAttribute(r.id)}">Xem</button></td></tr>`).join("")}</tbody></table></div><div class="pagination"><button class="btn btn-outline" data-audit-page="${auditState.page-1}" ${auditState.page<=1?"disabled":""}>Trước</button><span>${auditState.page} / ${pages}</span><button class="btn btn-outline" data-audit-page="${auditState.page+1}" ${auditState.page>=pages?"disabled":""}>Sau</button></div>`:`<div class="empty-state"><h3>${auditText("empty")}</h3></div>`}</section>${auditState.detail||auditState.detailLoading?auditDetailDrawer():""}</div></main></div>`;}
+
+function auditDetailDrawer(){const r=auditState.detail;if(auditState.detailLoading||!r)return `<div class="modal-backdrop open"><div class="modal modal--large"><div class="skeleton-list"><div></div><div></div><div></div></div></div></div>`;return `<div class="modal-backdrop open"><div class="modal modal--large modal--structured" role="dialog" aria-modal="true"><header class="modal__header"><div><h2>${auditText("title")}</h2><p><code>${escapeHtml(r.id)}</code></p></div><button class="icon-btn" data-audit-close aria-label="Close">×</button></header><div class="modal__body"><div class="profile-grid">${[["Audit ID",r.id],["Occurred at",formatDateTime(r.occurred_at)],["Actor",r.actor_display_name_snapshot||r.actor_user_id||"System"],[auditText("action"),r.action],[auditText("entity"),`${r.entity_type||""} ${r.entity_id||""}`.trim()],["Request ID",r.request_id],["Correlation ID",r.correlation_id],["Source",r.source],["IP hash",r.ip_address_hash||"—"],["User-agent",r.user_agent||"—"],["Status",r.status],["Error",r.error_code||"—"]].map(([k,v])=>`<div class="profile-item"><span>${escapeHtml(k)}</span><strong>${escapeHtml(String(v||"—"))}</strong></div>`).join("")}</div><h3>${auditText("changed")}</h3>${auditDiff(r)}<details open><summary>${auditText("before")}</summary>${auditJsonBlock(r.before_data)}</details><details open><summary>${auditText("after")}</summary>${auditJsonBlock(r.after_data)}</details><details><summary>Metadata</summary>${auditJsonBlock(r.metadata)}</details></div></div></div>`;}
+
 function notificationRecipients(type, value) {
   const accounts = getAccounts().filter(a=>a.role==="employee"&&a.accountStatus==="active");
   if(type==="department") return accounts.filter(a=>a.department===value).map(a=>a.id);
@@ -4111,8 +4143,13 @@ function notificationRecipients(type, value) {
 
 function notificationsPage() {
   if (!hasAdminAccess()) return restrictedPage();
+  if (!notificationMonitor && !notificationMonitorLoading) queueMicrotask(()=>loadNotificationMonitor());
   const history=getNotificationHistory().filter(n=>!notificationSearch||`${n.title} ${n.body}`.toLowerCase().includes(notificationSearch.toLowerCase()));
-  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D",notificationText("title"),"hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h1>${notificationText("title")}</h1><p>${notificationText("history")}</p></div><button class="btn btn-primary" data-notification-create>${notificationText("create")}</button></div><div class="filter-bar"><input id="notificationSearch" data-focus-key="notification-search" type="search" value="${escapeHtmlAttribute(notificationSearch)}" placeholder="${t("admin.search")}" data-notification-search></div>${history.length?`<div class="table-wrap"><table><thead><tr><th>${t("course.title")}</th><th>${notificationText("recipients")}</th><th>${t("status.read")}</th><th>${t("table.createdAt")}</th><th>${t("course.status")}</th></tr></thead><tbody>${history.map(n=>`<tr><td><strong>${escapeHtml(n.title)}</strong><small class="table-subtext">${escapeHtml(n.body)}</small></td><td>${n.recipientCount}</td><td>${n.readCount} / ${n.recipientCount}</td><td>${escapeHtml(n.sentAt||n.createdAt)}</td><td><span class="badge active">${escapeHtml(n.status||"sent")}</span></td></tr>`).join("")}</tbody></table></div>`:`<div class="empty-state">${icon("message")}<h3>${notificationText("noData")}</h3></div>`}</section></div>${notificationComposerOpen?notificationComposer():""}</main></div>`;
+  const m=notificationMonitor||{};
+  const deliveryRows=(m.deliveries||[]).slice(0,8);
+  const runRows=(m.runs||[]).slice(0,8);
+  const ruleRows=(m.rules||[]).slice(0,12);
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D",notificationText("title"),"hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h1>${notificationText("title")}</h1><p>${notificationText("history")}</p></div><div class="learning-actions"><button class="btn btn-outline" data-notification-monitor-refresh>Tải lại</button><button class="btn btn-outline" data-run-reminders>Chạy reminder</button><button class="btn btn-primary" data-notification-create>${notificationText("create")}</button></div></div><div class="kpi-grid">${[["Events 7 ngày",m.last7DaysEvents??"—"],["Unread",m.unreadNotifications??"—"],["Delivery logs",deliveryRows.length],["Active rules",(m.rules||[]).filter(r=>r.status==="active").length]].map(([l,v])=>`<div class="card kpi"><span class="label">${l}</span><strong>${escapeHtml(String(v))}</strong></div>`).join("")}</div><div class="filter-bar"><input id="notificationSearch" data-focus-key="notification-search" type="search" value="${escapeHtmlAttribute(notificationSearch)}" placeholder="${t("admin.search")}" data-notification-search></div>${history.length?`<div class="table-wrap"><table><thead><tr><th>${t("course.title")}</th><th>${notificationText("recipients")}</th><th>${t("status.read")}</th><th>${t("table.createdAt")}</th><th>${t("course.status")}</th></tr></thead><tbody>${history.map(n=>`<tr><td><strong>${escapeHtml(n.title)}</strong><small class="table-subtext">${escapeHtml(n.body)}</small></td><td>${n.recipientCount}</td><td>${n.readCount} / ${n.recipientCount}</td><td>${escapeHtml(n.sentAt||n.createdAt)}</td><td><span class="badge active">${escapeHtml(n.status||"sent")}</span></td></tr>`).join("")}</tbody></table></div>`:`<div class="empty-state">${icon("message")}<h3>${notificationText("noData")}</h3></div>`}</section><section class="card panel"><div class="panel-head"><h2>Reminder rules</h2></div><div class="table-wrap"><table><thead><tr><th>Event</th><th>Entity</th><th>Offset</th><th>Channel</th><th>Status</th></tr></thead><tbody>${ruleRows.map(r=>`<tr><td>${escapeHtml(r.event_type)}</td><td>${escapeHtml(r.entity_type)}</td><td>${escapeHtml(`${r.direction} ${r.offset_value} ${r.offset_unit}`)}</td><td>${escapeHtml(r.channel)}</td><td><span class="badge ${r.status==="active"?"active":"pending"}">${escapeHtml(r.status)}</span></td></tr>`).join("")||`<tr><td colspan="5">Chưa tải rules.</td></tr>`}</tbody></table></div></section><section class="card panel"><div class="panel-head"><h2>Delivery & runs</h2></div><div class="table-wrap"><table><thead><tr><th>Channel</th><th>Status</th><th>Provider</th><th>Error</th><th>Created</th></tr></thead><tbody>${deliveryRows.map(d=>`<tr><td>${escapeHtml(d.channel)}</td><td><span class="badge ${d.status==="delivered"||d.status==="sent"?"active":d.status==="failed"?"danger":"pending"}">${escapeHtml(d.status)}</span></td><td>${escapeHtml(d.provider||"—")}</td><td>${escapeHtml(d.error_code||"—")}</td><td>${escapeHtml(d.created_at||"")}</td></tr>`).join("")||`<tr><td colspan="5">Chưa có delivery.</td></tr>`}</tbody></table></div><div class="table-wrap"><table><thead><tr><th>Rule</th><th>Status</th><th>Candidates</th><th>Created</th><th>Duplicates</th><th>Completed</th></tr></thead><tbody>${runRows.map(r=>`<tr><td>${escapeHtml(r.rule_id||"—")}</td><td><span class="badge ${r.status==="completed"?"active":r.status==="failed"?"danger":"pending"}">${escapeHtml(r.status)}</span></td><td>${r.candidates_found}</td><td>${r.events_created}</td><td>${r.duplicates_skipped}</td><td>${escapeHtml(r.completed_at||"—")}</td></tr>`).join("")||`<tr><td colspan="6">Chưa có reminder run.</td></tr>`}</tbody></table></div></section></div>${notificationComposerOpen?notificationComposer():""}</main></div>`;
 }
 
 function notificationComposer(){const departments=[...new Set(getAccounts().filter(a=>a.role==="employee").map(a=>a.department).filter(Boolean))];return `<div class="modal-backdrop open"><form id="notificationForm" class="modal modal--large modal--structured" role="dialog" aria-modal="true" aria-labelledby="notification-title"><header class="modal__header"><div><h2 id="notification-title">${notificationText("create")}</h2></div><button type="button" class="icon-btn" aria-label="Close" data-notification-close>×</button></header><div class="modal__body"><div class="form-2col"><div class="field"><label>${t("course.title")}</label><input name="title" required maxlength="160"></div><div class="field"><label>${t("course.category")}</label><select name="type"><option value="hr_announcement">HR</option><option value="deadline">Deadline</option><option value="course_updated">Course</option><option value="system">System</option></select></div></div><div class="field"><label>${t("course.description")}</label><textarea name="body" rows="6" required></textarea></div><fieldset class="recipient-fieldset"><legend>${notificationText("recipients")}</legend><div class="form-2col"><div class="field"><label>Type</label><select name="recipientType" data-recipient-type><option value="all">${notificationText("all")}</option><option value="department">${notificationText("department")}</option><option value="course">${notificationText("course")}</option></select></div><div class="field"><label>Department / Course</label><select name="recipientValue"><option value="">—</option><optgroup label="Department">${departments.map(d=>`<option value="${escapeHtmlAttribute(d)}">${escapeHtml(d)}</option>`).join("")}</optgroup><optgroup label="Course">${getCourses().filter(c=>c.status==="published").map(c=>`<option value="${c.id}">${escapeHtml(c.title)}</option>`).join("")}</optgroup></select></div></div></fieldset><div class="field"><label>CTA URL</label><input name="actionUrl" placeholder="/dashboard/courses"></div><div class="setting-row"><div><strong>Email</strong><small>${notificationText("emailUnavailable")}</small></div><button type="button" class="switch" role="switch" aria-checked="false" disabled><span></span></button></div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-notification-close>${t("content.cancel")}</button><button class="btn btn-primary" type="submit">${notificationText("send")}</button></footer></form></div>`;}
@@ -5030,6 +5067,7 @@ function render() {
   else if (route === "/admin/quizzes") app.innerHTML = hasAdminAccess() ? adminQuizzesPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/notifications") app.innerHTML = hasAdminAccess() ? notificationsPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/reports") app.innerHTML = hasAdminAccess() ? reportsPage() : session ? restrictedPage() : loginPage();
+  else if (route === "/admin/audit-log") app.innerHTML = hasAdminAccess() ? auditLogPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/learning-records") app.innerHTML = hasAdminAccess() ? adminLearningPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/certifications") { history.replaceState({}, "", "/admin/certificates"); route="/admin/certificates"; app.innerHTML = hasAdminAccess() ? adminCertificatesPage() : session ? restrictedPage() : loginPage(); }
   else if (route === "/admin/certificates") {
@@ -5214,69 +5252,81 @@ async function autoSyncParticipantsIfNeeded(sessionId){
   else console.warn("[participant-sync] backfill failed for session",sessionId,":",result.message);
 }
 
-// ----- Scroll-storytelling timeline (about-kis / Lịch sử phát triển) -----
-let _timelineCleanup = null;
-function initTimelineScroll() {
-  // Tear down any previous instance (render() rebuilds the DOM).
-  if (_timelineCleanup) { _timelineCleanup(); _timelineCleanup = null; }
-  const track = document.querySelector("[data-timeline-track]");
-  if (!track) return;
-  const progress = track.querySelector("[data-timeline-progress]");
-  const items = Array.from(track.querySelectorAll("[data-timeline-item]"));
-  if (!items.length) return;
-
+// ----- Timeline carousel (about-kis / Lịch sử phát triển) -----
+let _timelineCarouselCleanup = null;
+function initTimelineCarousel() {
+  if (_timelineCarouselCleanup) { _timelineCarouselCleanup(); _timelineCarouselCleanup = null; }
+  const section = document.querySelector("#kis-history");
+  if (!section) return;
+  const years = Object.keys(timelineData);
   const prefersReduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-  // 1) Reveal animation — fade-in + slide when each milestone enters the viewport.
-  const revealObserver = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (entry.isIntersecting) {
-        entry.target.classList.add("is-visible");
-        revealObserver.unobserve(entry.target);
-      }
+  const goToYear = (y) => {
+    if (y && y !== activeTimelineYear && timelineData[y]) {
+      activeTimelineYear = y;
+      render();
     }
-  }, { root: null, rootMargin: "0px 0px -15% 0px", threshold: 0.15 });
-  items.forEach((item) => {
-    if (prefersReduced) item.classList.add("is-visible");
-    else revealObserver.observe(item);
+  };
+
+  // Year buttons
+  section.querySelectorAll("[data-timeline-year]").forEach((btn) => {
+    btn.addEventListener("click", () => goToYear(btn.dataset.timelineYear));
   });
 
-  // 2) Active milestone + progress line — driven by scroll position.
-  let frame = 0;
-  const update = () => {
-    frame = 0;
-    const trackRect = track.getBoundingClientRect();
-    const viewportCenter = window.innerHeight / 2;
-    // Progress: 0 at the first dot, 1 at the last dot.
-    const firstEl = items[0].querySelector(".tl-story__year");
-    const lastEl = items[items.length - 1].querySelector(".tl-story__year");
-    const top = firstEl ? firstEl.getBoundingClientRect().top : trackRect.top;
-    const bottom = lastEl ? lastEl.getBoundingClientRect().top : trackRect.bottom;
-    const span = Math.max(1, bottom - top);
-    const ratio = Math.min(1, Math.max(0, (viewportCenter - top) / span));
-    if (progress) progress.style.height = `${ratio * 100}%`;
+  // Prev / Next
+  const prevBtn = section.querySelector(".timeline-carousel__btn--prev");
+  const nextBtn = section.querySelector(".timeline-carousel__btn--next");
+  if (prevBtn) {
+    prevBtn.addEventListener("click", () => {
+      const idx = years.indexOf(activeTimelineYear);
+      if (idx > 0) goToYear(years[idx - 1]);
+    });
+  }
+  if (nextBtn) {
+    nextBtn.addEventListener("click", () => {
+      const idx = years.indexOf(activeTimelineYear);
+      if (idx < years.length - 1) goToYear(years[idx + 1]);
+    });
+  }
 
-    // Active = item whose dot is closest to the viewport center.
-    let activeIndex = -1;
-    let bestDelta = Infinity;
-    for (let i = 0; i < items.length; i++) {
-      const dot = items[i].querySelector(".tl-story__year");
-      if (!dot) continue;
-      const delta = Math.abs(dot.getBoundingClientRect().top - viewportCenter);
-      if (delta < bestDelta) { bestDelta = delta; activeIndex = i; }
-    }
-    items.forEach((item, i) => item.classList.toggle("is-active", i === activeIndex));
-  };
-  const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
-  update();
-  window.addEventListener("scroll", schedule, { passive: true });
-  window.addEventListener("resize", schedule, { passive: true });
+  // Keyboard: left/right arrows on the year nav
+  const yearNav = section.querySelector(".timeline-carousel__years");
+  if (yearNav) {
+    yearNav.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        const idx = years.indexOf(activeTimelineYear);
+        if (e.key === "ArrowLeft" && idx > 0) goToYear(years[idx - 1]);
+        else if (e.key === "ArrowRight" && idx < years.length - 1) goToYear(years[idx + 1]);
+      }
+    });
+  }
 
-  _timelineCleanup = () => {
-    if (frame) cancelAnimationFrame(frame);
-    window.removeEventListener("scroll", schedule);
-    window.removeEventListener("resize", schedule);
-    revealObserver.disconnect();
+  // Touch swipe on content area (mobile)
+  let touchStartX = 0;
+  let touchEndX = 0;
+  const content = section.querySelector(".timeline-carousel__content");
+  if (content && !prefersReduced) {
+    content.addEventListener("touchstart", (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+    content.addEventListener("touchend", (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      const diff = touchStartX - touchEndX;
+      if (Math.abs(diff) > 50) {
+        const idx = years.indexOf(activeTimelineYear);
+        if (diff > 0 && idx < years.length - 1) goToYear(years[idx + 1]);
+        else if (diff < 0 && idx > 0) goToYear(years[idx - 1]);
+      }
+    }, { passive: true });
+  }
+
+  // Scroll active year into view
+  const activeYearEl = section.querySelector(".timeline-carousel__year.is-active");
+  if (activeYearEl) {
+    activeYearEl.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth", block: "nearest", inline: "center" });
+  }
+
+  _timelineCarouselCleanup = () => {
+    // Cleanup is handled by render() re-building the DOM
   };
 }
 function bindEvents() {
@@ -5388,7 +5438,7 @@ const {localStorageAdapter:lsa}=await import("./lib/storage/localStorageAdapter.
   document.querySelector("[data-open-selected-participants]")?.addEventListener("click",()=>{const rows=sessionParticipantAccounts(selectedOfflineSessionId);openDialog({type:"alert",title:`Danh sách người tham dự (${rows.length})`,body:rows.length?rows.map((account,index)=>`${index+1}. ${account.fullName} — ${account.department||"Không rõ phòng ban"}`).join("\n"):"Chưa có nhân viên nào được chọn."});});
   document.querySelectorAll("[data-calendar-day]").forEach((el)=>el.addEventListener("click",()=>{calendarSelectedDay=Number(el.dataset.calendarDay)||0;render();}));
   document.querySelector("[data-calendar-clear-day]")?.addEventListener("click",()=>{calendarSelectedDay=0;render();});
-  initTimelineScroll();
+  initTimelineCarousel();
   document.querySelectorAll("[data-close-employee-form]").forEach(el=>el.addEventListener("click",()=>{employeeFormOpen=false;employeeCreateResult=null;render();}));
   document.getElementById("newEmployeePhoto")?.addEventListener("change",event=>{const file=event.target.files?.[0],preview=document.querySelector(".employee-photo-preview");if(!file||!preview)return;const url=URL.createObjectURL(file);preview.innerHTML=`<img src="${url}" alt="Xem trước ảnh đại diện">`;preview.querySelector("img").addEventListener("load",()=>URL.revokeObjectURL(url),{once:true});});
   document.getElementById("employeeCreateForm")?.addEventListener("submit",async event=>{event.preventDefault();const form=event.currentTarget,button=form.querySelector('[type="submit"]'),data=Object.fromEntries(new FormData(form));button.disabled=true;button.textContent="Đang tạo...";const result=employeeService.create(data);if(!result.ok){const box=form.querySelector("[data-employee-form-error]");box.textContent=result.error==="duplicate_email"?"Email này đã được sử dụng bởi tài khoản khác.":result.error==="duplicate_code"?"Mã nhân viên này đã tồn tại.":"Vui lòng kiểm tra các trường bắt buộc.";button.disabled=false;button.textContent="Tạo hồ sơ & tài khoản";return;}const file=form.querySelector('[name="photo"]')?.files?.[0];if(file)try{await employeeService.uploadPhoto(result.employee.id,file);}catch{}employeeCreateResult=result;render();});
@@ -5529,6 +5579,15 @@ const {localStorageAdapter:lsa}=await import("./lib/storage/localStorageAdapter.
   document.querySelectorAll("[data-report-page]").forEach(el=>el.addEventListener("click",()=>{reportPage=Math.max(1,Number(el.dataset.reportPage)||1);reportData=null;reportLoadedKey="";syncReportUrl();loadReports(true);}));
   document.getElementById("employeePhotoFolder")?.addEventListener("change",async event=>{const files=[...(event.target.files||[])].filter(file=>["image/jpeg","image/png","image/webp"].includes(file.type));const employees=getEmployees(),byCode=new Map(employees.map(employee=>{const account=employee.accountId?getAccountById(employee.accountId):null;return [String(account?.employeeCode||"").toLowerCase(),employee];}).filter(([code])=>code));const matched=[],unmatched=[];for(const file of files){const stem=file.name.replace(/\.[^.]+$/,"").toLowerCase();const employee=byCode.get(stem);if(employee)matched.push({file,employee});else unmatched.push(file.name);}if(!matched.length)return toast("error");const doPhotoImport=async()=>{for(const {file,employee} of matched){try{const photoBlobId=await saveEmployeePhoto(file);if(employee.photoBlobId)await deleteEmployeePhoto(employee.photoBlobId);updateEmployeeProfile(employee.id,{photoBlobId,photoFileName:file.name,photoUpdatedAt:new Date().toISOString(),photoUpdatedBy:session.accountId});}catch{}}}; openDialog({type:"confirm",title:"Xác nhận import ảnh",body:`${matched.length} file khớp thành công · ${unmatched.length} không tìm thấy nhân viên.`,onConfirm:()=>doPhotoImport().then(()=>{toast("success");render();})});});
   document.querySelector("[data-notification-create]")?.addEventListener("click",()=>{notificationComposerOpen=true;render();});
+  document.querySelector("[data-notification-monitor-refresh]")?.addEventListener("click",()=>{notificationMonitor=null;loadNotificationMonitor(true);});
+  document.querySelector("[data-run-reminders]")?.addEventListener("click",async()=>{const result=await notificationService.runReminders();notificationMonitor=null;await loadNotificationMonitor(true);toast(result?.ok?"success":"error");});
+  document.querySelector("[data-audit-refresh]")?.addEventListener("click",()=>{auditState.overview=null;loadAuditLogs(true);});
+  document.querySelector("[data-audit-filter]")?.addEventListener("submit",event=>{event.preventDefault();const form=new FormData(event.currentTarget);for(const key of Object.keys(auditFilters))if(form.has(key))auditFilters[key]=form.get(key);auditState.page=1;auditState.rows=[];loadAuditLogs(true);});
+  document.querySelectorAll("[data-audit-page]").forEach(el=>el.addEventListener("click",()=>{auditState.page=Math.max(1,Number(el.dataset.auditPage)||1);auditState.rows=[];loadAuditLogs(true);}));
+  document.querySelectorAll("[data-audit-detail]").forEach(el=>el.addEventListener("click",()=>openAuditDetail(el.dataset.auditDetail)));
+  document.querySelector("[data-audit-close]")?.addEventListener("click",()=>{auditState.detail=null;render();});
+  document.querySelectorAll("[data-copy]").forEach(el=>el.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(el.dataset.copy||"");toast("success");}catch{toast("error");}}));
+  document.querySelectorAll("[data-audit-export]").forEach(el=>el.addEventListener("click",async()=>{try{const format=el.dataset.auditExport;const blob=await auditService.export(format,auditFilters);const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`audit-logs.${format}`;a.click();URL.revokeObjectURL(url);toast("success");loadAuditLogs(true);}catch{auditState.error=auditText("exportError");render();}}));
   document.querySelectorAll("[data-notification-close]").forEach(el=>el.addEventListener("click",()=>{notificationComposerOpen=false;render();}));
   document.querySelectorAll("[data-refresh-hr-overview]").forEach(el => el.addEventListener("click", () => fetchHrOverview()));
   document.querySelectorAll("[data-hr-overview-tab]").forEach(el=>el.addEventListener("click",()=>{_hrOverviewTab=el.dataset.hrOverviewTab;render();}));
@@ -5672,7 +5731,7 @@ const {localStorageAdapter:lsa}=await import("./lib/storage/localStorageAdapter.
     }
   });
   { let composing=false; const el=document.querySelector("[data-notification-search]"); el?.addEventListener("compositionstart",()=>composing=true); el?.addEventListener("compositionend",e=>{composing=false;notificationSearch=e.target.value;render();}); el?.addEventListener("input",debounce(e=>{if(!composing){notificationSearch=e.target.value;render();}},180)); }
-  document.getElementById("notificationForm")?.addEventListener("submit",event=>{event.preventDefault();const form=new FormData(event.currentTarget);const type=form.get("recipientType"),value=form.get("recipientValue");const result=sendNotificationCampaign({title:form.get("title"),body:form.get("body"),type:form.get("type"),recipientType:type,recipientIds:notificationRecipients(type,value),actionUrl:form.get("actionUrl"),createdBy:session.accountId});if(result.ok){notificationComposerOpen=false;toast("success");render();}else toast("error");});
+  document.getElementById("notificationForm")?.addEventListener("submit",async event=>{event.preventDefault();const form=new FormData(event.currentTarget);const type=form.get("recipientType"),value=form.get("recipientValue");const recipientIds=notificationRecipients(type,value);const payload={title:form.get("title"),body:form.get("body"),type:form.get("type"),recipientType:type,recipientIds,actionUrl:form.get("actionUrl"),createdBy:session.accountId};const result=sendNotificationCampaign(payload);const apiResult=await notificationService.create({notifications:recipientIds.map((recipientId,index)=>({account_id:recipientId,type:form.get("type"),title:form.get("title"),body:form.get("body"),link:form.get("actionUrl"),entity_type:"manual_notification",entity_id:`manual-${Date.now()}-${index}`,data:{recipientType:type,recipientValue:value||""}}))});if(result.ok||apiResult?.ok){notificationComposerOpen=false;notificationMonitor=null;toast("success");render();loadNotificationMonitor(true);}else toast("error");});
   document.getElementById("courseCoverInput")?.addEventListener("change",async event=>{const file=event.target.files?.[0];if(!file)return;try{const id=await saveCourseImage(file);const hidden=document.querySelector('[name="coverImageId"]');if(hidden)hidden.value=id;const image=document.querySelector("[data-course-image-preview]");if(image){if(image.dataset.objectUrl)URL.revokeObjectURL(image.dataset.objectUrl);const url=URL.createObjectURL(file);image.src=url;image.dataset.objectUrl=url;}}catch{toast("error");}});
   document.querySelectorAll("[data-link]").forEach((el) => el.addEventListener("click", (event) => { event.preventDefault(); navigate(el.getAttribute("href")); }));
   document.querySelector("[data-logout]")?.addEventListener("click", () => {
@@ -5732,6 +5791,7 @@ const {localStorageAdapter:lsa}=await import("./lib/storage/localStorageAdapter.
     if (!hasEmployeeAccess()) return toast("error");
     const own = getNotifications(session.accountId).find((item) => item.id === el.dataset.markNotificationRead);
     if (!own || !markAsRead(own.id)) return toast("error");
+    notificationService.markRead(own.id).catch(()=>{});
     toast("success"); render();
   }));
   document.querySelectorAll("[data-scroll]").forEach((el) => el.addEventListener("click", () => scrollToId(el.dataset.scroll)));

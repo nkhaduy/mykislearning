@@ -19,15 +19,18 @@ import { handleLearningPaths } from "./routes/learning-paths.js";
 import { handleCompliance } from "./routes/compliance.js";
 import { handleCertificates } from "./routes/certificates.js";
 import { handleReports } from "./routes/reports.js";
+import { handleAuditLogs } from "./routes/audit-logs.js";
+import { withRequestContext, getRequestContext } from "./middleware/request-context.js";
 
 export async function handleApiRequest(request, env) {
-  const url = new URL(request.url);
-  const path = url.pathname;
-  const method = request.method.toUpperCase();
+  return withRequestContext(request, env, async () => {
+    const url = new URL(request.url);
+    const path = url.pathname;
+    const method = request.method.toUpperCase();
 
-  if (method === "OPTIONS") return corsPreflight();
+    if (method === "OPTIONS") return corsPreflight();
 
-  try {
+    try {
     if (path === "/api/config") return await handleConfig(request, env);
 
     if (path === "/api/auth" || path.startsWith("/api/auth/")) return await handleAuth(request, env);
@@ -86,7 +89,11 @@ export async function handleApiRequest(request, env) {
 
     if (path === "/api/admin/hr-account-actions") return await handleHrAccountActions(request, env);
 
-    if (path === "/api/notifications") return await handleNotifications(request, env);
+    if (
+      path === "/api/notifications" ||
+      path === "/api/admin/notifications/monitor" ||
+      path === "/api/admin/notifications/run-reminders"
+    ) return await handleNotifications(request, env);
 
     if (
       path === "/api/quizzes" ||
@@ -108,19 +115,27 @@ export async function handleApiRequest(request, env) {
     ) return await handleReports(request, env);
 
     if (
+      path === "/api/admin/audit-logs" ||
+      path.startsWith("/api/admin/audit-logs/")
+    ) return await handleAuditLogs(request, env);
+
+    if (
       path === "/api/compliance/my" ||
       path.startsWith("/api/compliance/my/") ||
       path === "/api/admin/compliance/overview" ||
       path.startsWith("/api/admin/compliance/")
     ) return await handleCompliance(request, env);
 
-    return json({ ok: false, error: "NOT_FOUND" }, 404);
-  } catch (error) {
-    console.error("[WORKER]", error);
-    return json({
-      ok: false,
-      error: error.code || "INTERNAL_ERROR",
-      message: error.message || "Unexpected error",
-    }, error.status || 500);
-  }
+      return json({ ok: false, error: "NOT_FOUND" }, 404);
+    } catch (error) {
+      console.error("[WORKER]", error);
+      const ctx = getRequestContext(request);
+      return json({
+        ok: false,
+        error: error.code || "INTERNAL_ERROR",
+        message: error.message || "Unexpected error",
+        requestId: ctx.requestId,
+      }, error.status || 500);
+    }
+  });
 }

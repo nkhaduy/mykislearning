@@ -1,6 +1,7 @@
 import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
 import { requireAuth, requireHr } from "../middleware/auth.js";
+import { createNotificationEvent } from "../services/notificationEngine.js";
 
 const ALLOWED_MIME = new Set(["application/pdf", "image/jpeg", "image/jpg", "image/png", "image/webp"]);
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -91,10 +92,20 @@ function mapCert(row) {
     updatedAt: row.updated_at,
   };
 }
-async function notify(supabase, accountId, type, title, body, link, actorId) {
+async function notify(supabase, accountId, type, title, body, link, actorId, entityId = null) {
   if (!accountId) return;
-  await supabase.from("notifications").insert({
-    id: id("notif"), account_id: accountId, type, title, body, link, created_by: actorId || null, data: { entity: "certificate" },
+  const stableEntityId = entityId || `${type}-${accountId}`;
+  await createNotificationEvent(supabase, {
+    eventType: type,
+    entityType: "certificate",
+    entityId: stableEntityId,
+    actorId,
+    recipientId: accountId,
+    idempotencyKey: `${type}:${stableEntityId}:${accountId}`,
+    title,
+    body,
+    link,
+    payload: { certificate_name: title, rejection_reason: body },
   }).then(null, () => {});
 }
 async function audit(supabase, acct, action, certId, details = {}) {
@@ -238,7 +249,7 @@ export async function handleCertificates(request, env) {
       const { data, error } = await supabase.from("employee_certifications").insert(payload).select().single();
       if (error) return json({ error: error.message }, 500);
       await audit(supabase, acct, "certificate_submitted", data.id, { toStatus: data.verification_status });
-      await notify(supabase, acct.accountId, "certificate_submitted", "Chứng chỉ đã được gửi", "HR sẽ kiểm tra chứng chỉ của bạn.", "/dashboard/certificates", acct.accountId);
+      await notify(supabase, acct.accountId, "certificate_submitted", "Chứng chỉ đã được gửi", "HR sẽ kiểm tra chứng chỉ của bạn.", "/dashboard/certificates", acct.accountId, data.id);
       return json({ data: mapCert(data) }, 201);
     }
 
@@ -464,7 +475,7 @@ export async function handleCertificates(request, env) {
         await supabase.from("employee_certifications").update({ status: "superseded" }).eq("id", cert.supersedes_certificate_id);
       }
       await audit(supabase, acct, action, cert.id, { fromStatus: cert.verification_status, toStatus: data.verification_status, note: clean(body.reason) });
-      await notify(supabase, data.account_id, action, parts[4] === "verify" ? "Chứng chỉ đã được xác minh" : parts[4] === "reject" ? "Chứng chỉ bị từ chối" : "Chứng chỉ đã bị thu hồi", clean(body.reason) || "Vui lòng xem chi tiết trong Chứng chỉ của tôi.", "/dashboard/certificates", acct.accountId);
+      await notify(supabase, data.account_id, action, parts[4] === "verify" ? "Chứng chỉ đã được xác minh" : parts[4] === "reject" ? "Chứng chỉ bị từ chối" : "Chứng chỉ đã bị thu hồi", clean(body.reason) || "Vui lòng xem chi tiết trong Chứng chỉ của tôi.", "/dashboard/certificates", acct.accountId, data.id);
       return json({ data: mapCert(data) });
     }
 

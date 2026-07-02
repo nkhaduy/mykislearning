@@ -1,6 +1,7 @@
 import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
 import { requireAuth, requireHr } from "../middleware/auth.js";
+import { auditLater } from "../services/audit-service.js";
 
 const STORAGE_BUCKET = "course-content";
 const SIGNED_URL_EXPIRES = 3600;
@@ -121,6 +122,7 @@ export async function handleCourses(request, env) {
     if (!acct) return json({ error: "HR only" }, 403);
     const course = await readJson(request);
     if (!course?.id) return json({ error: "course.id required" }, 400);
+    const { data: existing } = await supabase.from("courses").select("id, status, data").eq("id", course.id).maybeSingle();
     const row = {
       id: course.id, status: course.status || "draft",
       delivery_mode: course.deliveryMode || course.delivery_mode || "online",
@@ -129,6 +131,15 @@ export async function handleCourses(request, env) {
     };
     const { error } = await supabase.from("courses").upsert(row, { onConflict: "id" });
     if (error) return json({ error: error.message }, 500);
+    auditLater(supabase, request, {
+      actor: acct,
+      action: existing ? (existing.status !== row.status && row.status === "published" ? "course.published" : "course.updated") : "course.created",
+      entityType: "course",
+      entityId: course.id,
+      entityDisplayName: course.title || course.name || course.id,
+      beforeData: existing ? { status: existing.status, title: existing.data?.title || existing.data?.name || "" } : null,
+      afterData: { status: row.status, title: course.title || course.name || "" },
+    });
     return json({ ok: true, id: course.id });
   }
 
@@ -151,11 +162,13 @@ export async function handleCourses(request, env) {
       const { error } = await supabase.from("courses")
         .update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", id);
       if (error) return json({ error: error.message }, 500);
+      auditLater(supabase, request, { actor: acct, action: "course.archived", entityType: "course", entityId: id, beforeData: { status: "active" }, afterData: { status: "archived" } });
       return json({ ok: true, id, status: "archived", method: "soft" });
     } else {
       // Hard delete if no related data
       const { error } = await supabase.from("courses").delete().eq("id", id);
       if (error) return json({ error: error.message }, 500);
+      auditLater(supabase, request, { actor: acct, action: "course.archived", entityType: "course", entityId: id, metadata: { hard_deleted_no_related_data: true } });
       return json({ ok: true, id, status: "deleted", method: "hard" });
     }
   }

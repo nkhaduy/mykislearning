@@ -1,6 +1,7 @@
 import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
 import { requireAuth, requireHr } from "../middleware/auth.js";
+import { createNotificationEvent } from "../services/notificationEngine.js";
 
 const WORKFLOW = ["draft", "submitted", "in_review", "needs_revision", "approved", "rejected", "archived"];
 const EDITABLE_BY_EMPLOYEE = ["draft", "needs_revision"];
@@ -93,18 +94,21 @@ async function audit(supabase, acct, action, targetType, targetId, details = {})
     supabase.from("approval_events").insert({ entity_type: targetType === "employee_certification" ? "certificate" : "learning_record", entity_id: targetId, actor_account_id: acct?.accountId || null, action, from_status: details.fromStatus || null, to_status: details.toStatus || null, note: details.note || null }),
   ]);
 }
-async function notify(supabase, accountId, type, title, body, link, actorId) {
+async function notify(supabase, accountId, type, title, body, link, actorId, entityId = null) {
   if (!accountId) return;
-  await supabase.from("notifications").upsert({
-    id: id("notif"),
-    account_id: accountId,
-    type,
+  const stableEntityId = entityId || `${type}-${accountId}`;
+  await createNotificationEvent(supabase, {
+    eventType: type,
+    entityType: type.startsWith("certificate") ? "certificate" : "learning_record",
+    entityId: stableEntityId,
+    actorId,
+    recipientId: accountId,
+    idempotencyKey: `${type}:${stableEntityId}:${accountId}`,
     title,
     body,
     link,
-    created_by: actorId || null,
-    data: { entity: type },
-  }, { onConflict: "id" });
+    payload: { certificate_name: title, course_title: title, rejection_reason: body },
+  });
 }
 async function saveAttachment(supabase, body, entity) {
   const evidence = body.evidence || null;
@@ -307,7 +311,7 @@ export async function handleLearningRecords(request, env) {
     const { data, error } = await supabase.from("learning_records").update({ status: "submitted", submitted_at: now(), submitted_by: acct.accountId, revision_note: null }).eq("id", recordId).select().single();
     if (error) return json({ error: error.message }, 500);
     await upsertTask(supabase, "external_learning_approval", acct.accountId, "learning_record", recordId, `Duyệt hồ sơ học tập: ${data.title}`, data.provider || "");
-    await notify(supabase, acct.accountId, "learning_record_submitted", "Hồ sơ đã được gửi", "HR sẽ kiểm tra hồ sơ học tập của bạn.", "/dashboard/learning-history", acct.accountId);
+    await notify(supabase, acct.accountId, "learning_record_submitted", "Hồ sơ đã được gửi", "HR sẽ kiểm tra hồ sơ học tập của bạn.", "/dashboard/learning-history", acct.accountId, recordId);
     await audit(supabase, acct, "learning_record_submitted", "learning_record", recordId, { fromStatus: existing.status, toStatus: "submitted" });
     return json({ record: mapLearning(data) });
   }
@@ -369,7 +373,7 @@ export async function handleLearningRecords(request, env) {
     const { data, error } = await supabase.from("employee_certifications").update({ verification_status: "submitted", submitted_at: now(), submitted_by: acct.accountId, revision_note: null }).eq("id", certId).select().single();
     if (error) return json({ error: error.message }, 500);
     await upsertTask(supabase, "certificate_verification", acct.accountId, "employee_certification", certId, `Xác minh chứng chỉ: ${data.name}`, data.issuer || "");
-    await notify(supabase, acct.accountId, "certificate_submitted", "Chứng chỉ đã được gửi", "HR sẽ kiểm tra chứng chỉ của bạn.", "/dashboard/learning-history", acct.accountId);
+    await notify(supabase, acct.accountId, "certificate_submitted", "Chứng chỉ đã được gửi", "HR sẽ kiểm tra chứng chỉ của bạn.", "/dashboard/learning-history", acct.accountId, certId);
     await audit(supabase, acct, "certificate_submitted", "employee_certification", certId, { fromStatus: existing.verification_status, toStatus: "submitted" });
     return json({ certification: mapCert(data) });
   }
@@ -433,7 +437,7 @@ export async function handleLearningRecords(request, env) {
     const { data, error } = await supabase.from("learning_records").insert(payload).select().single();
     if (error) return json({ error: error.message }, 500);
     await saveAttachment(supabase, body, { learningRecordId: data.id, uploadedBy: acct.accountId });
-    await notify(supabase, accountId, "learning_record_approved", "Hồ sơ học tập đã được cập nhật", "HR đã thêm hồ sơ học tập vào lịch sử của bạn.", "/dashboard/learning-history", acct.accountId);
+    await notify(supabase, accountId, "learning_record_approved", "Hồ sơ học tập đã được cập nhật", "HR đã thêm hồ sơ học tập vào lịch sử của bạn.", "/dashboard/learning-history", acct.accountId, data.id);
     await audit(supabase, acct, "learning_record_approved", "learning_record", data.id, { toStatus: "approved" });
     return json({ record: mapLearning(data) }, 201);
   }
@@ -447,7 +451,7 @@ export async function handleLearningRecords(request, env) {
     const { data, error } = await supabase.from("employee_certifications").insert(payload).select().single();
     if (error) return json({ error: error.message }, 500);
     await saveAttachment(supabase, body, { certificateId: data.id, uploadedBy: acct.accountId });
-    await notify(supabase, accountId, "certificate_approved", "Chứng chỉ đã được cập nhật", "HR đã thêm chứng chỉ vào hồ sơ của bạn.", "/dashboard/learning-history", acct.accountId);
+    await notify(supabase, accountId, "certificate_approved", "Chứng chỉ đã được cập nhật", "HR đã thêm chứng chỉ vào hồ sơ của bạn.", "/dashboard/learning-history", acct.accountId, data.id);
     await audit(supabase, acct, "certificate_approved", "employee_certification", data.id, { toStatus: "approved" });
     return json({ certification: mapCert(data) }, 201);
   }
@@ -480,7 +484,7 @@ export async function handleLearningRecords(request, env) {
     const fromStatus = entity === "cert" ? existing.verification_status : existing.status;
     const taskType = entity === "cert" ? "certificate_verification" : "external_learning_approval";
     await closeTasks(supabase, taskType, entity === "cert" ? "employee_certification" : "learning_record", entityId, action === "reject" ? "rejected" : action === "request-revision" ? "in_progress" : "done", acct);
-    await notify(supabase, data.account_id, auditAction, action === "approve" ? "Hồ sơ đã được phê duyệt" : action === "request-revision" ? "HR yêu cầu bổ sung" : "Hồ sơ đã bị từ chối", clean(body.note || body.reason) || "Vui lòng xem chi tiết trong Lịch sử học tập.", "/dashboard/learning-history", acct.accountId);
+    await notify(supabase, data.account_id, auditAction, action === "approve" ? "Hồ sơ đã được phê duyệt" : action === "request-revision" ? "HR yêu cầu bổ sung" : "Hồ sơ đã bị từ chối", clean(body.note || body.reason) || "Vui lòng xem chi tiết trong Lịch sử học tập.", "/dashboard/learning-history", acct.accountId, entityId);
     await audit(supabase, acct, auditAction, entity === "cert" ? "employee_certification" : "learning_record", entityId, { fromStatus, toStatus, note: clean(body.note || body.reason) });
     return json(entity === "cert" ? { certification: mapCert(data) } : { record: mapLearning(data) });
   }

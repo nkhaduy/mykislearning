@@ -690,10 +690,11 @@ export async function exportReport(supabase, reportType, format, filters) {
       ]
     : [HEADERS[reportType], ...data.rows.map((r) => rowToArray(reportType, r))];
   const fileBase = `bao-cao-${reportType}-${formatVnDate().replaceAll("-", "")}`;
+  const rowCount = Math.max(0, rows.length - 1);
 
   if (format === "csv") {
     const csv = "\ufeff" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
-    return { body: csv, contentType: "text/csv; charset=utf-8", filename: `${fileBase}.csv` };
+    return { body: csv, contentType: "text/csv; charset=utf-8", filename: `${fileBase}.csv`, rowCount };
   }
   if (format === "xlsx") {
     const wb = XLSX.utils.book_new();
@@ -711,7 +712,7 @@ export async function exportReport(supabase, reportType, format, filters) {
     ws["!freeze"] = { xSplit: 0, ySplit: 1 };
     XLSX.utils.book_append_sheet(wb, ws, "Detail");
     const buf = XLSX.write(wb, { type: "array", bookType: "xlsx", compression: true });
-    return { body: buf, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename: `${fileBase}.xlsx` };
+    return { body: buf, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename: `${fileBase}.xlsx`, rowCount };
   }
   const pdfLines = [
     `Bao cao ${reportType}`,
@@ -720,5 +721,5 @@ export async function exportReport(supabase, reportType, format, filters) {
     "",
     ...rows.slice(0, 36).map((row) => row.map((cell) => String(cell ?? "")).join(" | ")),
   ];
-  return { body: simplePdf(pdfLines), contentType: "application/pdf", filename: `${fileBase}.pdf` };
+  return { body: simplePdf(pdfLines), contentType: "application/pdf", filename: `${fileBase}.pdf`, rowCount };
 }

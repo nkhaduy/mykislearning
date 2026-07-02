@@ -1,6 +1,7 @@
 import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
 import { requireAuth, requireHr } from "../middleware/auth.js";
+import { auditLater, writeAuditLog } from "../services/audit-service.js";
 
 // Parse notes JSON safely
 function parseNotes(raw) {
@@ -147,9 +148,26 @@ export async function handleEmployees(request, env) {
       patch.notes = JSON.stringify({ ...existing, ...incoming });
     }
 
+    const { data: beforeProfile } = await supabase.from("profiles").select("id, full_name, email, role, department, position, account_status").eq("id", employeeId).maybeSingle();
     const { error } = await supabase.from("profiles")
       .upsert(patch, { onConflict: "id" });
     if (error) return json({ error: error.message }, 500);
+    const action = beforeProfile?.role !== undefined && patch.role !== undefined && beforeProfile.role !== patch.role
+      ? "account.role_changed"
+      : beforeProfile?.department !== undefined && patch.department !== undefined && beforeProfile.department !== patch.department
+        ? "employee.department_changed"
+        : beforeProfile?.position !== undefined && patch.position !== undefined && beforeProfile.position !== patch.position
+          ? "employee.job_title_changed"
+          : beforeProfile ? "employee.updated" : "employee.created";
+    await writeAuditLog(supabase, request, {
+      actor: acct,
+      action,
+      entityType: "profile",
+      entityId: employeeId,
+      entityDisplayName: patch.full_name || beforeProfile?.full_name || employeeId,
+      beforeData: beforeProfile ? { role: beforeProfile.role, department: beforeProfile.department, position: beforeProfile.position, account_status: beforeProfile.account_status } : null,
+      afterData: { role: patch.role ?? beforeProfile?.role, department: patch.department ?? beforeProfile?.department, position: patch.position ?? beforeProfile?.position, account_status: patch.account_status ?? beforeProfile?.account_status },
+    }, { critical: action === "account.role_changed" });
     return json({ ok: true });
   }
 
@@ -192,14 +210,16 @@ export async function handleEmployees(request, env) {
 
     if (updateErr) return json({ error: "EMPLOYEE_DELETE_FAILED", detail: updateErr.message }, 500);
 
-    // Write audit log (best-effort, ignore if table doesn't exist)
-    await supabase.from("audit_logs").insert({
-      action: "employee_deleted",
-      actor_account_id: acct.accountId,
-      target_account_id: employeeId,
-      description: `Soft deleted employee: ${profile.full_name}`,
-      created_at: deletedAt,
-    }).then(() => {}, () => {});
+    auditLater(supabase, request, {
+      actor: acct,
+      action: "employee.archived",
+      entityType: "profile",
+      entityId: employeeId,
+      entityDisplayName: profile.full_name,
+      beforeData: { account_status: profile.account_status, soft_deleted: false },
+      afterData: { account_status: "inactive", soft_deleted: true },
+      metadata: { deleted_at: deletedAt },
+    });
 
     return json({ ok: true, deletedAt });
   }

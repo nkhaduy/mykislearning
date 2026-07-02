@@ -1,6 +1,7 @@
 import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
 import { requireAuth, requireHr } from "../middleware/auth.js";
+import { createNotificationEvent } from "../services/notificationEngine.js";
 
 export async function handleEnrollments(request, env) {
   const method = request.method.toUpperCase();
@@ -48,6 +49,21 @@ export async function handleEnrollments(request, env) {
 
     const { error } = await supabase.from("enrollments").upsert(rows, { onConflict: "course_id,account_id" });
     if (error) return json({ error: error.message }, 500);
+    const courseIds = [...new Set(rows.map((r) => r.course_id))];
+    const { data: courses } = await supabase.from("courses").select("id, data").in("id", courseIds);
+    const courseMap = new Map((courses || []).map((c) => [c.id, c]));
+    await Promise.allSettled(rows.map((row) => createNotificationEvent(supabase, {
+      eventType: "course_assigned",
+      entityType: "course_assignment",
+      entityId: row.id,
+      actorId: acct.accountId,
+      recipientId: row.account_id,
+      idempotencyKey: `course_assigned:${row.course_id}:${row.account_id}`,
+      payload: {
+        course_title: courseMap.get(row.course_id)?.data?.title || row.data?.courseTitle || "Khóa học",
+        due_date: row.data?.deadline || row.data?.dueAt || "",
+      },
+    })));
     return json({ ok: true, count: rows.length });
   }
 

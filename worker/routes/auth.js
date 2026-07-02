@@ -23,6 +23,7 @@ import {
   hashPassword, verifyPassword, isHashFormat, isMustChange, markMustChange,
   signToken, verifyToken,
 } from "../services/crypto.js";
+import { auditLater, writeAuditLog } from "../services/audit-service.js";
 
 const HASH_PREFIX = "__pwd__:";
 
@@ -101,9 +102,12 @@ export async function handleAuth(request, env) {
       .single();
 
     if (profileErr || !profile) {
-      auditLog(supabase, {
-        actor_id: null, action: "login_failed", target_type: "profile",
-        target_id: null, result: "failed", details: { reason: "PROFILE_NOT_FOUND" },
+      auditLater(supabase, request, {
+        actorType: "anonymous",
+        action: "auth.login_failed",
+        status: "failed",
+        entityType: "profile",
+        metadata: { reason: "PROFILE_NOT_FOUND", email_normalized: String(email).trim().toLowerCase() },
       });
       return json({ error: "INVALID_CREDENTIALS", message: "Tên đăng nhập hoặc mật khẩu không chính xác." }, 401);
     }
@@ -137,10 +141,14 @@ export async function handleAuth(request, env) {
     const valid = await verifyPassword(String(password), storedHash);
     if (!valid) {
       if (lockExempt) {
-        auditLog(supabase, {
-          actor_id: profile.id, action: "login_failed_lock_exempt",
-          target_type: "profile", target_id: profile.id, result: "failed",
-          details: { reason: "WRONG_PASSWORD", lockExempt: true },
+        auditLater(supabase, request, {
+          actor: { accountId: profile.id, role: profile.role, fullName: profile.full_name },
+          action: "auth.login_failed",
+          status: "failed",
+          entityType: "profile",
+          entityId: profile.id,
+          entityDisplayName: profile.full_name,
+          metadata: { reason: "WRONG_PASSWORD", lock_exempt: true },
         });
         return json({
           error: "INVALID_CREDENTIALS",
@@ -164,10 +172,16 @@ export async function handleAuth(request, env) {
       // Await counter update so next request sees the incremented value
       await supabase.from("profiles").update(profilePatch).eq("id", profile.id);
 
-      auditLog(supabase, {
-        actor_id: profile.id, action: autoLocked ? "account_auto_locked" : "login_failed",
-        target_type: "profile", target_id: profile.id, result: "failed",
-        details: { reason: "WRONG_PASSWORD", attempt: newCount, autoLocked },
+      auditLater(supabase, request, {
+        actor: { accountId: profile.id, role: profile.role, fullName: profile.full_name },
+        action: autoLocked ? "account.locked" : "auth.login_failed",
+        status: "failed",
+        entityType: "profile",
+        entityId: profile.id,
+        entityDisplayName: profile.full_name,
+        beforeData: { failed_login_count: currentCount, locked_until: profile.locked_until || null },
+        afterData: { failed_login_count: newCount, locked_until: profilePatch.locked_until || null },
+        metadata: { reason: "WRONG_PASSWORD", attempt: newCount, auto_locked: autoLocked },
       });
 
       if (autoLocked) {
@@ -191,9 +205,13 @@ export async function handleAuth(request, env) {
     const expSecs = Math.floor(Date.now() / 1000) + 24 * 3600;
     const token = await signToken({ sub: profile.id, role: profile.role || "employee", exp: expSecs }, jwtSecret(env));
 
-    auditLog(supabase, {
-      actor_id: profile.id, action: "login_success", target_type: "profile",
-      target_id: profile.id, result: "success",
+    auditLater(supabase, request, {
+      actor: { accountId: profile.id, role: profile.role, fullName: profile.full_name },
+      action: "auth.login_succeeded",
+      entityType: "profile",
+      entityId: profile.id,
+      entityDisplayName: profile.full_name,
+      metadata: { must_change_password: mustChange },
     });
     // Reset failed count and lock on successful login
     Promise.resolve(supabase.from("profiles").update({
@@ -283,11 +301,16 @@ export async function handleAuth(request, env) {
       await supabase.from("profiles").update({ account_status: "active" }).eq("id", target.id);
     }
 
-    auditLog(supabase, {
-      actor_id: caller.accountId, action: "password_reset_by_hr", target_type: "profile",
-      target_id: target.id, result: "success",
-      details: { requireChange, unlock, target: target.full_name },
-    });
+    await writeAuditLog(supabase, request, {
+      actor: caller,
+      action: "account.password_reset_completed",
+      entityType: "profile",
+      entityId: target.id,
+      entityDisplayName: target.full_name,
+      beforeData: { password_status: "existing", account_status: target.account_status },
+      afterData: { password_status: requireChange ? "resetRequired" : "normal", account_status: unlock ? "active" : target.account_status },
+      metadata: { require_change: requireChange, unlock, target: target.full_name },
+    }, { critical: true });
 
     await supabase.from("hr_tasks").update({
       status: taskStatusForResolution("done"),
@@ -333,9 +356,12 @@ export async function handleAuth(request, env) {
       }
     }
 
-    auditLog(supabase, {
-      actor_id: acct.accountId, action: "password_changed", target_type: "profile",
-      target_id: acct.accountId, result: "success",
+    auditLater(supabase, request, {
+      actor: acct,
+      action: "account.password_reset_completed",
+      entityType: "profile",
+      entityId: acct.accountId,
+      metadata: { self_service: true },
     });
 
     return json({ ok: true });

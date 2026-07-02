@@ -1,7 +1,8 @@
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, X-Account-Id, X-Account-Role, Authorization",
+  "Access-Control-Allow-Headers": "Content-Type, X-Account-Id, X-Account-Role, Authorization, X-Request-ID, X-Correlation-ID",
+  "Access-Control-Expose-Headers": "X-Request-ID, X-Correlation-ID, Content-Disposition",
 };
 
 export function corsHeaders() {
