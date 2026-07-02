@@ -12,6 +12,16 @@ export default {
       return handleApiRequest(request, env, ctx);
     }
 
+    if (url.pathname.startsWith("/rest/v1/")) {
+      return new Response(JSON.stringify({ error: "REST_API_DISABLED" }), {
+        status: 403,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
     // Everything else served from static assets (dist/)
     // not_found_handling: single-page-application handles SPA fallback
     return env.ASSETS.fetch(request);

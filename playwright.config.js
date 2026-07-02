@@ -12,6 +12,7 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL: "https://mykis-learning.nkhaduy.workers.dev",
+    ignoreHTTPSErrors: true,
     screenshot: "only-on-failure",
     video: "retain-on-failure",
     channel: "chrome",

@@ -167,10 +167,10 @@ function chooseRequirement(rules, employee) {
 }
 
 function chooseEffective({ evidence = [], assessments = [] }) {
-  const verifiedHr = assessments
-    .filter((a) => a.status === "verified" && ["hr", "system"].includes(a.assessment_type))
+  const verifiedAssessment = assessments
+    .filter((a) => a.status === "verified" && ["self", "hr", "system"].includes(a.assessment_type))
     .sort((a, b) => (b.assessed_level?.rank || 0) - (a.assessed_level?.rank || 0) || String(b.verified_at || b.assessment_date).localeCompare(String(a.verified_at || a.assessment_date)))[0];
-  if (verifiedHr) return { level: verifiedHr.assessed_level, sourceType: `${verifiedHr.assessment_type}_assessment`, sourceId: verifiedHr.id, verified: true, lastAssessedAt: verifiedHr.verified_at || verifiedHr.assessment_date };
+  if (verifiedAssessment) return { level: verifiedAssessment.assessed_level, sourceType: `${verifiedAssessment.assessment_type}_assessment`, sourceId: verifiedAssessment.id, verified: true, lastAssessedAt: verifiedAssessment.verified_at || verifiedAssessment.assessment_date };
   const activeEvidence = evidence
     .filter((e) => e.status === "active" && (!e.expires_at || new Date(e.expires_at).getTime() >= Date.now()))
     .sort((a, b) => (b.awarded_level?.rank || 0) - (a.awarded_level?.rank || 0) || String(b.evidence_date).localeCompare(String(a.evidence_date)))[0];

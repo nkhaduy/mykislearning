@@ -1,6 +1,6 @@
 import { auditLater, writeAuditLog } from "./audit-service.js";
 import { createNotificationEvent } from "./notificationEngine.js";
-import { assertLevelBelongs, assertPublishedResource, cid, cleanText, getEmployee, httpError, sanitizeMetadata, syncEvidenceForEmployee } from "./competency-service.js";
+import { assertLevelBelongs, cid, cleanText, getEmployee, httpError, sanitizeMetadata, syncEvidenceForEmployee } from "./competency-service.js";
 
 function allowed(value, values, fallback) {
   return values.includes(value) ? value : fallback;
@@ -108,7 +108,7 @@ export async function addPlanItem(supabase, request, acct, planId, body) {
   const resourceType = cleanText(body.resourceType || body.resource_type) || null;
   const resourceId = cleanText(body.resourceId || body.resource_id) || null;
   const resourceVersionId = cleanText(body.resourceVersionId || body.resource_version_id);
-  if (resourceType || resourceId || resourceVersionId) await assertPublishedResource(supabase, resourceType, resourceId, resourceVersionId);
+  if ((resourceType || resourceId || resourceVersionId) && (!resourceType || !resourceId)) throw httpError("RESOURCE_MAPPING_NOT_FOUND", 400);
   const row = {
     id: cid("dpit"),
     development_plan_id: planId,
@@ -140,7 +140,7 @@ export async function updatePlanItem(supabase, request, acct, planId, itemId, bo
   const resourceId = body.resourceId || body.resource_id || existing.resource_id;
   const resourceVersionId = body.resourceVersionId || body.resource_version_id || existing.resource_version_id;
   await assertLevelBelongs(supabase, existing.competency_id, targetLevelId);
-  if (resourceType || resourceId || resourceVersionId) await assertPublishedResource(supabase, resourceType, resourceId, resourceVersionId);
+  if ((resourceType || resourceId || resourceVersionId) && (!resourceType || !resourceId)) throw httpError("RESOURCE_MAPPING_NOT_FOUND", 400);
   const patch = {
     target_level_id: targetLevelId,
     resource_type: resourceType,
