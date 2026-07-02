@@ -194,6 +194,20 @@ async function hrCreatePath(request, env) {
 
   const { error } = await supabase.from("learning_paths").insert(row);
   if (error) return json({ error: error.message }, 500);
+  const { data: version } = await supabase.from("learning_path_versions").insert({
+    learning_path_id: id,
+    version_number: 1,
+    status: "draft",
+    title,
+    description: body.description || null,
+    completion_mode: row.completion_mode,
+    completion_rules: {},
+    source_data: row.data,
+    change_type: "patch",
+    change_summary: "Initial version",
+    created_by: acct.accountId,
+  }).select("id").maybeSingle();
+  if (version?.id) await supabase.from("learning_paths").update({ current_version_id: version.id }).eq("id", id);
   return json({ ok: true, id }, 201);
 }
 
@@ -292,7 +306,7 @@ async function hrAddStep(request, env, pathId) {
   const supabase = getSupabase(env);
   const { data: path } = await supabase
     .from("learning_paths")
-    .select("status")
+    .select("status, current_version_id")
     .eq("id", pathId)
     .single();
   if (!path) return json({ error: "PATH_NOT_FOUND" }, 404);
@@ -410,7 +424,7 @@ async function hrGetAssignments(request, env, pathId) {
 
   let q = supabase
     .from("learning_path_assignments")
-    .select("*", { count: "exact" })
+    .select("*, version:learning_path_versions(version_number,status)", { count: "exact" })
     .eq("learning_path_id", pathId)
     .order("assigned_at", { ascending: false })
     .range(offset, offset + limit - 1);
@@ -433,6 +447,7 @@ async function hrGetAssignments(request, env, pathId) {
 
   const enriched = (data || []).map((a) => ({
     ...a,
+    learningPathVersion: a.version?.version_number ? `v${a.version.version_number}` : "",
     employee: empMap[a.employee_id] || { id: a.employee_id },
   }));
 
@@ -480,6 +495,7 @@ async function hrAssign(request, env, pathId) {
   const rows = toCreate.map((empId) => ({
     id: uid(),
     learning_path_id: pathId,
+    learning_path_version_id: path.current_version_id || null,
     employee_id: empId,
     assigned_by: acct.accountId,
     assigned_at: nowIso(),
@@ -598,7 +614,7 @@ async function empMyPaths(request, env) {
   const supabase = getSupabase(env);
   const { data: assignments, error } = await supabase
     .from("learning_path_assignments")
-    .select("*")
+    .select("*, version:learning_path_versions(version_number,status)")
     .eq("employee_id", acct.accountId)
     .neq("status", "cancelled")
     .order("assigned_at", { ascending: false });
@@ -626,6 +642,7 @@ async function empMyPaths(request, env) {
     })
     .map((a) => ({
       ...a,
+      learningPathVersion: a.version?.version_number ? `v${a.version.version_number}` : "",
       path: pathMap[a.learning_path_id] || null,
     }));
 
@@ -641,7 +658,7 @@ async function empGetPathDetail(request, env, assignmentId) {
   // IDOR protection: verify assignment belongs to this employee
   const { data: assignment, error: aErr } = await supabase
     .from("learning_path_assignments")
-    .select("*")
+    .select("*, version:learning_path_versions(version_number,status)")
     .eq("id", assignmentId)
     .eq("employee_id", acct.accountId)
     .single();

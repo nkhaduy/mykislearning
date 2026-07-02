@@ -129,6 +129,7 @@ function normalizeCourse(row) {
     status: row.status || d.status || "draft",
     deliveryMode: row.delivery_mode || d.deliveryMode || d.format || "",
     durationHours: Number(d.durationHours || d.estimatedHours || 0) || null,
+    version: row.current_version_id ? "current" : "",
   };
 }
 
@@ -142,6 +143,8 @@ function normalizeEnrollment(row, employees, courses) {
   return {
     id: row.id,
     courseId: row.course_id,
+    courseVersionId: row.course_version_id || null,
+    courseVersion: row.version?.version_number ? `v${row.version.version_number}` : "",
     employeeId: row.account_id,
     status,
     progress: Number(d.progressPercent ?? d.progress_percent ?? (status === "completed" ? 100 : 0)) || 0,
@@ -194,8 +197,8 @@ function applyEmployeeFilters(employees, filters) {
 async function fetchBase(supabase) {
   const [profilesRes, coursesRes, enrollmentsRes] = await Promise.all([
     supabase.from("profiles").select("id, full_name, email, employee_code, department, position, role, account_status, last_login_at, notes").eq("role", "employee").limit(5000),
-    supabase.from("courses").select("id, status, delivery_mode, data, updated_at").limit(5000),
-    supabase.from("enrollments").select("id, course_id, account_id, status, data").limit(20000),
+    supabase.from("courses").select("id, status, delivery_mode, data, updated_at, current_version_id").limit(5000),
+    supabase.from("enrollments").select("id, course_id, course_version_id, account_id, status, data, version:course_versions(version_number,status)").limit(20000),
   ]);
   for (const res of [profilesRes, coursesRes, enrollmentsRes]) {
     if (res.error) throw new Error(res.error.message);
@@ -349,6 +352,7 @@ function buildCourseRows(base, filters) {
     return {
       course: course?.title || courseId,
       courseId,
+      version: rows.find((e) => e.courseVersion)?.courseVersion || course?.version || "",
       status: course?.status || "",
       assigned: rows.length,
       notStarted: rows.filter((e) => e.status === "notStarted").length,
@@ -365,8 +369,8 @@ function buildCourseRows(base, filters) {
 
 async function buildLearningPathRows(supabase, base, filters) {
   const [pathsRes, assRes] = await Promise.all([
-    supabase.from("learning_paths").select("id, title, status, data").limit(5000),
-    supabase.from("learning_path_assignments").select("id, learning_path_id, employee_id, status, progress_percent, due_at, completed_at, updated_at, data").limit(20000),
+    supabase.from("learning_paths").select("id, title, status, data, current_version_id").limit(5000),
+    supabase.from("learning_path_assignments").select("id, learning_path_id, learning_path_version_id, employee_id, status, progress_percent, due_at, completed_at, updated_at, data, version:learning_path_versions(version_number,status)").limit(20000),
   ]);
   for (const res of [pathsRes, assRes]) if (res.error) throw new Error(res.error.message);
   const paths = new Map((pathsRes.data || []).map((p) => [p.id, p]));
@@ -386,6 +390,7 @@ async function buildLearningPathRows(supabase, base, filters) {
     return {
       learningPath: path?.title || path?.data?.title || pathId,
       learningPathId: pathId,
+      version: rows.find((r) => r.version?.version_number)?.version?.version_number ? `v${rows.find((r) => r.version?.version_number).version.version_number}` : "",
       assigned: rows.length,
       notStarted: rows.filter((r) => r.status === "not_started" || r.status === "notStarted").length,
       inProgress: rows.filter((r) => r.status === "in_progress" || r.status === "inProgress").length,
@@ -401,9 +406,9 @@ async function buildLearningPathRows(supabase, base, filters) {
 async function buildComplianceRows(supabase, base, filters) {
   const [programsRes, cyclesRes, assRes, recordsRes] = await Promise.all([
     supabase.from("compliance_programs").select("id, name, status").limit(5000),
-    supabase.from("compliance_cycles").select("id, program_id, name, status").limit(5000),
-    supabase.from("compliance_assignments").select("id, cycle_id, employee_id, status, due_at, completed_at, progress_percent").limit(30000),
-    supabase.from("compliance_completion_records").select("assignment_id, cycle_id, employee_id, completed_at, was_completed_on_time").limit(30000),
+    supabase.from("compliance_cycles").select("id, program_id, name, title, status, resource_version_id").limit(5000),
+    supabase.from("compliance_assignments").select("id, cycle_id, employee_id, status, due_at, completed_at, progress_percent, resource_version_id").limit(30000),
+    supabase.from("compliance_completion_records").select("assignment_id, cycle_id, employee_id, completed_at, was_completed_on_time, resource_version_id").limit(30000),
   ]);
   for (const res of [programsRes, cyclesRes, assRes, recordsRes]) if (res.error) throw new Error(res.error.message);
   const programs = new Map((programsRes.data || []).map((p) => [p.id, p]));
@@ -428,8 +433,9 @@ async function buildComplianceRows(supabase, base, filters) {
     const denominator = rows.filter((r) => !["cancelled", "exempted"].includes(r.status)).length;
     return {
       program: program?.name || cycle?.program_id || "",
-      cycle: cycle?.name || cycleId,
+      cycle: cycle?.name || cycle?.title || cycleId,
       cycleId,
+      version: rows.find((r) => r.resource_version_id)?.resource_version_id || cycle?.resource_version_id || "",
       targetEmployees: rows.length,
       notStarted: rows.filter((r) => r.status === "not_started").length,
       inProgress: rows.filter((r) => r.status === "in_progress").length,
@@ -511,7 +517,7 @@ async function buildCertificateRows(supabase, base, filters) {
 async function buildQuizRows(supabase, base, filters) {
   const [quizRes, attemptsRes] = await Promise.all([
     supabase.from("quizzes").select("id, course_id, status, data").limit(5000),
-    supabase.from("quiz_attempts").select("id, quiz_id, account_id, course_id, score_percent, passed, submitted_at, created_at, data").limit(30000),
+    supabase.from("quiz_attempts").select("id, quiz_id, quiz_version_id, account_id, course_id, score_percent, passed, submitted_at, created_at, data, version:quiz_versions(version_number,status)").limit(30000),
   ]);
   for (const res of [quizRes, attemptsRes]) if (res.error) throw new Error(res.error.message);
   const quizzes = new Map((quizRes.data || []).map((q) => [q.id, q]));
@@ -522,14 +528,17 @@ async function buildQuizRows(supabase, base, filters) {
     if (filters.courseId && a.course_id !== filters.courseId) continue;
     const at = a.submitted_at || a.created_at;
     if (at && (at < filters.fromIso || at >= filters.toIsoExclusive)) continue;
-    byQuiz.set(a.quiz_id, [...(byQuiz.get(a.quiz_id) || []), a]);
+    const key = `${a.quiz_id}::${a.quiz_version_id || "current"}`;
+    byQuiz.set(key, [...(byQuiz.get(key) || []), a]);
   }
-  const rows = [...byQuiz.entries()].map(([quizId, rows]) => {
+  const rows = [...byQuiz.entries()].map(([key, rows]) => {
+    const [quizId] = key.split("::");
     const scores = rows.map((r) => Number(r.score_percent)).filter(Number.isFinite);
     const participants = new Set(rows.map((r) => r.account_id));
     return {
       quiz: quizzes.get(quizId)?.data?.title || quizId,
       quizId,
+      version: rows.find((r) => r.version?.version_number)?.version?.version_number ? `v${rows.find((r) => r.version?.version_number).version.version_number}` : "",
       attempts: rows.length,
       participants: participants.size,
       averageScore: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
@@ -605,22 +614,22 @@ export async function getTableReport(supabase, reportType, filters) {
 const HEADERS = {
   employees: ["Nhân viên", "Mã nhân viên", "Phòng ban", "Chức danh", "Nội dung được giao", "Đã hoàn thành", "Đang học", "Chưa bắt đầu", "Quá hạn", "Tỷ lệ hoàn thành", "Lần hoạt động cuối"],
   departments: ["Phòng ban", "Tổng nhân viên", "Được giao", "Hoàn thành", "Hoàn thành đúng hạn", "Quá hạn", "Tỷ lệ hoàn thành", "Tỷ lệ tham gia"],
-  courses: ["Tên khóa học", "Trạng thái", "Số người được giao", "Chưa bắt đầu", "Đang học", "Hoàn thành", "Quá hạn", "Tỷ lệ hoàn thành", "Điểm quiz TB", "Thời gian hoàn thành TB"],
-  "learning-paths": ["Learning Path", "Số người được giao", "Chưa bắt đầu", "Đang học", "Hoàn thành", "Quá hạn", "Tiến độ trung bình", "Step gây nghẽn"],
-  compliance: ["Program", "Cycle", "Target employees", "Not started", "In progress", "Completed on time", "Completed late", "Overdue", "Failed", "Exempted", "Completion rate", "On-time rate"],
+  courses: ["Tên khóa học", "Phiên bản", "Trạng thái", "Số người được giao", "Chưa bắt đầu", "Đang học", "Hoàn thành", "Quá hạn", "Tỷ lệ hoàn thành", "Điểm quiz TB", "Thời gian hoàn thành TB"],
+  "learning-paths": ["Learning Path", "Phiên bản", "Số người được giao", "Chưa bắt đầu", "Đang học", "Hoàn thành", "Quá hạn", "Tiến độ trung bình", "Step gây nghẽn"],
+  compliance: ["Program", "Cycle", "Resource version", "Target employees", "Not started", "In progress", "Completed on time", "Completed late", "Overdue", "Failed", "Exempted", "Completion rate", "On-time rate"],
   certificates: ["Loại chứng chỉ", "Nhân viên", "Mã nhân viên", "Phòng ban", "Đã xác minh", "Chờ xác minh", "Sắp hết hạn", "Đã hết hạn", "Thiếu bắt buộc", "Bị từ chối", "Bị thu hồi", "Ngày hết hạn"],
-  quizzes: ["Quiz", "Số lượt thi", "Số người thi", "Điểm trung bình", "Tỷ lệ đạt", "Số lần thi lại", "Câu hỏi sai cao"],
+  quizzes: ["Quiz", "Phiên bản", "Số lượt thi", "Số người thi", "Điểm trung bình", "Tỷ lệ đạt", "Số lần thi lại", "Câu hỏi sai cao"],
   "training-sessions": ["Tên lớp", "Ngày tổ chức", "Hình thức", "Số đăng ký", "Có mặt", "Đi trễ", "Vắng mặt", "Tỷ lệ tham gia"],
 };
 
 function rowToArray(type, r) {
   if (type === "employees") return [r.employee, r.employeeCode, r.department, r.jobTitle, r.assigned, r.completed, r.inProgress, r.notStarted, r.overdue, r.completionRate, r.lastActivityAt];
   if (type === "departments") return [r.department, r.totalEmployees, r.assigned, r.completed, r.completedOnTime, r.overdue, r.completionRate, r.participationRate];
-  if (type === "courses") return [r.course, r.status, r.assigned, r.notStarted, r.inProgress, r.completed, r.overdue, r.completionRate, r.averageQuizScore, r.averageCompletionDays];
-  if (type === "learning-paths") return [r.learningPath, r.assigned, r.notStarted, r.inProgress, r.completed, r.overdue, r.averageProgress, r.bottleneckStep];
-  if (type === "compliance") return [r.program, r.cycle, r.targetEmployees, r.notStarted, r.inProgress, r.completedOnTime, r.completedLate, r.overdue, r.failed, r.exempted, r.completionRate, r.onTimeRate];
+  if (type === "courses") return [r.course, r.version, r.status, r.assigned, r.notStarted, r.inProgress, r.completed, r.overdue, r.completionRate, r.averageQuizScore, r.averageCompletionDays];
+  if (type === "learning-paths") return [r.learningPath, r.version, r.assigned, r.notStarted, r.inProgress, r.completed, r.overdue, r.averageProgress, r.bottleneckStep];
+  if (type === "compliance") return [r.program, r.cycle, r.version, r.targetEmployees, r.notStarted, r.inProgress, r.completedOnTime, r.completedLate, r.overdue, r.failed, r.exempted, r.completionRate, r.onTimeRate];
   if (type === "certificates") return [r.certificateType, r.employee, r.employeeCode, r.department, r.verified, r.pending, r.expiringSoon, r.expired, r.missingRequired, r.rejected, r.revoked, r.expiresAt];
-  if (type === "quizzes") return [r.quiz, r.attempts, r.participants, r.averageScore, r.passRate, r.retakes, r.hardestQuestion];
+  if (type === "quizzes") return [r.quiz, r.version, r.attempts, r.participants, r.averageScore, r.passRate, r.retakes, r.hardestQuestion];
   if (type === "training-sessions") return [r.title, r.startAt, r.mode, r.registered, r.present, r.late, r.absent, r.attendanceRate];
   return Object.values(r);
 }

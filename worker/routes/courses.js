@@ -131,6 +131,27 @@ export async function handleCourses(request, env) {
     };
     const { error } = await supabase.from("courses").upsert(row, { onConflict: "id" });
     if (error) return json({ error: error.message }, 500);
+    if (!existing) {
+      const { data: createdVersion } = await supabase.from("course_versions").insert({
+        course_id: course.id,
+        version_number: 1,
+        status: row.status === "published" ? "published" : "draft",
+        title: course.title || course.name || course.id,
+        description: course.description || null,
+        objectives: course.objectives || [],
+        content_snapshot: [],
+        duration_minutes: course.durationMinutes || course.duration_minutes || null,
+        delivery_mode: row.delivery_mode,
+        completion_rules: course.completionRules || course.completion_rules || {},
+        source_data: course,
+        change_type: "patch",
+        change_summary: "Initial version",
+        created_by: acct.accountId,
+        published_by: row.status === "published" ? acct.accountId : null,
+        published_at: row.status === "published" ? new Date().toISOString() : null,
+      }).select("id").maybeSingle();
+      if (createdVersion?.id) await supabase.from("courses").update({ current_version_id: createdVersion.id }).eq("id", course.id);
+    }
     auditLater(supabase, request, {
       actor: acct,
       action: existing ? (existing.status !== row.status && row.status === "published" ? "course.published" : "course.updated") : "course.created",

@@ -18,7 +18,7 @@ export async function handleEnrollments(request, env) {
     const courseId = url.searchParams.get("courseId");
     const targetAccount = acct.role === "hr" ? (accountId || null) : acct.accountId;
 
-    let query = supabase.from("enrollments").select("id, course_id, account_id, status, data, updated_at");
+    let query = supabase.from("enrollments").select("id, course_id, course_version_id, account_id, status, data, updated_at, version:course_versions(version_number,status)");
     if (targetAccount) query = query.eq("account_id", targetAccount);
     if (courseId) query = query.eq("course_id", courseId);
     if (!accountId && !courseId && acct.role !== "hr") query = query.eq("account_id", acct.accountId);
@@ -26,7 +26,13 @@ export async function handleEnrollments(request, env) {
     const { data, error } = await query.order("updated_at", { ascending: false });
     if (error) return json({ error: error.message }, 500);
     return json((data || []).map((row) => ({
-      ...row.data, id: row.id, courseId: row.course_id, accountId: row.account_id, status: row.status,
+      ...row.data,
+      id: row.id,
+      courseId: row.course_id,
+      courseVersionId: row.course_version_id,
+      courseVersion: row.version?.version_number ? `v${row.version.version_number}` : "",
+      accountId: row.account_id,
+      status: row.status,
     })));
   }
 
@@ -37,11 +43,17 @@ export async function handleEnrollments(request, env) {
     const { enrollments } = body;
     if (!Array.isArray(enrollments) || !enrollments.length) return json({ error: "enrollments[] required" }, 400);
 
+    const courseIds = [...new Set(enrollments.map((e) => e.courseId || e.course_id).filter(Boolean))];
+    const { data: versionRows } = courseIds.length
+      ? await supabase.from("courses").select("id, current_version_id").in("id", courseIds)
+      : { data: [] };
+    const versionMap = new Map((versionRows || []).map((c) => [c.id, c.current_version_id]));
     const rows = enrollments.map((e) => ({
       id: e.id || crypto.randomUUID(),
       course_id: e.courseId || e.course_id,
       account_id: e.accountId || e.account_id,
       status: e.status || "notStarted",
+      course_version_id: e.courseVersionId || e.course_version_id || versionMap.get(e.courseId || e.course_id) || null,
       data: e,
       updated_at: new Date().toISOString(),
     }));
@@ -49,7 +61,6 @@ export async function handleEnrollments(request, env) {
 
     const { error } = await supabase.from("enrollments").upsert(rows, { onConflict: "course_id,account_id" });
     if (error) return json({ error: error.message }, 500);
-    const courseIds = [...new Set(rows.map((r) => r.course_id))];
     const { data: courses } = await supabase.from("courses").select("id, data").in("id", courseIds);
     const courseMap = new Map((courses || []).map((c) => [c.id, c]));
     await Promise.allSettled(rows.map((row) => createNotificationEvent(supabase, {

@@ -20,14 +20,14 @@ export async function handleQuizzes(request, env) {
       if (acct.role !== "hr" && accountId !== acct.accountId) return json({ error: "Forbidden" }, 403);
 
       let query = supabase.from("quiz_attempts")
-        .select("id, quiz_id, account_id, course_id, score_percent, passed, submitted_at, data, created_at, updated_at")
+        .select("id, quiz_id, quiz_version_id, account_id, course_id, score_percent, passed, submitted_at, data, created_at, updated_at, version:quiz_versions(version_number,status)")
         .eq("account_id", accountId)
         .order("created_at", { ascending: false });
       if (quizId) query = query.eq("quiz_id", quizId);
 
       const { data, error } = await query;
       if (error) return json({ error: error.message }, 500);
-      return json((data || []).map((row) => ({ ...row.data, id: row.id, quizId: row.quiz_id, accountId: row.account_id, courseId: row.course_id, scorePercent: row.score_percent, passed: row.passed, submittedAt: row.submitted_at, createdAt: row.created_at })));
+      return json((data || []).map((row) => ({ ...row.data, id: row.id, quizId: row.quiz_id, quizVersionId: row.quiz_version_id, quizVersion: row.version?.version_number ? `v${row.version.version_number}` : "", accountId: row.account_id, courseId: row.course_id, scorePercent: row.score_percent, passed: row.passed, submittedAt: row.submitted_at, createdAt: row.created_at })));
     }
 
     if (method === "POST") {
@@ -36,11 +36,13 @@ export async function handleQuizzes(request, env) {
       if (!attempt.quizId && !attempt.quiz_id) return json({ error: "quizId required" }, 400);
 
       const quizId = attempt.quizId || attempt.quiz_id;
+      const { data: quiz } = await supabase.from("quizzes").select("current_version_id").eq("id", quizId).maybeSingle();
       const row = {
         id: attempt.id || `attempt-${crypto.randomUUID()}`,
         quiz_id: quizId,
         account_id: attempt.accountId || attempt.account_id || acct.accountId,
         course_id: attempt.courseId || attempt.course_id || null,
+        quiz_version_id: attempt.quizVersionId || attempt.quiz_version_id || quiz?.current_version_id || null,
         score_percent: attempt.scorePercent ?? attempt.score_percent ?? null,
         passed: attempt.passed ?? null,
         submitted_at: attempt.submittedAt || attempt.submitted_at || (attempt.scorePercent != null ? new Date().toISOString() : null),
@@ -133,6 +135,27 @@ export async function handleQuizzes(request, env) {
 
     const { error } = await supabase.from("quizzes").upsert(row, { onConflict: "id" });
     if (error) return json({ error: error.message }, 500);
+    const { data: existingVersion } = await supabase.from("quiz_versions").select("id").eq("quiz_id", quiz.id).eq("version_number", 1).maybeSingle();
+    if (!existingVersion) {
+      const { data: createdVersion } = await supabase.from("quiz_versions").insert({
+        quiz_id: quiz.id,
+        version_number: 1,
+        status: row.status === "published" ? "published" : "draft",
+        title: quiz.title || quiz.name || quiz.id,
+        instructions: quiz.instructions || "",
+        passing_score: quiz.passingScore ?? quiz.passing_score ?? null,
+        time_limit_minutes: quiz.timeLimitMinutes ?? quiz.time_limit_minutes ?? null,
+        max_attempts: quiz.maxAttempts ?? quiz.max_attempts ?? null,
+        configuration: quiz,
+        source_data: quiz,
+        change_type: "patch",
+        change_summary: "Initial version",
+        created_by: hrAcct.accountId,
+        published_by: row.status === "published" ? hrAcct.accountId : null,
+        published_at: row.status === "published" ? new Date().toISOString() : null,
+      }).select("id").maybeSingle();
+      if (createdVersion?.id) await supabase.from("quizzes").update({ current_version_id: createdVersion.id }).eq("id", quiz.id);
+    }
     return json({ ok: true, id: quiz.id });
   }
 

@@ -20,6 +20,7 @@ import { handleCompliance } from "./routes/compliance.js";
 import { handleCertificates } from "./routes/certificates.js";
 import { handleReports } from "./routes/reports.js";
 import { handleAuditLogs } from "./routes/audit-logs.js";
+import { handleContentVersions } from "./routes/content-versions.js";
 import { withRequestContext, getRequestContext } from "./middleware/request-context.js";
 
 export async function handleApiRequest(request, env) {
@@ -100,6 +101,13 @@ export async function handleApiRequest(request, env) {
       path === "/api/quizzes/attempts" ||
       path.match(/^\/api\/quizzes\/[^/]+\/questions$/)
     ) return await handleQuizzes(request, env);
+
+    if (
+      path.match(/^\/api\/admin\/courses\/[^/]+\/versions/) ||
+      path.match(/^\/api\/admin\/quizzes\/[^/]+\/versions/) ||
+      path.match(/^\/api\/admin\/learning-paths\/[^/]+\/versions/) ||
+      path.startsWith("/api/admin/retraining-reviews")
+    ) return await handleContentVersions(request, env);
 
     if (
       path === "/api/learning-paths/my" ||
