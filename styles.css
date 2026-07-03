@@ -10510,6 +10510,7 @@ body.modal-open { overflow: hidden; }
 
 .app-layout {
   position: relative;
+  display: grid;
   grid-template-columns: minmax(248px, var(--sidebar-width)) minmax(0, 1fr);
   min-height: 100vh;
   max-width: 100%;
@@ -10517,6 +10518,7 @@ body.modal-open { overflow: hidden; }
   border-radius: 0;
   box-shadow: none;
   background: var(--color-page);
+  overflow: clip;
 }
 
 .app-layout > .app-sidebar {

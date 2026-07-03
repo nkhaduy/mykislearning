@@ -1188,6 +1188,20 @@ export function sendNotificationCampaign(data) {
   return { ok: true, sent: recipients.length, campaignId };
 }
 
+export function archiveNotificationCampaign(campaignId) {
+  if (!campaignId) return false;
+  const notifications = getAllNotifications();
+  let changed = false;
+  notifications.forEach((n) => {
+    if ((n.campaignId || n.id) === campaignId && !n.archived) {
+      n.archived = true;
+      changed = true;
+    }
+  });
+  if (changed) writeJson(NOTIFICATIONS_KEY, notifications);
+  return changed;
+}
+
 export function getAllNotifications() {
   return readArray(NOTIFICATIONS_KEY);
 }
