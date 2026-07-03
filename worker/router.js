@@ -23,6 +23,8 @@ import { handleAuditLogs } from "./routes/audit-logs.js";
 import { handleContentVersions } from "./routes/content-versions.js";
 import { handleCompetencies } from "./routes/competencies.js";
 import { handleDevelopmentPlans } from "./routes/development-plans.js";
+import { handleTrainingTracking } from "./routes/training-tracking.js";
+import { handleCchnCatalog, handleCchnRegistrations } from "./routes/cchn.js";
 import { withRequestContext, getRequestContext } from "./middleware/request-context.js";
 
 export async function handleApiRequest(request, env) {
@@ -153,6 +155,21 @@ export async function handleApiRequest(request, env) {
       path === "/api/admin/compliance/overview" ||
       path.startsWith("/api/admin/compliance/")
     ) return await handleCompliance(request, env);
+
+    if (
+      path === "/api/admin/training-tracking" ||
+      path.match(/^\/api\/admin\/training-tracking\//)
+    ) return await handleTrainingTracking(request, env);
+
+    if (
+      path === "/api/admin/cchn/catalog" ||
+      path.match(/^\/api\/admin\/cchn\/catalog\//)
+    ) return await handleCchnCatalog(request, env);
+
+    if (
+      path === "/api/admin/cchn/registrations" ||
+      path.match(/^\/api\/admin\/cchn\/registrations\//)
+    ) return await handleCchnRegistrations(request, env);
 
       return json({ ok: false, error: "NOT_FOUND" }, 404);
     } catch (error) {

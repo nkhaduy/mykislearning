@@ -75,6 +75,10 @@ const SHOW_DEMO_CREDENTIALS = ["localhost", "127.0.0.1", ""].includes(location.h
 let language = getInitialLanguage();
 let route = location.pathname;
 let session = sessionService.getValidSession();
+let mobileNavOpen = false;
+let userMenuOpen = false;
+let lastShellFocusSelector = "";
+let lastDialogFocusSelector = "";
 let selectedLoginRole = new URLSearchParams(location.search).get("role") || "employee";
 let dialogState = null;
 let pendingNavigation = "";
@@ -1080,6 +1084,8 @@ function uiText(key) {
     recentCourses: { vi: "Khóa học cần tiếp tục", en: "Courses to Continue", kr: "계속할 교육 과정" }, recentNotifications: { vi: "Thông báo gần đây", en: "Recent Notifications", kr: "최근 알림" }, deadline: { vi: "Hạn hoàn thành", en: "Deadline", kr: "마감일" }, progressLabel: { vi: "Tiến độ", en: "Progress", kr: "진도" },
     courseIntro: { vi: "Theo dõi các khóa học được giao và tiến độ hoàn thành của bạn.", en: "Track your assigned courses and completion progress.", kr: "배정된 교육 과정과 완료 진도를 확인하세요." }, noCourses: { vi: "Bạn chưa có khóa học", en: "You have no courses yet", kr: "아직 교육 과정이 없습니다" }, noCoursesDesc: { vi: "Các khóa học được HR giao sẽ xuất hiện tại đây.", en: "Courses assigned by HR will appear here.", kr: "HR이 배정한 교육 과정이 여기에 표시됩니다." }, noMatch: { vi: "Không có khóa học phù hợp", en: "No matching courses", kr: "일치하는 교육 과정이 없습니다" }, noMatchDesc: { vi: "Hãy chọn trạng thái khác để xem các khóa học của bạn.", en: "Choose another status to view your courses.", kr: "다른 상태를 선택해 교육 과정을 확인하세요." },
     noRecentCourses: { vi: "Bạn chưa được giao khóa học nào.", en: "You have not been assigned any courses.", kr: "배정된 교육 과정이 없습니다." }, noRecentCoursesDesc: { vi: "Các khóa học được HR giao sẽ xuất hiện tại đây.", en: "Courses assigned by HR will appear here.", kr: "HR이 배정한 교육 과정이 여기에 표시됩니다." }, noNotifications: { vi: "Bạn chưa có thông báo mới.", en: "You have no new notifications.", kr: "새 알림이 없습니다." }, completedOn: { vi: "Hoàn thành ngày", en: "Completed on", kr: "완료일" }, completedText: { vi: "Đã hoàn thành", en: "Completed", kr: "완료" }, viewNotifications: { vi: "Xem tất cả thông báo", en: "View All Notifications", kr: "전체 알림 보기" },
+    navComplianceShort: { vi: "Tuân thủ", en: "Compliance", kr: "준법" },
+    retraining: { vi: "Tái đào tạo", en: "Retraining", kr: "재교육" },
     logout: { vi: "Đăng xuất", en: "Sign out", kr: "로그아웃" }, logoutSuccess: { vi: "Đăng xuất thành công.", en: "Signed out successfully.", kr: "로그아웃되었습니다." }, rememberMe: { vi: "Ghi nhớ đăng nhập trên thiết bị này", en: "Remember me on this device", kr: "이 기기에서 로그인 유지" }, rememberMeNote: { vi: "Không nên bật trên máy dùng chung.", en: "Do not enable on shared devices.", kr: "공용 기기에서는 사용하지 마세요." }, loginHeading: { vi: "Đăng nhập", en: "Sign in", kr: "로그인" },
     forgotPassword: { vi: "Quên mật khẩu", en: "Forgot password", kr: "비밀번호를 잊으셨나요?" }, forgotEmailRequired: { vi: "Vui lòng nhập email trước.", en: "Please enter your email first.", kr: "먼저 이메일을 입력해 주세요." }, forgotNeutral: { vi: "Nếu tài khoản hợp lệ, vui lòng liên hệ HR để được hỗ trợ đặt lại mật khẩu: thanh.ntc@kisvn.vn", en: "If the account is valid, please contact HR for password reset support: thanh.ntc@kisvn.vn", kr: "유효한 계정인 경우 비밀번호 재설정을 위해 HR에 문의해 주세요: thanh.ntc@kisvn.vn" },
     demoEmployeeAccount: { vi: "Tài khoản nhân viên demo", en: "Demo Employee Account", kr: "직원 데모 계정" }, emailLabel: { vi: "Email", en: "Email", kr: "이메일" }, passwordLabel: { vi: "Mật khẩu", en: "Password", kr: "비밀번호" }, useAccount: { vi: "Dùng tài khoản này", en: "Use This Account", kr: "이 계정 사용" },
@@ -1301,6 +1307,9 @@ async function runBackfill() {
 
 
 function navigate(path) {
+  mobileNavOpen = false;
+  userMenuOpen = false;
+  document.body.classList.remove("nav-open");
   stopQrCameraScanner();
   if (!path.startsWith("/attendance/scan")) {
     _qrScanLocationData = null;
@@ -1402,15 +1411,20 @@ function shouldWarnBeforeLeaving(path) {
 }
 
 function openDialog(state) {
+  const active = document.activeElement;
+  lastDialogFocusSelector = active?.id ? `#${active.id}` : active?.dataset?.focusKey ? `[data-focus-key="${active.dataset.focusKey}"]` : "";
   dialogState = state;
   render();
   requestAnimationFrame(() => document.querySelector("[data-dialog-primary], [data-dialog-close]")?.focus());
 }
 
 function closeDialog() {
+  const focusSelector = lastDialogFocusSelector;
   dialogState = null;
   pendingNavigation = "";
+  lastDialogFocusSelector = "";
   render();
+  if (focusSelector) requestAnimationFrame(() => document.querySelector(focusSelector)?.focus?.({ preventScroll: true }));
 }
 
 function sharedDialog() {
@@ -3939,18 +3953,78 @@ function adminDashboard(compact = false) {
     </div>`;
 }
 
+
+function shellLabel(key) {
+  const labels = {
+    navMain: { vi: "Điều hướng chính", en: "Main navigation", kr: "주요 탐색" },
+    openMenu: { vi: "Mở menu", en: "Open menu", kr: "메뉴 열기" },
+    closeMenu: { vi: "Đóng menu", en: "Close menu", kr: "메뉴 닫기" },
+    menu: { vi: "Menu", en: "Menu", kr: "메뉴" },
+    notifications: { vi: "Thông báo", en: "Notifications", kr: "알림" },
+    userMenu: { vi: "Menu người dùng", en: "User menu", kr: "사용자 메뉴" },
+    roleEmployee: { vi: "Nhân viên", en: "Employee", kr: "임직원" },
+    roleHr: { vi: "HR", en: "HR", kr: "HR" },
+    navOverview: { vi: "Tổng quan", en: "Overview", kr: "개요" },
+    navLearning: { vi: "Học tập", en: "Learning", kr: "학습" },
+    navCompliance: { vi: "Tuân thủ & Chứng chỉ", en: "Compliance & Certificates", kr: "준법 및 자격증" },
+    navPersonal: { vi: "Năng lực cá nhân", en: "Personal capability", kr: "개인 역량" },
+    navSystem: { vi: "Hệ thống", en: "System", kr: "시스템" },
+    navTraining: { vi: "Đào tạo", en: "Training", kr: "교육" },
+    navCapabilities: { vi: "Năng lực & Phát triển", en: "Capability & Development", kr: "역량 및 개발" },
+    navReportsSystem: { vi: "Báo cáo & Hệ thống", en: "Reports & System", kr: "보고서 및 시스템" },
+    logout: { vi: "Đăng xuất", en: "Sign out", kr: "로그아웃" },
+  };
+  return labels[key]?.[language] || labels[key]?.vi || key;
+}
+
+function shellPageMeta(path = route) {
+  const base = {
+    "/dashboard": [shellLabel("roleEmployee"), uiText("overview")],
+    "/dashboard/courses": [shellLabel("roleEmployee"), uiText("myCourses")],
+    "/dashboard/quizzes": [shellLabel("roleEmployee"), t("quiz.title")],
+    "/dashboard/learning-paths": [shellLabel("roleEmployee"), t("lp.myTitle")],
+    "/dashboard/compliance": [shellLabel("roleEmployee"), t("compliance.title")],
+    "/dashboard/certificates": [shellLabel("roleEmployee"), t("certificates.certificate")],
+    "/dashboard/notifications": [shellLabel("roleEmployee"), shellLabel("notifications")],
+    "/dashboard/skills": [shellLabel("roleEmployee"), c9("mySkills")],
+    "/dashboard/development-plan": [shellLabel("roleEmployee"), c9("myDevelopmentPlan")],
+    "/admin": [shellLabel("roleHr"), t("admin.overview")],
+    "/admin/courses": [shellLabel("roleHr"), t("course.manage")],
+    "/admin/assign": [shellLabel("roleHr"), t("enrollment.assign")],
+    "/admin/quizzes": [shellLabel("roleHr"), t("quiz.quizzes")],
+    "/admin/learning-paths": [shellLabel("roleHr"), t("lp.title")],
+    "/admin/compliance": [shellLabel("roleHr"), t("compliance.title")],
+    "/admin/certificates": [shellLabel("roleHr"), t("certificates.certificate")],
+    "/admin/reports": [shellLabel("roleHr"), t("reports.title")],
+    "/admin/notifications": [shellLabel("roleHr"), shellLabel("notifications")],
+    "/admin/audit-log": [shellLabel("roleHr"), t("admin.auditLog")],
+    "/admin/retraining": [shellLabel("roleHr"), shellLabel("retraining")],
+    "/admin/training-tracking": [shellLabel("roleHr"), t("trainingTracking.title")],
+    "/admin/cchn-registrations": [shellLabel("roleHr"), t("cchnRegistration.title")],
+  };
+  const direct = base[path] || Object.entries(base).filter(([href]) => href !== "/" && path.startsWith(`${href}/`)).sort((a,b)=>b[0].length-a[0].length)[0]?.[1];
+  return { label: direct?.[0] || "MyKIS", title: direct?.[1] || t("brand") };
+}
+
+function focusableElements(root) {
+  return [...(root?.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),details summary,[tabindex]:not([tabindex="-1"])') || [])]
+    .filter(el => !el.hasAttribute("hidden") && el.offsetParent !== null);
+}
+
 function sideNav(role) {
   const groups = role === "hr"
     ? [
-        ["TỔNG QUAN", [["/admin","Tổng quan"],["/admin/reports","Báo cáo đào tạo"],["/admin/audit-log","Nhật ký hệ thống"]]],
-        ["ĐÀO TẠO", [["/admin/learning-records","Hồ sơ học tập"],["/admin/certificates","Chứng chỉ hành nghề"],["/admin/courses","Khóa học"],["/admin/sessions","Lớp trực tiếp"],["/admin/assign","Giao khóa học"],["/admin/quizzes","Bài kiểm tra"],["/admin/learning-paths","Lộ trình học tập"],["/admin/compliance",t("compliance.title")],["/admin/retraining","Tái đào tạo"]]],
-        ["NĂNG LỰC & PHÁT TRIỂN", [["/admin/competencies",c9("competencies")],["/admin/skills-matrix",c9("skillsMatrix")],["/admin/development-plans",c9("developmentPlan")]]],
-        ["QUẢN TRỊ NỘI DUNG", [["/admin/gallery","Ảnh"],["/admin/notifications","Thông báo"]]],
-        ["NHÂN SỰ", [["/admin/employees","Nhân viên"],["/admin/accounts","Tài khoản & Mật khẩu"]]],
+        [shellLabel("navOverview"), [["/admin", t("admin.overview")]]],
+        [shellLabel("navTraining"), [["/admin/courses", t("course.manage")], ["/admin/assign", t("enrollment.assign")], ["/admin/quizzes", t("quiz.quizzes")], ["/admin/learning-paths", t("lp.title")], ["/admin/training-tracking", shellLabel("trainingTracking")], ["/admin/cchn-registrations", shellLabel("cchnRegistration")]]],
+        [shellLabel("navComplianceShort"), [["/admin/certificates", t("certificates.certificate")]]],
+        [shellLabel("navReportsSystem"), [["/admin/reports", t("reports.title")], ["/admin/notifications", shellLabel("notifications")], ["/admin/audit-log", t("admin.auditLog")]]],
       ]
     : [
-        ["HỌC TẬP", [["/dashboard","Tổng quan"],["/dashboard/courses","Khóa học của tôi"],["/dashboard/learning-paths","Lộ trình của tôi"],["/dashboard/compliance",t("compliance.title")],["/dashboard/skills",c9("mySkills")],["/dashboard/development-plan",c9("myDevelopmentPlan")],["/dashboard/certificates","Chứng chỉ của tôi"],["/dashboard/quizzes","Bài kiểm tra"],["/dashboard/calendar","Lịch học"],["/dashboard/learning-history","Lịch sử học tập"]]],
-        ["THƯ VIỆN", [["/dashboard/resources","Tài liệu"],["/dashboard/gallery","Ảnh"]]],
+        [shellLabel("navOverview"), [["/dashboard", uiText("overview")]]],
+        [shellLabel("navLearning"), [["/dashboard/courses", uiText("myCourses")], ["/dashboard/quizzes", t("quiz.title")], ["/dashboard/learning-paths", t("lp.myTitle")]]],
+        [shellLabel("navCompliance"), [["/dashboard/compliance", t("compliance.title")], ["/dashboard/certificates", t("certificates.certificate")]]],
+        [shellLabel("navPersonal"), [["/dashboard/skills", c9("mySkills")], ["/dashboard/development-plan", c9("myDevelopmentPlan")]]],
+        [shellLabel("navSystem"), [["/dashboard/notifications", shellLabel("notifications")]]],
       ];
   const items = groups.flatMap(x => x[1]);
   const activeHref = items.reduce((best, [href]) => {
@@ -3958,45 +4032,24 @@ function sideNav(role) {
     if (!isActive) return best;
     return best === "" || href.length > best.length ? href : best;
   }, "");
-  return `<aside class="app-sidebar">
-    ${sidebarBrand()}
-    <nav class="side-nav" aria-label="Điều hướng chính">
-      ${groups.map(([label, links]) => `
-        <span class="side-nav__group">${label}</span>
-        ${links.map(([href, name]) => `<a class="${activeHref === href ? "active" : ""}" ${activeHref === href ? 'aria-current="page"' : ""} href="${href}" data-link>${escapeHtml(name)}</a>`).join("")}
-      `).join("")}
-    </nav>
+  const navRows = groups.map(([label, links]) => `
+    <div class="side-nav__section">
+      <span class="side-nav__group">${escapeHtml(label)}</span>
+      ${links.map(([href, name]) => `<a class="${activeHref === href ? "active" : ""}" ${activeHref === href ? 'aria-current="page"' : ""} href="${href}" data-link data-close-mobile-nav>${escapeHtml(name)}</a>`).join("")}
+    </div>`).join("");
+  return `<aside class="app-sidebar" id="appMobileDrawer" aria-label="${escapeHtmlAttribute(shellLabel("navMain"))}" aria-hidden="${mobileNavOpen ? "false" : "true"}" data-mobile-drawer>
+    <div class="app-sidebar__head">
+      ${sidebarBrand()}
+      <button type="button" class="icon-btn app-sidebar__close" data-close-mobile-nav aria-label="${escapeHtmlAttribute(shellLabel("closeMenu"))}">×</button>
+    </div>
+    <nav class="side-nav" aria-label="${escapeHtmlAttribute(shellLabel("navMain"))}">${navRows}</nav>
+    <div class="app-sidebar__footer"><button type="button" class="btn btn-outline light" data-logout>${escapeHtml(shellLabel("logout"))}</button></div>
   </aside>`;
 }
 
 function adminTopbar() {
-  const currentAccount = session?.accountId ? getAccountById(session.accountId) : null;
-  const fullName = currentAccount?.fullName || session?.fullName || "HR Admin";
-  const dept = currentAccount?.department || "Nhân sự";
-  const initStr = initials(fullName);
-  const today = new Date().toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
-  return `<div class="adm-topbar">
-    <div class="adm-topbar__left">
-      <span class="adm-topbar__label">HR Admin Dashboard</span>
-      <h2 class="adm-topbar__title">Tổng quan</h2>
-    </div>
-    <div class="adm-topbar__right">
-      <span class="adm-topbar__date">${today}</span>
-      <div class="adm-topbar__user">
-        <span class="adm-topbar-avatar">${escapeHtml(initStr)}</span>
-        <div class="adm-topbar__user-info">
-          <strong>${escapeHtml(fullName)}</strong>
-          <small>${escapeHtml(dept)}</small>
-        </div>
-        <div class="adm-user-menu">
-          <button class="adm-user-menu-trigger" aria-label="Menu người dùng">▾</button>
-          <div class="adm-user-dropdown">
-            <button data-logout class="adm-dropdown-item adm-dropdown-item--danger">Đăng xuất</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>`;
+  const meta = shellPageMeta("/admin");
+  return topbar(meta.label, meta.title, "hr");
 }
 
 function sidebarBrand() { return `<div class="sidebar-brand"><a href="/" data-link class="sidebar-brand__link" aria-label="MyKIS Learning"><img src="/assets/kis-logo-white.png" alt="KIS Vietnam" class="sidebar-brand__logo"><span class="sidebar-brand__name">MyKIS Learning</span></a></div>`; }
@@ -4011,8 +4064,32 @@ function topbar(label, title, role, avatarText = "") {
   const fullName=currentAccount?.fullName||session?.fullName||t(`roles.${role}`);
   const jobTitle=currentEmployee?.jobTitle||currentEmployee?.position||currentEmployee?.title||currentAccount?.position||"";
   const dept=currentEmployee?.department||currentAccount?.department||"";
-  const meta = role==="employee" ? (jobTitle||dept||t("roles.employee")) : (dept||t(`roles.${role}`));
-  return `<div class="topbar"><div class="topbar__title"><span class="label">${label}</span><h2>${title}</h2></div><div class="topbar-actions">${languageSwitcher()}<div class="topbar-user-identity">${role === "employee" ? employeeAvatar(currentAccount,currentEmployee,"topbar-user__avatar") : `<span class="avatar">${avatarText||currentAvatarText||"HR"}</span>`}<span class="topbar-user__identity"><strong>${escapeHtml(fullName)}</strong><small>${escapeHtml(meta)}</small></span></div><button type="button" class="topbar-logout-btn" data-logout aria-label="${uiText("logout")}" title="${uiText("logout")}"><span class="topbar-logout-btn__icon" aria-hidden="true">↪</span><span class="topbar-logout-btn__text">${uiText("logout")}</span></button></div></div>`;
+  const meta = role==="employee" ? (jobTitle||dept||shellLabel("roleEmployee")) : (dept||shellLabel("roleHr"));
+  const pageMeta = shellPageMeta();
+  const topLabel = label || pageMeta.label;
+  const topTitle = title || pageMeta.title;
+  const destinationRoute = role === "hr" ? "/admin" : "/dashboard";
+  const avatar = role === "employee" ? employeeAvatar(currentAccount,currentEmployee,"topbar-user__avatar") : `<span class="avatar">${avatarText||currentAvatarText||"HR"}</span>`;
+  return `<header class="topbar" role="banner">
+    <div class="topbar__left">
+      <button type="button" class="icon-btn topbar-menu-btn" data-open-mobile-nav aria-label="${escapeHtmlAttribute(shellLabel("openMenu"))}" aria-expanded="${mobileNavOpen ? "true" : "false"}" aria-controls="appMobileDrawer">☰</button>
+      <div class="topbar__title"><span class="label">${escapeHtml(topLabel)}</span><h2>${escapeHtml(topTitle)}</h2></div>
+    </div>
+    <div class="topbar-actions">
+      ${role === "hr" ? `<a class="icon-btn topbar-notification-btn" href="/admin/notifications" data-link aria-label="${escapeHtmlAttribute(shellLabel("notifications"))}" title="${escapeHtmlAttribute(shellLabel("notifications"))}">🔔</a>` : `<button type="button" class="icon-btn topbar-notification-btn" data-open-notifications aria-label="${escapeHtmlAttribute(shellLabel("notifications"))}" title="${escapeHtmlAttribute(shellLabel("notifications"))}">🔔</button>`}
+      ${languageSwitcher()}
+      <div class="topbar-user-shell">
+        <button type="button" class="topbar-user-trigger" data-user-menu-trigger aria-haspopup="menu" aria-expanded="${userMenuOpen ? "true" : "false"}" aria-label="${escapeHtmlAttribute(shellLabel("userMenu"))}">
+          ${avatar}<span class="topbar-user__identity"><strong>${escapeHtml(fullName)}</strong><small>${escapeHtml(meta)}</small></span><svg class="topbar-user__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="topbar-user__menu ${userMenuOpen ? "is-open" : ""}" data-user-menu role="menu">
+          <strong>${escapeHtml(fullName)}</strong>${meta ? `<span>${escapeHtml(meta)}</span>` : ""}
+          <a class="btn btn-primary" href="${destinationRoute}" data-link role="menuitem">${escapeHtml(topTitle)}</a>
+          <button class="btn btn-outline" data-logout role="menuitem">${escapeHtml(shellLabel("logout"))}</button>
+        </div>
+      </div>
+    </div>
+  </header>${mobileNavOpen ? `<div class="mobile-nav-backdrop" data-close-mobile-nav aria-hidden="true"></div>` : ""}`;
 }
 
 function accountsPage() {
@@ -5284,6 +5361,266 @@ function adminDevelopmentPlansPage(){if(!hasAdminAccess())return restrictedPage(
 function mySkillsPage(){if(!hasEmployeeAccess())return restrictedPage();if(!_competencyState.my&&!_competencyState.loading)queueMicrotask(()=>loadMyCompetencies());const row=_competencyState.my?.rows?.[0];const cells=[...(row?.cells||[])].sort((a,b)=>["significant_gap","minor_gap","not_assessed","met"].indexOf(a.status)-["significant_gap","minor_gap","not_assessed","met"].indexOf(b.status));return `<div class="app-layout">${sideNav("employee")}<main class="app-main">${topbar(t("learning.learning"),c9("mySkills"),"employee")}<div class="content phase9-page"><section class="learning-hero"><div><h1>${c9("mySkills")}</h1><p>${c9("mySkillsIntro")}</p></div><button class="btn btn-outline" data-my-skills-reload>${c9("reload")}</button></section>${_competencyState.error?`<p class="form-error">${escapeHtml(_competencyState.error)}</p>`:""}<div class="skills-card-list">${cells.map(cell=>`<article class="card skill-card"><div><span>${escapeHtml(cell.categoryName||"")}</span><h2>${escapeHtml(cell.competencyName)}</h2><dl><div><dt>${c9("requiredLevel")}</dt><dd>${escapeHtml(cell.requiredLevel?.name||"")}</dd></div><div><dt>${c9("effectiveLevel")}</dt><dd>${escapeHtml(cell.effectiveLevel?.name||cell.selfLevel?.name||c9("notAssessed"))}</dd></div><div><dt>${c9("skillGap")}</dt><dd>${cell.gap??"-"} · ${competencyBadge(cell.status)}</dd></div></dl></div><form class="self-assessment-form" data-self-assessment="${escapeHtmlAttribute(cell.competencyId)}"><label>${c9("selfAssessment")}<select name="assessedLevelId">${(_competencyState.my?.competencies?.find(c=>c.id===cell.competencyId)?.levels||[]).map(l=>`<option value="${escapeHtmlAttribute(l.id)}">${l.rank} ${escapeHtml(l.name)}</option>`).join("")}</select></label><input name="reason" placeholder="${c9("reason")}"><button class="btn btn-primary">${c9("submitAssessment")}</button></form></article>`).join("")||`<div class="empty-state">${c9("empty")}</div>`}</div></div></main></div>`;}
 function myDevelopmentPlanPage(){if(!hasEmployeeAccess())return restrictedPage();if(!_competencyState.myPlans.length&&!_competencyState.loading)queueMicrotask(()=>loadMyDevelopmentPlans());const plans=_competencyState.myPlans||[];return `<div class="app-layout">${sideNav("employee")}<main class="app-main">${topbar(t("learning.learning"),c9("myDevelopmentPlan"),"employee")}<div class="content phase9-page"><section class="learning-hero"><div><h1>${c9("myDevelopmentPlan")}</h1><p>${c9("myPlanIntro")}</p></div><button class="btn btn-outline" data-my-plans-reload>${c9("reload")}</button></section><div class="skills-card-list">${plans.map(p=>`<article class="card skill-card"><div><span class="badge ${p.status==="active"?"active":"pending"}">${escapeHtml(p.status)}</span><h2>${escapeHtml(p.title)}</h2><p>${escapeHtml(p.description||"")}</p></div><a class="btn btn-outline" href="/dashboard/development-plan/${escapeHtmlAttribute(p.id)}" data-link>${c9("viewResult")}</a></article>`).join("")||`<div class="empty-state">${c9("empty")}</div>`}</div></div></main></div>`;}
 
+// ─── Training Tracking ─────────────────────────────────────────────────────
+let _ttState = { rows: [], total: 0, loading: false, error: "" };
+let _ttFormOpen = false;
+let _ttEditId = "";
+let _ttDrawerOpen = false;
+let _ttDetail = null;
+let _ttFilters = { search: "", department: "", category: "", status: "" };
+const TT = (k) => t("trainingTracking." + k);
+
+function ttApiHeaders() {
+  const h = { "Content-Type": "application/json" };
+  if (session?.accountId) h["X-Account-Id"] = session.accountId;
+  if (session?.role) h["X-Account-Role"] = session.role;
+  return h;
+}
+
+async function loadTrainingTracking() {
+  if (_ttState.loading) return;
+  _ttState.loading = true;
+  _ttState.error = "";
+  render();
+  try {
+    const params = new URLSearchParams();
+    if (_ttFilters.search) params.set("search", _ttFilters.search);
+    if (_ttFilters.department) params.set("department", _ttFilters.department);
+    if (_ttFilters.category) params.set("category", _ttFilters.category);
+    if (_ttFilters.status) params.set("status", _ttFilters.status);
+    const res = await fetch("/api/admin/training-tracking?" + params.toString(), { headers: ttApiHeaders() });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || "load_failed");
+    _ttState.rows = body.data || [];
+    _ttState.total = body.total || 0;
+  } catch (e) {
+    _ttState.error = e.message || "Không thể tải dữ liệu.";
+  } finally {
+    _ttState.loading = false;
+    if (route === "/admin/training-tracking") render();
+  }
+}
+
+function formatVnd(n) {
+  if (n == null) return "—";
+  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", minimumFractionDigits: 0 }).format(n);
+}
+
+function formatDate(d) {
+  if (!d) return "—";
+  try {
+    const locale = language === "vi" ? "vi-VN" : language === "kr" ? "ko-KR" : "en-US";
+    return new Date(d + "T00:00:00").toLocaleDateString(locale, { year: "numeric", month: "2-digit", day: "2-digit" });
+  } catch { return d; }
+}
+
+function ttStatusBadge(s) {
+  const labels = { not_updated: TT("notUpdated"), planned: TT("planned"), in_progress: TT("inProg"), completed: TT("completed"), cancelled: TT("cancelled") };
+  return `<span class="badge ${s === "in_progress" ? "active" : s === "completed" ? "" : s === "cancelled" ? "pending" : "pending"}">${escapeHtml(labels[s] || s)}</span>`;
+}
+
+function trainingTrackingPage() {
+  if (!hasAdminAccess()) return restrictedPage();
+  if (!_ttState.rows.length && !_ttState.loading && !_ttState.error) queueMicrotask(() => loadTrainingTracking());
+  const rows = _ttState.rows || [];
+  const totalCost = rows.reduce((s, r) => s + (Number(r.totalCostVnd) || 0), 0);
+  const inProg = rows.filter(r => r.status === "in_progress").length;
+  const notUpd = rows.filter(r => r.status === "not_updated").length;
+  const depts = [...new Set(rows.map(r => r.department).filter(Boolean))];
+  const cats = [...new Set(rows.map(r => r.trainingCategory).filter(Boolean))];
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", TT("title"), "hr")}<div class="content"><section class="learning-hero"><div><h1>${TT("title")}</h1><p>${TT("subtitle")}</p></div><button class="btn btn-primary" data-tt-create>+ ${TT("create")}</button></section>${_ttState.error ? `<p class="form-error">${escapeHtml(_ttState.error)}</p>` : ""}<div class="kpi-grid"><div class="card kpi"><span>${TT("totalPrograms")}</span><strong>${rows.length}</strong></div><div class="card kpi"><span>${TT("totalCost")}</span><strong>${formatVnd(totalCost)}</strong></div><div class="card kpi"><span>${TT("inProgress")}</span><strong>${inProg}</strong></div><div class="card kpi"><span>${TT("notUpdated")}</span><strong>${notUpd}</strong></div></div><section class="card panel"><div class="filter-bar"><input type="search" data-tt-search value="${escapeHtmlAttribute(_ttFilters.search)}" placeholder="${TT("search")}"><select data-tt-filter-dept><option value="">${TT("filterDepartment")}</option>${depts.map(d => `<option value="${escapeHtmlAttribute(d)}" ${_ttFilters.department === d ? "selected" : ""}>${escapeHtml(d)}</option>`).join("")}</select><select data-tt-filter-cat><option value="">${TT("filterCategory")}</option>${cats.map(c => `<option value="${escapeHtmlAttribute(c)}" ${_ttFilters.category === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}</select><select data-tt-filter-status><option value="">${TT("filterStatus")}</option>${[["not_updated", TT("notUpdated")], ["planned", TT("planned")], ["in_progress", TT("inProg")], ["completed", TT("completed")], ["cancelled", TT("cancelled")]].map(([v, l]) => `<option value="${v}" ${_ttFilters.status === v ? "selected" : ""}>${escapeHtml(l)}</option>`).join("")}</select></div>${_ttState.loading ? `<div class="hr-overview-skeleton">${Array(3).fill("<span></span>").join("")}</div>` : rows.length ? `<div class="table-wrap tt-table"><table><thead><tr><th>${TT("employee")}</th><th>${TT("position")}</th><th>${TT("department")}</th><th>${TT("trainingName")}</th><th>${TT("trainingProvider")}</th><th>${TT("trainingCategory")}</th><th>${TT("time")}</th><th>${TT("format")}</th><th>${TT("cost")}</th><th>${TT("status")}</th><th>${TT("action")}</th></tr></thead><tbody>${rows.map(r => `<tr><td>${escapeHtml(r.employeeName)}</td><td>${escapeHtml(r.positionTitle)}</td><td>${escapeHtml(r.department)}</td><td><strong>${escapeHtml(r.trainingName)}</strong></td><td>${escapeHtml(r.trainingProvider)}</td><td>${escapeHtml(r.trainingCategory)}</td><td>${formatDate(r.startDate)} — ${formatDate(r.endDate)}</td><td>${escapeHtml(r.studyFormat || "—")}</td><td>${formatVnd(r.totalCostVnd)}</td><td>${ttStatusBadge(r.status)}</td><td><div class="learning-actions"><button class="btn btn-outline mini-action" data-tt-view="${escapeHtmlAttribute(r.id)}">${TT("viewDetail")}</button><button class="btn btn-outline mini-action" data-tt-edit="${escapeHtmlAttribute(r.id)}">${TT("edit")}</button>${r.status !== "cancelled" ? `<button class="btn btn-outline mini-action" data-tt-archive="${escapeHtmlAttribute(r.id)}">${TT("archive")}</button>` : ""}</div></td></tr>`).join("")}</tbody></table></div><div class="tt-cards-mobile">${rows.map(r => `<article class="card tt-card"><div class="tt-card__head"><strong>${escapeHtml(r.trainingName)}</strong>${ttStatusBadge(r.status)}</div><div class="tt-card__body"><span>${escapeHtml(r.employeeName)} · ${escapeHtml(r.department)}</span><span>${escapeHtml(r.trainingProvider)}</span><span>${formatDate(r.startDate)} — ${formatDate(r.endDate)}</span><span>${formatVnd(r.totalCostVnd)}</span></div><div class="card-actions"><button class="btn btn-outline mini-action" data-tt-view="${escapeHtmlAttribute(r.id)}">${TT("viewDetail")}</button><button class="btn btn-outline mini-action" data-tt-edit="${escapeHtmlAttribute(r.id)}">${TT("edit")}</button>${r.status !== "cancelled" ? `<button class="btn btn-outline mini-action" data-tt-archive="${escapeHtmlAttribute(r.id)}">${TT("archive")}</button>` : ""}</div></article>`).join("")}</div>` : `<div class="empty-state"><h3>${TT("noData")}</h3></div>`}</section></div></main>${_ttDrawerOpen ? ttDrawer() : ""}${_ttFormOpen ? ttFormDrawer() : ""}</div>`;
+}
+
+function ttDrawer() {
+  if (!_ttDetail) return "";
+  const r = _ttDetail;
+  return `<div class="modal-backdrop open" data-tt-close-drawer><section class="modal modal--large modal--structured" role="dialog" aria-modal="true"><header class="modal__header"><div><h2>${escapeHtml(r.trainingName)}</h2></div><button type="button" class="icon-btn" data-tt-close-drawer>×</button></header><div class="modal__body"><dl class="compliance-detail-grid"><div><dt>${TT("employee")}</dt><dd>${escapeHtml(r.employeeName)}</dd></div><div><dt>${TT("position")}</dt><dd>${escapeHtml(r.positionTitle)}</dd></div><div><dt>${TT("department")}</dt><dd>${escapeHtml(r.department)}</dd></div><div><dt>${TT("trainingProvider")}</dt><dd>${escapeHtml(r.trainingProvider)}</dd></div><div><dt>${TT("trainingCategory")}</dt><dd>${escapeHtml(r.trainingCategory)}</dd></div><div><dt>${TT("time")}</dt><dd>${formatDate(r.startDate)} — ${formatDate(r.endDate)}</dd></div><div><dt>${TT("format")}</dt><dd>${escapeHtml(r.studyFormat || "—")}</dd></div><div><dt>${TT("cost")}</dt><dd>${formatVnd(r.totalCostVnd)}</dd></div><div><dt>${TT("status")}</dt><dd>${ttStatusBadge(r.status)}</dd></div></dl><h3>${TT("purpose")}</h3><p style="white-space:pre-wrap">${escapeHtml(r.purposeAndJobRelevance || "—")}</p>${r.notes ? `<h3>${TT("notes")}</h3><p style="white-space:pre-wrap">${escapeHtml(r.notes)}</p>` : ""}</div><footer class="modal__footer"><button class="btn btn-outline" data-tt-close-drawer>${TT("cancel")}</button></footer></section></div>`;
+}
+
+function ttFormDrawer() {
+  const r = _ttEditId ? _ttState.rows.find(x => x.id === _ttEditId) : null;
+  const isEdit = !!r;
+  const statuses = [["not_updated", TT("notUpdated")], ["planned", TT("planned")], ["in_progress", TT("inProg")], ["completed", TT("completed")], ["cancelled", TT("cancelled")]];
+  return `<div class="modal-backdrop open" data-tt-close-form><form id="ttForm" class="modal modal--xlarge modal--structured" role="dialog" aria-modal="true"><header class="modal__header"><div><h2>${isEdit ? TT("edit") : TT("create")}</h2></div><button type="button" class="icon-btn" data-tt-close-form>×</button></header><div class="modal__body"><div class="form-2col"><div class="field"><label>${TT("employee")} *</label><input name="employeeName" value="${escapeHtmlAttribute(r?.employeeName || "")}" required></div><div class="field"><label>${TT("position")} *</label><input name="positionTitle" value="${escapeHtmlAttribute(r?.positionTitle || "")}" required></div><div class="field"><label>${TT("department")} *</label><input name="department" value="${escapeHtmlAttribute(r?.department || "")}" required></div><div class="field"><label>${TT("trainingName")} *</label><input name="trainingName" value="${escapeHtmlAttribute(r?.trainingName || "")}" required></div><div class="field" style="grid-column:1/-1"><label>${TT("purpose")} *</label><textarea name="purposeAndJobRelevance" rows="3" required>${escapeHtml(r?.purposeAndJobRelevance || "")}</textarea></div><div class="field"><label>${TT("trainingProvider")} *</label><input name="trainingProvider" value="${escapeHtmlAttribute(r?.trainingProvider || "")}" required></div><div class="field"><label>${TT("trainingCategory")} *</label><input name="trainingCategory" value="${escapeHtmlAttribute(r?.trainingCategory || "")}" required></div><div class="field"><label>${TT("startDate")}</label><input name="startDate" type="date" value="${escapeHtmlAttribute(r?.startDate || "")}"></div><div class="field"><label>${TT("endDate")}</label><input name="endDate" type="date" value="${escapeHtmlAttribute(r?.endDate || "")}"></div><div class="field"><label>${TT("format")}</label><input name="studyFormat" value="${escapeHtmlAttribute(r?.studyFormat || "")}"></div><div class="field"><label>${TT("cost")}</label><input name="totalCostVnd" type="number" min="0" value="${r?.totalCostVnd != null ? r.totalCostVnd : ""}"></div><div class="field"><label>${TT("status")}</label><select name="status">${statuses.map(([v, l]) => `<option value="${v}" ${(r?.status || "not_updated") === v ? "selected" : ""}>${escapeHtml(l)}</option>`).join("")}</select></div><div class="field" style="grid-column:1/-1"><label>${TT("notes")}</label><textarea name="notes" rows="2">${escapeHtml(r?.notes || "")}</textarea></div></div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-tt-close-form>${TT("cancel")}</button><button type="submit" class="btn btn-primary">${TT("save")}</button></footer></form></div>`;
+}
+
+async function submitTtForm(e) {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const fd = new FormData(form);
+  const body = {};
+  for (const [k, v] of fd) body[k] = v;
+  if (body.totalCostVnd === "") body.totalCostVnd = null;
+  const isEdit = !!_ttEditId;
+  const url = isEdit ? `/api/admin/training-tracking/${_ttEditId}` : "/api/admin/training-tracking";
+  const method = isEdit ? "PATCH" : "POST";
+  try {
+    const res = await fetch(url, { method, headers: ttApiHeaders(), body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "save_failed");
+    _ttFormOpen = false;
+    _ttEditId = "";
+    toast(isEdit ? "Đã cập nhật." : "Đã tạo mới.");
+    loadTrainingTracking();
+  } catch (e) {
+    toast("Lỗi: " + e.message);
+  }
+}
+
+async function archiveTrainingRecord(id) {
+  if (!confirm(TT("confirmDelete"))) return;
+  try {
+    const res = await fetch(`/api/admin/training-tracking/${id}/archive`, { method: "POST", headers: ttApiHeaders() });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "archive_failed");
+    toast("Đã lưu trữ.");
+    loadTrainingTracking();
+  } catch (e) {
+    toast("Lỗi: " + e.message);
+  }
+}
+
+// ─── CCHN Registration ──────────────────────────────────────────────────────
+let _cchnState = { catalog: [], registrations: [], total: 0, loading: false, error: "" };
+let _cchnFormOpen = false;
+let _cchnEditId = "";
+let _cchnDrawerOpen = false;
+let _cchnDetail = null;
+let _cchnFilters = { search: "", department: "", status: "" };
+let _cchnAddItemOpen = false;
+const CCHN = (k) => t("cchnRegistration." + k);
+
+async function loadCchnCatalog() {
+  try {
+    const res = await fetch("/api/admin/cchn/catalog?status=active", { headers: ttApiHeaders() });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok) _cchnState.catalog = body.data || [];
+  } catch {}
+}
+
+async function loadCchnRegistrations() {
+  if (_cchnState.loading) return;
+  _cchnState.loading = true;
+  _cchnState.error = "";
+  render();
+  try {
+    const params = new URLSearchParams();
+    if (_cchnFilters.search) params.set("search", _cchnFilters.search);
+    if (_cchnFilters.department) params.set("department", _cchnFilters.department);
+    if (_cchnFilters.status) params.set("status", _cchnFilters.status);
+    const res = await fetch("/api/admin/cchn/registrations?" + params.toString(), { headers: ttApiHeaders() });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || "load_failed");
+    _cchnState.registrations = body.data || [];
+    _cchnState.total = body.total || 0;
+  } catch (e) {
+    _cchnState.error = e.message || "Không thể tải dữ liệu.";
+  } finally {
+    _cchnState.loading = false;
+    if (route === "/admin/cchn-registrations") render();
+  }
+}
+
+function cchnRegStatusBadge(s) {
+  const labels = { draft: CCHN("draft"), registered: CCHN("registered"), approved: CCHN("approved"), studying: CCHN("studying"), completed: CCHN("completed"), cancelled: CCHN("cancelled") };
+  const cls = { draft: "pending", registered: "active", approved: "", studying: "active", completed: "", cancelled: "pending" };
+  return `<span class="badge ${cls[s] || "pending"}">${escapeHtml(labels[s] || s)}</span>`;
+}
+
+const CCHN_COLORS = { blue: "#3b82f6", teal: "#14b8a6", purple: "#a855f7", green: "#22c55e", orange: "#f97316", pink: "#ec4899", indigo: "#6366f1", red: "#ef4444", cyan: "#06b6d4", amber: "#f59e0b", slate: "#64748b", lime: "#84cc16", violet: "#8b5cf6", rose: "#f43f5e" };
+
+function cchnChip(item) {
+  const color = CCHN_COLORS[item.colorToken] || "#64748b";
+  return `<span class="cchn-chip" style="background:${color}15;color:${color};border:1px solid ${color}30;border-radius:4px;padding:2px 8px;font-size:.8em;display:inline-block;margin:2px">${escapeHtml(item.labelVi || item.label_vi)}</span>`;
+}
+
+function cchnRegistrationPage() {
+  if (!hasAdminAccess()) return restrictedPage();
+  if (!_cchnState.catalog.length) loadCchnCatalog();
+  if (!_cchnState.registrations.length && !_cchnState.loading && !_cchnState.error) queueMicrotask(() => loadCchnRegistrations());
+  const rows = _cchnState.registrations || [];
+  const depts = [...new Set(rows.map(r => r.department).filter(Boolean))];
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", CCHN("title"), "hr")}<div class="content"><section class="learning-hero"><div><h1>${CCHN("title")}</h1><p>${CCHN("subtitle")}</p></div><button class="btn btn-primary" data-cchn-create>+ ${CCHN("create")}</button></section>${_cchnState.error ? `<p class="form-error">${escapeHtml(_cchnState.error)}</p>` : ""}<section class="card panel"><div class="filter-bar"><input type="search" data-cchn-search value="${escapeHtmlAttribute(_cchnFilters.search)}" placeholder="${CCHN("search")}"><select data-cchn-filter-dept><option value="">${CCHN("filterDepartment")}</option>${depts.map(d => `<option value="${escapeHtmlAttribute(d)}" ${_cchnFilters.department === d ? "selected" : ""}>${escapeHtml(d)}</option>`).join("")}</select><select data-cchn-filter-status><option value="">${CCHN("filterStatus")}</option>${[["draft", CCHN("draft")], ["registered", CCHN("registered")], ["approved", CCHN("approved")], ["studying", CCHN("studying")], ["completed", CCHN("completed")], ["cancelled", CCHN("cancelled")]].map(([v, l]) => `<option value="${v}" ${_cchnFilters.status === v ? "selected" : ""}>${escapeHtml(l)}</option>`).join("")}</select></div>${_cchnState.loading ? `<div class="hr-overview-skeleton">${Array(3).fill("<span></span>").join("")}</div>` : rows.length ? `<div class="table-wrap cchn-table"><table><thead><tr><th>${CCHN("employee")}</th><th>${CCHN("department")}</th><th>${CCHN("content")}</th><th>${CCHN("registrationDate")}</th><th>${CCHN("plannedTrainingDate")}</th><th>${CCHN("plannedExamDate")}</th><th>${CCHN("studyFormat")}</th><th>${CCHN("totalCost")}</th><th>${CCHN("status")}</th><th>${CCHN("action")}</th></tr></thead><tbody>${rows.map(r => `<tr><td>${escapeHtml(r.employeeName)}</td><td>${escapeHtml(r.department || "—")}</td><td>${(r.items || []).map(i => cchnChip(i.cchn_catalog_items || i.catalogItem || {})).join("")}</td><td>${formatDate(r.registrationDate)}</td><td>${formatDate(r.plannedTrainingDate)}</td><td>${formatDate(r.plannedExamDate)}</td><td>${escapeHtml(r.studyFormat || "—")}</td><td>${formatVnd(r.totalCostVnd)}</td><td>${cchnRegStatusBadge(r.status)}</td><td><div class="learning-actions"><button class="btn btn-outline mini-action" data-cchn-view="${escapeHtmlAttribute(r.id)}">${CCHN("viewDetail")}</button><button class="btn btn-outline mini-action" data-cchn-edit="${escapeHtmlAttribute(r.id)}">${CCHN("edit")}</button>${r.status !== "cancelled" ? `<button class="btn btn-outline mini-action" data-cchn-cancel="${escapeHtmlAttribute(r.id)}">${CCHN("cancelled")}</button>` : ""}</div></td></tr>`).join("")}</tbody></table></div><div class="cchn-cards-mobile">${rows.map(r => `<article class="card cchn-card"><div class="cchn-card__head"><strong>${escapeHtml(r.employeeName)}</strong>${cchnRegStatusBadge(r.status)}</div><div class="cchn-card__body"><span>${escapeHtml(r.department || "—")}</span><div>${(r.items || []).map(i => cchnChip(i.cchn_catalog_items || i.catalogItem || {})).join("")}</div><span>${formatDate(r.registrationDate)}</span><span>${formatVnd(r.totalCostVnd)}</span></div><div class="card-actions"><button class="btn btn-outline mini-action" data-cchn-view="${escapeHtmlAttribute(r.id)}">${CCHN("viewDetail")}</button><button class="btn btn-outline mini-action" data-cchn-edit="${escapeHtmlAttribute(r.id)}">${CCHN("edit")}</button>${r.status !== "cancelled" ? `<button class="btn btn-outline mini-action" data-cchn-cancel="${escapeHtmlAttribute(r.id)}">${CCHN("cancelled")}</button>` : ""}</div></article>`).join("")}</div>` : `<div class="empty-state"><h3>${CCHN("noData")}</h3></div>`}</section></div></main>${_cchnDrawerOpen ? cchnDrawer() : ""}${_cchnFormOpen ? cchnFormDrawer() : ""}${_cchnAddItemOpen ? cchnAddItemModal() : ""}</div>`;
+}
+
+function cchnDrawer() {
+  if (!_cchnDetail) return "";
+  const r = _cchnDetail;
+  return `<div class="modal-backdrop open" data-cchn-close-drawer><section class="modal modal--large modal--structured" role="dialog" aria-modal="true"><header class="modal__header"><div><h2>${escapeHtml(r.employeeName)}</h2></div><button type="button" class="icon-btn" data-cchn-close-drawer>×</button></header><div class="modal__body"><dl class="compliance-detail-grid"><div><dt>${CCHN("employee")}</dt><dd>${escapeHtml(r.employeeName)}</dd></div><div><dt>${CCHN("department")}</dt><dd>${escapeHtml(r.department || "—")}</dd></div><div><dt>${CCHN("content")}</dt><dd>${(r.items || []).map(i => cchnChip(i.cchn_catalog_items || i.catalogItem || {})).join("")}</dd></div><div><dt>${CCHN("registrationDate")}</dt><dd>${formatDate(r.registrationDate)}</dd></div><div><dt>${CCHN("plannedTrainingDate")}</dt><dd>${formatDate(r.plannedTrainingDate)}</dd></div><div><dt>${CCHN("plannedExamDate")}</dt><dd>${formatDate(r.plannedExamDate)}</dd></div><div><dt>${CCHN("studyFormat")}</dt><dd>${escapeHtml(r.studyFormat || "—")}</dd></div><div><dt>${CCHN("totalCost")}</dt><dd>${formatVnd(r.totalCostVnd)}</dd></div><div><dt>${CCHN("status")}</dt><dd>${cchnRegStatusBadge(r.status)}</dd></div></dl>${r.notes ? `<h3>${TT("notes")}</h3><p style="white-space:pre-wrap">${escapeHtml(r.notes)}</p>` : ""}</div><footer class="modal__footer"><button class="btn btn-outline" data-cchn-close-drawer>${CCHN("cancel")}</button></footer></section></div>`;
+}
+
+function cchnFormDrawer() {
+  const r = _cchnEditId ? _cchnState.registrations.find(x => x.id === _cchnEditId) : null;
+  const isEdit = !!r;
+  const allItems = _cchnState.catalog || [];
+  const selectedIds = new Set((r?.items || []).map(i => i.catalog_item_id || i.catalogItemId || i.cchn_catalog_items?.id));
+  const statuses = [["draft", CCHN("draft")], ["registered", CCHN("registered")], ["approved", CCHN("approved")], ["studying", CCHN("studying")], ["completed", CCHN("completed")], ["cancelled", CCHN("cancelled")]];
+  return `<div class="modal-backdrop open" data-cchn-close-form><form id="cchnForm" class="modal modal--xlarge modal--structured" role="dialog" aria-modal="true"><header class="modal__header"><div><h2>${isEdit ? CCHN("edit") : CCHN("create")}</h2></div><button type="button" class="icon-btn" data-cchn-close-form>×</button></header><div class="modal__body"><div class="form-2col"><div class="field"><label>${CCHN("employee")} *</label><input name="employeeName" value="${escapeHtmlAttribute(r?.employeeName || "")}" required></div><div class="field"><label>${TT("position")}</label><input name="positionTitle" value="${escapeHtmlAttribute(r?.positionTitle || "")}"></div><div class="field"><label>${CCHN("department")}</label><input name="department" value="${escapeHtmlAttribute(r?.department || "")}"></div><div class="field"><label>${CCHN("registrationDate")}</label><input name="registrationDate" type="date" value="${escapeHtmlAttribute(r?.registrationDate || "")}"></div><div class="field"><label>${CCHN("plannedTrainingDate")}</label><input name="plannedTrainingDate" type="date" value="${escapeHtmlAttribute(r?.plannedTrainingDate || "")}"></div><div class="field"><label>${CCHN("plannedExamDate")}</label><input name="plannedExamDate" type="date" value="${escapeHtmlAttribute(r?.plannedExamDate || "")}"></div><div class="field"><label>${CCHN("studyFormat")}</label><input name="studyFormat" value="${escapeHtmlAttribute(r?.studyFormat || "")}"></div><div class="field"><label>${CCHN("totalCost")}</label><input name="totalCostVnd" type="number" min="0" value="${r?.totalCostVnd != null ? r.totalCostVnd : ""}"></div><div class="field"><label>${CCHN("status")}</label><select name="status">${statuses.map(([v, l]) => `<option value="${v}" ${(r?.status || "draft") === v ? "selected" : ""}>${escapeHtml(l)}</option>`).join("")}</select></div></div><div class="field"><label>${CCHN("selectItems")}</label><div class="cchn-chip-selector" data-cchn-chip-selector>${allItems.filter(i => i.status === "active").map(i => `<label class="cchn-chip-option" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;padding:4px"><input type="checkbox" name="catalogItemIds" value="${escapeHtmlAttribute(i.id)}" ${selectedIds.has(i.id) ? "checked" : ""}>${cchnChip(i)}</label>`).join("")}</div><button type="button" class="btn btn-outline mini-action" data-cchn-add-item style="margin-top:8px">+ ${CCHN("addItem")}</button></div><div class="field" style="grid-column:1/-1"><label>${TT("notes")}</label><textarea name="notes" rows="2">${escapeHtml(r?.notes || "")}</textarea></div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-cchn-close-form>${CCHN("cancel")}</button><button type="submit" class="btn btn-primary">${CCHN("save")}</button></footer></form></div>`;
+}
+
+function cchnAddItemModal() {
+  const groups = [["subject", CCHN("groupSubject")], ["fee", CCHN("groupFee")], ["reimbursement", CCHN("groupReimbursement")], ["other", CCHN("groupOther")]];
+  return `<div class="modal-backdrop open" data-cchn-close-add><form id="cchnAddItemForm" class="modal modal--medium modal--structured" role="dialog" aria-modal="true"><header class="modal__header"><div><h2>${CCHN("addItem")}</h2></div><button type="button" class="icon-btn" data-cchn-close-add>×</button></header><div class="modal__body"><div class="form-2col"><div class="field"><label>${CCHN("itemGroup")} *</label><select name="itemGroup" required>${groups.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("")}</select></div><div class="field" style="grid-column:1/-1"><label>${CCHN("itemNameVi")} *</label><input name="labelVi" required></div><div class="field" style="grid-column:1/-1"><label>${CCHN("itemNameEn")}</label><input name="labelEn"></div></div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-cchn-close-add>${CCHN("cancel")}</button><button type="submit" class="btn btn-primary">${CCHN("save")}</button></footer></form></div>`;
+}
+
+async function submitCchnForm(e) {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const fd = new FormData(form);
+  const catalogItemIds = fd.getAll("catalogItemIds");
+  const body = {};
+  for (const [k, v] of fd) { if (k !== "catalogItemIds") body[k] = v; }
+  body.catalogItemIds = catalogItemIds;
+  if (body.totalCostVnd === "") body.totalCostVnd = null;
+  const isEdit = !!_cchnEditId;
+  const url = isEdit ? `/api/admin/cchn/registrations/${_cchnEditId}` : "/api/admin/cchn/registrations";
+  const method = isEdit ? "PATCH" : "POST";
+  try {
+    const res = await fetch(url, { method, headers: ttApiHeaders(), body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "save_failed");
+    _cchnFormOpen = false;
+    _cchnEditId = "";
+    toast(isEdit ? "Đã cập nhật." : "Đã tạo mới.");
+    loadCchnRegistrations();
+  } catch (e) {
+    toast("Lỗi: " + e.message);
+  }
+}
+
+async function submitCchnAddItem(e) {
+  e.preventDefault();
+  const fd = new FormData(e.currentTarget);
+  const body = {};
+  for (const [k, v] of fd) body[k] = v;
+  try {
+    const res = await fetch("/api/admin/cchn/catalog", { method: "POST", headers: ttApiHeaders(), body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (data.error === "DUPLICATE_LABEL") { toast("Mục này đã tồn tại."); return; }
+      throw new Error(data.error || "save_failed");
+    }
+    _cchnAddItemOpen = false;
+    await loadCchnCatalog();
+    toast("Đã thêm mục mới.");
+    if (route === "/admin/cchn-registrations") render();
+  } catch (e) {
+    toast("Lỗi: " + e.message);
+  }
+}
+
+async function cancelCchnRegistration(id) {
+  if (!confirm("Hủy đăng ký này?")) return;
+  try {
+    const res = await fetch(`/api/admin/cchn/registrations/${id}/cancel`, { method: "POST", headers: ttApiHeaders() });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "cancel_failed");
+    toast("Đã hủy đăng ký.");
+    loadCchnRegistrations();
+  } catch (e) {
+    toast("Lỗi: " + e.message);
+  }
+}
 
 function restrictedPage() {
   return `<div class="page">${header()}<section class="section"><div class="container"><div class="card empty-state">${icon("lock")}<h2>${t("toast.restricted")}</h2><a class="btn btn-primary" href="/login" data-link>${t("nav.login")}</a></div></div></section>${footer()}</div>`;
@@ -5429,6 +5766,8 @@ function render() {
   else if (route === "/admin/skills-matrix") app.innerHTML = hasAdminAccess() ? adminSkillsMatrixPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/development-plans") app.innerHTML = hasAdminAccess() ? adminDevelopmentPlansPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/reports") app.innerHTML = hasAdminAccess() ? reportsPage() : session ? restrictedPage() : loginPage();
+  else if (route === "/admin/training-tracking") app.innerHTML = hasAdminAccess() ? trainingTrackingPage() : session ? restrictedPage() : loginPage();
+  else if (route === "/admin/cchn-registrations") app.innerHTML = hasAdminAccess() ? cchnRegistrationPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/audit-log") app.innerHTML = hasAdminAccess() ? auditLogPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/learning-records") app.innerHTML = hasAdminAccess() ? adminLearningPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/certifications") { history.replaceState({}, "", "/admin/certificates"); route="/admin/certificates"; app.innerHTML = hasAdminAccess() ? adminCertificatesPage() : session ? restrictedPage() : loginPage(); }
@@ -5459,6 +5798,10 @@ function render() {
   else if (route.startsWith("/admin/learning-paths/")) {
     if (hasAdminAccess()) { const lpId = route.split("/")[3]; if (lpId && !_lpDetailLoading) fetchLearningPathDetail(lpId); app.innerHTML = adminLearningPathDetailPage(); }
     else app.innerHTML = session ? restrictedPage() : loginPage();
+  }
+  else if (route === "/dashboard/notifications") {
+    notificationModalOpen = true;
+    app.innerHTML = hasEmployeeAccess() ? employeeDashboard(false) : session ? restrictedPage() : loginPage();
   }
   else if (route === "/dashboard/learning-paths") {
     if (hasEmployeeAccess()) { if (!_myLpLoading) fetchMyLearningPaths(); app.innerHTML = myLearningPathsPage(); }
@@ -5496,7 +5839,9 @@ function render() {
   hydrateQrCanvases();
   enhanceReportsPage();
   enhanceTrainingReport();
-  document.body.classList.toggle("modal-open", !!(contentBuilderMode || quizFormOpen || courseDrawerOpen || accountDrawerOpen || assignModalOpen || resetModalOpen || courseFormMode));
+  document.body.classList.toggle("nav-open", mobileNavOpen);
+  document.body.classList.toggle("modal-open", !!(mobileNavOpen || dialogState || notificationModalOpen || contentBuilderMode || quizFormOpen || courseDrawerOpen || accountDrawerOpen || assignModalOpen || resetModalOpen || courseFormMode || employeeEditOpen || certModalOpen || certEditOpen));
+  setupActiveFocusTrap();
   setupLearningTracking();
   ensureActivityHeartbeat();
   ensureHrOverviewPolling();
@@ -5650,6 +5995,7 @@ function initScrollReveal() {
     }, { threshold: 0.5 });
     heroCountObs.observe(heroStats);
   }
+  if (typeof setupPageSpecificHandlers === "function") setupPageSpecificHandlers();
 }
 
 async function enhanceCourseImageForm(){const form=document.getElementById("courseForm");if(!form||form.querySelector(".course-image-upload"))return;const course=courseFormMode==="edit"?getCourseById(selectedCourseId):null;const body=form.querySelector(".modal__body");if(!body)return;const section=document.createElement("section");section.className="course-image-upload";section.innerHTML=`<img data-course-image-preview alt="${escapeHtmlAttribute(course?.imageAlt||course?.title||"")}"><div><label class="btn btn-outline" for="courseCoverInput">Cover image</label><input id="courseCoverInput" name="coverImage" type="file" accept="image/jpeg,image/png,image/webp" hidden><input name="coverImageId" type="hidden" value="${escapeHtmlAttribute(course?.coverImageId||"")}"><div class="field"><label>Alt text</label><input name="imageAlt" value="${escapeHtmlAttribute(course?.imageAlt||course?.title||"")}"></div><small>JPG, PNG, WebP · max 5 MB · 1200×675 recommended</small></div>`;body.prepend(section);if(course?.coverImageId){try{const blob=await getCourseImage(course.coverImageId);if(blob){const image=section.querySelector("img"),url=URL.createObjectURL(blob);image.src=url;image.dataset.objectUrl=url;}}catch{}}
@@ -5831,7 +6177,80 @@ function initTimelineCarousel() {
     // Cleanup is handled by render() re-building the DOM
   };
 }
+
+function closeMobileNav({ restoreFocus = true } = {}) {
+  const selector = lastShellFocusSelector;
+  mobileNavOpen = false;
+  document.body.classList.remove("nav-open");
+  if (restoreFocus && selector) requestAnimationFrame(() => document.querySelector(selector)?.focus?.({ preventScroll: true }));
+}
+
+function setupActiveFocusTrap() {
+  const drawer = mobileNavOpen ? document.querySelector("[data-mobile-drawer]") : null;
+  const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+  const target = drawer || dialog;
+  if (!target) return;
+  requestAnimationFrame(() => {
+    const activeInside = target.contains(document.activeElement);
+    if (!activeInside) focusableElements(target)[0]?.focus?.({ preventScroll: true });
+  });
+}
+
+function bindShellEvents() {
+  if (window.__mykisShellBound) return;
+  window.__mykisShellBound = true;
+  document.addEventListener("click", (event) => {
+    const openBtn = event.target.closest("[data-open-mobile-nav]");
+    if (openBtn) {
+      event.preventDefault();
+      lastShellFocusSelector = openBtn.id ? `#${openBtn.id}` : "[data-open-mobile-nav]";
+      mobileNavOpen = true;
+      userMenuOpen = false;
+      render();
+      return;
+    }
+    if (event.target.closest("[data-close-mobile-nav]")) {
+      event.preventDefault();
+      closeMobileNav();
+      render();
+      return;
+    }
+    const userTrigger = event.target.closest("[data-user-menu-trigger]");
+    if (userTrigger) {
+      event.preventDefault();
+      userMenuOpen = !userMenuOpen;
+      render();
+      return;
+    }
+    if (userMenuOpen && !event.target.closest(".topbar-user-shell")) {
+      userMenuOpen = false;
+      render();
+    }
+  }, true);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      if (mobileNavOpen) { event.preventDefault(); closeMobileNav(); render(); return; }
+      if (userMenuOpen) { event.preventDefault(); userMenuOpen = false; render(); return; }
+      if (dialogState) { event.preventDefault(); closeDialog(); return; }
+    }
+    const drawer = mobileNavOpen ? document.querySelector("[data-mobile-drawer]") : null;
+    const dialog = !drawer ? document.querySelector('[role="dialog"][aria-modal="true"]') : null;
+    const trap = drawer || dialog;
+    if (event.key !== "Tab" || !trap) return;
+    const focusables = focusableElements(trap);
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  });
+  window.addEventListener("resize", () => {
+    if (window.innerWidth >= 901 && mobileNavOpen) { mobileNavOpen = false; document.body.classList.remove("nav-open"); render(); }
+  });
+}
+
 function bindEvents() {
+  bindShellEvents();
   document.querySelector("[data-create-session]")?.addEventListener("click",()=>{
     selectedOfflineSessionId="";sessionFormOpen=true;
     // Ensure course list is fresh from Supabase before rendering dropdown
@@ -6097,7 +6516,6 @@ const {localStorageAdapter:lsa}=await import("./lib/storage/localStorageAdapter.
   document.querySelectorAll("[data-hr-overview-tab]").forEach(el=>el.addEventListener("click",()=>{_hrOverviewTab=el.dataset.hrOverviewTab;render();}));
   document.querySelectorAll("[data-hr-task-filter]").forEach(el=>el.addEventListener("click",()=>{_hrTaskFilter=el.dataset.hrTaskFilter;render();}));
   document.querySelector(".adm-user-menu-trigger")?.addEventListener("click", e => { e.currentTarget.closest(".adm-user-menu")?.classList.toggle("adm-user-menu--open"); });
-  document.addEventListener("click", e => { if (!e.target.closest(".adm-user-menu")) document.querySelectorAll(".adm-user-menu--open").forEach(m => m.classList.remove("adm-user-menu--open")); }, { capture: true });
   document.querySelectorAll("[data-hr-task-status]").forEach(el=>el.addEventListener("click",async()=>{try{el.disabled=true;await updateHrTaskStatus(el.dataset.hrTaskStatus,el.dataset.status);toast("success");}catch{toast("error");render();}}));
 
   // HR support request modal handlers (delegated)
@@ -6238,6 +6656,8 @@ const {localStorageAdapter:lsa}=await import("./lib/storage/localStorageAdapter.
   document.getElementById("notificationForm")?.addEventListener("submit",async event=>{event.preventDefault();const form=new FormData(event.currentTarget);const type=form.get("recipientType"),value=form.get("recipientValue");const recipientIds=notificationRecipients(type,value);const payload={title:form.get("title"),body:form.get("body"),type:form.get("type"),recipientType:type,recipientIds,actionUrl:form.get("actionUrl"),createdBy:session.accountId};const result=sendNotificationCampaign(payload);const apiResult=await notificationService.create({notifications:recipientIds.map((recipientId,index)=>({account_id:recipientId,type:form.get("type"),title:form.get("title"),body:form.get("body"),link:form.get("actionUrl"),entity_type:"manual_notification",entity_id:`manual-${Date.now()}-${index}`,data:{recipientType:type,recipientValue:value||""}}))});if(result.ok||apiResult?.ok){notificationComposerOpen=false;notificationMonitor=null;toast("success");render();loadNotificationMonitor(true);}else toast("error");});
   document.getElementById("courseCoverInput")?.addEventListener("change",async event=>{const file=event.target.files?.[0];if(!file)return;try{const id=await saveCourseImage(file);const hidden=document.querySelector('[name="coverImageId"]');if(hidden)hidden.value=id;const image=document.querySelector("[data-course-image-preview]");if(image){if(image.dataset.objectUrl)URL.revokeObjectURL(image.dataset.objectUrl);const url=URL.createObjectURL(file);image.src=url;image.dataset.objectUrl=url;}}catch{toast("error");}});
   document.querySelectorAll("[data-link]").forEach((el) => el.addEventListener("click", (event) => { event.preventDefault(); navigate(el.getAttribute("href")); }));
+function setupPageSpecificHandlers() {
+  // Competency handlers
   document.querySelector("[data-competency-reload]")?.addEventListener("click",()=>{_competencyState.catalog=null;loadCompetencyCatalog(true);});
   document.querySelector("[data-skills-reload]")?.addEventListener("click",()=>{_competencyState.matrix=null;loadSkillsMatrix(true);});
   document.querySelector("[data-plans-reload]")?.addEventListener("click",()=>{_competencyState.plans=[];loadDevelopmentPlans(true);});
@@ -6255,6 +6675,54 @@ const {localStorageAdapter:lsa}=await import("./lib/storage/localStorageAdapter.
   document.querySelectorAll("[data-plan-item-form]").forEach(form=>form.addEventListener("submit",async event=>{event.preventDefault();try{const fd=new FormData(form);await apiJson(`/api/admin/development-plans/${form.dataset.planItemForm}/items`,{method:"POST",body:JSON.stringify(Object.fromEntries(fd.entries()))});_competencyState.plans=[];toast("success");loadDevelopmentPlans(true);}catch(e){toast(e.message||"error");}}));
   document.querySelectorAll("[data-plan-action]").forEach(el=>el.addEventListener("click",async()=>{try{await apiJson(`/api/admin/development-plans/${el.dataset.planId}/${el.dataset.planAction}`,{method:"POST",body:"{}"});_competencyState.plans=[];toast("success");loadDevelopmentPlans(true);}catch(e){toast(e.message||"error");}}));
   document.querySelectorAll("[data-self-assessment]").forEach(form=>form.addEventListener("submit",async event=>{event.preventDefault();try{const fd=new FormData(form);await apiJson(`/api/competencies/my/${form.dataset.selfAssessment}/self-assessment`,{method:"POST",body:JSON.stringify(Object.fromEntries(fd.entries()))});_competencyState.my=null;toast("success");loadMyCompetencies(true);}catch(e){toast(e.message||"error");}}));
+
+  // ─── Training Tracking event bindings ─────────────────────────────────
+  document.querySelector("[data-tt-create]")?.addEventListener("click", () => { _ttEditId = ""; _ttFormOpen = true; render(); });
+  document.querySelectorAll("[data-tt-edit]").forEach(el => el.addEventListener("click", () => { _ttEditId = el.dataset.ttEdit; _ttFormOpen = true; render(); }));
+  document.querySelectorAll("[data-tt-view]").forEach(el => el.addEventListener("click", async () => {
+    try { const res = await fetch(`/api/admin/training-tracking/${el.dataset.ttView}`, { headers: ttApiHeaders() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "load_failed");
+      _ttDetail = body.data; _ttDrawerOpen = true; render();
+    } catch (e) { toast("Lỗi: " + e.message); }
+  }));
+  document.querySelectorAll("[data-tt-archive]").forEach(el => el.addEventListener("click", () => archiveTrainingRecord(el.dataset.ttArchive)));
+  document.querySelector("[data-tt-close-form]")?.addEventListener("click", () => { _ttFormOpen = false; _ttEditId = ""; render(); });
+  document.querySelector("[data-tt-close-drawer]")?.addEventListener("click", () => { _ttDrawerOpen = false; _ttDetail = null; render(); });
+  document.getElementById("ttForm")?.addEventListener("submit", submitTtForm);
+  { let ttsComposing = false; const el = document.querySelector("[data-tt-search]");
+    el?.addEventListener("compositionstart", () => ttsComposing = true);
+    el?.addEventListener("compositionend", e => { ttsComposing = false; _ttFilters.search = e.target.value; loadTrainingTracking(); });
+    el?.addEventListener("input", debounce(e => { if (ttsComposing) return; _ttFilters.search = e.target.value; loadTrainingTracking(); }, 250)); }
+  document.querySelector("[data-tt-filter-dept]")?.addEventListener("change", e => { _ttFilters.department = e.target.value; loadTrainingTracking(); });
+  document.querySelector("[data-tt-filter-cat]")?.addEventListener("change", e => { _ttFilters.category = e.target.value; loadTrainingTracking(); });
+  document.querySelector("[data-tt-filter-status]")?.addEventListener("change", e => { _ttFilters.status = e.target.value; loadTrainingTracking(); });
+
+  // ─── CCHN Registration event bindings ─────────────────────────────────
+  document.querySelector("[data-cchn-create]")?.addEventListener("click", () => { _cchnEditId = ""; _cchnFormOpen = true; render(); });
+  document.querySelectorAll("[data-cchn-edit]").forEach(el => el.addEventListener("click", () => { _cchnEditId = el.dataset.cchnEdit; _cchnFormOpen = true; render(); }));
+  document.querySelectorAll("[data-cchn-view]").forEach(el => el.addEventListener("click", async () => {
+    try { const res = await fetch(`/api/admin/cchn/registrations/${el.dataset.cchnView}`, { headers: ttApiHeaders() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "load_failed");
+      _cchnDetail = body.data; _cchnDrawerOpen = true; render();
+    } catch (e) { toast("Lỗi: " + e.message); }
+  }));
+  document.querySelectorAll("[data-cchn-cancel]").forEach(el => el.addEventListener("click", () => cancelCchnRegistration(el.dataset.cchnCancel)));
+  document.querySelector("[data-cchn-close-form]")?.addEventListener("click", () => { _cchnFormOpen = false; _cchnEditId = ""; render(); });
+  document.querySelector("[data-cchn-close-drawer]")?.addEventListener("click", () => { _cchnDrawerOpen = false; _cchnDetail = null; render(); });
+  document.getElementById("cchnForm")?.addEventListener("submit", submitCchnForm);
+  document.querySelector("[data-cchn-add-item]")?.addEventListener("click", () => { _cchnAddItemOpen = true; render(); });
+  document.querySelector("[data-cchn-close-add]")?.addEventListener("click", () => { _cchnAddItemOpen = false; render(); });
+  document.getElementById("cchnAddItemForm")?.addEventListener("submit", submitCchnAddItem);
+  { let cchnsComposing = false; const el = document.querySelector("[data-cchn-search]");
+    el?.addEventListener("compositionstart", () => cchnsComposing = true);
+    el?.addEventListener("compositionend", e => { cchnsComposing = false; _cchnFilters.search = e.target.value; loadCchnRegistrations(); });
+    el?.addEventListener("input", debounce(e => { if (cchnsComposing) return; _cchnFilters.search = e.target.value; loadCchnRegistrations(); }, 250)); }
+  document.querySelector("[data-cchn-filter-dept]")?.addEventListener("change", e => { _cchnFilters.department = e.target.value; loadCchnRegistrations(); });
+  document.querySelector("[data-cchn-filter-status]")?.addEventListener("change", e => { _cchnFilters.status = e.target.value; loadCchnRegistrations(); });
+}
+
   document.querySelector("[data-logout]")?.addEventListener("click", () => {
     sendActivityHeartbeat("logout");
     sessionService.endSession();
