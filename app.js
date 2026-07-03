@@ -906,7 +906,7 @@ let _hrOverviewLoadedAt = 0;
 let _hrOverviewTab = "inactive";
 let _hrOverviewPollId = 0;
 let _hrTaskFilter = "all"; // "all" | "new" | "in_progress" | "high"
-let _courseDeleteModal = null; // { id, title, impact, confirmText, loading, error, mode } — mode: "archive"|"force"
+let _courseDeleteModal = null; // { id, title, impact, confirmText, loading, error, mode } — mode is always "force" (hard delete)
 let _activityHeartbeatId = 0;
 let _activityLastKey = "";
 let _learningHistory = null;
@@ -1129,19 +1129,20 @@ async function fetchCoursesFromApi(accountId, role) {
   _coursesLoading = true;
   _coursesError = null;
   _coursesAccountId = accountId;
+  // Only trigger a loading render on initial load (no data yet) — on refetch, keep existing data visible
+  const isInitialLoad = _courses === null;
+  if (isInitialLoad) render();
   try {
     const data = await courseApiService.listCourses(accountId, role);
     if (Array.isArray(data)) {
       _courses = data;
-      // Only overwrite localStorage when Supabase has data — never wipe existing seed/local data
-      if (data.length > 0) {
-        const { localStorageAdapter } = await import("./lib/storage/localStorageAdapter.js");
-        // Merge: Supabase wins for records it knows about, local keeps anything not yet in Supabase
-        const local = localStorageAdapter.read("mykis.courses.v1", []);
-        const supabaseIds = new Set(data.map((c) => c.id));
-        const localOnly = local.filter((c) => !supabaseIds.has(c.id));
-        localStorageAdapter.write("mykis.courses.v1", [...data, ...localOnly]);
-      }
+      // Supabase is the source of truth — write back to localStorage, but do NOT re-add deleted courses
+      const { localStorageAdapter } = await import("./lib/storage/localStorageAdapter.js");
+      const local = localStorageAdapter.read("mykis.courses.v1", []);
+      const supabaseIds = new Set(data.map((c) => c.id));
+      // Keep local-only items only if Supabase returned results (otherwise Supabase may be empty/errored)
+      const localOnly = data.length > 0 ? local.filter((c) => !supabaseIds.has(c.id)) : [];
+      localStorageAdapter.write("mykis.courses.v1", [...data, ...localOnly]);
     }
   } catch (err) {
     _coursesError = String(err);
@@ -4271,14 +4272,17 @@ function certModal() {
 
 async function loadCertsForEmployee(accountId) {
   if (!accountId) return;
-  _certListLoading = true; _certList = []; render();
+  // Only reset list on initial load — keep existing data visible during refetch
+  const certInitialLoad = !_certList.length;
+  _certListLoading = true;
+  if (certInitialLoad) render();
   try {
     const res = await fetch(`/api/employees/${encodeURIComponent(accountId)}/certifications`, {
       headers: {"X-Account-Id": session?.accountId||"", "X-Account-Role":"hr"}
     });
     const body = await res.json().catch(()=>({}));
     _certList = body.certifications || [];
-  } catch { _certList = []; }
+  } catch { if (!_certList.length) _certList = []; }
   _certListLoading = false; render();
 }
 
@@ -4652,11 +4656,10 @@ function courseDeleteModal() {
   const m = _courseDeleteModal;
   if (!m) return "";
   const imp = m.impact || {};
-  const totalImpact = (imp.enrollments || 0) + (imp.sessions || 0);
-  const isForce = m.mode === "force";
   const confirmWord = "XÓA";
   const confirmMatch = (m.confirmText || "") === confirmWord;
-  const canConfirm = !isForce || confirmMatch;
+  // Always require XÓA confirmation — all deletes are permanent hard deletes
+  const canConfirm = confirmMatch;
 
   let impactLines = "";
   if (m.impact) {
@@ -4669,36 +4672,35 @@ function courseDeleteModal() {
       imp.compliance > 0 ? `${imp.compliance} yêu cầu tuân thủ` : null,
     ].filter(Boolean);
     if (lines.length) {
-      impactLines = `<div class="course-delete-impact"><strong>Dữ liệu liên quan sẽ bị ảnh hưởng:</strong><ul>${lines.map(l=>`<li>${escapeHtml(l)}</li>`).join("")}</ul></div>`;
+      impactLines = `<div class="course-delete-impact"><strong>Dữ liệu liên quan sẽ bị xóa vĩnh viễn:</strong><ul>${lines.map(l=>`<li>${escapeHtml(l)}</li>`).join("")}</ul></div>`;
+    } else {
+      impactLines = `<p style="font-size:13px;color:#2d3748">Khóa học chưa có enrollment hoặc lịch học.</p>`;
     }
   }
 
   return `<div class="modal-backdrop open" role="dialog" aria-modal="true" aria-labelledby="course-del-title">
     <div class="card modal modal--medium modal--structured">
       <header class="modal__header">
-        <div><h2 id="course-del-title" style="color:var(--color-danger,#e53e3e)">${isForce ? "Xóa vĩnh viễn khóa học" : "Xóa khóa học"}</h2></div>
-        <button type="button" class="icon-btn" data-close-course-delete aria-label="Đóng">×</button>
+        <div><h2 id="course-del-title" style="color:var(--color-danger,#e53e3e)">Xóa vĩnh viễn khóa học</h2></div>
+        <button type="button" class="icon-btn" ${m.loading ? "disabled" : ""} data-close-course-delete aria-label="Đóng">×</button>
       </header>
       <div class="modal__body">
         ${m.error ? `<div class="form-error" style="margin-bottom:12px">${escapeHtml(m.error)}</div>` : ""}
         <p>Khóa học: <strong>${escapeHtml(m.title || m.id)}</strong></p>
-        ${m.impact === null ? `<div class="adm-skeleton-block" style="height:48px"></div>` : impactLines}
-        ${isForce ? `
-          <div style="background:#fff5f5;border:1px solid #feb2b2;border-radius:6px;padding:12px;margin:12px 0">
-            <strong style="color:#c53030">Cảnh báo: Hành động này không thể hoàn tác.</strong>
-            <p style="margin-top:4px;font-size:13px;color:#742a2a">Tất cả nội dung, enrollment và lịch học sẽ bị xóa vĩnh viễn. Nhật ký kiểm tra (audit log) sẽ được giữ lại.</p>
-          </div>
-          <div class="field">
-            <label>Nhập <strong>${confirmWord}</strong> để xác nhận:</label>
-            <input type="text" id="courseDeleteConfirmInput" value="${escapeHtmlAttribute(m.confirmText || "")}" autocomplete="off" placeholder="${confirmWord}" style="font-family:monospace" data-course-delete-confirm-input>
-          </div>
-        ` : (totalImpact > 0 ? `<p style="color:#744210;background:#fffbeb;border:1px solid #f6e05e;padding:10px;border-radius:6px;font-size:13px">Khóa học có dữ liệu liên quan. Hệ thống sẽ <strong>lưu trữ</strong> thay vì xóa vĩnh viễn. Khóa học sẽ ẩn khỏi danh sách hoạt động.</p>` : `<p style="font-size:13px;color:#2d3748">Khóa học chưa có enrollment hoặc lịch học. Sẽ bị xóa vĩnh viễn.</p>`)}
-        ${m.impact && totalImpact > 0 && !isForce ? `<button type="button" class="btn btn-outline" style="color:var(--color-danger,#e53e3e);border-color:currentColor;margin-top:8px;font-size:12px" data-course-force-delete="${escapeHtmlAttribute(m.id)}">Xóa vĩnh viễn (bỏ qua dữ liệu liên quan)</button>` : ""}
+        ${m.impact === null ? `<div class="adm-skeleton-block" style="height:48px" aria-hidden="true"></div>` : impactLines}
+        <div style="background:#fff5f5;border:1px solid #feb2b2;border-radius:6px;padding:12px;margin:12px 0">
+          <strong style="color:#c53030">Cảnh báo: Hành động này không thể hoàn tác.</strong>
+          <p style="margin-top:4px;font-size:13px;color:#742a2a">Toàn bộ nội dung, enrollment và dữ liệu liên quan sẽ bị xóa khỏi hệ thống. Nhật ký kiểm tra (audit log) sẽ được giữ lại.</p>
+        </div>
+        <div class="field">
+          <label>Nhập <strong>${confirmWord}</strong> để xác nhận:</label>
+          <input type="text" id="courseDeleteConfirmInput" value="${escapeHtmlAttribute(m.confirmText || "")}" autocomplete="off" placeholder="${confirmWord}" style="font-family:monospace" data-course-delete-confirm-input ${m.loading ? "disabled" : ""}>
+        </div>
       </div>
       <footer class="modal__footer">
-        <button type="button" class="btn btn-outline" data-close-course-delete>Hủy</button>
-        <button type="button" class="btn btn-danger ${m.loading ? "loading" : ""}" data-confirm-course-delete="${escapeHtmlAttribute(m.id)}" ${(!canConfirm || m.loading || m.impact === null) ? "disabled" : ""}>
-          ${m.loading ? "Đang xóa..." : isForce ? "Xóa vĩnh viễn" : (totalImpact > 0 ? "Lưu trữ" : "Xóa")}
+        <button type="button" class="btn btn-outline" data-close-course-delete ${m.loading ? "disabled" : ""}>Hủy</button>
+        <button type="button" class="btn btn-danger ${m.loading ? "loading" : ""}" data-confirm-course-delete="${escapeHtmlAttribute(m.id)}" ${(!canConfirm || m.loading || m.impact === null) ? "disabled" : ""} aria-busy="${m.loading}">
+          ${m.loading ? `<span class="btn-spinner" aria-hidden="true"></span><span class="btn-label">Đang xóa...</span>` : `<span class="btn-label">Xóa vĩnh viễn</span>`}
         </button>
       </footer>
     </div>
@@ -7779,10 +7781,11 @@ function setupPageSpecificHandlers() {
   document.querySelectorAll("[data-course-detail]").forEach((el) => el.addEventListener("click", () => { selectedCourseId = el.dataset.courseDetail; courseDrawerOpen = true; courseFormMode = ""; render(); }));
   document.querySelectorAll("[data-course-detail-tab]").forEach(el => el.addEventListener("click", () => { courseDetailTab = el.dataset.courseDetailTab; render(); }));
   document.querySelectorAll("[data-course-edit]").forEach((el) => el.addEventListener("click", () => { selectedCourseId = el.dataset.courseEdit; courseFormMode = "edit"; courseDrawerOpen = false; render(); }));
-  async function openCourseDeleteModal(courseId, forceMode = false) {
+  async function openCourseDeleteModal(courseId) {
     const course = getCourseById(courseId);
     const title = course?.title || course?.name || courseId;
-    _courseDeleteModal = { id: courseId, title, impact: null, confirmText: "", loading: false, error: "", mode: forceMode ? "force" : "normal" };
+    // All deletes are permanent hard deletes — mode is always "force"
+    _courseDeleteModal = { id: courseId, title, impact: null, confirmText: "", loading: false, error: "", mode: "force" };
     render();
     try {
       const res = await fetch(`/api/courses/impact?id=${encodeURIComponent(courseId)}`, { headers: apiHeaders() });
@@ -7804,36 +7807,41 @@ function setupPageSpecificHandlers() {
     e.stopPropagation();
     openCourseDeleteModal(el.dataset.courseDelete, false);
   }));
-  document.querySelector("[data-close-course-delete]")?.addEventListener("click", () => { _courseDeleteModal = null; render(); });
+  document.querySelector("[data-close-course-delete]")?.addEventListener("click", () => { if (_courseDeleteModal?.loading) return; _courseDeleteModal = null; render(); });
   document.querySelector("[data-course-delete-confirm-input]")?.addEventListener("input", (e) => {
     if (_courseDeleteModal) { _courseDeleteModal = { ..._courseDeleteModal, confirmText: e.target.value }; }
   });
-  document.querySelectorAll("[data-course-force-delete]").forEach(el => el.addEventListener("click", () => {
-    if (_courseDeleteModal) openCourseDeleteModal(_courseDeleteModal.id, true);
-  }));
+  // data-course-force-delete removed — all deletes are hard deletes, no secondary escalation needed
   document.querySelectorAll("[data-confirm-course-delete]").forEach(el => el.addEventListener("click", async () => {
     const m = _courseDeleteModal;
     if (!m) return;
-    const isForce = m.mode === "force";
-    if (isForce && m.confirmText !== "XÓA") return;
+    // Always require XÓA confirmation — all deletes are permanent hard deletes
+    if (m.confirmText !== "XÓA") return;
     _courseDeleteModal = { ...m, loading: true, error: "" };
     render();
     try {
-      const url = isForce ? `/api/courses?id=${encodeURIComponent(m.id)}&force=true` : `/api/courses?id=${encodeURIComponent(m.id)}`;
-      const res = await fetch(url, { method: "DELETE", headers: apiHeaders({ "Content-Type": "application/json" }) });
+      // Always force=true — hard delete with full dependency cleanup
+      const res = await fetch(`/api/courses?id=${encodeURIComponent(m.id)}&force=true`, { method: "DELETE", headers: apiHeaders({ "Content-Type": "application/json" }) });
       const body = await res.json().catch(() => ({}));
       if (!body.ok) throw new Error(body.error || "delete_failed");
-      // Update local state
-      if (body.method === "soft" || body.status === "archived") {
-        const c = getCourseById(m.id);
-        if (c) c.status = "archived";
-      } else {
-        deleteCourse(m.id);
+      // Verify course is gone: confirm API no longer returns it
+      const verifyRes = await fetch(`/api/courses/impact?id=${encodeURIComponent(m.id)}`, { headers: apiHeaders() }).catch(() => null);
+      if (verifyRes && verifyRes.status !== 404) {
+        const verifyBody = await verifyRes.json().catch(() => ({}));
+        if (verifyBody.ok) throw new Error("Khóa học vẫn còn tồn tại sau khi xóa. Vui lòng thử lại.");
       }
+      // Remove from local state and invalidate localStorage cache
+      deleteCourse(m.id);
+      try {
+        const { localStorageAdapter } = await import("./lib/storage/localStorageAdapter.js");
+        const cached = localStorageAdapter.read("mykis.courses.v1", []);
+        localStorageAdapter.write("mykis.courses.v1", cached.filter(c => c.id !== m.id));
+      } catch(_) { /* localStorage unavailable — ignore */ }
       if (selectedCourseId === m.id) { selectedCourseId = ""; courseDrawerOpen = false; courseFormMode = ""; }
       _courseDeleteModal = null;
       toast("success");
       render();
+      // Refetch in background to sync any other state — do NOT set _courses=null first
       fetchCoursesFromApi(session.accountId, session.role);
     } catch(err) {
       console.error("[delete-course]", err?.message);

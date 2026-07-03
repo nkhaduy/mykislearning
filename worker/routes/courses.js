@@ -247,29 +247,42 @@ export async function handleCourses(request, env) {
       return json({ ok: true, id, status: "force_deleted", method: "hard", impact });
     }
 
-    // Check if enrollments, sessions, or content exist → archive
-    const { data: enrollments } = await supabase.from("enrollments")
-      .select("id").eq("course_id", id).limit(1);
-    const { data: sessions } = await supabase.from("training_sessions")
-      .select("id").eq("course_id", id).limit(1);
+    // Always hard delete — count impact for audit log, then delete dependencies and course row
+    const [enrollmentCount, sessionCount, contentCount, versionCount] = await Promise.all([
+      supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("course_id", id),
+      supabase.from("training_sessions").select("id", { count: "exact", head: true }).eq("course_id", id),
+      supabase.from("course_content").select("id", { count: "exact", head: true }).eq("course_id", id),
+      supabase.from("course_versions").select("id", { count: "exact", head: true }).eq("course_id", id),
+    ]);
+    const impact = {
+      enrollments: enrollmentCount.count || 0,
+      sessions: sessionCount.count || 0,
+      content: contentCount.count || 0,
+      versions: versionCount.count || 0,
+    };
 
-    const hasRelatedData = (enrollments?.length || 0) + (sessions?.length || 0) > 0;
-    if (hasRelatedData) {
-      // Soft delete: archive
-      const { error } = await supabase.from("courses")
-        .update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", id);
-      if (error) return json({ error: error.message }, 500);
-      auditLater(supabase, request, { actor: acct, action: "course.archived", entityType: "course", entityId: id, entityDisplayName: courseTitle, beforeData: { status: courseRow.status }, afterData: { status: "archived" } });
-      return json({ ok: true, id, status: "archived", method: "soft" });
-    } else {
-      // Hard delete if no related data
-      await supabase.from("course_content").delete().eq("course_id", id);
-      await supabase.from("course_versions").delete().eq("course_id", id);
-      const { error } = await supabase.from("courses").delete().eq("id", id);
-      if (error) return json({ error: error.message }, 500);
-      auditLater(supabase, request, { actor: acct, action: "course.deleted", entityType: "course", entityId: id, entityDisplayName: courseTitle, metadata: { title_snapshot: courseTitle } });
-      return json({ ok: true, id, status: "deleted", method: "hard" });
-    }
+    // Delete all operational dependencies before removing course row
+    await supabase.from("course_content").delete().eq("course_id", id);
+    await supabase.from("enrollments").delete().eq("course_id", id);
+    await supabase.from("training_sessions").update({ status: "cancelled" }).eq("course_id", id);
+    await supabase.from("course_versions").delete().eq("course_id", id);
+
+    const { error } = await supabase.from("courses").delete().eq("id", id);
+    if (error) return json({ error: error.message }, 500);
+
+    // Verify row is gone
+    const { data: verify } = await supabase.from("courses").select("id").eq("id", id).maybeSingle();
+    if (verify) return json({ error: "Course record still exists after delete — operation incomplete." }, 500);
+
+    auditLater(supabase, request, {
+      actor: acct,
+      action: "course.hard_deleted",
+      entityType: "course",
+      entityId: id,
+      entityDisplayName: courseTitle,
+      metadata: { title_snapshot: courseTitle, impact },
+    });
+    return json({ ok: true, id, status: "deleted", method: "hard", impact });
   }
 
   return methodNotAllowed();
