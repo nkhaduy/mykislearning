@@ -2,7 +2,7 @@ export const vi = {
   lang: "VI",
   brand: "MyKIS Learning",
   nav: { home: "Trang chủ", about: "Về KIS", roadmap: "Lộ trình học", courses: "Khóa học", library: "Thư viện", dashboard: "Dashboard", support: "Hỗ trợ", login: "Đăng nhập", hr: "Dành cho HR" },
-  shell: { navMain: "Điều hướng chính", openMenu: "Mở menu", closeMenu: "Đóng menu", notifications: "Thông báo", userMenu: "Menu người dùng", overview: "Tổng quan", learning: "Học tập", complianceCertificates: "Tuân thủ & Chứng chỉ", personalCapability: "Năng lực cá nhân", system: "Hệ thống", training: "Đào tạo", capabilityDevelopment: "Năng lực & Phát triển", reportsSystem: "Báo cáo & Hệ thống", retraining: "Tái đào tạo", trainingTracking: "Theo dõi đào tạo", cchnRegistration: "Đăng ký học CCHN" },
+  shell: { navMain: "Điều hướng chính", openMenu: "Mở menu", closeMenu: "Đóng menu", notifications: "Thông báo", userMenu: "Menu người dùng", overview: "Tổng quan", learning: "Học tập", complianceCertificates: "Tuân thủ & Chứng chỉ", personalCapability: "Năng lực cá nhân", system: "Hệ thống", training: "Đào tạo", capabilityDevelopment: "Năng lực & Phát triển", reportsSystem: "Báo cáo & Hệ thống", retraining: "Tái đào tạo", trainingTracking: "Theo dõi đào tạo", cchnRegistration: "Đăng ký học CCHN", offlineClassManagement: "Quản lý lớp offline" },
   roles: { employee: "Nhân viên", hr: "HR" },
   landing: {
     eyebrow: "Dành riêng cho nhân viên KIS Việt Nam",

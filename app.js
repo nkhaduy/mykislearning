@@ -3973,6 +3973,7 @@ function shellLabel(key) {
     navCapabilities: { vi: "Năng lực & Phát triển", en: "Capability & Development", kr: "역량 및 개발" },
     navReportsSystem: { vi: "Báo cáo & Hệ thống", en: "Reports & System", kr: "보고서 및 시스템" },
     navPersonnel: { vi: "Nhân sự", en: "Personnel", kr: "인사" },
+    offlineClassManagement: { vi: "Quản lý lớp offline", en: "Offline Class Management", kr: "오프라인 교육 관리" },
     logout: { vi: "Đăng xuất", en: "Sign out", kr: "로그아웃" },
   };
   return labels[key]?.[language] || labels[key]?.vi || key;
@@ -4003,6 +4004,7 @@ function shellPageMeta(path = route) {
     "/admin/audit-log": [shellLabel("roleHr"), t("admin.auditLog")],
     "/admin/retraining": [shellLabel("roleHr"), shellLabel("retraining")],
     "/admin/training-tracking": [shellLabel("roleHr"), t("trainingTracking.title")],
+    "/admin/sessions": [shellLabel("roleHr"), shellLabel("offlineClassManagement")],
     "/admin/cchn-registrations": [shellLabel("roleHr"), t("cchnRegistration.title")],
   };
   const direct = base[path] || Object.entries(base).filter(([href]) => href !== "/" && path.startsWith(`${href}/`)).sort((a,b)=>b[0].length-a[0].length)[0]?.[1];
@@ -4018,7 +4020,7 @@ function sideNav(role) {
   const groups = role === "hr"
     ? [
         [shellLabel("navOverview"), [["/admin", t("admin.overview")]]],
-        [shellLabel("navTraining"), [["/admin/courses", t("course.manage")], ["/admin/assign", t("enrollment.assign")], ["/admin/quizzes", t("quiz.quizzes")], ["/admin/learning-paths", t("lp.title")], ["/admin/training-tracking", shellLabel("trainingTracking")], ["/admin/cchn-registrations", shellLabel("cchnRegistration")]]],
+        [shellLabel("navTraining"), [["/admin/courses", t("course.manage")], ["/admin/assign", t("enrollment.assign")], ["/admin/quizzes", t("quiz.quizzes")], ["/admin/learning-paths", t("lp.title")], ["/admin/sessions", shellLabel("offlineClassManagement")], ["/admin/training-tracking", shellLabel("trainingTracking")], ["/admin/cchn-registrations", shellLabel("cchnRegistration")]]],
         [shellLabel("navPersonnel"), [["/admin/employees", t("admin.employees")], ["/admin/accounts", t("admin.accountTitle")]]],
         [shellLabel("navComplianceShort"), [["/admin/certificates", t("certificates.certificate")]]],
         [shellLabel("navReportsSystem"), [["/admin/reports", t("reports.title")], ["/admin/notifications", shellLabel("notifications")], ["/admin/audit-log", t("admin.auditLog")]]],
