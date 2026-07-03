@@ -1690,8 +1690,6 @@ function header() {
 }
 
 function footer() {
-  const roleLabel = language === "kr" ? "인사팀 부팀장" : language === "en" ? "Assistant Manager, Human Resources" : "Phòng Nhân sự – Đào tạo & Phát triển";
-  const ctaLabel = language === "kr" ? "이메일 보내기" : language === "en" ? "Send email" : "Gửi email";
   const loginLabel = language === "kr" ? "로그인" : language === "en" ? "Sign in" : "Đăng nhập";
   return `
     <footer class="footer-v2">
@@ -1710,18 +1708,12 @@ function footer() {
             <a href="/login" data-link>${loginLabel}</a>
           </div>
         </nav>
-        <div class="footer-v2__col footer-v2__contact-col">
+        <div class="public-footer-contact-col">
           <span class="footer-v2__col-heading">${uiText("contactSupport")}</span>
-          <div class="footer-v2__support-box">
-            <div class="footer-v2__support-body">
-              <span class="footer-v2__support-name">${hrContact}</span>
-              <span class="footer-v2__support-role">${roleLabel}</span>
-              <a class="footer-v2__support-email" href="mailto:thanh.ntc@kisvn.vn">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                thanh.ntc@kisvn.vn
-              </a>
-            </div>
-            <a class="footer-v2__support-cta" href="mailto:thanh.ntc@kisvn.vn">${ctaLabel}</a>
+          <div class="public-footer-contact-text">
+            <span class="public-footer-contact-name">${hrContact}</span>
+            <span class="public-footer-contact-role">${t("about.footerContactRole")}</span>
+            <a class="public-footer-contact-email" href="mailto:thanh.ntc@kisvn.vn">thanh.ntc@kisvn.vn</a>
           </div>
         </div>
       </div>
@@ -2243,9 +2235,25 @@ function leadershipSection() {
   </section>`;
 }
 
+function renderTimelineContent(year) {
+  const item = timelineData[year];
+  if (!item) return "";
+  return `<div class="timeline-carousel__content-inner" data-active-year="${year}" data-direction="${_timelineDirection}">
+    <div class="timeline-carousel__watermark" aria-hidden="true">${year}</div>
+    <div class="timeline-carousel__image"${year === "2020" ? ' data-year="2020"' : ""}>
+      <img src="${item.image}" alt="KIS Vietnam ${year}" loading="lazy" decoding="async">
+    </div>
+    <div class="timeline-carousel__info" role="tabpanel" aria-labelledby="timeline-year-${year}" tabindex="0">
+      <h3 class="timeline-carousel__year-big">${year}</h3>
+      <ul class="timeline-carousel__events">
+        ${item.events.map((ev, i) => `<li style="--i:${i}">${ev}</li>`).join("")}
+      </ul>
+    </div>
+  </div>`;
+}
+
 function kisTimelineSection() {
   const year = activeTimelineYear;
-  const item = timelineData[year];
   const years = Object.keys(timelineData);
   const idx = years.indexOf(year);
   const totalYears = years.length;
@@ -2266,23 +2274,14 @@ function kisTimelineSection() {
         <div class="timeline-carousel__years-line" aria-hidden="true"></div>
         <div class="timeline-carousel__years-progress" aria-hidden="true"></div>
         ${years.map(y => `
-          <button class="timeline-carousel__year${y === year ? " is-active" : ""}" role="tab" aria-selected="${y === year}"${y === year ? ' aria-current="true"' : ""} data-timeline-year="${y}">
+          <button id="timeline-year-${y}" class="timeline-carousel__year${y === year ? " is-active" : ""}" role="tab" aria-selected="${y === year}" tabindex="${y === year ? "0" : "-1"}"${y === year ? ' aria-current="true"' : ""} data-timeline-year="${y}">
             <span class="timeline-carousel__year-label">${y}</span>
             <span class="timeline-carousel__year-dot"></span>
           </button>
         `).join("")}
       </div>
-      <div class="timeline-carousel__content" data-direction="${_timelineDirection}">
-        <div class="timeline-carousel__watermark" aria-hidden="true">${year}</div>
-        <div class="timeline-carousel__image"${year === "2020" ? ' data-year="2020"' : ""}>
-          <img src="${item.image}" alt="KIS Vietnam ${year}" loading="lazy" decoding="async">
-        </div>
-        <div class="timeline-carousel__info">
-          <span class="timeline-carousel__year-big">${year}</span>
-          <ul class="timeline-carousel__events">
-            ${item.events.map((ev, i) => `<li style="--i:${i}">${ev}</li>`).join("")}
-          </ul>
-        </div>
+      <div class="timeline-carousel__content" aria-live="polite">
+        ${renderTimelineContent(year)}
       </div>
     </div>
   </section>`;
@@ -6285,12 +6284,42 @@ function initTimelineCarousel() {
   if (!section) return;
   const years = Object.keys(timelineData);
   const prefersReduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const updateShell = (year) => {
+    section.querySelectorAll("[data-timeline-year]").forEach((btn) => {
+      const isActive = btn.dataset.timelineYear === year;
+      btn.classList.toggle("is-active", isActive);
+      btn.setAttribute("aria-selected", String(isActive));
+      btn.setAttribute("tabindex", isActive ? "0" : "-1");
+      if (isActive) btn.setAttribute("aria-current", "true");
+      else btn.removeAttribute("aria-current");
+    });
+    const idx = years.indexOf(year);
+    const yearNav = section.querySelector(".timeline-carousel__years");
+    if (yearNav) yearNav.style.setProperty("--active-index", idx);
+    prevBtn?.toggleAttribute("disabled", idx === 0);
+    nextBtn?.toggleAttribute("disabled", idx === years.length - 1);
+  };
+  const updateContent = (year) => {
+    const content = section.querySelector(".timeline-carousel__content");
+    const currentInner = content?.querySelector(".timeline-carousel__content-inner");
+    if (!content || !currentInner) return;
+    const nextMarkup = renderTimelineContent(year);
+    if (prefersReduced) {
+      content.innerHTML = nextMarkup;
+      return;
+    }
+    currentInner.classList.add("is-updating");
+    window.setTimeout(() => {
+      content.innerHTML = nextMarkup;
+    }, 140);
+  };
 
   const goToYear = (y, direction) => {
     if (y && y !== activeTimelineYear && timelineData[y]) {
       _timelineDirection = direction || "next";
       activeTimelineYear = y;
-      render();
+      updateShell(y);
+      updateContent(y);
     }
   };
 
@@ -6328,6 +6357,9 @@ function initTimelineCarousel() {
         const idx = years.indexOf(activeTimelineYear);
         if (e.key === "ArrowLeft" && idx > 0) goToYear(years[idx - 1], "prev");
         else if (e.key === "ArrowRight" && idx < years.length - 1) goToYear(years[idx + 1], "next");
+      } else if (e.key === "Home" || e.key === "End") {
+        e.preventDefault();
+        goToYear(e.key === "Home" ? years[0] : years[years.length - 1], e.key === "Home" ? "prev" : "next");
       }
     });
   }
@@ -6349,10 +6381,10 @@ function initTimelineCarousel() {
     }, { passive: true });
   }
 
-  // Scroll active year into view
+  // Keep the active year visible on initial load without changing page scroll.
   const activeYearEl = section.querySelector(".timeline-carousel__year.is-active");
   if (activeYearEl) {
-    activeYearEl.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth", block: "nearest", inline: "center" });
+    activeYearEl.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
   }
 
   // Timeline entry animation (rail draw on first scroll-into-view)
