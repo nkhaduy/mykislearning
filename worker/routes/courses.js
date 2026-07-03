@@ -92,6 +92,43 @@ export async function handleCourses(request, env) {
     return methodNotAllowed();
   }
 
+  // ── /api/courses/impact — must be checked before general GET ───────────────
+  if (path === "/api/courses/impact" && method === "GET") {
+    const acct = await requireHr(request, env);
+    if (!acct) return json({ error: "HR only" }, 403);
+    const id = url.searchParams.get("id");
+    if (!id) return json({ error: "id required" }, 400);
+
+    const course = await supabase.from("courses").select("id, status, data").eq("id", id).maybeSingle();
+    if (course.error) return json({ error: course.error.message }, 500);
+    if (!course.data) return json({ error: "Course not found" }, 404);
+
+    const [enrollments, sessions, content, versions, lpSteps, compliance] = await Promise.all([
+      supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("course_id", id),
+      supabase.from("training_sessions").select("id", { count: "exact", head: true }).eq("course_id", id),
+      supabase.from("course_content").select("id", { count: "exact", head: true }).eq("course_id", id),
+      supabase.from("course_versions").select("id", { count: "exact", head: true }).eq("course_id", id),
+      supabase.from("learning_path_steps").select("id", { count: "exact", head: true }).eq("resource_id", id).eq("resource_type", "course").then(r => r).catch(() => ({ count: 0 })),
+      supabase.from("compliance_requirements").select("id", { count: "exact", head: true }).eq("resource_id", id).then(r => r).catch(() => ({ count: 0 })),
+    ]);
+
+    const title = course.data?.data?.title || course.data?.data?.name || id;
+    return json({
+      ok: true,
+      id,
+      title,
+      status: course.data.status,
+      impact: {
+        enrollments: enrollments.count || 0,
+        sessions: sessions.count || 0,
+        content: content.count || 0,
+        versions: versions.count || 0,
+        learningPaths: lpSteps.count || 0,
+        compliance: compliance.count || 0,
+      },
+    });
+  }
+
   // ── /api/courses ────────────────────────────────────────────────────────────
   if (method === "GET") {
     const acct = await requireAuth(request, env);
@@ -164,40 +201,7 @@ export async function handleCourses(request, env) {
     return json({ ok: true, id: course.id });
   }
 
-  // ── /api/courses/impact — impact check before delete ────────────────────────
-  if (path === "/api/courses/impact" && method === "GET") {
-    const acct = await requireHr(request, env);
-    if (!acct) return json({ error: "HR only" }, 403);
-    const id = url.searchParams.get("id");
-    if (!id) return json({ error: "id required" }, 400);
-
-    const [course, enrollments, sessions, content, versions, lpSteps, compliance] = await Promise.all([
-      supabase.from("courses").select("id, status, data").eq("id", id).maybeSingle(),
-      supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("course_id", id),
-      supabase.from("training_sessions").select("id", { count: "exact", head: true }).eq("course_id", id),
-      supabase.from("course_content").select("id", { count: "exact", head: true }).eq("course_id", id),
-      supabase.from("course_versions").select("id", { count: "exact", head: true }).eq("course_id", id),
-      supabase.from("learning_path_steps").select("id", { count: "exact", head: true }).eq("resource_id", id).eq("resource_type", "course").catch(() => ({ count: 0 })),
-      supabase.from("compliance_requirements").select("id", { count: "exact", head: true }).eq("resource_id", id).catch(() => ({ count: 0 })),
-    ]);
-
-    if (!course.data) return json({ error: "Course not found" }, 404);
-    const title = course.data?.data?.title || course.data?.data?.name || id;
-    return json({
-      ok: true,
-      id,
-      title,
-      status: course.data.status,
-      impact: {
-        enrollments: enrollments.count || 0,
-        sessions: sessions.count || 0,
-        content: content.count || 0,
-        versions: versions.count || 0,
-        learningPaths: lpSteps.count || 0,
-        compliance: compliance.count || 0,
-      },
-    });
-  }
+  // (impact path now handled above, before general GET)
 
   if (method === "DELETE") {
     const acct = await requireHr(request, env);
@@ -227,11 +231,14 @@ export async function handleCourses(request, env) {
         versions: versions.count || 0,
       };
 
-      // Delete dependencies
-      await supabase.from("course_content").delete().eq("course_id", id);
-      await supabase.from("enrollments").delete().eq("course_id", id);
+      // Delete dependencies in order: content, enrollments, sessions, versions (versions must go before courses row due to RESTRICT FK)
+      const ccDel = await supabase.from("course_content").delete().eq("course_id", id);
+      if (ccDel.error) return json({ error: "course_content: " + ccDel.error.message }, 500);
+      const enrDel = await supabase.from("enrollments").delete().eq("course_id", id);
+      if (enrDel.error) return json({ error: "enrollments: " + enrDel.error.message }, 500);
       await supabase.from("training_sessions").update({ status: "cancelled" }).eq("course_id", id);
-      await supabase.from("course_versions").delete().eq("course_id", id);
+      const verDel = await supabase.from("course_versions").delete().eq("course_id", id);
+      if (verDel.error) return json({ error: "course_versions: " + verDel.error.message }, 500);
 
       const { error } = await supabase.from("courses").delete().eq("id", id);
       if (error) return json({ error: error.message }, 500);
@@ -261,11 +268,14 @@ export async function handleCourses(request, env) {
       versions: versionCount.count || 0,
     };
 
-    // Delete all operational dependencies before removing course row
-    await supabase.from("course_content").delete().eq("course_id", id);
-    await supabase.from("enrollments").delete().eq("course_id", id);
+    // Delete all operational dependencies in safe order (course_versions must go before courses due to RESTRICT FK)
+    const cc2Del = await supabase.from("course_content").delete().eq("course_id", id);
+    if (cc2Del.error) return json({ error: "course_content: " + cc2Del.error.message }, 500);
+    const enr2Del = await supabase.from("enrollments").delete().eq("course_id", id);
+    if (enr2Del.error) return json({ error: "enrollments: " + enr2Del.error.message }, 500);
     await supabase.from("training_sessions").update({ status: "cancelled" }).eq("course_id", id);
-    await supabase.from("course_versions").delete().eq("course_id", id);
+    const ver2Del = await supabase.from("course_versions").delete().eq("course_id", id);
+    if (ver2Del.error) return json({ error: "course_versions: " + ver2Del.error.message }, 500);
 
     const { error } = await supabase.from("courses").delete().eq("id", id);
     if (error) return json({ error: error.message }, 500);
