@@ -145,6 +145,7 @@ let courseFilterStatus = "";
 let courseDrawerOpen = false;
 let selectedCourseId = "";
 let courseFormMode = "";
+let _courseDeletingIds = new Set();
 let contentBuilderMode = "";
 let selectedContentId = "";
 let contentBuilderType = "slide";
@@ -906,7 +907,6 @@ let _hrOverviewLoadedAt = 0;
 let _hrOverviewTab = "inactive";
 let _hrOverviewPollId = 0;
 let _hrTaskFilter = "all"; // "all" | "new" | "in_progress" | "high"
-let _courseDeleteModal = null; // { id, title, impact, confirmText, loading, error, mode } — mode is always "force" (hard delete)
 let _activityHeartbeatId = 0;
 let _activityLastKey = "";
 let _learningHistory = null;
@@ -1131,7 +1131,9 @@ async function fetchCoursesFromApi(accountId, role) {
   _coursesAccountId = accountId;
   // Only trigger a loading render on initial load (no data yet) — on refetch, keep existing data visible
   const isInitialLoad = _courses === null;
-  if (isInitialLoad) render();
+  if (isInitialLoad && !document.querySelector("[data-course-search], .course-library, .course-detail")) {
+    queueMicrotask(() => { if (_coursesLoading) render(); });
+  }
   try {
     const data = await courseApiService.listCourses(accountId, role);
     if (Array.isArray(data)) {
@@ -1661,6 +1663,7 @@ function header() {
   const activeEmployee = activeAccount?.role === "employee" ? getEmployeeByAccountId(activeAccount.id) : null;
   const destinationLabel = activeAccount?.role === "hr" ? "Vào trang quản trị" : "Vào trang học tập";
   const destinationRoute = activeAccount?.role === "hr" ? "/admin" : "/dashboard";
+  const displayName = activeAccount?.fullName || activeAccount?.name || activeAccount?.email || "";
   return `
     <header class="header">
       <div class="container header-inner">
@@ -1668,20 +1671,15 @@ function header() {
         <nav class="nav">
           <a href="/" data-link ${route === "/" ? 'aria-current="page" class="is-active"' : ""}>${t("nav.home")}</a>
           <a href="/about-kis" data-link ${route === "/about-kis" ? 'aria-current="page" class="is-active"' : ""}>${t("nav.about")}</a>
-          <button class="nav-button" ${activeSession ? 'data-auth-target="/dashboard/courses" data-auth-role="employee"' : 'data-scroll="featured-courses"'}>${activeSession ? uiText("exploreCourses") : t("nav.courses")}</button>
-          ${activeSession ? `<button class="nav-button" data-open-notifications>${uiText("announcements")}</button>` : ""}
-          ${activeAccount?.role === "employee" ? `<button class="nav-button" data-auth-target="/dashboard/calendar" data-auth-role="employee">${uiText("calendar")}</button>` : ""}
-          ${activeAccount?.role === "hr" ? `<button class="nav-button" data-auth-target="/admin/reports" data-auth-role="hr">${t("admin.reports")}</button>` : ""}
+          <button class="nav-button" data-scroll="featured-courses">${t("nav.courses")}</button>
         </nav>
         <div class="header-actions">
           ${languageSwitcher()}
-          <!-- Mobile CTA — shown only on ≤767px; hidden on desktop via CSS -->
           ${activeSession
-            ? `<a class="btn btn-primary header-mobile-cta" href="${destinationRoute}" data-link style="font-size:13px;padding:0 14px;min-height:38px">Vào trang học tập</a>`
+            ? `<a class="btn btn-primary header-mobile-cta" href="${destinationRoute}" data-link style="font-size:13px;padding:0 14px;min-height:38px">${destinationLabel}</a>`
             : `<a class="btn btn-primary header-mobile-cta" href="/login" data-link style="font-size:13px;padding:0 14px;min-height:38px">Đăng nhập</a>`}
-          <!-- Desktop user menu — hidden on ≤767px via CSS -->
           ${activeSession
-            ? `<details class="topbar-user header-desktop-user"><summary aria-label="${escapeHtmlAttribute(activeAccount?.fullName || "")}"><span class="topbar-user__name">${escapeHtml(activeAccount?.fullName || "")}</span><svg class="topbar-user__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><div class="topbar-user__menu"><strong>${escapeHtml(activeAccount?.fullName || "")}</strong>${activeEmployee?.position || activeAccount?.position ? `<span>${escapeHtml(activeEmployee?.position || activeAccount?.position || "")}</span>` : ""}${activeEmployee?.department || activeAccount?.department ? `<span>${escapeHtml(activeEmployee?.department || activeAccount?.department || "")}</span>` : ""}<a class="btn btn-primary" href="${destinationRoute}" data-link>${destinationLabel}</a><button class="btn btn-outline" data-logout>${uiText("logout")}</button></div></details>`
+            ? `<div class="topbar-user topbar-user-shell public-user-menu header-desktop-user"><button type="button" class="topbar-user-trigger public-user-menu__trigger" data-user-menu-trigger aria-haspopup="menu" aria-expanded="${userMenuOpen ? "true" : "false"}" aria-controls="publicUserMenu"><span class="topbar-user__name">${escapeHtml(displayName)}</span><svg class="topbar-user__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button><div class="topbar-user__menu public-user-menu__menu ${userMenuOpen ? "is-open" : ""}" id="publicUserMenu" data-user-menu role="menu"><strong>${escapeHtml(displayName)}</strong>${activeEmployee?.position || activeAccount?.position ? `<span>${escapeHtml(activeEmployee?.position || activeAccount?.position || "")}</span>` : ""}${activeEmployee?.department || activeAccount?.department ? `<span>${escapeHtml(activeEmployee?.department || activeAccount?.department || "")}</span>` : ""}<a class="btn btn-primary" href="${destinationRoute}" data-link role="menuitem">${destinationLabel}</a><button class="btn btn-outline" data-logout role="menuitem">${uiText("logout")}</button></div></div>`
             : `<a class="btn btn-primary btn--hero header-desktop-login" href="/login" data-link>${t("nav.login")}</a>`}
         </div>
       </div>
@@ -2349,15 +2347,33 @@ function cchnHonorSection() {
         <div class="cchn-table-shell card">
           <div class="section-head"><div><h2 class="section-title">${uiText("cchnTitle")}</h2><p class="section-lead">${totalText}</p></div></div>
         <div class="cchn-filter table-only-filter">
-          <input data-cchn-search placeholder="${uiText("searchName")}" value="${cchnSearch}">
+          <input data-cchn-search placeholder="${uiText("searchName")}" value="${cchnSearch}" aria-label="${uiText("searchName")}">
           <button class="btn btn-outline" data-cchn-sort type="button">A-Z</button>
         </div>
-        ${pageRows.length ? cchnTableView(pageRows, (cchnPage - 1) * pageSize) : emptyCchnState()}
-        ${totalPages > 1 ? pagination("cchn", cchnPage, totalPages) : ""}
+        <div id="publicCchnResults" aria-live="polite">${publicCchnResultsHtml(pageRows, totalPages, pageSize)}</div>
         </div>
       </div>
     </section>
   `;
+}
+
+function publicCchnResultsHtml(pageRowsArg = null, totalPagesArg = null, pageSizeArg = 24) {
+  const rows = filteredCchnRows();
+  const totalPages = totalPagesArg || Math.max(1, Math.ceil(rows.length / pageSizeArg));
+  cchnPage = Math.min(cchnPage, totalPages);
+  const pageRows = pageRowsArg || rows.slice((cchnPage - 1) * pageSizeArg, cchnPage * pageSizeArg);
+  return `${pageRows.length ? cchnTableView(pageRows, (cchnPage - 1) * pageSizeArg) : emptyCchnState()}${totalPages > 1 ? pagination("cchn", cchnPage, totalPages) : ""}`;
+}
+
+function renderPublicCchnResults() {
+  const target = document.getElementById("publicCchnResults");
+  if (!target) return;
+  target.innerHTML = publicCchnResultsHtml();
+  bindPublicCchnResultEvents(target);
+}
+
+function bindPublicCchnResultEvents(root = document) {
+  root.querySelectorAll("[data-page-kind='cchn']").forEach((el) => el.addEventListener("click", () => { cchnPage = Math.max(1, Number(el.dataset.page) || 1); renderPublicCchnResults(); }));
 }
 
 function selectFilter(name, label, values, selected) {
@@ -2468,8 +2484,40 @@ function hrEmployeeDirectory() {
       ${employeeSelect("accountStatus", t("table.accountStatus"), uniqueValues(allEmployees, "accountStatus"), employeeDirectoryFilters.accountStatus)}
       <select data-employee-filter="cchn"><option value="">CCHN</option><option value="yes" ${employeeDirectoryFilters.cchn === "yes" ? "selected" : ""}>${t("admin.hasCchn")}</option><option value="no" ${employeeDirectoryFilters.cchn === "no" ? "selected" : ""}>${t("admin.noCchn")}</option></select>
     </div>
-    ${bodyContent}
+    <div id="employeeDirectoryResults" aria-live="polite">${bodyContent}</div>
   </section>`;
+}
+
+function employeeDirectoryResultsHtml() {
+  const filtered = filteredEmployeeDirectory();
+  const pageSize = 20;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  employeeDirectoryPage = Math.min(employeeDirectoryPage, totalPages);
+  const pageRows = filtered.slice((employeeDirectoryPage - 1) * pageSize, employeeDirectoryPage * pageSize);
+  if (_apiEmployeesLoading && !_apiEmployeesLoaded) return `<div class="hr-overview-skeleton" aria-label="Đang tải danh sách nhân viên">${Array.from({ length: 4 }, () => `<span></span>`).join("")}</div>`;
+  if (_apiEmployeesError && !_apiEmployeesLoaded) return `<div class="empty-state"><p>Không tải được danh sách nhân viên: ${escapeHtml(_apiEmployeesError)}</p><button class="btn btn-primary" data-reload-employees>Thử lại</button></div>`;
+  return `${employeeDirectoryTable(pageRows, (employeeDirectoryPage - 1) * pageSize)}${totalPages > 1 ? pagination("employees", employeeDirectoryPage, totalPages) : ""}`;
+}
+
+function renderEmployeeDirectoryResults() {
+  const target = document.getElementById("employeeDirectoryResults");
+  if (!target) return;
+  target.innerHTML = employeeDirectoryResultsHtml();
+  bindEmployeeDirectoryResultEvents(target);
+}
+
+function bindEmployeeDirectoryResultEvents(root = document) {
+  root.querySelectorAll("[data-page-kind='employees']").forEach((el) => el.addEventListener("click", () => { employeeDirectoryPage = Math.max(1, Number(el.dataset.page) || 1); renderEmployeeDirectoryResults(); }));
+  root.querySelectorAll("[data-edit-employee]").forEach((el) => el.addEventListener("click", () => { employeeEditId = el.dataset.editEmployee; employeeEditOpen = true; render(); }));
+  root.querySelectorAll("[data-open-certs]").forEach((el) => el.addEventListener("click", () => { certModalEmployeeId = el.dataset.openCerts; certModalOpen = true; render(); }));
+  root.querySelectorAll("[data-account-detail]").forEach((el) => el.addEventListener("click", () => { selectedAccountId = el.dataset.accountDetail; accountDrawerOpen = true; render(); }));
+  root.querySelectorAll("[data-reset-account]").forEach((el) => el.addEventListener("click", () => { resetTargetId = el.dataset.resetAccount; resetModalOpen = true; temporaryPasswordResult = ""; render(); }));
+  root.querySelectorAll("[data-delete-employee]").forEach((el) => el.addEventListener("click", () => {
+    _deleteEmployeeId = el.dataset.deleteEmployee;
+    _deleteEmployeeName = el.dataset.deleteEmployeeName || "";
+    _deleteEmployeeConfirming = false;
+    render();
+  }));
 }
 
 function employeeDirectoryTable(rows, offset = 0) {
@@ -4346,8 +4394,63 @@ function courseTable(courseItems) {
     const duration = Number(course.durationHours ?? course.duration_hours);
     const createdAt = course.createdAt || course.created_at || "";
     const deliveryLabel = courseDeliveryModeLabel(course);
-    return `<tr><td>${index + 1}</td><td><strong>${escapeHtml(course.title || course.name || "—")}</strong></td><td>${escapeHtml(course.category || "—")}</td><td>${escapeHtml(deliveryLabel)}</td><td>${Number.isFinite(duration) && duration > 0 ? `${duration}h` : "—"}</td><td>${courseStatusBadge(course.status)}</td><td>${escapeHtml(createdAt ? formatDate(createdAt) : "—")}</td><td><div class="row-actions"><a href="/admin/courses/${escapeHtmlAttribute(course.id)}" data-link class="btn btn-outline mini-action">${t("admin.detail")}</a><button type="button" class="btn btn-outline mini-action" data-course-edit="${escapeHtmlAttribute(course.id)}">${t("course.edit")}</button><button type="button" class="btn btn-outline mini-action" data-course-delete="${escapeHtmlAttribute(course.id)}" aria-label="Xóa khóa học">Xóa</button></div></td></tr>`;
+    const deleting = _courseDeletingIds.has(course.id);
+    return `<tr data-course-row="${escapeHtmlAttribute(course.id)}"><td>${index + 1}</td><td><strong>${escapeHtml(course.title || course.name || "—")}</strong></td><td>${escapeHtml(course.category || "—")}</td><td>${escapeHtml(deliveryLabel)}</td><td>${Number.isFinite(duration) && duration > 0 ? `${duration}h` : "—"}</td><td>${courseStatusBadge(course.status)}</td><td>${escapeHtml(createdAt ? formatDate(createdAt) : "—")}</td><td><div class="row-actions"><a href="/admin/courses/${escapeHtmlAttribute(course.id)}" data-link class="btn btn-outline mini-action">${t("admin.detail")}</a><button type="button" class="btn btn-outline mini-action" data-course-edit="${escapeHtmlAttribute(course.id)}" ${deleting ? "disabled" : ""}>${t("course.edit")}</button><button type="button" class="btn btn-outline mini-action danger-action ${deleting ? "loading" : ""}" data-course-delete="${escapeHtmlAttribute(course.id)}" data-course-title="${escapeHtmlAttribute(course.title || course.name || course.id)}" aria-label="Xóa khóa học ${escapeHtmlAttribute(course.title || course.name || course.id)}" aria-busy="${deleting}" ${deleting ? "disabled" : ""}>${deleting ? "Đang xóa..." : "Xóa"}</button></div></td></tr>`;
   }).join("")}</tbody></table></div>`;
+}
+
+function renderCourseResults() {
+  const target = document.getElementById("courseResults");
+  if (!target) return;
+  target.innerHTML = courseTable(filteredCourses());
+  bindCourseResultEvents(target);
+}
+
+function bindCourseResultEvents(root = document) {
+  root.querySelectorAll("[data-link]").forEach((el) => el.addEventListener("click", (event) => { event.preventDefault(); navigate(el.getAttribute("href")); }));
+  root.querySelectorAll("[data-course-edit]").forEach((el) => el.addEventListener("click", () => { selectedCourseId = el.dataset.courseEdit; courseFormMode = "edit"; courseDrawerOpen = false; render(); }));
+  root.querySelectorAll("[data-course-delete]").forEach((el) => el.addEventListener("click", (event) => {
+    event.stopPropagation();
+    deleteCourseImmediately(el.dataset.courseDelete, el.dataset.courseTitle || "");
+  }));
+}
+
+async function deleteCourseImmediately(courseId, title = "") {
+  if (!courseId || _courseDeletingIds.has(courseId)) return;
+  _courseDeletingIds = new Set([..._courseDeletingIds, courseId]);
+  renderCourseResults();
+  try {
+    const res = await fetch(`/api/courses?id=${encodeURIComponent(courseId)}&force=true`, {
+      method: "DELETE",
+      headers: apiHeaders({ "Content-Type": "application/json" }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.error || "delete_failed");
+
+    const verifyRes = await fetch(`/api/courses/impact?id=${encodeURIComponent(courseId)}`, { headers: apiHeaders() }).catch(() => null);
+    if (verifyRes && verifyRes.status !== 404) {
+      const verifyBody = await verifyRes.json().catch(() => ({}));
+      if (verifyBody.ok) throw new Error("Khóa học vẫn còn tồn tại sau khi xóa. Vui lòng thử lại.");
+    }
+
+    deleteCourse(courseId);
+    if (Array.isArray(_courses)) _courses = _courses.filter((course) => course.id !== courseId);
+    try {
+      const { localStorageAdapter } = await import("./lib/storage/localStorageAdapter.js");
+      const cached = localStorageAdapter.read("mykis.courses.v1", []);
+      localStorageAdapter.write("mykis.courses.v1", cached.filter((course) => course.id !== courseId));
+    } catch {}
+    if (selectedCourseId === courseId) { selectedCourseId = ""; courseDrawerOpen = false; courseFormMode = ""; }
+    toast("Đã xóa khóa học");
+    renderCourseResults();
+    fetchCoursesFromApi(session.accountId, session.role);
+  } catch (err) {
+    console.error("[delete-course]", err?.message);
+    toast(err?.message || "Xóa thất bại. Vui lòng thử lại.");
+  } finally {
+    _courseDeletingIds = new Set([..._courseDeletingIds].filter((id) => id !== courseId));
+    renderCourseResults();
+  }
 }
 
 function courseDrawer() {
@@ -4460,7 +4563,7 @@ function courseDetailPage(courseId) {
       </div>
       <div style="margin-top:16px">${tabContent}</div>
     </section>
-  </div>${courseFormMode ? courseFormModal() : ""}${contentBuilderMode ? contentItemForm() : ""}${_courseDeleteModal ? courseDeleteModal() : ""}</main></div>`;
+  </div>${courseFormMode ? courseFormModal() : ""}${contentBuilderMode ? contentItemForm() : ""}</main></div>`;
 }
 
 function contentItemForm() {
@@ -4651,66 +4754,11 @@ function courseFormModal() {
   return `<div class="modal-backdrop open"><form class="modal modal--medium modal--structured" id="courseForm" role="dialog" aria-modal="true" aria-labelledby="course-form-title"><header class="modal__header"><div><h2 id="course-form-title">${courseFormMode === "edit" ? "Chỉnh sửa khóa học" : "Tạo khóa học"}</h2></div><button type="button" class="icon-btn" data-close-course-form>×</button></header><div class="modal__body"><div class="field"><label>Tên khóa học</label><input name="title" type="text" value="${value("title")}" required></div><div class="field"><label>Mô tả</label><textarea name="description" rows="3">${escapeHtml(course?.description || "")}</textarea></div><div class="field"><label>Danh mục</label><select name="category">${["Kỹ năng mềm", "Chuyên môn", "Chứng chỉ", "Onboarding"].map((item) => `<option value="${escapeHtmlAttribute(item)}" ${option("category", item, "Kỹ năng mềm")}>${item}</option>`).join("")}</select></div><div class="field"><label>Hình thức</label><select name="format">${["Online", "Offline", "Hybrid"].map((item) => `<option value="${item}" ${normalizeDeliveryForOption(currentDeliveryMode) === item.toLowerCase() ? "selected" : ""}>${item}</option>`).join("")}</select></div><div class="field"><label>Thời lượng (giờ)</label><input name="durationHours" type="number" min="0" step="0.5" value="${value("durationHours", 0)}" required></div><div class="field"><label>Trạng thái</label><select name="status"><option value="draft" ${option("status", "draft", "draft")}>Bản nháp</option><option value="published" ${option("status", "published")}>Đã xuất bản</option></select></div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-close-course-form>Hủy</button><button type="submit" class="btn btn-primary">Lưu</button></footer></form></div>`;
 }
 
-function courseDeleteModal() {
-  const m = _courseDeleteModal;
-  if (!m) return "";
-  const imp = m.impact || {};
-  const confirmWord = "XÓA";
-  const confirmMatch = (m.confirmText || "") === confirmWord;
-  // Always require XÓA confirmation — all deletes are permanent hard deletes
-  const canConfirm = confirmMatch;
-
-  let impactLines = "";
-  if (m.impact) {
-    const lines = [
-      imp.enrollments > 0 ? `${imp.enrollments} enrollment học viên` : null,
-      imp.sessions > 0 ? `${imp.sessions} lớp học/phiên đào tạo` : null,
-      imp.content > 0 ? `${imp.content} nội dung bài học` : null,
-      imp.versions > 0 ? `${imp.versions} phiên bản` : null,
-      imp.learningPaths > 0 ? `${imp.learningPaths} lộ trình học` : null,
-      imp.compliance > 0 ? `${imp.compliance} yêu cầu tuân thủ` : null,
-    ].filter(Boolean);
-    if (lines.length) {
-      impactLines = `<div class="course-delete-impact"><strong>Dữ liệu liên quan sẽ bị xóa vĩnh viễn:</strong><ul>${lines.map(l=>`<li>${escapeHtml(l)}</li>`).join("")}</ul></div>`;
-    } else {
-      impactLines = `<p style="font-size:13px;color:#2d3748">Khóa học chưa có enrollment hoặc lịch học.</p>`;
-    }
-  }
-
-  return `<div class="modal-backdrop open" role="dialog" aria-modal="true" aria-labelledby="course-del-title">
-    <div class="card modal modal--medium modal--structured">
-      <header class="modal__header">
-        <div><h2 id="course-del-title" style="color:var(--color-danger,#e53e3e)">Xóa vĩnh viễn khóa học</h2></div>
-        <button type="button" class="icon-btn" ${m.loading ? "disabled" : ""} data-close-course-delete aria-label="Đóng">×</button>
-      </header>
-      <div class="modal__body">
-        ${m.error ? `<div class="form-error" style="margin-bottom:12px">${escapeHtml(m.error)}</div>` : ""}
-        <p>Khóa học: <strong>${escapeHtml(m.title || m.id)}</strong></p>
-        ${m.impact === null ? `<div class="adm-skeleton-block" style="height:48px" aria-hidden="true"></div>` : impactLines}
-        <div style="background:#fff5f5;border:1px solid #feb2b2;border-radius:6px;padding:12px;margin:12px 0">
-          <strong style="color:#c53030">Cảnh báo: Hành động này không thể hoàn tác.</strong>
-          <p style="margin-top:4px;font-size:13px;color:#742a2a">Toàn bộ nội dung, enrollment và dữ liệu liên quan sẽ bị xóa khỏi hệ thống. Nhật ký kiểm tra (audit log) sẽ được giữ lại.</p>
-        </div>
-        <div class="field">
-          <label>Nhập <strong>${confirmWord}</strong> để xác nhận:</label>
-          <input type="text" id="courseDeleteConfirmInput" value="${escapeHtmlAttribute(m.confirmText || "")}" autocomplete="off" placeholder="${confirmWord}" style="font-family:monospace" data-course-delete-confirm-input ${m.loading ? "disabled" : ""}>
-        </div>
-      </div>
-      <footer class="modal__footer">
-        <button type="button" class="btn btn-outline" data-close-course-delete ${m.loading ? "disabled" : ""}>Hủy</button>
-        <button type="button" class="btn btn-danger ${m.loading ? "loading" : ""}" data-confirm-course-delete="${escapeHtmlAttribute(m.id)}" ${(!canConfirm || m.loading || m.impact === null) ? "disabled" : ""} aria-busy="${m.loading}">
-          ${m.loading ? `<span class="btn-spinner" aria-hidden="true"></span><span class="btn-label">Đang xóa...</span>` : `<span class="btn-label">Xóa vĩnh viễn</span>`}
-        </button>
-      </footer>
-    </div>
-  </div>`;
-}
-
 function coursesPage() {
   if (!hasAdminAccess()) return restrictedPage();
   const allCourses = getCourses();
   const categories = [...new Set(allCourses.map((course) => course.category).filter(Boolean))];
-  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", t("course.manage"), "hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h2>${t("course.manage")}</h2><p>${t("course.manageDesc")}</p></div><button type="button" class="btn btn-primary" data-course-create>${t("course.create")}</button></div><div class="filter-bar"><input id="courseSearchInput" data-focus-key="course-search" type="search" placeholder="${t("course.searchPlaceholder")}" value="${escapeHtmlAttribute(courseSearch)}" data-course-search><select data-course-filter-category><option value="">${t("course.allCategories")}</option>${categories.map((category) => `<option value="${escapeHtmlAttribute(category)}" ${courseFilterCategory === category ? "selected" : ""}>${escapeHtml(category)}</option>`).join("")}</select><select data-course-filter-status><option value="">${t("enrollment.allStatuses")}</option><option value="published" ${courseFilterStatus === "published" ? "selected" : ""}>${t("course.published")}</option><option value="draft" ${courseFilterStatus === "draft" ? "selected" : ""}>${t("course.draft")}</option><option value="archived" ${courseFilterStatus === "archived" ? "selected" : ""}>${t("course.archived")}</option></select></div>${courseTable(filteredCourses())}</section></div>${courseDrawerOpen ? courseDrawer() : ""}${courseFormMode ? courseFormModal() : ""}${contentBuilderMode ? contentItemForm() : ""}${_courseDeleteModal ? courseDeleteModal() : ""}</main></div>`;
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", t("course.manage"), "hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h2>${t("course.manage")}</h2><p>${t("course.manageDesc")}</p></div><button type="button" class="btn btn-primary" data-course-create>${t("course.create")}</button></div><div class="filter-bar"><input id="courseSearchInput" data-focus-key="course-search" type="search" placeholder="${t("course.searchPlaceholder")}" value="${escapeHtmlAttribute(courseSearch)}" data-course-search aria-label="${t("course.searchPlaceholder")}"><select data-course-filter-category><option value="">${t("course.allCategories")}</option>${categories.map((category) => `<option value="${escapeHtmlAttribute(category)}" ${courseFilterCategory === category ? "selected" : ""}>${escapeHtml(category)}</option>`).join("")}</select><select data-course-filter-status><option value="">${t("enrollment.allStatuses")}</option><option value="published" ${courseFilterStatus === "published" ? "selected" : ""}>${t("course.published")}</option><option value="draft" ${courseFilterStatus === "draft" ? "selected" : ""}>${t("course.draft")}</option><option value="archived" ${courseFilterStatus === "archived" ? "selected" : ""}>${t("course.archived")}</option></select></div><div id="courseResults" aria-live="polite">${courseTable(filteredCourses())}</div></section></div>${courseDrawerOpen ? courseDrawer() : ""}${courseFormMode ? courseFormModal() : ""}${contentBuilderMode ? contentItemForm() : ""}</main></div>`;
 }
 
 function notificationText(key) {
@@ -5554,6 +5602,7 @@ let _ttEditId = "";
 let _ttDrawerOpen = false;
 let _ttDetail = null;
 let _ttFilters = { search: "", department: "", category: "", status: "" };
+let _ttRequestSeq = 0;
 const TT = (k) => t("trainingTracking." + k);
 
 function ttApiHeaders() {
@@ -5563,11 +5612,13 @@ function ttApiHeaders() {
   return h;
 }
 
-async function loadTrainingTracking() {
+async function loadTrainingTracking({ renderMode = "full" } = {}) {
   if (_ttState.loading) return;
+  const requestSeq = ++_ttRequestSeq;
   _ttState.loading = true;
   _ttState.error = "";
-  render();
+  if (renderMode === "section") renderTrainingTrackingResults();
+  else render();
   try {
     const params = new URLSearchParams();
     if (_ttFilters.search) params.set("search", _ttFilters.search);
@@ -5576,14 +5627,20 @@ async function loadTrainingTracking() {
     if (_ttFilters.status) params.set("status", _ttFilters.status);
     const res = await fetch("/api/admin/training-tracking?" + params.toString(), { headers: ttApiHeaders() });
     const body = await res.json().catch(() => ({}));
+    if (requestSeq !== _ttRequestSeq) return;
     if (!res.ok) throw new Error(body.error || "load_failed");
     _ttState.rows = body.data || [];
     _ttState.total = body.total || 0;
   } catch (e) {
+    if (requestSeq !== _ttRequestSeq) return;
     _ttState.error = e.message || "Không thể tải dữ liệu.";
   } finally {
+    if (requestSeq !== _ttRequestSeq) return;
     _ttState.loading = false;
-    if (route === "/admin/training-tracking") render();
+    if (route === "/admin/training-tracking") {
+      if (renderMode === "section") renderTrainingTrackingResults();
+      else render();
+    }
   }
 }
 
@@ -5614,7 +5671,35 @@ function trainingTrackingPage() {
   const notUpd = rows.filter(r => r.status === "not_updated").length;
   const depts = [...new Set(rows.map(r => r.department).filter(Boolean))];
   const cats = [...new Set(rows.map(r => r.trainingCategory).filter(Boolean))];
-  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", TT("title"), "hr")}<div class="content"><section class="learning-hero"><div><h1>${TT("title")}</h1><p>${TT("subtitle")}</p></div><button class="btn btn-primary" data-tt-create>+ ${TT("create")}</button></section>${_ttState.error ? `<p class="form-error">${escapeHtml(_ttState.error)}</p>` : ""}<div class="kpi-grid"><div class="card kpi"><span>${TT("totalPrograms")}</span><strong>${rows.length}</strong></div><div class="card kpi"><span>${TT("totalCost")}</span><strong>${formatVnd(totalCost)}</strong></div><div class="card kpi"><span>${TT("inProgress")}</span><strong>${inProg}</strong></div><div class="card kpi"><span>${TT("notUpdated")}</span><strong>${notUpd}</strong></div></div><section class="card panel"><div class="filter-bar"><input type="search" data-tt-search value="${escapeHtmlAttribute(_ttFilters.search)}" placeholder="${TT("search")}"><select data-tt-filter-dept><option value="">${TT("filterDepartment")}</option>${depts.map(d => `<option value="${escapeHtmlAttribute(d)}" ${_ttFilters.department === d ? "selected" : ""}>${escapeHtml(d)}</option>`).join("")}</select><select data-tt-filter-cat><option value="">${TT("filterCategory")}</option>${cats.map(c => `<option value="${escapeHtmlAttribute(c)}" ${_ttFilters.category === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}</select><select data-tt-filter-status><option value="">${TT("filterStatus")}</option>${[["not_updated", TT("notUpdated")], ["planned", TT("planned")], ["in_progress", TT("inProg")], ["completed", TT("completed")], ["cancelled", TT("cancelled")]].map(([v, l]) => `<option value="${v}" ${_ttFilters.status === v ? "selected" : ""}>${escapeHtml(l)}</option>`).join("")}</select></div>${_ttState.loading ? `<div class="hr-overview-skeleton">${Array(3).fill("<span></span>").join("")}</div>` : rows.length ? `<div class="table-wrap tt-table"><table><thead><tr><th>${TT("employee")}</th><th>${TT("position")}</th><th>${TT("department")}</th><th>${TT("trainingName")}</th><th>${TT("trainingProvider")}</th><th>${TT("trainingCategory")}</th><th>${TT("time")}</th><th>${TT("format")}</th><th>${TT("cost")}</th><th>${TT("status")}</th><th>${TT("action")}</th></tr></thead><tbody>${rows.map(r => `<tr><td>${escapeHtml(r.employeeName)}</td><td>${escapeHtml(r.positionTitle)}</td><td>${escapeHtml(r.department)}</td><td><strong>${escapeHtml(r.trainingName)}</strong></td><td>${escapeHtml(r.trainingProvider)}</td><td>${escapeHtml(r.trainingCategory)}</td><td>${formatDate(r.startDate)} — ${formatDate(r.endDate)}</td><td>${escapeHtml(r.studyFormat || "—")}</td><td>${formatVnd(r.totalCostVnd)}</td><td>${ttStatusBadge(r.status)}</td><td><div class="learning-actions"><button class="btn btn-outline mini-action" data-tt-view="${escapeHtmlAttribute(r.id)}">${TT("viewDetail")}</button><button class="btn btn-outline mini-action" data-tt-edit="${escapeHtmlAttribute(r.id)}">${TT("edit")}</button>${r.status !== "cancelled" ? `<button class="btn btn-outline mini-action" data-tt-archive="${escapeHtmlAttribute(r.id)}">${TT("archive")}</button>` : ""}</div></td></tr>`).join("")}</tbody></table></div><div class="tt-cards-mobile">${rows.map(r => `<article class="card tt-card"><div class="tt-card__head"><strong>${escapeHtml(r.trainingName)}</strong>${ttStatusBadge(r.status)}</div><div class="tt-card__body"><span>${escapeHtml(r.employeeName)} · ${escapeHtml(r.department)}</span><span>${escapeHtml(r.trainingProvider)}</span><span>${formatDate(r.startDate)} — ${formatDate(r.endDate)}</span><span>${formatVnd(r.totalCostVnd)}</span></div><div class="card-actions"><button class="btn btn-outline mini-action" data-tt-view="${escapeHtmlAttribute(r.id)}">${TT("viewDetail")}</button><button class="btn btn-outline mini-action" data-tt-edit="${escapeHtmlAttribute(r.id)}">${TT("edit")}</button>${r.status !== "cancelled" ? `<button class="btn btn-outline mini-action" data-tt-archive="${escapeHtmlAttribute(r.id)}">${TT("archive")}</button>` : ""}</div></article>`).join("")}</div>` : `<div class="empty-state"><h3>${TT("noData")}</h3></div>`}</section></div></main>${_ttDrawerOpen ? ttDrawer() : ""}${_ttFormOpen ? ttFormDrawer() : ""}</div>`;
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", TT("title"), "hr")}<div class="content"><section class="learning-hero"><div><h1>${TT("title")}</h1><p>${TT("subtitle")}</p></div><button class="btn btn-primary" data-tt-create>+ ${TT("create")}</button></section>${_ttState.error ? `<p class="form-error">${escapeHtml(_ttState.error)}</p>` : ""}<div class="kpi-grid"><div class="card kpi"><span>${TT("totalPrograms")}</span><strong>${rows.length}</strong></div><div class="card kpi"><span>${TT("totalCost")}</span><strong>${formatVnd(totalCost)}</strong></div><div class="card kpi"><span>${TT("inProgress")}</span><strong>${inProg}</strong></div><div class="card kpi"><span>${TT("notUpdated")}</span><strong>${notUpd}</strong></div></div><section class="card panel"><div class="filter-bar"><input type="search" data-tt-search value="${escapeHtmlAttribute(_ttFilters.search)}" placeholder="${TT("search")}" aria-label="${TT("search")}"><select data-tt-filter-dept><option value="">${TT("filterDepartment")}</option>${depts.map(d => `<option value="${escapeHtmlAttribute(d)}" ${_ttFilters.department === d ? "selected" : ""}>${escapeHtml(d)}</option>`).join("")}</select><select data-tt-filter-cat><option value="">${TT("filterCategory")}</option>${cats.map(c => `<option value="${escapeHtmlAttribute(c)}" ${_ttFilters.category === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}</select><select data-tt-filter-status><option value="">${TT("filterStatus")}</option>${[["not_updated", TT("notUpdated")], ["planned", TT("planned")], ["in_progress", TT("inProg")], ["completed", TT("completed")], ["cancelled", TT("cancelled")]].map(([v, l]) => `<option value="${v}" ${_ttFilters.status === v ? "selected" : ""}>${escapeHtml(l)}</option>`).join("")}</select></div><div id="ttResults" aria-live="polite">${trainingTrackingResultsHtml()}</div></section></div></main>${_ttDrawerOpen ? ttDrawer() : ""}${_ttFormOpen ? ttFormDrawer() : ""}</div>`;
+}
+
+function trainingTrackingResultsHtml() {
+  const rows = _ttState.rows || [];
+  if (_ttState.loading) return `<div class="hr-overview-skeleton">${Array(3).fill("<span></span>").join("")}</div>`;
+  if (!rows.length) return `<div class="empty-state"><h3>${TT("noData")}</h3></div>`;
+  const table = `<div class="table-wrap tt-table"><table><thead><tr><th>${TT("employee")}</th><th>${TT("position")}</th><th>${TT("department")}</th><th>${TT("trainingName")}</th><th>${TT("trainingProvider")}</th><th>${TT("trainingCategory")}</th><th>${TT("time")}</th><th>${TT("format")}</th><th>${TT("cost")}</th><th>${TT("status")}</th><th>${TT("action")}</th></tr></thead><tbody>${rows.map(r => `<tr><td>${escapeHtml(r.employeeName)}</td><td>${escapeHtml(r.positionTitle)}</td><td>${escapeHtml(r.department)}</td><td><strong>${escapeHtml(r.trainingName)}</strong></td><td>${escapeHtml(r.trainingProvider)}</td><td>${escapeHtml(r.trainingCategory)}</td><td>${formatDate(r.startDate)} — ${formatDate(r.endDate)}</td><td>${escapeHtml(r.studyFormat || "—")}</td><td>${formatVnd(r.totalCostVnd)}</td><td>${ttStatusBadge(r.status)}</td><td><div class="learning-actions"><button class="btn btn-outline mini-action" data-tt-view="${escapeHtmlAttribute(r.id)}">${TT("viewDetail")}</button><button class="btn btn-outline mini-action" data-tt-edit="${escapeHtmlAttribute(r.id)}">${TT("edit")}</button>${r.status !== "cancelled" ? `<button class="btn btn-outline mini-action" data-tt-archive="${escapeHtmlAttribute(r.id)}">${TT("archive")}</button>` : ""}</div></td></tr>`).join("")}</tbody></table></div>`;
+  const cards = `<div class="tt-cards-mobile">${rows.map(r => `<article class="card tt-card"><div class="tt-card__head"><strong>${escapeHtml(r.trainingName)}</strong>${ttStatusBadge(r.status)}</div><div class="tt-card__body"><span>${escapeHtml(r.employeeName)} · ${escapeHtml(r.department)}</span><span>${escapeHtml(r.trainingProvider)}</span><span>${formatDate(r.startDate)} — ${formatDate(r.endDate)}</span><span>${formatVnd(r.totalCostVnd)}</span></div><div class="card-actions"><button class="btn btn-outline mini-action" data-tt-view="${escapeHtmlAttribute(r.id)}">${TT("viewDetail")}</button><button class="btn btn-outline mini-action" data-tt-edit="${escapeHtmlAttribute(r.id)}">${TT("edit")}</button>${r.status !== "cancelled" ? `<button class="btn btn-outline mini-action" data-tt-archive="${escapeHtmlAttribute(r.id)}">${TT("archive")}</button>` : ""}</div></article>`).join("")}</div>`;
+  return table + cards;
+}
+
+function renderTrainingTrackingResults() {
+  const target = document.getElementById("ttResults");
+  if (!target) return;
+  target.innerHTML = trainingTrackingResultsHtml();
+  bindTrainingTrackingResultEvents(target);
+}
+
+function bindTrainingTrackingResultEvents(root = document) {
+  root.querySelectorAll("[data-tt-edit]").forEach(el => el.addEventListener("click", () => { _ttEditId = el.dataset.ttEdit; _ttFormOpen = true; render(); }));
+  root.querySelectorAll("[data-tt-view]").forEach(el => el.addEventListener("click", async () => {
+    try { const res = await fetch(`/api/admin/training-tracking/${el.dataset.ttView}`, { headers: ttApiHeaders() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "load_failed");
+      _ttDetail = body.data; _ttDrawerOpen = true; render();
+    } catch (e) { toast("Lỗi: " + e.message); }
+  }));
+  root.querySelectorAll("[data-tt-archive]").forEach(el => el.addEventListener("click", () => archiveTrainingRecord(el.dataset.ttArchive)));
 }
 
 function ttDrawer() {
@@ -5674,6 +5759,7 @@ let _cchnDrawerOpen = false;
 let _cchnDetail = null;
 let _cchnFilters = { search: "", department: "", status: "" };
 let _cchnAddItemOpen = false;
+let _cchnRequestSeq = 0;
 const CCHN = (k) => t("cchnRegistration." + k);
 
 async function loadCchnCatalog() {
@@ -5684,11 +5770,13 @@ async function loadCchnCatalog() {
   } catch {}
 }
 
-async function loadCchnRegistrations() {
+async function loadCchnRegistrations({ renderMode = "full" } = {}) {
   if (_cchnState.loading) return;
+  const requestSeq = ++_cchnRequestSeq;
   _cchnState.loading = true;
   _cchnState.error = "";
-  render();
+  if (renderMode === "section") renderCchnRegistrationResults();
+  else render();
   try {
     const params = new URLSearchParams();
     if (_cchnFilters.search) params.set("search", _cchnFilters.search);
@@ -5696,14 +5784,20 @@ async function loadCchnRegistrations() {
     if (_cchnFilters.status) params.set("status", _cchnFilters.status);
     const res = await fetch("/api/admin/cchn/registrations?" + params.toString(), { headers: ttApiHeaders() });
     const body = await res.json().catch(() => ({}));
+    if (requestSeq !== _cchnRequestSeq) return;
     if (!res.ok) throw new Error(body.error || "load_failed");
     _cchnState.registrations = body.data || [];
     _cchnState.total = body.total || 0;
   } catch (e) {
+    if (requestSeq !== _cchnRequestSeq) return;
     _cchnState.error = e.message || "Không thể tải dữ liệu.";
   } finally {
+    if (requestSeq !== _cchnRequestSeq) return;
     _cchnState.loading = false;
-    if (route === "/admin/cchn-registrations") render();
+    if (route === "/admin/cchn-registrations") {
+      if (renderMode === "section") renderCchnRegistrationResults();
+      else render();
+    }
   }
 }
 
@@ -5726,7 +5820,35 @@ function cchnRegistrationPage() {
   if (!_cchnState.registrations.length && !_cchnState.loading && !_cchnState.error) queueMicrotask(() => loadCchnRegistrations());
   const rows = _cchnState.registrations || [];
   const depts = [...new Set(rows.map(r => r.department).filter(Boolean))];
-  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", CCHN("title"), "hr")}<div class="content"><section class="learning-hero"><div><h1>${CCHN("title")}</h1><p>${CCHN("subtitle")}</p></div><button class="btn btn-primary" data-cchn-create>+ ${CCHN("create")}</button></section>${_cchnState.error ? `<p class="form-error">${escapeHtml(_cchnState.error)}</p>` : ""}<section class="card panel"><div class="filter-bar"><input type="search" data-cchn-search value="${escapeHtmlAttribute(_cchnFilters.search)}" placeholder="${CCHN("search")}"><select data-cchn-filter-dept><option value="">${CCHN("filterDepartment")}</option>${depts.map(d => `<option value="${escapeHtmlAttribute(d)}" ${_cchnFilters.department === d ? "selected" : ""}>${escapeHtml(d)}</option>`).join("")}</select><select data-cchn-filter-status><option value="">${CCHN("filterStatus")}</option>${[["draft", CCHN("draft")], ["registered", CCHN("registered")], ["approved", CCHN("approved")], ["studying", CCHN("studying")], ["completed", CCHN("completed")], ["cancelled", CCHN("cancelled")]].map(([v, l]) => `<option value="${v}" ${_cchnFilters.status === v ? "selected" : ""}>${escapeHtml(l)}</option>`).join("")}</select></div>${_cchnState.loading ? `<div class="hr-overview-skeleton">${Array(3).fill("<span></span>").join("")}</div>` : rows.length ? `<div class="table-wrap cchn-table"><table><thead><tr><th>${CCHN("employee")}</th><th>${CCHN("department")}</th><th>${CCHN("content")}</th><th>${CCHN("registrationDate")}</th><th>${CCHN("plannedTrainingDate")}</th><th>${CCHN("plannedExamDate")}</th><th>${CCHN("studyFormat")}</th><th>${CCHN("totalCost")}</th><th>${CCHN("status")}</th><th>${CCHN("action")}</th></tr></thead><tbody>${rows.map(r => `<tr><td>${escapeHtml(r.employeeName)}</td><td>${escapeHtml(r.department || "—")}</td><td>${(r.items || []).map(i => cchnChip(i.cchn_catalog_items || i.catalogItem || {})).join("")}</td><td>${formatDate(r.registrationDate)}</td><td>${formatDate(r.plannedTrainingDate)}</td><td>${formatDate(r.plannedExamDate)}</td><td>${escapeHtml(r.studyFormat || "—")}</td><td>${formatVnd(r.totalCostVnd)}</td><td>${cchnRegStatusBadge(r.status)}</td><td><div class="learning-actions"><button class="btn btn-outline mini-action" data-cchn-view="${escapeHtmlAttribute(r.id)}">${CCHN("viewDetail")}</button><button class="btn btn-outline mini-action" data-cchn-edit="${escapeHtmlAttribute(r.id)}">${CCHN("edit")}</button>${r.status !== "cancelled" ? `<button class="btn btn-outline mini-action" data-cchn-cancel="${escapeHtmlAttribute(r.id)}">${CCHN("cancelled")}</button>` : ""}</div></td></tr>`).join("")}</tbody></table></div><div class="cchn-cards-mobile">${rows.map(r => `<article class="card cchn-card"><div class="cchn-card__head"><strong>${escapeHtml(r.employeeName)}</strong>${cchnRegStatusBadge(r.status)}</div><div class="cchn-card__body"><span>${escapeHtml(r.department || "—")}</span><div>${(r.items || []).map(i => cchnChip(i.cchn_catalog_items || i.catalogItem || {})).join("")}</div><span>${formatDate(r.registrationDate)}</span><span>${formatVnd(r.totalCostVnd)}</span></div><div class="card-actions"><button class="btn btn-outline mini-action" data-cchn-view="${escapeHtmlAttribute(r.id)}">${CCHN("viewDetail")}</button><button class="btn btn-outline mini-action" data-cchn-edit="${escapeHtmlAttribute(r.id)}">${CCHN("edit")}</button>${r.status !== "cancelled" ? `<button class="btn btn-outline mini-action" data-cchn-cancel="${escapeHtmlAttribute(r.id)}">${CCHN("cancelled")}</button>` : ""}</div></article>`).join("")}</div>` : `<div class="empty-state"><h3>${CCHN("noData")}</h3></div>`}</section></div></main>${_cchnDrawerOpen ? cchnDrawer() : ""}${_cchnFormOpen ? cchnFormDrawer() : ""}${_cchnAddItemOpen ? cchnAddItemModal() : ""}</div>`;
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", CCHN("title"), "hr")}<div class="content"><section class="learning-hero"><div><h1>${CCHN("title")}</h1><p>${CCHN("subtitle")}</p></div><button class="btn btn-primary" data-cchn-create>+ ${CCHN("create")}</button></section>${_cchnState.error ? `<p class="form-error">${escapeHtml(_cchnState.error)}</p>` : ""}<section class="card panel"><div class="filter-bar"><input type="search" data-cchn-search value="${escapeHtmlAttribute(_cchnFilters.search)}" placeholder="${CCHN("search")}" aria-label="${CCHN("search")}"><select data-cchn-filter-dept><option value="">${CCHN("filterDepartment")}</option>${depts.map(d => `<option value="${escapeHtmlAttribute(d)}" ${_cchnFilters.department === d ? "selected" : ""}>${escapeHtml(d)}</option>`).join("")}</select><select data-cchn-filter-status><option value="">${CCHN("filterStatus")}</option>${[["draft", CCHN("draft")], ["registered", CCHN("registered")], ["approved", CCHN("approved")], ["studying", CCHN("studying")], ["completed", CCHN("completed")], ["cancelled", CCHN("cancelled")]].map(([v, l]) => `<option value="${v}" ${_cchnFilters.status === v ? "selected" : ""}>${escapeHtml(l)}</option>`).join("")}</select></div><div id="cchnRegistrationResults" aria-live="polite">${cchnRegistrationResultsHtml()}</div></section></div></main>${_cchnDrawerOpen ? cchnDrawer() : ""}${_cchnFormOpen ? cchnFormDrawer() : ""}${_cchnAddItemOpen ? cchnAddItemModal() : ""}</div>`;
+}
+
+function cchnRegistrationResultsHtml() {
+  const rows = _cchnState.registrations || [];
+  if (_cchnState.loading) return `<div class="hr-overview-skeleton">${Array(3).fill("<span></span>").join("")}</div>`;
+  if (!rows.length) return `<div class="empty-state"><h3>${CCHN("noData")}</h3></div>`;
+  const table = `<div class="table-wrap cchn-table"><table><thead><tr><th>${CCHN("employee")}</th><th>${CCHN("department")}</th><th>${CCHN("content")}</th><th>${CCHN("registrationDate")}</th><th>${CCHN("plannedTrainingDate")}</th><th>${CCHN("plannedExamDate")}</th><th>${CCHN("studyFormat")}</th><th>${CCHN("totalCost")}</th><th>${CCHN("status")}</th><th>${CCHN("action")}</th></tr></thead><tbody>${rows.map(r => `<tr><td>${escapeHtml(r.employeeName)}</td><td>${escapeHtml(r.department || "—")}</td><td>${(r.items || []).map(i => cchnChip(i.cchn_catalog_items || i.catalogItem || {})).join("")}</td><td>${formatDate(r.registrationDate)}</td><td>${formatDate(r.plannedTrainingDate)}</td><td>${formatDate(r.plannedExamDate)}</td><td>${escapeHtml(r.studyFormat || "—")}</td><td>${formatVnd(r.totalCostVnd)}</td><td>${cchnRegStatusBadge(r.status)}</td><td><div class="learning-actions"><button class="btn btn-outline mini-action" data-cchn-view="${escapeHtmlAttribute(r.id)}">${CCHN("viewDetail")}</button><button class="btn btn-outline mini-action" data-cchn-edit="${escapeHtmlAttribute(r.id)}">${CCHN("edit")}</button>${r.status !== "cancelled" ? `<button class="btn btn-outline mini-action" data-cchn-cancel="${escapeHtmlAttribute(r.id)}">${CCHN("cancelled")}</button>` : ""}</div></td></tr>`).join("")}</tbody></table></div>`;
+  const cards = `<div class="cchn-cards-mobile">${rows.map(r => `<article class="card cchn-card"><div class="cchn-card__head"><strong>${escapeHtml(r.employeeName)}</strong>${cchnRegStatusBadge(r.status)}</div><div class="cchn-card__body"><span>${escapeHtml(r.department || "—")}</span><div>${(r.items || []).map(i => cchnChip(i.cchn_catalog_items || i.catalogItem || {})).join("")}</div><span>${formatDate(r.registrationDate)}</span><span>${formatVnd(r.totalCostVnd)}</span></div><div class="card-actions"><button class="btn btn-outline mini-action" data-cchn-view="${escapeHtmlAttribute(r.id)}">${CCHN("viewDetail")}</button><button class="btn btn-outline mini-action" data-cchn-edit="${escapeHtmlAttribute(r.id)}">${CCHN("edit")}</button>${r.status !== "cancelled" ? `<button class="btn btn-outline mini-action" data-cchn-cancel="${escapeHtmlAttribute(r.id)}">${CCHN("cancelled")}</button>` : ""}</div></article>`).join("")}</div>`;
+  return table + cards;
+}
+
+function renderCchnRegistrationResults() {
+  const target = document.getElementById("cchnRegistrationResults");
+  if (!target) return;
+  target.innerHTML = cchnRegistrationResultsHtml();
+  bindCchnRegistrationResultEvents(target);
+}
+
+function bindCchnRegistrationResultEvents(root = document) {
+  root.querySelectorAll("[data-cchn-edit]").forEach(el => el.addEventListener("click", () => { _cchnEditId = el.dataset.cchnEdit; _cchnFormOpen = true; render(); }));
+  root.querySelectorAll("[data-cchn-view]").forEach(el => el.addEventListener("click", async () => {
+    try { const res = await fetch(`/api/admin/cchn/registrations/${el.dataset.cchnView}`, { headers: ttApiHeaders() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "load_failed");
+      _cchnDetail = body.data; _cchnDrawerOpen = true; render();
+    } catch (e) { toast("Lỗi: " + e.message); }
+  }));
+  root.querySelectorAll("[data-cchn-cancel]").forEach(el => el.addEventListener("click", () => cancelCchnRegistration(el.dataset.cchnCancel)));
 }
 
 function cchnDrawer() {
@@ -5870,6 +5992,27 @@ function render() {
   }
   if (route !== "/admin/reports") reportRouteSearch = null;
   document.documentElement.lang = language;
+  if (route === "/admin/courses" && app.querySelector("#courseSearchInput") && !courseDrawerOpen && !courseFormMode && !contentBuilderMode) {
+    renderCourseResults();
+    document.body.classList.toggle("nav-open", mobileNavOpen);
+    document.body.classList.toggle("modal-open", !!(mobileNavOpen || dialogState || notificationModalOpen));
+    return;
+  }
+  if (route === "/admin/employees" && app.querySelector("#employeeDirSearch") && !employeeEditOpen && !certModalOpen && !accountDrawerOpen && !resetModalOpen) {
+    renderEmployeeDirectoryResults();
+    return;
+  }
+  if (route === "/admin/training-tracking" && app.querySelector("[data-tt-search]") && !_ttDrawerOpen && !_ttFormOpen) {
+    renderTrainingTrackingResults();
+    return;
+  }
+  if (route === "/admin/cchn-registrations" && app.querySelector("[data-cchn-search]") && !_cchnDrawerOpen && !_cchnFormOpen && !_cchnAddItemOpen) {
+    renderCchnRegistrationResults();
+    return;
+  }
+  if (route === "/admin/audit-log" && app.querySelector("[data-audit-filter] input[name='search']") && !auditState.detail && !auditState.detailLoading) {
+    return;
+  }
   if (route === "/") app.innerHTML = landingPage();
   else if (route === "/about-kis") app.innerHTML = aboutPage();
   else if (route === "/login") app.innerHTML = loginPage();
@@ -6904,6 +7047,7 @@ function setupPageSpecificHandlers() {
   document.querySelectorAll("[data-self-assessment]").forEach(form=>form.addEventListener("submit",async event=>{event.preventDefault();try{const fd=new FormData(form);await apiJson(`/api/competencies/my/${form.dataset.selfAssessment}/self-assessment`,{method:"POST",body:JSON.stringify(Object.fromEntries(fd.entries()))});_competencyState.my=null;toast("success");loadMyCompetencies(true);}catch(e){toast(e.message||"error");}}));
 
   // ─── Training Tracking event bindings ─────────────────────────────────
+  if (route === "/admin/training-tracking") {
   document.querySelector("[data-tt-create]")?.addEventListener("click", () => { _ttEditId = ""; _ttFormOpen = true; render(); });
   document.querySelectorAll("[data-tt-edit]").forEach(el => el.addEventListener("click", () => { _ttEditId = el.dataset.ttEdit; _ttFormOpen = true; render(); }));
   document.querySelectorAll("[data-tt-view]").forEach(el => el.addEventListener("click", async () => {
@@ -6919,13 +7063,16 @@ function setupPageSpecificHandlers() {
   document.getElementById("ttForm")?.addEventListener("submit", submitTtForm);
   { let ttsComposing = false; const el = document.querySelector("[data-tt-search]");
     el?.addEventListener("compositionstart", () => ttsComposing = true);
-    el?.addEventListener("compositionend", e => { ttsComposing = false; _ttFilters.search = e.target.value; loadTrainingTracking(); });
-    el?.addEventListener("input", debounce(e => { if (ttsComposing) return; _ttFilters.search = e.target.value; loadTrainingTracking(); }, 250)); }
+    el?.addEventListener("compositionend", e => { ttsComposing = false; _ttFilters.search = e.target.value; loadTrainingTracking({ renderMode: "section" }); });
+    el?.addEventListener("input", debounce(e => { if (ttsComposing) return; _ttFilters.search = e.target.value; loadTrainingTracking({ renderMode: "section" }); }, 250)); }
   document.querySelector("[data-tt-filter-dept]")?.addEventListener("change", e => { _ttFilters.department = e.target.value; loadTrainingTracking(); });
   document.querySelector("[data-tt-filter-cat]")?.addEventListener("change", e => { _ttFilters.category = e.target.value; loadTrainingTracking(); });
   document.querySelector("[data-tt-filter-status]")?.addEventListener("change", e => { _ttFilters.status = e.target.value; loadTrainingTracking(); });
+  bindTrainingTrackingResultEvents(document);
+  }
 
   // ─── CCHN Registration event bindings ─────────────────────────────────
+  if (route === "/admin/cchn-registrations") {
   document.querySelector("[data-cchn-create]")?.addEventListener("click", () => { _cchnEditId = ""; _cchnFormOpen = true; render(); });
   document.querySelectorAll("[data-cchn-edit]").forEach(el => el.addEventListener("click", () => { _cchnEditId = el.dataset.cchnEdit; _cchnFormOpen = true; render(); }));
   document.querySelectorAll("[data-cchn-view]").forEach(el => el.addEventListener("click", async () => {
@@ -6944,10 +7091,12 @@ function setupPageSpecificHandlers() {
   document.getElementById("cchnAddItemForm")?.addEventListener("submit", submitCchnAddItem);
   { let cchnsComposing = false; const el = document.querySelector("[data-cchn-search]");
     el?.addEventListener("compositionstart", () => cchnsComposing = true);
-    el?.addEventListener("compositionend", e => { cchnsComposing = false; _cchnFilters.search = e.target.value; loadCchnRegistrations(); });
-    el?.addEventListener("input", debounce(e => { if (cchnsComposing) return; _cchnFilters.search = e.target.value; loadCchnRegistrations(); }, 250)); }
+    el?.addEventListener("compositionend", e => { cchnsComposing = false; _cchnFilters.search = e.target.value; loadCchnRegistrations({ renderMode: "section" }); });
+    el?.addEventListener("input", debounce(e => { if (cchnsComposing) return; _cchnFilters.search = e.target.value; loadCchnRegistrations({ renderMode: "section" }); }, 250)); }
   document.querySelector("[data-cchn-filter-dept]")?.addEventListener("change", e => { _cchnFilters.department = e.target.value; loadCchnRegistrations(); });
   document.querySelector("[data-cchn-filter-status]")?.addEventListener("change", e => { _cchnFilters.status = e.target.value; loadCchnRegistrations(); });
+  bindCchnRegistrationResultEvents(document);
+  }
 }
 
   document.querySelector("[data-logout]")?.addEventListener("click", () => {
@@ -7539,8 +7688,8 @@ function setupPageSpecificHandlers() {
   { let _esc = false;
     const el = document.getElementById("employeeDirSearch");
     el?.addEventListener("compositionstart", () => { _esc = true; });
-    el?.addEventListener("compositionend", debounce((e) => { _esc = false; employeeDirectorySearch = e.target.value; employeeDirectoryPage = 1; render(); }, 30));
-    el?.addEventListener("input", debounce((e) => { if (_esc) return; employeeDirectorySearch = e.target.value; employeeDirectoryPage = 1; render(); }, 180));
+    el?.addEventListener("compositionend", debounce((e) => { _esc = false; employeeDirectorySearch = e.target.value; employeeDirectoryPage = 1; renderEmployeeDirectoryResults(); }, 30));
+    el?.addEventListener("input", debounce((e) => { if (_esc) return; employeeDirectorySearch = e.target.value; employeeDirectoryPage = 1; renderEmployeeDirectoryResults(); }, 180));
   }
   document.querySelectorAll("[data-employee-filter]").forEach((el) => el.addEventListener("change", () => { employeeDirectoryFilters[el.dataset.employeeFilter] = el.value; employeeDirectoryReviewIssues = false; employeeDirectoryPage = 1; render(); }));
   document.querySelector("[data-sort-employees]")?.addEventListener("click", () => { employeeDirectorySortAsc = !employeeDirectorySortAsc; render(); });
@@ -7798,89 +7947,22 @@ function setupPageSpecificHandlers() {
     })();
   });
   document.querySelector("[data-copy-temp]")?.addEventListener("click", async () => { await navigator.clipboard?.writeText(temporaryPasswordResult); toast("copied"); });
-  document.querySelector("[data-cchn-search]")?.addEventListener("input", (event) => { cchnSearch = event.target.value; cchnPage = 1; render(); });
-  document.querySelector("[data-cchn-sort]")?.addEventListener("click", () => { cchnSortAsc = !cchnSortAsc; cchnPage = 1; render(); });
+  document.querySelector(".cchn-section [data-cchn-search]")?.addEventListener("input", (event) => { cchnSearch = event.target.value; cchnPage = 1; renderPublicCchnResults(); });
+  document.querySelector("[data-cchn-sort]")?.addEventListener("click", () => { cchnSortAsc = !cchnSortAsc; cchnPage = 1; renderPublicCchnResults(); });
+  bindPublicCchnResultEvents(document);
   document.querySelectorAll("[data-cchn-filter]").forEach((el) => el.addEventListener("change", () => { cchnFilters[el.dataset.cchnFilter] = el.value; render(); }));
   { let _csc = false;
     const el = document.getElementById("courseSearchInput");
     el?.addEventListener("compositionstart", () => { _csc = true; });
-    el?.addEventListener("compositionend", debounce((e) => { _csc = false; courseSearch = e.target.value; render(); }, 30));
-    el?.addEventListener("input", debounce((e) => { if (_csc) return; courseSearch = e.target.value; render(); }, 180));
+    el?.addEventListener("compositionend", debounce((e) => { _csc = false; courseSearch = e.target.value; renderCourseResults(); }, 30));
+    el?.addEventListener("input", debounce((e) => { if (_csc) return; courseSearch = e.target.value; renderCourseResults(); }, 180));
   }
   document.querySelector("[data-course-filter-category]")?.addEventListener("change", (event) => { courseFilterCategory = event.target.value; render(); });
   document.querySelector("[data-course-filter-status]")?.addEventListener("change", (event) => { courseFilterStatus = event.target.value; render(); });
   document.querySelector("[data-course-create]")?.addEventListener("click", () => { courseFormMode = "create"; selectedCourseId = ""; courseDrawerOpen = false; render(); });
   document.querySelectorAll("[data-course-detail]").forEach((el) => el.addEventListener("click", () => { selectedCourseId = el.dataset.courseDetail; courseDrawerOpen = true; courseFormMode = ""; render(); }));
   document.querySelectorAll("[data-course-detail-tab]").forEach(el => el.addEventListener("click", () => { courseDetailTab = el.dataset.courseDetailTab; render(); }));
-  document.querySelectorAll("[data-course-edit]").forEach((el) => el.addEventListener("click", () => { selectedCourseId = el.dataset.courseEdit; courseFormMode = "edit"; courseDrawerOpen = false; render(); }));
-  async function openCourseDeleteModal(courseId) {
-    const course = getCourseById(courseId);
-    const title = course?.title || course?.name || courseId;
-    // All deletes are permanent hard deletes — mode is always "force"
-    _courseDeleteModal = { id: courseId, title, impact: null, confirmText: "", loading: false, error: "", mode: "force" };
-    render();
-    try {
-      const res = await fetch(`/api/courses/impact?id=${encodeURIComponent(courseId)}`, { headers: apiHeaders() });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok || !body.ok) throw new Error(body.error || "impact_failed");
-      if (_courseDeleteModal && _courseDeleteModal.id === courseId) {
-        _courseDeleteModal = { ..._courseDeleteModal, impact: body.impact, title: body.title || title };
-        render();
-      }
-    } catch(err) {
-      if (_courseDeleteModal && _courseDeleteModal.id === courseId) {
-        _courseDeleteModal = { ..._courseDeleteModal, impact: {}, error: "Không thể kiểm tra dữ liệu liên quan: " + err.message };
-        render();
-      }
-    }
-  }
-
-  document.querySelectorAll("[data-course-delete]").forEach((el) => el.addEventListener("click", (e) => {
-    e.stopPropagation();
-    openCourseDeleteModal(el.dataset.courseDelete, false);
-  }));
-  document.querySelector("[data-close-course-delete]")?.addEventListener("click", () => { if (_courseDeleteModal?.loading) return; _courseDeleteModal = null; render(); });
-  document.querySelector("[data-course-delete-confirm-input]")?.addEventListener("input", (e) => {
-    if (_courseDeleteModal) { _courseDeleteModal = { ..._courseDeleteModal, confirmText: e.target.value }; }
-  });
-  // data-course-force-delete removed — all deletes are hard deletes, no secondary escalation needed
-  document.querySelectorAll("[data-confirm-course-delete]").forEach(el => el.addEventListener("click", async () => {
-    const m = _courseDeleteModal;
-    if (!m) return;
-    // Always require XÓA confirmation — all deletes are permanent hard deletes
-    if (m.confirmText !== "XÓA") return;
-    _courseDeleteModal = { ...m, loading: true, error: "" };
-    render();
-    try {
-      // Always force=true — hard delete with full dependency cleanup
-      const res = await fetch(`/api/courses?id=${encodeURIComponent(m.id)}&force=true`, { method: "DELETE", headers: apiHeaders({ "Content-Type": "application/json" }) });
-      const body = await res.json().catch(() => ({}));
-      if (!body.ok) throw new Error(body.error || "delete_failed");
-      // Verify course is gone: confirm API no longer returns it
-      const verifyRes = await fetch(`/api/courses/impact?id=${encodeURIComponent(m.id)}`, { headers: apiHeaders() }).catch(() => null);
-      if (verifyRes && verifyRes.status !== 404) {
-        const verifyBody = await verifyRes.json().catch(() => ({}));
-        if (verifyBody.ok) throw new Error("Khóa học vẫn còn tồn tại sau khi xóa. Vui lòng thử lại.");
-      }
-      // Remove from local state and invalidate localStorage cache
-      deleteCourse(m.id);
-      try {
-        const { localStorageAdapter } = await import("./lib/storage/localStorageAdapter.js");
-        const cached = localStorageAdapter.read("mykis.courses.v1", []);
-        localStorageAdapter.write("mykis.courses.v1", cached.filter(c => c.id !== m.id));
-      } catch(_) { /* localStorage unavailable — ignore */ }
-      if (selectedCourseId === m.id) { selectedCourseId = ""; courseDrawerOpen = false; courseFormMode = ""; }
-      _courseDeleteModal = null;
-      toast("success");
-      render();
-      // Refetch in background to sync any other state — do NOT set _courses=null first
-      fetchCoursesFromApi(session.accountId, session.role);
-    } catch(err) {
-      console.error("[delete-course]", err?.message);
-      _courseDeleteModal = { ...m, loading: false, error: err.message || "Xóa thất bại. Vui lòng thử lại." };
-      render();
-    }
-  }));
+  bindCourseResultEvents(document);
   document.querySelector("[data-close-course-drawer]")?.addEventListener("click", () => { courseDrawerOpen = false; contentBuilderMode = ""; selectedContentId = ""; render(); });
   document.querySelectorAll("[data-close-course-form]").forEach((el) => el.addEventListener("click", () => { courseFormMode = ""; render(); }));
   document.querySelector("[data-content-add]")?.addEventListener("click", () => { contentBuilderMode = "add"; selectedContentId = ""; contentPickerStep = "type"; slideDraft = null; youtubeDraft = null; render(); });
@@ -8463,7 +8545,6 @@ function setupPageSpecificHandlers() {
       }
       if (e.key !== "Escape") return;
       if (contentBuilderMode) { contentBuilderMode=""; contentPickerStep="type"; slideDraft=null; youtubeDraft=null; render(); return; }
-      if (_courseDeleteModal && !_courseDeleteModal.loading) { _courseDeleteModal=null; render(); return; }
       if (quizFormOpen) { quizFormOpen=false; quizBuilderQuestions=[]; quizAddingQType=false; render(); return; }
       if (courseDrawerOpen) { courseDrawerOpen=false; render(); return; }
       if (accountDrawerOpen) { accountDrawerOpen=false; render(); return; }
