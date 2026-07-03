@@ -77,6 +77,10 @@ function mapTask(row) {
     updatedAt: row.updated_at,
     referenceType: row.reference_type || "",
     referenceId: row.reference_id || "",
+    requesterAccountId: row.requester_account_id || null,
+    resolvedBy: row.resolved_by || null,
+    resolvedAt: row.resolved_at || null,
+    requestType: (() => { try { const m = JSON.parse(row.description||"{}"); return m._meta ? (m.request_type||row.task_type) : row.task_type; } catch { return row.task_type; } })(),
   };
 }
 

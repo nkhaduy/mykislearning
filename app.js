@@ -3581,10 +3581,12 @@ function renderHrTaskRow(task) {
   const statusCls = task.status === "done" ? "adm-status--done" : task.status === "rejected" ? "adm-status--reject" : task.status === "in_progress" ? "adm-status--progress" : "adm-status--new";
   const priorityCls = task.priority === "high" || task.priority === "urgent" ? "adm-priority--high" : task.priority === "low" ? "adm-priority--low" : "adm-priority--mid";
   const when = task.createdAt ? formatDateTime(task.createdAt) : "—";
+  const requesterDisplay = task.requester?.fullName || (task.title?.includes(" - ") ? task.title.split(" - ").slice(1).join(" - ") : null) || "—";
+  const deptDisplay = task.requester?.department || "";
   return `<tr class="adm-task-row" data-task-id="${escapeHtmlAttribute(task.id)}">
     <td><span class="adm-task-type-badge">${escapeHtml(task.taskTypeLabel)}</span></td>
     <td><span class="adm-task-title">${escapeHtml(task.title || task.taskTypeLabel)}</span></td>
-    <td><span class="adm-task-requester">${escapeHtml(task.requester?.fullName || "—")}</span><span class="adm-task-dept">${escapeHtml(task.requester?.department || "")}</span></td>
+    <td><span class="adm-task-requester">${escapeHtml(requesterDisplay)}</span><span class="adm-task-dept">${escapeHtml(deptDisplay)}</span></td>
     <td class="adm-task-time">${escapeHtml(when)}</td>
     <td><span class="adm-priority ${priorityCls}">${escapeHtml(task.priorityLabel)}</span></td>
     <td><span class="adm-status ${statusCls}">${escapeHtml(task.statusLabel)}</span></td>
@@ -4341,7 +4343,7 @@ function courseTable(courseItems) {
     const duration = Number(course.durationHours ?? course.duration_hours);
     const createdAt = course.createdAt || course.created_at || "";
     const deliveryLabel = courseDeliveryModeLabel(course);
-    return `<tr><td>${index + 1}</td><td><strong>${escapeHtml(course.title || course.name || "—")}</strong></td><td>${escapeHtml(course.category || "—")}</td><td>${escapeHtml(deliveryLabel)}</td><td>${Number.isFinite(duration) && duration > 0 ? `${duration}h` : "—"}</td><td>${courseStatusBadge(course.status)}</td><td>${escapeHtml(createdAt ? formatDate(createdAt) : "—")}</td><td><div class="row-actions"><button type="button" class="btn btn-outline mini-action" data-course-detail="${escapeHtmlAttribute(course.id)}">${t("admin.detail")}</button><button type="button" class="btn btn-outline mini-action" data-course-edit="${escapeHtmlAttribute(course.id)}">${t("course.edit")}</button><button type="button" class="btn btn-outline mini-action" data-course-delete="${escapeHtmlAttribute(course.id)}" aria-label="Xóa khóa học">Xóa</button></div></td></tr>`;
+    return `<tr><td>${index + 1}</td><td><strong>${escapeHtml(course.title || course.name || "—")}</strong></td><td>${escapeHtml(course.category || "—")}</td><td>${escapeHtml(deliveryLabel)}</td><td>${Number.isFinite(duration) && duration > 0 ? `${duration}h` : "—"}</td><td>${courseStatusBadge(course.status)}</td><td>${escapeHtml(createdAt ? formatDate(createdAt) : "—")}</td><td><div class="row-actions"><a href="/admin/courses/${escapeHtmlAttribute(course.id)}" data-link class="btn btn-outline mini-action">${t("admin.detail")}</a><button type="button" class="btn btn-outline mini-action" data-course-edit="${escapeHtmlAttribute(course.id)}">${t("course.edit")}</button><button type="button" class="btn btn-outline mini-action" data-course-delete="${escapeHtmlAttribute(course.id)}" aria-label="Xóa khóa học">Xóa</button></div></td></tr>`;
   }).join("")}</tbody></table></div>`;
 }
 
@@ -4376,6 +4378,86 @@ function courseDrawer() {
   }).join("");
 
   return `<div class="modal-backdrop open"><div class="card modal modal--large" role="dialog" aria-modal="true" aria-labelledby="course-drawer-title"><div class="modal-head"><div><h2 id="course-drawer-title">${escapeHtml(course.title || course.name || "—")}</h2></div><button type="button" class="icon-btn" aria-label="Đóng" data-close-course-drawer>×</button></div><div class="modal-col-layout"><div class="modal-col"><div class="profile-grid">${rows.map(([label, value]) => `<div class="profile-item"><span>${escapeHtml(label)}</span><strong>${typeof value === "string" && value.startsWith("<") ? value : escapeHtml(String(value))}</strong></div>`).join("")}</div><div class="card" style="margin-top:16px"><h3>${t("course.description")}</h3><p>${escapeHtml(course.description || "—")}</p></div><div class="security-actions" style="margin-top:16px"><button type="button" class="btn btn-primary" data-course-edit="${escapeHtmlAttribute(course.id)}">${t("content.editInfo")}</button><a class="btn btn-outline" href="/admin/assign?courseId=${encodeURIComponent(course.id)}&open=1" data-link>${t("enrollment.assign")}</a><button type="button" class="btn btn-outline" style="color:var(--color-danger,#e53e3e);border-color:var(--color-danger,#e53e3e)" data-course-delete="${escapeHtmlAttribute(course.id)}">Xóa khóa học</button></div></div><div class="modal-col"><div class="panel-head"><h3>${t("content.title")} (${content.length})</h3><button type="button" class="btn btn-primary" data-content-add>${t("content.add")}</button></div><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${content.length ? contentRows : `<p style="color:var(--muted,#718096)">${t("content.noContent")}</p>`}</div><h3 style="margin-top:20px">${t("content.enrolledEmployees")} (${enrollments.length})</h3>${enrollments.length ? `<div class="table-wrap"><table><thead><tr><th>${t("table.fullName")}</th><th>${t("table.status")}</th><th>${t("enrollment.progress")}</th></tr></thead><tbody>${enrolleeRows}</tbody></table></div>` : `<p>${t("content.noEnrolled")}</p>`}</div></div></div></div>`;
+}
+
+function courseDetailPage(courseId) {
+  const course = getCourseById(courseId);
+  const content = getCourseContent(courseId);
+  const allEnrollments = _enrollments || [];
+  const courseEnrollments = allEnrollments.filter(e => (e.courseId || e.course_id) === courseId);
+
+  if (_coursesLoading && !course) {
+    return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", t("course.manage"), "hr")}<div class="content"><div class="card"><div class="hr-overview-skeleton">${Array(3).fill("<span></span>").join("")}</div></div></div></main></div>`;
+  }
+  if (!course) {
+    return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", t("course.manage"), "hr")}<div class="content"><div class="card empty-state"><h2>Không tìm thấy khóa học</h2><p>ID: ${escapeHtml(courseId)}</p><a class="btn btn-primary" href="/admin/courses" data-link>← Quay lại</a></div></div></main></div>`;
+  }
+
+  const safeVal = (v, fallback) => { const fb = fallback !== undefined ? fallback : "—"; if (v === null || v === undefined || v === "") return fb; return escapeHtml(String(v)); };
+  const dur = Number(course.durationHours ?? (course.duration_minutes ? course.duration_minutes / 60 : 0));
+  const tabs = [["overview", "Tổng quan"], ["content", "Nội dung"], ["learners", "Người học"]];
+  const activeTab = courseDetailTab || "overview";
+
+  const overviewTab = `
+    <div class="profile-grid">
+      <div class="profile-item"><span>Danh mục</span><strong>${safeVal(course.category)}</strong></div>
+      <div class="profile-item"><span>Hình thức</span><strong>${safeVal(courseDeliveryModeLabel(course))}</strong></div>
+      <div class="profile-item"><span>Thời lượng</span><strong>${Number.isFinite(dur) && dur > 0 ? dur + "h" : "—"}</strong></div>
+      <div class="profile-item"><span>Trạng thái</span><strong>${courseStatusBadge(course.status)}</strong></div>
+      <div class="profile-item"><span>Ngày tạo</span><strong>${safeVal(course.createdAt || course.created_at ? formatDate(course.createdAt || course.created_at) : null)}</strong></div>
+      <div class="profile-item"><span>Cập nhật</span><strong>${safeVal(course.updatedAt || course.updated_at ? formatDate(course.updatedAt || course.updated_at) : null)}</strong></div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3>${t("course.description")}</h3><p>${safeVal(course.description, "Chưa có mô tả.")}</p></div>`;
+
+  const contentRows = content.map((item, i) => `
+    <div class="course-line" style="gap:8px;align-items:center">
+      <div style="flex:1;min-width:0"><strong>${escapeHtml(item.title || "—")}</strong><small>${item.type === "quiz" ? t("content.quizType") : item.type === "video" ? t("content.videoType") : t("content.slideType")} · ${item.required ? t("content.required") : t("content.optional")}</small></div>
+      <div style="display:flex;gap:4px">
+        <button type="button" class="btn btn-outline mini-action" data-content-move-up="${escapeHtmlAttribute(item.id)}" ${i === 0 ? "disabled" : ""}>↑</button>
+        <button type="button" class="btn btn-outline mini-action" data-content-move-down="${escapeHtmlAttribute(item.id)}" ${i === content.length - 1 ? "disabled" : ""}>↓</button>
+        <button type="button" class="btn btn-outline mini-action" data-content-edit="${escapeHtmlAttribute(item.id)}">${t("course.edit")}</button>
+        <button type="button" class="btn btn-outline mini-action" data-content-delete="${escapeHtmlAttribute(item.id)}">${t("course.delete")}</button>
+      </div>
+    </div>`).join("");
+
+  const contentTab = `
+    <div class="panel-head">
+      <div><h3>${t("content.title")}</h3><span class="badge">${content.length} nội dung</span></div>
+      <button type="button" class="btn btn-primary" data-content-add>${t("content.add")}</button>
+    </div>
+    ${content.length ? `<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">${contentRows}</div>` : `<div class="empty-state"><h3>${t("content.noContent")}</h3><p>Chưa có nội dung. Bấm "+ Thêm nội dung" để bắt đầu.</p></div>`}`;
+
+  const learnerRows = courseEnrollments.map(e => {
+    const acct = getAccountById(e.accountId || e.account_id);
+    const empName = acct?.fullName || acct?.full_name || e.accountId || e.account_id || "—";
+    const dept = acct?.department || "—";
+    const prog = calculateCourseProgress({ accountId: e.accountId || e.account_id, courseId });
+    return `<tr><td><strong>${escapeHtml(empName)}</strong></td><td>${escapeHtml(dept)}</td><td>${badge(e.status)}</td><td>${prog.percent}%</td></tr>`;
+  }).join("");
+
+  const learnersTab = courseEnrollments.length
+    ? `<div class="table-wrap"><table><thead><tr><th>Nhân viên</th><th>Phòng ban</th><th>Trạng thái</th><th>Tiến độ</th></tr></thead><tbody>${learnerRows}</tbody></table></div>`
+    : `<div class="empty-state"><h3>Chưa có người học</h3><p>Chưa có nhân viên nào được giao khóa học này.</p><a class="btn btn-primary" href="/admin/assign?courseId=${encodeURIComponent(courseId)}&open=1" data-link>${t("enrollment.assign")}</a></div>`;
+
+  const tabContent = activeTab === "content" ? contentTab : activeTab === "learners" ? learnersTab : overviewTab;
+
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", t("course.manage"), "hr")}<div class="content">
+    <nav class="breadcrumb" aria-label="Breadcrumb" style="margin-bottom:8px"><a href="/admin/courses" data-link class="breadcrumb-link">${t("course.manage")}</a><span aria-hidden="true"> › </span><span>${escapeHtml(course.title || course.name || courseId)}</span></nav>
+    <section class="card panel">
+      <div class="account-toolbar">
+        <div><h1 style="font-size:1.4rem;margin:0">${escapeHtml(course.title || course.name || "—")}</h1><div style="margin-top:6px">${courseStatusBadge(course.status)}</div></div>
+        <div class="security-actions">
+          <button type="button" class="btn btn-outline" data-course-edit="${escapeHtmlAttribute(courseId)}">${t("content.editInfo")}</button>
+          <a class="btn btn-outline" href="/admin/assign?courseId=${encodeURIComponent(courseId)}&open=1" data-link>${t("enrollment.assign")}</a>
+          <button type="button" class="btn btn-outline" style="color:var(--color-danger,#e53e3e);border-color:currentColor" data-course-delete="${escapeHtmlAttribute(courseId)}">Xóa</button>
+        </div>
+      </div>
+      <div class="detail-tabs" role="tablist" style="margin-top:16px;display:flex;gap:4px;border-bottom:1px solid var(--border,#e2e8f0)">
+        ${tabs.map(([id, label]) => `<button role="tab" aria-selected="${activeTab === id}" class="btn ${activeTab === id ? "btn-primary" : "btn-ghost"}" style="border-radius:4px 4px 0 0;border-bottom:none" data-course-detail-tab="${id}">${label}</button>`).join("")}
+      </div>
+      <div style="margin-top:16px">${tabContent}</div>
+    </section>
+  </div>${courseFormMode ? courseFormModal() : ""}${contentBuilderMode ? contentItemForm() : ""}${_courseDeleteModal ? courseDeleteModal() : ""}</main></div>`;
 }
 
 function contentItemForm() {
@@ -5855,6 +5937,13 @@ function render() {
       fetchCoursesFromApi(session.accountId, session.role);
     }
     app.innerHTML = hasAdminAccess() ? coursesPage() : session ? restrictedPage() : loginPage();
+  }
+  else if (route.startsWith("/admin/courses/")) {
+    const courseId = decodeURIComponent(route.split("/").pop());
+    if (session && (!_courses || _coursesAccountId !== session.accountId) && !_coursesLoading) {
+      fetchCoursesFromApi(session.accountId, session.role);
+    }
+    app.innerHTML = hasAdminAccess() ? courseDetailPage(courseId) : session ? restrictedPage() : loginPage();
   }
   else if (route === "/admin/assign") {
     if (session && (!_courses || _coursesAccountId !== session.accountId) && !_coursesLoading) {
@@ -7688,6 +7777,7 @@ function setupPageSpecificHandlers() {
   document.querySelector("[data-course-filter-status]")?.addEventListener("change", (event) => { courseFilterStatus = event.target.value; render(); });
   document.querySelector("[data-course-create]")?.addEventListener("click", () => { courseFormMode = "create"; selectedCourseId = ""; courseDrawerOpen = false; render(); });
   document.querySelectorAll("[data-course-detail]").forEach((el) => el.addEventListener("click", () => { selectedCourseId = el.dataset.courseDetail; courseDrawerOpen = true; courseFormMode = ""; render(); }));
+  document.querySelectorAll("[data-course-detail-tab]").forEach(el => el.addEventListener("click", () => { courseDetailTab = el.dataset.courseDetailTab; render(); }));
   document.querySelectorAll("[data-course-edit]").forEach((el) => el.addEventListener("click", () => { selectedCourseId = el.dataset.courseEdit; courseFormMode = "edit"; courseDrawerOpen = false; render(); }));
   async function openCourseDeleteModal(courseId, forceMode = false) {
     const course = getCourseById(courseId);
@@ -7742,7 +7832,6 @@ function setupPageSpecificHandlers() {
       }
       if (selectedCourseId === m.id) { selectedCourseId = ""; courseDrawerOpen = false; courseFormMode = ""; }
       _courseDeleteModal = null;
-      _courses = null;
       toast("success");
       render();
       fetchCoursesFromApi(session.accountId, session.role);
