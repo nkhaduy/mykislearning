@@ -40,7 +40,7 @@ export async function handleApiRequest(request, env) {
 
     if (path === "/api/auth" || path.startsWith("/api/auth/")) return await handleAuth(request, env);
 
-    if (path === "/api/courses" || path === "/api/courses/content") return await handleCourses(request, env);
+    if (path === "/api/courses" || path === "/api/courses/content" || path === "/api/courses/impact") return await handleCourses(request, env);
 
     if (path === "/api/enrollments") return await handleEnrollments(request, env);
 

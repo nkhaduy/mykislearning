@@ -906,6 +906,7 @@ let _hrOverviewLoadedAt = 0;
 let _hrOverviewTab = "inactive";
 let _hrOverviewPollId = 0;
 let _hrTaskFilter = "all"; // "all" | "new" | "in_progress" | "high"
+let _courseDeleteModal = null; // { id, title, impact, confirmText, loading, error, mode } — mode: "archive"|"force"
 let _activityHeartbeatId = 0;
 let _activityLastKey = "";
 let _learningHistory = null;
@@ -3812,12 +3813,14 @@ function adminDashboard(compact = false) {
   const onlineLearning = overview?.onlineLearning || [];
   const inactiveRows = overview?.inactiveEmployeeRows || [];
 
-  const filteredTasks = _hrTaskFilter === "all" ? tasks
+  const RESOLVED_STATUSES = ["done", "rejected"];
+  const filteredTasks = _hrTaskFilter === "all" ? tasks.filter(t => !RESOLVED_STATUSES.includes(t.status))
     : _hrTaskFilter === "new" ? tasks.filter(t => t.status === "new")
     : _hrTaskFilter === "in_progress" ? tasks.filter(t => t.status === "in_progress")
-    : _hrTaskFilter === "high" ? tasks.filter(t => t.priority === "high" || t.priority === "urgent")
+    : _hrTaskFilter === "high" ? tasks.filter(t => (t.priority === "high" || t.priority === "urgent") && !RESOLVED_STATUSES.includes(t.status))
+    : _hrTaskFilter === "resolved" ? tasks.filter(t => RESOLVED_STATUSES.includes(t.status))
     : tasks;
-  const displayedTasks = filteredTasks.slice(0, 7);
+  const displayedTasks = filteredTasks.slice(0, 10);
 
   function kpiVal(v, suffix = "") {
     if (isLoading) return `<span class="adm-kpi-skeleton"></span>`;
@@ -3841,8 +3844,8 @@ function adminDashboard(compact = false) {
       </div>
     </div>`).join("");
 
-  const taskFilterTabs = [["all","Tất cả"], ["new","Mới"], ["in_progress","Đang xử lý"], ["high","Ưu tiên cao"]].map(([v, l]) =>
-    `<button class="adm-filter-tab ${_hrTaskFilter === v ? "adm-filter-tab--active" : ""}" data-hr-task-filter="${v}">${l}</button>`).join("");
+  const taskFilterTabs = [["all","Chờ xử lý"], ["new","Mới"], ["in_progress","Đang xử lý"], ["high","Ưu tiên cao"], ["resolved","Đã xử lý"]].map(([v, l]) =>
+    `<button class="adm-filter-tab ${_hrTaskFilter === v ? "adm-filter-tab--active" : ""}" data-hr-task-filter="${v}">${l}${v==="all"&&tasks.filter(t=>!RESOLVED_STATUSES.includes(t.status)).length?` <span class="adm-badge-inline">${tasks.filter(t=>!RESOLVED_STATUSES.includes(t.status)).length}</span>`:""}</button>`).join("");
 
   const taskTableRows = isLoading
     ? `<tr><td colspan="7"><div class="adm-skeleton-block" style="height:160px"></div></td></tr>`
@@ -4007,9 +4010,9 @@ function shellPageMeta(path = route) {
     "/admin/notifications": [shellLabel("roleHr"), shellLabel("notifications")],
     "/admin/audit-log": [shellLabel("roleHr"), t("admin.auditLog")],
     "/admin/retraining": [shellLabel("roleHr"), shellLabel("retraining")],
-    "/admin/training-tracking": [shellLabel("roleHr"), t("trainingTracking.title")],
+    "/admin/training-tracking": [shellLabel("roleHr"), shellLabel("trainingTracking")],
     "/admin/sessions": [shellLabel("roleHr"), shellLabel("offlineClassManagement")],
-    "/admin/cchn-registrations": [shellLabel("roleHr"), t("cchnRegistration.title")],
+    "/admin/cchn-registrations": [shellLabel("roleHr"), shellLabel("cchnRegistration")],
   };
   const direct = base[path] || Object.entries(base).filter(([href]) => href !== "/" && path.startsWith(`${href}/`)).sort((a,b)=>b[0].length-a[0].length)[0]?.[1];
   return { label: direct?.[0] || "MyKIS", title: direct?.[1] || t("brand") };
@@ -4325,12 +4328,20 @@ function courseStatusBadge(status) {
   return badge("notStarted");
 }
 
+function courseDeliveryModeLabel(course) {
+  const raw = course.deliveryMode || course.format || course.delivery_mode || "";
+  if (!raw) return "—";
+  const map = { online: "Online", offline: "Offline", hybrid: "Hybrid", Online: "Online", Offline: "Offline", Hybrid: "Hybrid" };
+  return map[raw] || raw;
+}
+
 function courseTable(courseItems) {
-  if (!courseItems.length) return `<div class="card"><p>${t("course.searchPlaceholder")}</p></div>`;
-  return `<div class="table-wrap"><table><thead><tr><th>STT</th><th>${t("course.title")}</th><th>${t("course.category")}</th><th>${t("course.format")}</th><th>${t("course.duration")}</th><th>${t("course.status")}</th><th>${t("table.createdAt")}</th><th>${t("admin.action")}</th></tr></thead><tbody>${courseItems.map((course, index) => {
-    const canDelete = getEnrollmentsByCourseId(course.id).length === 0;
-    const duration = Number(course.durationHours);
-    return `<tr><td>${index + 1}</td><td><strong>${escapeHtml(course.title || "—")}</strong></td><td>${escapeHtml(course.category || "—")}</td><td>${escapeHtml(course.format || "—")}</td><td>${Number.isFinite(duration) ? `${duration}h` : "—"}</td><td>${courseStatusBadge(course.status)}</td><td>${escapeHtml(course.createdAt || "—")}</td><td><div class="row-actions"><button type="button" class="btn btn-outline mini-action" data-course-detail="${escapeHtmlAttribute(course.id)}">${t("admin.detail")}</button><button type="button" class="btn btn-outline mini-action" data-course-edit="${escapeHtmlAttribute(course.id)}">${t("course.edit")}</button>${canDelete ? `<button type="button" class="btn btn-outline mini-action" data-course-delete="${escapeHtmlAttribute(course.id)}">${t("course.delete")}</button>` : ""}</div></td></tr>`;
+  if (!courseItems.length) return `<div class="empty-state"><h3>Chưa có khóa học phù hợp</h3><p>Thay đổi bộ lọc hoặc thêm khóa học mới.</p></div>`;
+  return `<div class="table-wrap"><table><thead><tr><th>STT</th><th>${t("course.title")}</th><th>${t("course.category")}</th><th>Hình thức</th><th>${t("course.duration")}</th><th>${t("course.status")}</th><th>${t("table.createdAt")}</th><th>${t("admin.action")}</th></tr></thead><tbody>${courseItems.map((course, index) => {
+    const duration = Number(course.durationHours ?? course.duration_hours);
+    const createdAt = course.createdAt || course.created_at || "";
+    const deliveryLabel = courseDeliveryModeLabel(course);
+    return `<tr><td>${index + 1}</td><td><strong>${escapeHtml(course.title || course.name || "—")}</strong></td><td>${escapeHtml(course.category || "—")}</td><td>${escapeHtml(deliveryLabel)}</td><td>${Number.isFinite(duration) && duration > 0 ? `${duration}h` : "—"}</td><td>${courseStatusBadge(course.status)}</td><td>${escapeHtml(createdAt ? formatDate(createdAt) : "—")}</td><td><div class="row-actions"><button type="button" class="btn btn-outline mini-action" data-course-detail="${escapeHtmlAttribute(course.id)}">${t("admin.detail")}</button><button type="button" class="btn btn-outline mini-action" data-course-edit="${escapeHtmlAttribute(course.id)}">${t("course.edit")}</button><button type="button" class="btn btn-outline mini-action" data-course-delete="${escapeHtmlAttribute(course.id)}" aria-label="Xóa khóa học">Xóa</button></div></td></tr>`;
   }).join("")}</tbody></table></div>`;
 }
 
@@ -4339,10 +4350,32 @@ function courseDrawer() {
   if (!course) return "";
   const enrollments = getEnrollmentsByCourseId(course.id);
   const content = getCourseContent(course.id);
-  const contentTypeIcon = {slide:"▤",video:"▶",quiz:"?"};
-  const contentRows = content.map((item,i) => `<div class="course-line" style="gap:8px;align-items:center"><div style="flex:1;min-width:0"><strong>${escapeHtml(item.title)}</strong><small>${item.type==="quiz"?t("content.quizType"):item.type==="video"?t("content.videoType"):t("content.slideType")} · ${item.required?t("content.required"):t("content.optional")} · ${item.minimumDurationSeconds||0}s min</small></div><div style="display:flex;gap:4px"><button type="button" class="btn btn-outline mini-action" data-content-move-up="${escapeHtmlAttribute(item.id)}" ${i===0?"disabled":""}>↑</button><button type="button" class="btn btn-outline mini-action" data-content-move-down="${escapeHtmlAttribute(item.id)}" ${i===content.length-1?"disabled":""}>↓</button><button type="button" class="btn btn-outline mini-action" data-content-edit="${escapeHtmlAttribute(item.id)}">${t("course.edit")}</button><button type="button" class="btn btn-outline mini-action" data-content-delete="${escapeHtmlAttribute(item.id)}">${t("course.delete")}</button></div></div>`).join("");
-  const rows = [[t("course.category"), course.category], [t("course.format"), course.format], [t("course.duration"), Number.isFinite(Number(course.durationHours)) ? `${Number(course.durationHours)}h` : "—"], [t("course.status"), courseStatusBadge(course.status)], [t("table.createdAt"), course.createdAt], [t("table.createdBy"), course.createdBy]];
-  return `<div class="modal-backdrop open"><div class="card modal modal--large" role="dialog" aria-modal="true"><div class="modal-head"><div><h2>${escapeHtml(course.title)}</h2></div><button type="button" class="icon-btn" data-close-course-drawer>×</button></div><div class="modal-col-layout"><div class="modal-col"><div class="profile-grid">${rows.map(([label, value]) => `<div class="profile-item"><span>${label}</span><strong>${value}</strong></div>`).join("")}</div><div class="card" style="margin-top:16px"><h3>${t("course.description")}</h3><p>${escapeHtml(course.description || "—")}</p></div><div class="security-actions" style="margin-top:16px"><button type="button" class="btn btn-primary" data-course-edit="${escapeHtmlAttribute(course.id)}">${t("content.editInfo")}</button><a class="btn btn-outline" href="/admin/assign?courseId=${encodeURIComponent(course.id)}&open=1" data-link>${t("enrollment.assign")}</a></div></div><div class="modal-col"><div class="panel-head"><h3>${t("content.title")} (${content.length})</h3><button type="button" class="btn btn-primary" data-content-add>${t("content.add")}</button></div><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${content.length ? contentRows : `<p style="color:var(--color-muted)">${t("content.noContent")}</p>`}</div><h3 style="margin-top:20px">${t("content.enrolledEmployees")} (${enrollments.length})</h3>${enrollments.length ? `<div class="table-wrap"><table><thead><tr><th>${t("table.fullName")}</th><th>${t("table.status")}</th><th>${t("enrollment.progress")}</th></tr></thead><tbody>${enrollments.map((enrollment) => { const account = getAccountById(enrollment.accountId); const prog = calculateCourseProgress({accountId:enrollment.accountId,courseId:course.id}); return `<tr><td>${escapeHtml(account?.fullName || enrollment.accountId)}</td><td>${badge(enrollment.status)}</td><td>${prog.percent}%</td></tr>`; }).join("")}</tbody></table></div>` : `<p>${t("content.noEnrolled")}</p>`}</div></div></div></div>`;
+  const contentRows = content.map((item,i) => `<div class="course-line" style="gap:8px;align-items:center"><div style="flex:1;min-width:0"><strong>${escapeHtml(item.title || "—")}</strong><small>${item.type==="quiz"?t("content.quizType"):item.type==="video"?t("content.videoType"):t("content.slideType")} · ${item.required?t("content.required"):t("content.optional")} · ${item.minimumDurationSeconds||0}s min</small></div><div style="display:flex;gap:4px"><button type="button" class="btn btn-outline mini-action" data-content-move-up="${escapeHtmlAttribute(item.id)}" ${i===0?"disabled":""}>↑</button><button type="button" class="btn btn-outline mini-action" data-content-move-down="${escapeHtmlAttribute(item.id)}" ${i===content.length-1?"disabled":""}>↓</button><button type="button" class="btn btn-outline mini-action" data-content-edit="${escapeHtmlAttribute(item.id)}">${t("course.edit")}</button><button type="button" class="btn btn-outline mini-action" data-content-delete="${escapeHtmlAttribute(item.id)}">${t("course.delete")}</button></div></div>`).join("");
+
+  const dur = Number(course.durationHours ?? course.duration_hours);
+  const createdAt = course.createdAt || course.created_at || "";
+  const createdBy = course.createdBy || course.created_by || "";
+  const deliveryLabel = courseDeliveryModeLabel(course);
+
+  const rows = [
+    ["Danh mục", course.category || "—"],
+    ["Hình thức", deliveryLabel],
+    ["Thời lượng", Number.isFinite(dur) && dur > 0 ? `${dur}h` : "—"],
+    [t("course.status"), courseStatusBadge(course.status)],
+    [t("table.createdAt"), createdAt ? formatDate(createdAt) : "—"],
+    ["Người tạo", createdBy || "—"],
+  ];
+
+  const enrolleeRows = enrollments.map((enrollment) => {
+    const account = getAccountById(enrollment.accountId);
+    const displayName = account?.fullName || account?.full_name
+      ? escapeHtml(account.fullName || account.full_name)
+      : `<span style="color:var(--muted);font-size:12px">${escapeHtml(enrollment.accountId)}</span>`;
+    const prog = calculateCourseProgress({accountId:enrollment.accountId,courseId:course.id});
+    return `<tr><td>${displayName}</td><td>${badge(enrollment.status)}</td><td>${prog.percent}%</td></tr>`;
+  }).join("");
+
+  return `<div class="modal-backdrop open"><div class="card modal modal--large" role="dialog" aria-modal="true" aria-labelledby="course-drawer-title"><div class="modal-head"><div><h2 id="course-drawer-title">${escapeHtml(course.title || course.name || "—")}</h2></div><button type="button" class="icon-btn" aria-label="Đóng" data-close-course-drawer>×</button></div><div class="modal-col-layout"><div class="modal-col"><div class="profile-grid">${rows.map(([label, value]) => `<div class="profile-item"><span>${escapeHtml(label)}</span><strong>${typeof value === "string" && value.startsWith("<") ? value : escapeHtml(String(value))}</strong></div>`).join("")}</div><div class="card" style="margin-top:16px"><h3>${t("course.description")}</h3><p>${escapeHtml(course.description || "—")}</p></div><div class="security-actions" style="margin-top:16px"><button type="button" class="btn btn-primary" data-course-edit="${escapeHtmlAttribute(course.id)}">${t("content.editInfo")}</button><a class="btn btn-outline" href="/admin/assign?courseId=${encodeURIComponent(course.id)}&open=1" data-link>${t("enrollment.assign")}</a><button type="button" class="btn btn-outline" style="color:var(--color-danger,#e53e3e);border-color:var(--color-danger,#e53e3e)" data-course-delete="${escapeHtmlAttribute(course.id)}">Xóa khóa học</button></div></div><div class="modal-col"><div class="panel-head"><h3>${t("content.title")} (${content.length})</h3><button type="button" class="btn btn-primary" data-content-add>${t("content.add")}</button></div><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${content.length ? contentRows : `<p style="color:var(--muted,#718096)">${t("content.noContent")}</p>`}</div><h3 style="margin-top:20px">${t("content.enrolledEmployees")} (${enrollments.length})</h3>${enrollments.length ? `<div class="table-wrap"><table><thead><tr><th>${t("table.fullName")}</th><th>${t("table.status")}</th><th>${t("enrollment.progress")}</th></tr></thead><tbody>${enrolleeRows}</tbody></table></div>` : `<p>${t("content.noEnrolled")}</p>`}</div></div></div></div>`;
 }
 
 function contentItemForm() {
@@ -4408,7 +4441,7 @@ function contentTypePicker() {
     { key:"slide", icon:"📄", label:t("contentType.slide"), desc:t("contentType.slideDesc") },
     { key:"youtube", icon:"▶️", label:t("contentType.youtube"), desc:t("contentType.youtubeDesc") },
     { key:"quiz-pick", icon:"❓", label:t("contentType.quiz"), desc:t("contentType.quizDesc") },
-    { key:"text", icon:"📝", label:t("contentType.text"), desc:t("contentType.textDesc") },
+    // "text" (Bài đọc văn bản) intentionally removed per product decision
   ];
   return `<div class="modal-backdrop open"><section class="modal modal--medium modal--structured" role="dialog" aria-modal="true" aria-labelledby="ct-title"><header class="modal__header"><div><h2 id="ct-title">${t("contentType.selectType")}</h2></div><button type="button" class="icon-btn" data-content-form-close>×</button></header><div class="modal__body"><div class="content-type-grid">${types.map(tp=>`<button type="button" class="ct-card" data-pick-content-type="${tp.key}"><span class="ct-icon">${tp.icon}</span><span class="ct-label">${tp.label}</span><span class="ct-desc">${tp.desc}</span></button>`).join("")}</div></div></section></div>`;
 }
@@ -4526,15 +4559,75 @@ function courseFormModal() {
   const course = courseFormMode === "edit" ? getCourseById(selectedCourseId) : null;
   if (courseFormMode === "edit" && !course) return "";
   const value = (field, fallback = "") => escapeHtmlAttribute(course?.[field] ?? fallback);
+  // deliveryMode/format normalisation: API stores deliveryMode (online/offline/hybrid), form uses format (Online/Offline/Hybrid)
+  const currentDeliveryMode = course ? (course.deliveryMode || course.format || course.delivery_mode || "online") : "online";
+  const normalizeDeliveryForOption = (v) => v.toLowerCase();
   const option = (field, optionValue, fallback = "") => (course?.[field] ?? fallback) === optionValue ? "selected" : "";
-  return `<div class="modal-backdrop open"><form class="modal modal--medium modal--structured" id="courseForm" role="dialog" aria-modal="true" aria-labelledby="course-form-title"><header class="modal__header"><div><h2 id="course-form-title">${courseFormMode === "edit" ? "Chỉnh sửa khóa học" : "Tạo khóa học"}</h2></div><button type="button" class="icon-btn" data-close-course-form>×</button></header><div class="modal__body"><div class="field"><label>Tên khóa học</label><input name="title" type="text" value="${value("title")}" required></div><div class="field"><label>Mô tả</label><textarea name="description" rows="3">${escapeHtml(course?.description || "")}</textarea></div><div class="field"><label>Danh mục</label><select name="category">${["Kỹ năng mềm", "Chuyên môn", "Chứng chỉ", "Onboarding"].map((item) => `<option value="${escapeHtmlAttribute(item)}" ${option("category", item, "Kỹ năng mềm")}>${item}</option>`).join("")}</select></div><div class="field"><label>Hình thức</label><select name="format">${["Online", "Offline", "Hybrid"].map((item) => `<option value="${item}" ${option("format", item, "Online")}>${item}</option>`).join("")}</select></div><div class="field"><label>Thời lượng (giờ)</label><input name="durationHours" type="number" min="0" step="0.5" value="${value("durationHours", 0)}" required></div><div class="field"><label>Trạng thái</label><select name="status"><option value="draft" ${option("status", "draft", "draft")}>Bản nháp</option><option value="published" ${option("status", "published")}>Đã xuất bản</option></select></div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-close-course-form>Hủy</button><button type="submit" class="btn btn-primary">Lưu</button></footer></form></div>`;
+  return `<div class="modal-backdrop open"><form class="modal modal--medium modal--structured" id="courseForm" role="dialog" aria-modal="true" aria-labelledby="course-form-title"><header class="modal__header"><div><h2 id="course-form-title">${courseFormMode === "edit" ? "Chỉnh sửa khóa học" : "Tạo khóa học"}</h2></div><button type="button" class="icon-btn" data-close-course-form>×</button></header><div class="modal__body"><div class="field"><label>Tên khóa học</label><input name="title" type="text" value="${value("title")}" required></div><div class="field"><label>Mô tả</label><textarea name="description" rows="3">${escapeHtml(course?.description || "")}</textarea></div><div class="field"><label>Danh mục</label><select name="category">${["Kỹ năng mềm", "Chuyên môn", "Chứng chỉ", "Onboarding"].map((item) => `<option value="${escapeHtmlAttribute(item)}" ${option("category", item, "Kỹ năng mềm")}>${item}</option>`).join("")}</select></div><div class="field"><label>Hình thức</label><select name="format">${["Online", "Offline", "Hybrid"].map((item) => `<option value="${item}" ${normalizeDeliveryForOption(currentDeliveryMode) === item.toLowerCase() ? "selected" : ""}>${item}</option>`).join("")}</select></div><div class="field"><label>Thời lượng (giờ)</label><input name="durationHours" type="number" min="0" step="0.5" value="${value("durationHours", 0)}" required></div><div class="field"><label>Trạng thái</label><select name="status"><option value="draft" ${option("status", "draft", "draft")}>Bản nháp</option><option value="published" ${option("status", "published")}>Đã xuất bản</option></select></div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-close-course-form>Hủy</button><button type="submit" class="btn btn-primary">Lưu</button></footer></form></div>`;
+}
+
+function courseDeleteModal() {
+  const m = _courseDeleteModal;
+  if (!m) return "";
+  const imp = m.impact || {};
+  const totalImpact = (imp.enrollments || 0) + (imp.sessions || 0);
+  const isForce = m.mode === "force";
+  const confirmWord = "XÓA";
+  const confirmMatch = (m.confirmText || "") === confirmWord;
+  const canConfirm = !isForce || confirmMatch;
+
+  let impactLines = "";
+  if (m.impact) {
+    const lines = [
+      imp.enrollments > 0 ? `${imp.enrollments} enrollment học viên` : null,
+      imp.sessions > 0 ? `${imp.sessions} lớp học/phiên đào tạo` : null,
+      imp.content > 0 ? `${imp.content} nội dung bài học` : null,
+      imp.versions > 0 ? `${imp.versions} phiên bản` : null,
+      imp.learningPaths > 0 ? `${imp.learningPaths} lộ trình học` : null,
+      imp.compliance > 0 ? `${imp.compliance} yêu cầu tuân thủ` : null,
+    ].filter(Boolean);
+    if (lines.length) {
+      impactLines = `<div class="course-delete-impact"><strong>Dữ liệu liên quan sẽ bị ảnh hưởng:</strong><ul>${lines.map(l=>`<li>${escapeHtml(l)}</li>`).join("")}</ul></div>`;
+    }
+  }
+
+  return `<div class="modal-backdrop open" role="dialog" aria-modal="true" aria-labelledby="course-del-title">
+    <div class="card modal modal--medium modal--structured">
+      <header class="modal__header">
+        <div><h2 id="course-del-title" style="color:var(--color-danger,#e53e3e)">${isForce ? "Xóa vĩnh viễn khóa học" : "Xóa khóa học"}</h2></div>
+        <button type="button" class="icon-btn" data-close-course-delete aria-label="Đóng">×</button>
+      </header>
+      <div class="modal__body">
+        ${m.error ? `<div class="form-error" style="margin-bottom:12px">${escapeHtml(m.error)}</div>` : ""}
+        <p>Khóa học: <strong>${escapeHtml(m.title || m.id)}</strong></p>
+        ${m.impact === null ? `<div class="adm-skeleton-block" style="height:48px"></div>` : impactLines}
+        ${isForce ? `
+          <div style="background:#fff5f5;border:1px solid #feb2b2;border-radius:6px;padding:12px;margin:12px 0">
+            <strong style="color:#c53030">Cảnh báo: Hành động này không thể hoàn tác.</strong>
+            <p style="margin-top:4px;font-size:13px;color:#742a2a">Tất cả nội dung, enrollment và lịch học sẽ bị xóa vĩnh viễn. Nhật ký kiểm tra (audit log) sẽ được giữ lại.</p>
+          </div>
+          <div class="field">
+            <label>Nhập <strong>${confirmWord}</strong> để xác nhận:</label>
+            <input type="text" id="courseDeleteConfirmInput" value="${escapeHtmlAttribute(m.confirmText || "")}" autocomplete="off" placeholder="${confirmWord}" style="font-family:monospace" data-course-delete-confirm-input>
+          </div>
+        ` : (totalImpact > 0 ? `<p style="color:#744210;background:#fffbeb;border:1px solid #f6e05e;padding:10px;border-radius:6px;font-size:13px">Khóa học có dữ liệu liên quan. Hệ thống sẽ <strong>lưu trữ</strong> thay vì xóa vĩnh viễn. Khóa học sẽ ẩn khỏi danh sách hoạt động.</p>` : `<p style="font-size:13px;color:#2d3748">Khóa học chưa có enrollment hoặc lịch học. Sẽ bị xóa vĩnh viễn.</p>`)}
+        ${m.impact && totalImpact > 0 && !isForce ? `<button type="button" class="btn btn-outline" style="color:var(--color-danger,#e53e3e);border-color:currentColor;margin-top:8px;font-size:12px" data-course-force-delete="${escapeHtmlAttribute(m.id)}">Xóa vĩnh viễn (bỏ qua dữ liệu liên quan)</button>` : ""}
+      </div>
+      <footer class="modal__footer">
+        <button type="button" class="btn btn-outline" data-close-course-delete>Hủy</button>
+        <button type="button" class="btn btn-danger ${m.loading ? "loading" : ""}" data-confirm-course-delete="${escapeHtmlAttribute(m.id)}" ${(!canConfirm || m.loading || m.impact === null) ? "disabled" : ""}>
+          ${m.loading ? "Đang xóa..." : isForce ? "Xóa vĩnh viễn" : (totalImpact > 0 ? "Lưu trữ" : "Xóa")}
+        </button>
+      </footer>
+    </div>
+  </div>`;
 }
 
 function coursesPage() {
   if (!hasAdminAccess()) return restrictedPage();
   const allCourses = getCourses();
   const categories = [...new Set(allCourses.map((course) => course.category).filter(Boolean))];
-  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", t("course.manage"), "hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h2>${t("course.manage")}</h2><p>${t("course.manageDesc")}</p></div><button type="button" class="btn btn-primary" data-course-create>${t("course.create")}</button></div><div class="filter-bar"><input id="courseSearchInput" data-focus-key="course-search" type="search" placeholder="${t("course.searchPlaceholder")}" value="${escapeHtmlAttribute(courseSearch)}" data-course-search><select data-course-filter-category><option value="">${t("course.allCategories")}</option>${categories.map((category) => `<option value="${escapeHtmlAttribute(category)}" ${courseFilterCategory === category ? "selected" : ""}>${escapeHtml(category)}</option>`).join("")}</select><select data-course-filter-status><option value="">${t("enrollment.allStatuses")}</option><option value="published" ${courseFilterStatus === "published" ? "selected" : ""}>${t("course.published")}</option><option value="draft" ${courseFilterStatus === "draft" ? "selected" : ""}>${t("course.draft")}</option><option value="archived" ${courseFilterStatus === "archived" ? "selected" : ""}>${t("course.archived")}</option></select></div>${courseTable(filteredCourses())}</section></div>${courseDrawerOpen ? courseDrawer() : ""}${courseFormMode ? courseFormModal() : ""}${contentBuilderMode ? contentItemForm() : ""}</main></div>`;
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", t("course.manage"), "hr")}<div class="content"><section class="card panel"><div class="account-toolbar"><div><h2>${t("course.manage")}</h2><p>${t("course.manageDesc")}</p></div><button type="button" class="btn btn-primary" data-course-create>${t("course.create")}</button></div><div class="filter-bar"><input id="courseSearchInput" data-focus-key="course-search" type="search" placeholder="${t("course.searchPlaceholder")}" value="${escapeHtmlAttribute(courseSearch)}" data-course-search><select data-course-filter-category><option value="">${t("course.allCategories")}</option>${categories.map((category) => `<option value="${escapeHtmlAttribute(category)}" ${courseFilterCategory === category ? "selected" : ""}>${escapeHtml(category)}</option>`).join("")}</select><select data-course-filter-status><option value="">${t("enrollment.allStatuses")}</option><option value="published" ${courseFilterStatus === "published" ? "selected" : ""}>${t("course.published")}</option><option value="draft" ${courseFilterStatus === "draft" ? "selected" : ""}>${t("course.draft")}</option><option value="archived" ${courseFilterStatus === "archived" ? "selected" : ""}>${t("course.archived")}</option></select></div>${courseTable(filteredCourses())}</section></div>${courseDrawerOpen ? courseDrawer() : ""}${courseFormMode ? courseFormModal() : ""}${contentBuilderMode ? contentItemForm() : ""}${_courseDeleteModal ? courseDeleteModal() : ""}</main></div>`;
 }
 
 function notificationText(key) {
@@ -7596,37 +7689,68 @@ function setupPageSpecificHandlers() {
   document.querySelector("[data-course-create]")?.addEventListener("click", () => { courseFormMode = "create"; selectedCourseId = ""; courseDrawerOpen = false; render(); });
   document.querySelectorAll("[data-course-detail]").forEach((el) => el.addEventListener("click", () => { selectedCourseId = el.dataset.courseDetail; courseDrawerOpen = true; courseFormMode = ""; render(); }));
   document.querySelectorAll("[data-course-edit]").forEach((el) => el.addEventListener("click", () => { selectedCourseId = el.dataset.courseEdit; courseFormMode = "edit"; courseDrawerOpen = false; render(); }));
-  document.querySelectorAll("[data-course-delete]").forEach((el) => el.addEventListener("click", () => {
-    const courseId = el.dataset.courseDelete;
-    const hasEnrollments = getEnrollmentsByCourseId(courseId).length > 0;
-    const actionLabel = hasEnrollments ? "Lưu trữ khóa học" : "Xóa khóa học";
-    const bodyText = hasEnrollments
-      ? "Khóa học này đã có học viên được giao. Hệ thống sẽ lưu trữ (archive) thay vì xóa vĩnh viễn. Khóa học sẽ không còn hiển thị với nhân viên."
-      : "Khóa học sẽ bị xóa vĩnh viễn. Tiến trình học liên quan sẽ không bị xóa.";
-    openDialog({type:"confirm",title:actionLabel,body:bodyText,onConfirm:async()=>{
-      try {
-        const res = await fetch("/api/courses?id="+encodeURIComponent(courseId), {
-          method: "DELETE",
-          headers: {"Content-Type":"application/json","X-Account-Id":session.accountId,"X-Account-Role":"hr"},
-        });
-        const body = await res.json().catch(() => ({}));
-        if (!body.ok) throw new Error(body.error || "delete_failed");
-        // Also update local mock database
-        if (body.method === "soft") {
-          const c = getCourseById(courseId);
-          if (c) { c.status = "archived"; }
-        } else {
-          deleteCourse(courseId);
-        }
-        if (selectedCourseId === courseId) { selectedCourseId = ""; courseDrawerOpen = false; courseFormMode = ""; }
-        _courses = null;
-        toast("success");
-        await fetchCoursesFromApi(session.accountId, session.role);
-      } catch(e) {
-        console.error("[delete-course]", e?.message);
-        toast("error");
+  async function openCourseDeleteModal(courseId, forceMode = false) {
+    const course = getCourseById(courseId);
+    const title = course?.title || course?.name || courseId;
+    _courseDeleteModal = { id: courseId, title, impact: null, confirmText: "", loading: false, error: "", mode: forceMode ? "force" : "normal" };
+    render();
+    try {
+      const res = await fetch(`/api/courses/impact?id=${encodeURIComponent(courseId)}`, { headers: apiHeaders() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.ok) throw new Error(body.error || "impact_failed");
+      if (_courseDeleteModal && _courseDeleteModal.id === courseId) {
+        _courseDeleteModal = { ..._courseDeleteModal, impact: body.impact, title: body.title || title };
+        render();
       }
-    }});
+    } catch(err) {
+      if (_courseDeleteModal && _courseDeleteModal.id === courseId) {
+        _courseDeleteModal = { ..._courseDeleteModal, impact: {}, error: "Không thể kiểm tra dữ liệu liên quan: " + err.message };
+        render();
+      }
+    }
+  }
+
+  document.querySelectorAll("[data-course-delete]").forEach((el) => el.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openCourseDeleteModal(el.dataset.courseDelete, false);
+  }));
+  document.querySelector("[data-close-course-delete]")?.addEventListener("click", () => { _courseDeleteModal = null; render(); });
+  document.querySelector("[data-course-delete-confirm-input]")?.addEventListener("input", (e) => {
+    if (_courseDeleteModal) { _courseDeleteModal = { ..._courseDeleteModal, confirmText: e.target.value }; }
+  });
+  document.querySelectorAll("[data-course-force-delete]").forEach(el => el.addEventListener("click", () => {
+    if (_courseDeleteModal) openCourseDeleteModal(_courseDeleteModal.id, true);
+  }));
+  document.querySelectorAll("[data-confirm-course-delete]").forEach(el => el.addEventListener("click", async () => {
+    const m = _courseDeleteModal;
+    if (!m) return;
+    const isForce = m.mode === "force";
+    if (isForce && m.confirmText !== "XÓA") return;
+    _courseDeleteModal = { ...m, loading: true, error: "" };
+    render();
+    try {
+      const url = isForce ? `/api/courses?id=${encodeURIComponent(m.id)}&force=true` : `/api/courses?id=${encodeURIComponent(m.id)}`;
+      const res = await fetch(url, { method: "DELETE", headers: apiHeaders({ "Content-Type": "application/json" }) });
+      const body = await res.json().catch(() => ({}));
+      if (!body.ok) throw new Error(body.error || "delete_failed");
+      // Update local state
+      if (body.method === "soft" || body.status === "archived") {
+        const c = getCourseById(m.id);
+        if (c) c.status = "archived";
+      } else {
+        deleteCourse(m.id);
+      }
+      if (selectedCourseId === m.id) { selectedCourseId = ""; courseDrawerOpen = false; courseFormMode = ""; }
+      _courseDeleteModal = null;
+      _courses = null;
+      toast("success");
+      render();
+      fetchCoursesFromApi(session.accountId, session.role);
+    } catch(err) {
+      console.error("[delete-course]", err?.message);
+      _courseDeleteModal = { ...m, loading: false, error: err.message || "Xóa thất bại. Vui lòng thử lại." };
+      render();
+    }
   }));
   document.querySelector("[data-close-course-drawer]")?.addEventListener("click", () => { courseDrawerOpen = false; contentBuilderMode = ""; selectedContentId = ""; render(); });
   document.querySelectorAll("[data-close-course-form]").forEach((el) => el.addEventListener("click", () => { courseFormMode = ""; render(); }));
@@ -8210,6 +8334,7 @@ function setupPageSpecificHandlers() {
       }
       if (e.key !== "Escape") return;
       if (contentBuilderMode) { contentBuilderMode=""; contentPickerStep="type"; slideDraft=null; youtubeDraft=null; render(); return; }
+      if (_courseDeleteModal && !_courseDeleteModal.loading) { _courseDeleteModal=null; render(); return; }
       if (quizFormOpen) { quizFormOpen=false; quizBuilderQuestions=[]; quizAddingQType=false; render(); return; }
       if (courseDrawerOpen) { courseDrawerOpen=false; render(); return; }
       if (accountDrawerOpen) { accountDrawerOpen=false; render(); return; }

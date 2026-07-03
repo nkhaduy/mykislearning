@@ -164,12 +164,88 @@ export async function handleCourses(request, env) {
     return json({ ok: true, id: course.id });
   }
 
+  // ── /api/courses/impact — impact check before delete ────────────────────────
+  if (path === "/api/courses/impact" && method === "GET") {
+    const acct = await requireHr(request, env);
+    if (!acct) return json({ error: "HR only" }, 403);
+    const id = url.searchParams.get("id");
+    if (!id) return json({ error: "id required" }, 400);
+
+    const [course, enrollments, sessions, content, versions, lpSteps, compliance] = await Promise.all([
+      supabase.from("courses").select("id, status, data").eq("id", id).maybeSingle(),
+      supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("course_id", id),
+      supabase.from("training_sessions").select("id", { count: "exact", head: true }).eq("course_id", id),
+      supabase.from("course_content").select("id", { count: "exact", head: true }).eq("course_id", id),
+      supabase.from("course_versions").select("id", { count: "exact", head: true }).eq("course_id", id),
+      supabase.from("learning_path_steps").select("id", { count: "exact", head: true }).eq("resource_id", id).eq("resource_type", "course").catch(() => ({ count: 0 })),
+      supabase.from("compliance_requirements").select("id", { count: "exact", head: true }).eq("resource_id", id).catch(() => ({ count: 0 })),
+    ]);
+
+    if (!course.data) return json({ error: "Course not found" }, 404);
+    const title = course.data?.data?.title || course.data?.data?.name || id;
+    return json({
+      ok: true,
+      id,
+      title,
+      status: course.data.status,
+      impact: {
+        enrollments: enrollments.count || 0,
+        sessions: sessions.count || 0,
+        content: content.count || 0,
+        versions: versions.count || 0,
+        learningPaths: lpSteps.count || 0,
+        compliance: compliance.count || 0,
+      },
+    });
+  }
+
   if (method === "DELETE") {
     const acct = await requireHr(request, env);
     if (!acct) return json({ error: "HR only" }, 403);
     const body = await readJson(request);
     const id = url.searchParams.get("id") || body?.id;
+    const force = url.searchParams.get("force") === "true" || body?.force === true;
     if (!id) return json({ error: "id required" }, 400);
+
+    // Fetch course info for audit
+    const { data: courseRow } = await supabase.from("courses").select("id, status, data").eq("id", id).maybeSingle();
+    if (!courseRow) return json({ error: "Course not found" }, 404);
+    const courseTitle = courseRow.data?.title || courseRow.data?.name || id;
+
+    if (force) {
+      // Force delete: remove dependencies then delete course
+      const [enrollments, sessions, content, versions] = await Promise.all([
+        supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("course_id", id),
+        supabase.from("training_sessions").select("id", { count: "exact", head: true }).eq("course_id", id),
+        supabase.from("course_content").select("id", { count: "exact", head: true }).eq("course_id", id),
+        supabase.from("course_versions").select("id", { count: "exact", head: true }).eq("course_id", id),
+      ]);
+      const impact = {
+        enrollments: enrollments.count || 0,
+        sessions: sessions.count || 0,
+        content: content.count || 0,
+        versions: versions.count || 0,
+      };
+
+      // Delete dependencies
+      await supabase.from("course_content").delete().eq("course_id", id);
+      await supabase.from("enrollments").delete().eq("course_id", id);
+      await supabase.from("training_sessions").update({ status: "cancelled" }).eq("course_id", id);
+      await supabase.from("course_versions").delete().eq("course_id", id);
+
+      const { error } = await supabase.from("courses").delete().eq("id", id);
+      if (error) return json({ error: error.message }, 500);
+
+      auditLater(supabase, request, {
+        actor: acct,
+        action: "course.force_deleted",
+        entityType: "course",
+        entityId: id,
+        entityDisplayName: courseTitle,
+        metadata: { title_snapshot: courseTitle, impact },
+      });
+      return json({ ok: true, id, status: "force_deleted", method: "hard", impact });
+    }
 
     // Check if enrollments, sessions, or content exist → archive
     const { data: enrollments } = await supabase.from("enrollments")
@@ -183,13 +259,15 @@ export async function handleCourses(request, env) {
       const { error } = await supabase.from("courses")
         .update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", id);
       if (error) return json({ error: error.message }, 500);
-      auditLater(supabase, request, { actor: acct, action: "course.archived", entityType: "course", entityId: id, beforeData: { status: "active" }, afterData: { status: "archived" } });
+      auditLater(supabase, request, { actor: acct, action: "course.archived", entityType: "course", entityId: id, entityDisplayName: courseTitle, beforeData: { status: courseRow.status }, afterData: { status: "archived" } });
       return json({ ok: true, id, status: "archived", method: "soft" });
     } else {
       // Hard delete if no related data
+      await supabase.from("course_content").delete().eq("course_id", id);
+      await supabase.from("course_versions").delete().eq("course_id", id);
       const { error } = await supabase.from("courses").delete().eq("id", id);
       if (error) return json({ error: error.message }, 500);
-      auditLater(supabase, request, { actor: acct, action: "course.archived", entityType: "course", entityId: id, metadata: { hard_deleted_no_related_data: true } });
+      auditLater(supabase, request, { actor: acct, action: "course.deleted", entityType: "course", entityId: id, entityDisplayName: courseTitle, metadata: { title_snapshot: courseTitle } });
       return json({ ok: true, id, status: "deleted", method: "hard" });
     }
   }
