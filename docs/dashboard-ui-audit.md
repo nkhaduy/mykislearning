@@ -519,3 +519,55 @@ Note: Local static server cannot authenticate through `/api/auth` without the Wo
 2. Decide whether Phase 2 should refactor `app.js` into modules or keep one-file rendering with shared primitives.
 3. Decide authenticated missing-route behavior: 404, coming soon, or redirect to nearest existing route.
 4. Use Worker dev or production-like auth for final QA because static fallback server does not run `/api/auth`.
+
+
+## Dashboard UI Phase 2 implementation
+
+Implementation date: 2026-07-03
+Scope: shared authenticated app shell and design-system foundations for Employee and HR routes. No business workflow redesign, backend/API/auth, database, Landing Page, or About KIS changes.
+
+### Shell changes
+
+- Employee and HR now use the same shell language: sidebar, topbar, content container, drawer overlay, user identity, language switcher, notification access, and logout affordance.
+- `/admin` no longer presents a separate topbar visual system; the HR overview keeps its existing dashboard content cards while the shell/topbar matches other admin routes.
+- The shared sidebar renderer is retained and tightened to the Phase 2 route groups instead of making every legacy route a primary navigation item.
+
+### Design tokens and foundations
+
+- Added a Phase 2 token layer for navy/blue brand colors, neutral surfaces, semantic status colors, typography/layout primitives, spacing, radius, shadows, and shell dimensions.
+- Existing variables are aliased to the Phase 2 token layer for compatibility with older page content.
+- Added additive foundations for buttons, icon buttons, compact table actions, forms, badges/statuses, cards, metric containers, tables, filter bars, modals/dialogs, loading/empty/error blocks, pagination, and reduced motion.
+
+### Sidebar and mobile drawer
+
+- Desktop sidebar is scroll-contained with grouped labels, subtle active state, fixed brand area, and a separated logout area.
+- Mobile sidebar is a fixed left drawer with backdrop instead of normal document flow; it no longer occupies the first viewport.
+- Drawer behavior includes open/close controls, `aria-expanded`, `aria-controls`, Escape close, backdrop close, close-on-nav-click, body scroll lock, focus movement into the drawer, focus trap, focus return, and desktop-resize cleanup.
+
+### Topbar and user menu
+
+- Topbar includes mobile menu control, current page context, notifications, language switcher, user name/role label, avatar/initials, dropdown menu, and logout.
+- User dropdown is keyboard usable, closes on Escape/outside click, and preserves focus behavior.
+- Mobile topbar keeps controls compact and truncates long VI/EN/KR user/page labels.
+
+### Modal/drawer accessibility
+
+- Shared dialog open/close now preserves and returns focus.
+- Central focus-trap behavior applies to the active mobile drawer or modal dialog.
+- Escape closes shared dialogs/drawer/user menu in the expected order.
+- Existing business modals remain in place; Phase 2 adds the accessibility foundation rather than rewriting long forms.
+
+### Shared components
+
+- Page container rhythm is normalized through `.content` and additive shell tokens.
+- Table wrappers keep overflow local to the table rather than the whole page.
+- Filter bars wrap predictably and collapse to one/two columns on smaller viewports.
+- Empty/error/loading surfaces use a calmer enterprise style with text plus structure rather than color-only cues.
+
+### Remaining issues for Phase 3–7
+
+- Phase 3 should redesign the Employee dashboard overview hierarchy and metrics; Phase 2 intentionally did not change dashboard business content.
+- Phase 4 should apply task-specific hierarchy to employee course, quiz, learning-path, compliance, certificate, skills, and development-plan content.
+- Phase 5 should redesign HR overview KPIs/quick actions beyond the shell.
+- Phase 6 should address dense HR tables/forms and operational workflows route by route.
+- Phase 7 should complete full route-level responsive, accessibility, and performance QA, including any mobile card fallbacks for dense tables.
