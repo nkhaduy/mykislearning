@@ -11,6 +11,7 @@
     "wrangler": "^4.103.0"
   },
   "dependencies": {
+    "@astryxdesign/core": "^0.1.3",
     "@supabase/supabase-js": "^2.108.2",
     "impeccable": "github:pbakaus/impeccable",
     "jsqr": "^1.4.0",
