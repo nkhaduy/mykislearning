@@ -821,6 +821,7 @@ let retrainingState = { rows: [], loading: false, error: "", preview: null };
 let liveTrainingState = {
   flows: [], detail: null, participants: [], loading: false, detailLoading: false, error: "",
   createOpen: false, search: "", actionId: "", participantActionId: "",
+  roster: [], rosterLoading: false, rosterParsed: null, rosterReplaceMode: true, rosterSearch: "",
 };
 let liveDeleteState = { flowId: null, flowTitle: "", loading: false, error: "" };
 let publicTrainingState = {
@@ -828,6 +829,7 @@ let publicTrainingState = {
   token: "", flow: null, steps: null, participant: null, completionEligible: false,
   loading: false, joining: false, error: "", name: "", action: "", pollTimer: 0,
   requestSeq: 0, lastJson: "", inFlight: false,
+  roster: [], rosterSearch: "", rosterDropdownOpen: false, selectedRosterId: null, outsideRoster: false,
 };
 let gallerySearch = "";
 let galleryYear = "";
@@ -1056,6 +1058,17 @@ function liveT(key) {
     networkError: { vi: "Không thể khôi phục tiến độ", en: "Could not restore progress", kr: "진행 상황을 복원할 수 없습니다" },
     retry: { vi: "Thử lại", en: "Try again", kr: "다시 시도" },
     nameHint: { vi: "Họ tên được dùng để khôi phục tiến độ khi bạn truy cập lại.", en: "Your name is used to restore progress when you return.", kr: "이름은 재접속 시 진행 상황을 복원하는 데 사용됩니다." },
+    notOnList: { vi: "Không có tên trong danh sách", en: "My name is not on the list", kr: "명단에 이름이 없습니다" },
+    backToList: { vi: "Quay lại danh sách", en: "Back to list", kr: "목록으로 돌아가기" },
+    searchName: { vi: "Tìm tên...", en: "Search name...", kr: "이름 검색..." },
+    selectName: { vi: "Chọn họ và tên", en: "Select your name", kr: "이름을 선택하세요" },
+    rosterTitle: { vi: "Danh sách tham gia", en: "Participant roster", kr: "참가자 명단" },
+    importRoster: { vi: "Nhập danh sách", en: "Import roster", kr: "명단 가져오기" },
+    saveRoster: { vi: "Lưu danh sách", en: "Save roster", kr: "명단 저장" },
+    clearRoster: { vi: "Xóa toàn bộ danh sách", en: "Clear entire roster", kr: "전체 명단 삭제" },
+    replaceRoster: { vi: "Thay thế danh sách", en: "Replace roster", kr: "명단 교체" },
+    appendRoster: { vi: "Bổ sung vào danh sách", en: "Append to roster", kr: "명단에 추가" },
+    speakerLabel: { vi: "Diễn giả", en: "Speaker", kr: "발표자" },
   };
   return labels[key]?.[language] || labels[key]?.vi || key;
 }
@@ -1087,6 +1100,8 @@ async function fetchPublicTrainingInitial(accessToken) {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || "NOT_FOUND");
     applyPublicTrainingPayload(body);
+    // Fetch roster in background (best-effort)
+    fetch(`/api/public/live-training/${encodeURIComponent(accessToken)}/roster`).then((r) => r.json()).then((rb) => { if (rb.ok) publicTrainingState.roster = rb.roster || []; }).catch(() => {});
     const flowId = publicTrainingState.flow?.id;
     const stored = flowId ? localStorage.getItem(liveTrainingStorageKey(flowId)) : "";
     if (stored) {
@@ -1177,6 +1192,21 @@ async function loadLiveTrainingList() {
   }
 }
 
+async function loadRoster(id) {
+  liveTrainingState.rosterLoading = true;
+  try {
+    const data = await apiJson(`/api/admin/live-training/${encodeURIComponent(id)}/roster`);
+    liveTrainingState.roster = data.roster || [];
+  } catch (_) { liveTrainingState.roster = []; }
+  liveTrainingState.rosterLoading = false;
+  if (route.startsWith("/admin/live-training/")) render();
+}
+
+async function importRoster(id, records, replace) {
+  const data = await apiJson(`/api/admin/live-training/${encodeURIComponent(id)}/roster/import`, { method: "POST", body: JSON.stringify({ records, replace }) });
+  return data;
+}
+
 async function loadLiveTrainingDetail(id) {
   liveTrainingState.detailLoading = true;
   liveTrainingState.error = "";
@@ -1188,6 +1218,7 @@ async function loadLiveTrainingDetail(id) {
     ]);
     liveTrainingState.detail = detail.flow;
     liveTrainingState.participants = participants.participants || [];
+    loadRoster(id);
   } catch (err) {
     liveTrainingState.error = err.message;
   } finally {
@@ -6231,13 +6262,36 @@ function adminLiveTrainingDetailPage() {
       <label class="setting-row"><span>Pre-test ${liveT("required")}</span><input name="pretestRequired" type="checkbox" ${f.pretest_required ? "checked" : ""}></label>
       <label class="setting-row"><span>Post-test ${liveT("required")}</span><input name="posttestRequired" type="checkbox" ${f.posttest_required ? "checked" : ""}></label>
       <label class="setting-row"><span>${liveT("evaluation")} ${liveT("required")}</span><input name="evaluationRequired" type="checkbox" ${f.evaluation_required ? "checked" : ""}></label>
+      <div class="field span-2" style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px"><strong>${liveT("speakerLabel")}</strong></div>
+      <div class="field"><label>Tên diễn giả</label><input name="speakerName" value="${escapeHtmlAttribute(f.speaker_name || "")}"></div>
+      <div class="field"><label>Chức danh</label><input name="speakerTitle" value="${escapeHtmlAttribute(f.speaker_title || "")}"></div>
+      <div class="field"><label>Tổ chức</label><input name="speakerOrg" value="${escapeHtmlAttribute(f.speaker_org || "")}"></div>
+      <div class="field"><label>Ảnh diễn giả (URL)</label><input name="speakerPhotoUrl" type="url" value="${escapeHtmlAttribute(f.speaker_photo_url || "")}"></div>
+      <div class="field span-2"><label>Giới thiệu diễn giả</label><textarea name="speakerBio" rows="3">${escapeHtml(f.speaker_bio || "")}</textarea></div>
       <div class="span-2"><button class="btn btn-primary" type="submit">Lưu</button></div><p class="field-error span-2" data-live-update-error></p>
     </form>
     <section class="live-controls">${control("pretest", liveT("pretest"))}${control("posttest", liveT("posttest"))}${control("evaluation", liveT("evaluation"))}${control("completion", liveT("completion"))}</section>
     <section class="ui-card"><div class="table-tools"><input data-live-search placeholder="Tìm theo tên" value="${escapeHtmlAttribute(liveTrainingState.search)}"><button class="btn btn-outline" data-live-detail-reload>Làm mới</button></div>
       <div class="table-wrap"><table class="data-table"><thead><tr><th>${liveT("fullName")}</th><th>Tham gia</th><th>Gần nhất</th><th>Pre</th><th>Post</th><th>${liveT("evaluation")}</th><th>${liveT("completion")}</th><th>${t("admin.action")}</th></tr></thead><tbody>
       ${participants.map((p) => `<tr><td>${escapeHtml(p.displayName)}</td><td>${formatDateTime(p.createdAt)}</td><td>${formatDateTime(p.lastSeenAt)}</td><td>${p.pretestCompletedAt ? liveT("done") : p.pretestStartedAt ? liveT("started") : "—"}</td><td>${p.posttestCompletedAt ? liveT("done") : p.posttestStartedAt ? liveT("started") : "—"}</td><td>${p.evaluationCompletedAt ? liveT("done") : p.evaluationStartedAt ? liveT("started") : "—"}</td><td>${p.completedAt ? liveT("done") : "—"}</td><td><div class="row-actions"><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="pretestCompleted">Pre ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="posttestCompleted">Post ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="evaluationCompleted">${liveT("evaluation")} ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="completed">${liveT("completion")}</button><button class="btn btn-outline mini-action" data-live-participant-reset="${p.id}">Reset</button></div></td></tr>`).join("") || `<tr><td colspan="8"><div class="ui-empty">Chưa có người tham gia.</div></td></tr>`}
-      </tbody></table></div></section></div></main></div>${liveDeleteModal()}`;
+      </tbody></table></div></section>
+    <section class="ui-card live-roster-section">
+      <h2 style="margin:0 0 16px;font-size:18px">${liveT("rosterTitle")} <span style="font-weight:400;font-size:14px;color:var(--muted)">(${liveTrainingState.roster.length} ${liveT("required").toLowerCase()})</span></h2>
+      <div class="live-roster-dropzone" id="liveRosterDropzone" tabindex="0" role="button" aria-label="Tải lên file Excel/CSV">
+        <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p>Kéo thả file .xlsx / .csv vào đây hoặc <label style="color:var(--primary);cursor:pointer;text-decoration:underline" for="liveRosterFileInput">chọn file</label></p>
+        <input type="file" id="liveRosterFileInput" accept=".xlsx,.xls,.csv" style="display:none">
+      </div>
+      ${liveTrainingState.rosterParsed ? (() => {
+        const p = liveTrainingState.rosterParsed;
+        return `<div style="margin-top:16px"><p class="live-roster-stats"><strong>${p.valid}</strong> hợp lệ · <strong>${p.duplicates}</strong> trùng · <strong>${p.skipped}</strong> bỏ qua</p>
+        <div style="margin:10px 0;display:flex;gap:12px;align-items:center"><label style="font-size:14px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="rosterMode" value="replace" ${liveTrainingState.rosterReplaceMode ? "checked" : ""}> ${liveT("replaceRoster")}</label><label style="font-size:14px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="rosterMode" value="append" ${!liveTrainingState.rosterReplaceMode ? "checked" : ""}> ${liveT("appendRoster")}</label></div>
+        <div class="table-wrap" style="max-height:280px;overflow:auto"><table class="live-roster-preview-table"><thead><tr><th>#</th><th>Họ và tên</th><th>Phòng ban</th><th>Địa điểm</th><th>Hình thức</th></tr></thead><tbody>${p.records.slice(0,50).map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.fullName)}</td><td>${escapeHtml(r.department||"")}</td><td>${escapeHtml(r.location||"")}</td><td>${escapeHtml(r.mode||"")}</td></tr>`).join("")}${p.records.length>50?`<tr><td colspan="5" style="text-align:center;color:var(--muted)">... và ${p.records.length-50} dòng nữa</td></tr>`:""}</tbody></table></div>
+        <button class="btn btn-primary" style="margin-top:14px" id="liveRosterSaveBtn">${liveT("saveRoster")}</button></div>`;
+      })() : ""}
+      ${liveTrainingState.roster.length > 0 ? `<div style="margin-top:24px"><div class="table-tools" style="margin-bottom:8px"><input placeholder="Tìm trong danh sách..." data-live-roster-search value="${escapeHtmlAttribute(liveTrainingState.rosterSearch)}"><button class="btn btn-danger" style="margin-left:auto" data-live-roster-clear>🗑 ${liveT("clearRoster")}</button></div><div class="table-wrap" style="max-height:360px;overflow:auto"><table class="live-roster-preview-table"><thead><tr><th>#</th><th>Họ và tên</th><th>Phòng ban</th><th>Địa điểm</th><th>Hình thức</th><th></th></tr></thead><tbody>${(liveTrainingState.rosterSearch ? liveTrainingState.roster.filter(r=>r.full_name.toLowerCase().includes(liveTrainingState.rosterSearch.toLowerCase())) : liveTrainingState.roster).map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.full_name)}</td><td>${escapeHtml(r.department||"")}</td><td>${escapeHtml(r.location||"")}</td><td>${escapeHtml(r.mode||"")}</td><td><button class="btn btn-danger mini-action" data-live-roster-delete="${escapeHtmlAttribute(r.id)}">Xóa</button></td></tr>`).join("")}</tbody></table></div></div>` : ""}
+    </section>
+    </div></main></div>${liveDeleteModal()}`;
 }
 
 function publicTrainingPage(accessToken) {
@@ -6263,7 +6317,18 @@ function publicTrainingPage(accessToken) {
     const errText = err === "FLOW_EXPIRED" ? liveT("expiredLink") : err === "FLOW_CLOSED" ? liveT("closedFlow") : liveT("invalidLink");
     content = `<div class="pub-card pub-error-card"><h1>${errText}</h1></div>`;
   } else if (bs === "needsName") {
-    content = `<div class="pub-card pub-join-card"><h1 class="pub-session-title">${escapeHtml(f?.title || "")}</h1>${f?.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}<form id="publicTrainingJoinForm"><div class="field"><label for="publicTrainingName">${liveT("fullName")}</label><input id="publicTrainingName" name="displayName" value="${escapeHtmlAttribute(publicTrainingState.name)}" required maxlength="120" autocomplete="name" aria-required="true"><small>${liveT("nameHint")}</small></div><button class="btn btn-primary" type="submit" style="width:100%;min-height:48px">${publicTrainingState.joining ? liveT("resuming").replace("…", "") : liveT("start")}</button><p class="field-error" role="alert">${escapeHtml(publicTrainingState.error || "")}</p></form></div>`;
+    const hasRoster = publicTrainingState.roster && publicTrainingState.roster.length > 0;
+    const outsideRoster = publicTrainingState.outsideRoster;
+    let namePickerHtml;
+    if (hasRoster && !outsideRoster) {
+      const rSearch = publicTrainingState.rosterSearch || "";
+      const filtered = rSearch ? publicTrainingState.roster.filter((r) => r.fullName.toLowerCase().normalize("NFKC").includes(rSearch.toLowerCase().normalize("NFKC")) || (r.department || "").toLowerCase().includes(rSearch.toLowerCase())) : publicTrainingState.roster;
+      const dropItems = filtered.map((r) => `<button type="button" class="pub-roster-item" data-roster-id="${escapeHtmlAttribute(r.id)}" data-roster-name="${escapeHtmlAttribute(r.fullName)}"><span class="pub-roster-name">${escapeHtml(r.fullName)}</span>${r.department || r.location || r.mode ? `<span class="pub-roster-meta">${[r.department, r.location, r.mode].filter(Boolean).map(escapeHtml).join(" · ")}</span>` : ""}</button>`).join("");
+      namePickerHtml = `<div class="pub-roster-wrap"><label class="pub-roster-label">${liveT("selectName")}</label><div class="pub-roster-search-wrap"><input id="publicRosterSearch" class="pub-roster-search" placeholder="${escapeHtmlAttribute(liveT("searchName"))}" value="${escapeHtmlAttribute(rSearch)}" autocomplete="off" aria-autocomplete="list" aria-controls="pubRosterList"><svg class="pub-roster-search-icon" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div><div class="pub-roster-list" id="pubRosterList" role="listbox">${dropItems}<button type="button" class="pub-roster-item pub-roster-not-listed" data-roster-not-listed>${liveT("notOnList")}</button></div><p class="pub-roster-hint">${liveT("nameHint")}</p></div>`;
+    } else {
+      namePickerHtml = `<div class="field">${hasRoster ? `<button type="button" class="btn btn-ghost" style="margin-bottom:10px;font-size:13px" data-roster-back>← ${liveT("backToList")}</button>` : ""}<label for="publicTrainingName">${liveT("fullName")}</label><input id="publicTrainingName" name="displayName" value="${escapeHtmlAttribute(publicTrainingState.name)}" required maxlength="120" autocomplete="name" aria-required="true"><small>${liveT("nameHint")}</small></div>`;
+    }
+    content = `<div class="pub-card pub-join-card"><h1 class="pub-session-title">${escapeHtml(f?.title || "")}</h1>${f?.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}<form id="publicTrainingJoinForm">${namePickerHtml}${!hasRoster || outsideRoster ? `<button class="btn btn-primary" type="submit" style="width:100%;min-height:48px">${publicTrainingState.joining ? liveT("resuming").replace("…", "") : liveT("start")}</button>` : ""}<p class="field-error" role="alert">${escapeHtml(publicTrainingState.error || "")}</p></form></div>`;
   } else {
     // ready or completed
     const stepCard = (step, label, openLabel, doneLabel) => {
@@ -6275,7 +6340,8 @@ function publicTrainingPage(accessToken) {
       return `<article class="public-step ${done ? "is-done" : ""}"><div><h2>${label}</h2><span class="pub-step-badge">${status}</span></div><div class="pub-step-actions">${body}</div></article>`;
     };
     const completionOpen = publicTrainingState.completionEligible;
-    content = `<div class="pub-journey"><div class="pub-journey-header"><div class="pub-journey-meta"><h1 class="pub-session-title">${escapeHtml(f.title)}</h1>${f.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}<span class="pub-participant-name">${escapeHtml(p.displayName)}</span></div><button class="btn pub-switch-btn" data-public-switch aria-label="${liveT("switchParticipant")}">${liveT("switchParticipant")}</button></div>${p.completedAt ? `<div class="pub-card pub-done-card"><h2>${liveT("completed")}</h2><p class="pub-done-time">${formatDateTime(p.completedAt)}</p></div>` : `<section class="pub-stepper" aria-label="${liveT("title")}">${stepCard("pretest", liveT("pretest"), liveT("doPretest"), liveT("donePretest"))}${stepCard("posttest", liveT("posttest"), liveT("doPosttest"), liveT("donePosttest"))}${stepCard("evaluation", liveT("evaluation"), liveT("openEvaluation"), liveT("doneEvaluation"))}<article class="public-step ${completionOpen ? "is-open" : ""}"><div><h2>${liveT("completion")}</h2><span class="pub-step-badge">${completionOpen ? liveT("available") : liveT("waiting")}</span></div><div class="pub-step-actions">${completionOpen ? `<button class="btn btn-primary" data-public-complete>${liveT("completion")}</button>` : `<span class="pub-step-wait">${liveT("waiting")}</span>`}</div></article></section>`}</div>`;
+    const speakerCard = f.speaker_name ? `<div class="pub-card pub-speaker-card"><div class="pub-speaker-inner">${f.speaker_photo_url ? `<img class="pub-speaker-photo" src="${escapeHtmlAttribute(f.speaker_photo_url)}" alt="${escapeHtmlAttribute(f.speaker_name)}" loading="lazy">` : `<div class="pub-speaker-initials" aria-hidden="true">${escapeHtml(f.speaker_name.trim().split(/\s+/).map(w=>w[0]).slice(-2).join("").toUpperCase())}</div>`}<div class="pub-speaker-info"><strong class="pub-speaker-name">${escapeHtml(f.speaker_name)}</strong>${f.speaker_title ? `<span class="pub-speaker-title">${escapeHtml(f.speaker_title)}</span>` : ""}${f.speaker_org ? `<span class="pub-speaker-org">${escapeHtml(f.speaker_org)}</span>` : ""}${f.speaker_bio ? `<p class="pub-speaker-bio">${escapeHtml(f.speaker_bio)}</p>` : ""}</div></div></div>` : "";
+    content = `<div class="pub-journey"><div class="pub-journey-header"><div class="pub-journey-meta"><h1 class="pub-session-title">${escapeHtml(f.title)}</h1>${f.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}${speakerCard}<span class="pub-participant-name">${escapeHtml(p.displayName)}</span></div><button class="btn pub-switch-btn" data-public-switch aria-label="${liveT("switchParticipant")}">${liveT("switchParticipant")}</button></div>${p.completedAt ? `<div class="pub-card pub-done-card"><h2>${liveT("completed")}</h2><p class="pub-done-time">${formatDateTime(p.completedAt)}</p></div>` : `<section class="pub-stepper" aria-label="${liveT("title")}">${stepCard("pretest", liveT("pretest"), liveT("doPretest"), liveT("donePretest"))}${stepCard("posttest", liveT("posttest"), liveT("doPosttest"), liveT("donePosttest"))}${stepCard("evaluation", liveT("evaluation"), liveT("openEvaluation"), liveT("doneEvaluation"))}<article class="public-step ${completionOpen ? "is-open" : ""}"><div><h2>${liveT("completion")}</h2><span class="pub-step-badge">${completionOpen ? liveT("available") : liveT("waiting")}</span></div><div class="pub-step-actions">${completionOpen ? `<button class="btn btn-success" data-public-complete>${liveT("completion")}</button>` : `<span class="pub-step-wait">${liveT("waiting")}</span>`}</div></article></section>`}</div>`;
   }
 
   return `<div class="public-outer"><div class="pub-bg" aria-hidden="true"></div><div class="pub-ov" aria-hidden="true"></div>${header}<main class="pub-main" ${bs === "checkingParticipant" ? 'aria-busy="true"' : ""}>${content}</main></div>`;
@@ -7008,6 +7074,9 @@ function bindEvents() {
       title: fd.get("title"), description: fd.get("description"),
       pretestUrl: fd.get("pretestUrl"), posttestUrl: fd.get("posttestUrl"), evaluationUrl: fd.get("evaluationUrl"),
       pretestRequired: fd.get("pretestRequired") === "on", posttestRequired: fd.get("posttestRequired") === "on", evaluationRequired: fd.get("evaluationRequired") === "on",
+      speakerName: fd.get("speakerName") || "", speakerTitle: fd.get("speakerTitle") || "",
+      speakerOrg: fd.get("speakerOrg") || "", speakerBio: fd.get("speakerBio") || "",
+      speakerPhotoUrl: fd.get("speakerPhotoUrl") || "",
     };
     try { await apiJson(`/api/admin/live-training/${id}`, { method: "PATCH", body: JSON.stringify(payload) }); await loadLiveTrainingDetail(id); toast("success"); }
     catch (err) { event.currentTarget.querySelector("[data-live-update-error]").textContent = err.message; }
@@ -7026,6 +7095,82 @@ function bindEvents() {
     if (!confirm("Rotate public link? Link cũ sẽ không còn dùng được.")) return;
     try { await apiJson(`/api/admin/live-training/${e.currentTarget.dataset.liveRotate}/rotate-link`, { method: "POST", body: "{}" }); await loadLiveTrainingDetail(e.currentTarget.dataset.liveRotate); } catch { toast("error"); }
   });
+  // Roster admin handlers
+  (() => {
+    const parseXlsxFile = (file) => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const XLSX = window.XLSX;
+            if (!XLSX) { reject(new Error("XLSX not loaded")); return; }
+            const wb = XLSX.read(evt.target.result, { type: "array" });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+            let headerRow = -1, nameCol = -1, deptCol = -1, locCol = -1, modeCol = -1;
+            for (let i = 0; i < Math.min(12, rows.length); i++) {
+              const row = rows[i];
+              for (let j = 0; j < row.length; j++) {
+                const cell = String(row[j] || "").trim().toLowerCase().normalize("NFKC");
+                if (nameCol < 0 && (cell.includes("full name") || cell.includes("họ và tên") || cell.includes("họ tên") || cell === "name" || (cell.includes("tên") && !cell.includes("địa")))) { headerRow = i; nameCol = j; }
+                if (deptCol < 0 && (cell.includes("department") || cell.includes("phòng") || cell.includes("bộ phận"))) deptCol = j;
+                if (locCol < 0 && (cell.includes("location") || cell.includes("địa điểm") || cell.includes("chi nhánh"))) locCol = j;
+                if (modeCol < 0 && (cell.includes("mode") || cell.includes("hình thức"))) modeCol = j;
+              }
+              if (headerRow >= 0) break;
+            }
+            if (headerRow < 0 || nameCol < 0) { reject(new Error("Không tìm thấy cột tên")); return; }
+            const records = []; const seen = new Set(); let duplicates = 0, skipped = 0;
+            for (let i = headerRow + 1; i < rows.length; i++) {
+              const row = rows[i];
+              const fullName = String(row[nameCol] || "").trim().replace(/\s+/g, " ");
+              if (!fullName || fullName.length < 2) { skipped++; continue; }
+              const normalized = fullName.normalize("NFKC").toLocaleLowerCase("vi-VN");
+              if (seen.has(normalized)) { duplicates++; continue; }
+              seen.add(normalized);
+              records.push({ fullName, department: deptCol >= 0 ? String(row[deptCol] || "").trim() : "", location: locCol >= 0 ? String(row[locCol] || "").trim() : "", mode: modeCol >= 0 ? String(row[modeCol] || "").trim() : "", sourceRow: i + 1 });
+            }
+            resolve({ records, valid: records.length, duplicates, skipped });
+          } catch (e) { reject(e); }
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+      });
+    };
+    const handleFile = (file) => {
+      if (!file) return;
+      parseXlsxFile(file).then((result) => { liveTrainingState.rosterParsed = result; render(); }).catch((e) => toast("Lỗi đọc file: " + e.message));
+    };
+    document.getElementById("liveRosterFileInput")?.addEventListener("change", (e) => handleFile(e.target.files[0]));
+    const dropzone = document.getElementById("liveRosterDropzone");
+    if (dropzone) {
+      dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("is-over"); });
+      dropzone.addEventListener("dragleave", () => dropzone.classList.remove("is-over"));
+      dropzone.addEventListener("drop", (e) => { e.preventDefault(); dropzone.classList.remove("is-over"); handleFile(e.dataTransfer.files[0]); });
+    }
+    document.querySelectorAll("[name='rosterMode']").forEach((el) => el.addEventListener("change", () => { liveTrainingState.rosterReplaceMode = el.value === "replace"; }));
+    document.getElementById("liveRosterSaveBtn")?.addEventListener("click", async () => {
+      const id = route.split("/")[3];
+      const p = liveTrainingState.rosterParsed;
+      if (!p) return;
+      try {
+        const result = await importRoster(id, p.records, liveTrainingState.rosterReplaceMode);
+        liveTrainingState.rosterParsed = null;
+        await loadRoster(id);
+        toast(`Đã lưu ${result.imported} người`);
+      } catch (e) { toast("Lỗi: " + e.message); }
+    });
+    document.querySelector("[data-live-roster-search]")?.addEventListener("input", (e) => { liveTrainingState.rosterSearch = e.target.value; render(); document.querySelector("[data-live-roster-search]")?.focus(); });
+    document.querySelector("[data-live-roster-clear]")?.addEventListener("click", async () => {
+      const id = route.split("/")[3];
+      if (!confirm("Xóa toàn bộ danh sách?")) return;
+      try { await apiJson(`/api/admin/live-training/${id}/roster`, { method: "DELETE" }); await loadRoster(id); toast("Đã xóa danh sách"); } catch { toast("error"); }
+    });
+    document.querySelectorAll("[data-live-roster-delete]").forEach((el) => el.addEventListener("click", async () => {
+      const id = route.split("/")[3];
+      try { await apiJson(`/api/admin/live-training/${id}/roster/${el.dataset.liveRosterDelete}`, { method: "DELETE" }); await loadRoster(id); } catch { toast("error"); }
+    }));
+  })();
   document.querySelectorAll("[data-live-delete]").forEach((el) => el.addEventListener("click", () => {
     liveDeleteState = { flowId: el.dataset.liveDelete, flowTitle: el.dataset.liveDeleteTitle || "", loading: false, error: "" };
     render();
@@ -7064,11 +7209,19 @@ function bindEvents() {
   }));
   document.getElementById("publicTrainingJoinForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const name = new FormData(event.currentTarget).get("displayName");
+    const name = new FormData(event.currentTarget).get("displayName") || publicTrainingState.name;
     publicTrainingState.name = String(name || "");
     publicTrainingState.joining = true; publicTrainingState.error = ""; render();
     try {
-      const res = await fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/join`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ displayName: name }) });
+      let joinBody;
+      if (publicTrainingState.selectedRosterId) {
+        joinBody = { rosterEntryId: publicTrainingState.selectedRosterId };
+      } else if (publicTrainingState.outsideRoster) {
+        joinBody = { displayName: name, outsideRoster: true };
+      } else {
+        joinBody = { displayName: name };
+      }
+      const res = await fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/join`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(joinBody) });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "JOIN_ERROR");
       applyPublicTrainingPayload(body);
@@ -7078,6 +7231,43 @@ function bindEvents() {
       publicTrainingState.joining = false; render(); startPublicTrainingPolling();
     } catch (err) { publicTrainingState.joining = false; publicTrainingState.error = err.message; render(); }
   });
+  // Roster search
+  document.getElementById("publicRosterSearch")?.addEventListener("input", (e) => {
+    publicTrainingState.rosterSearch = e.target.value;
+    render();
+    document.getElementById("publicRosterSearch")?.focus();
+  });
+  // Roster item selection
+  document.querySelectorAll("[data-roster-id]").forEach((el) => el.addEventListener("click", () => {
+    publicTrainingState.selectedRosterId = el.dataset.rosterId;
+    publicTrainingState.name = el.dataset.rosterName || "";
+    publicTrainingState.outsideRoster = false;
+    publicTrainingState.joining = true; publicTrainingState.error = ""; render();
+    fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/join`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rosterEntryId: publicTrainingState.selectedRosterId }) })
+      .then((r) => r.json().then((b) => ({ ok: r.ok, b })))
+      .then(({ ok, b }) => {
+        if (!ok) throw new Error(b.error || "JOIN_ERROR");
+        applyPublicTrainingPayload(b);
+        localStorage.setItem(liveTrainingStorageKey(b.flow.id), b.participantToken);
+        const p2 = publicTrainingState.participant;
+        publicTrainingState.bootstrap = p2?.completedAt ? "completed" : "ready";
+        publicTrainingState.joining = false; render(); startPublicTrainingPolling();
+      })
+      .catch((err) => { publicTrainingState.joining = false; publicTrainingState.selectedRosterId = null; publicTrainingState.error = err.message; render(); });
+  }));
+  // Not on list
+  document.querySelector("[data-roster-not-listed]")?.addEventListener("click", () => {
+    publicTrainingState.outsideRoster = true;
+    publicTrainingState.selectedRosterId = null;
+    publicTrainingState.name = "";
+    render();
+  });
+  // Back to roster list
+  document.querySelector("[data-roster-back]")?.addEventListener("click", () => {
+    publicTrainingState.outsideRoster = false;
+    publicTrainingState.selectedRosterId = null;
+    render();
+  });
   document.querySelector("[data-public-retry]")?.addEventListener("click", async () => {
     publicTrainingState.bootstrap = "checkingParticipant";
     render();
@@ -7085,9 +7275,16 @@ function bindEvents() {
     startPublicTrainingPolling();
   });
   document.querySelector("[data-public-switch]")?.addEventListener("click", () => {
+    clearTimeout(publicTrainingState.pollTimer);
     const flowId = publicTrainingState.flow?.id;
     if (flowId) localStorage.removeItem(liveTrainingStorageKey(flowId));
-    publicTrainingState.participant = null; render();
+    publicTrainingState.participant = null;
+    publicTrainingState.bootstrap = "needsName";
+    publicTrainingState.name = "";
+    publicTrainingState.error = "";
+    publicTrainingState.selectedRosterId = null;
+    publicTrainingState.outsideRoster = false;
+    render();
   });
   document.querySelectorAll("[data-public-step-start]").forEach((el) => el.addEventListener("click", async () => {
     const step = el.dataset.publicStepStart;
