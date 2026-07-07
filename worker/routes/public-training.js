@@ -222,9 +222,21 @@ export async function handlePublicTraining(request, env) {
 
     if (rest === "join" && method === "POST") {
       const body = await readJson(request);
-      const displayName = cleanName(body.displayName || "");
-      if (displayName.length < 2 || displayName.length > 120) return json({ ok: false, error: "INVALID_NAME" }, 400);
-      const normalizedName = normalizeName(displayName);
+      let displayName, normalizedName;
+      if (body.rosterEntryId) {
+        // Option A: join via roster entry
+        const { data: rosterEntry, error: rosterErr } = await supabase.from("public_training_roster")
+          .select("*").eq("id", body.rosterEntryId).eq("flow_id", flow.id).maybeSingle();
+        if (rosterErr) return json({ ok: false, error: rosterErr.message }, 500);
+        if (!rosterEntry) return json({ ok: false, error: "ROSTER_ENTRY_NOT_FOUND" }, 404);
+        displayName = rosterEntry.full_name;
+        normalizedName = rosterEntry.normalized_name;
+      } else {
+        // Option B or fallback: join via displayName
+        displayName = cleanName(body.displayName || "");
+        if (displayName.length < 2 || displayName.length > 120) return json({ ok: false, error: "INVALID_NAME" }, 400);
+        normalizedName = normalizeName(displayName);
+      }
       const rawToken = randomToken(32);
       const tokenHash = await sha256(rawToken);
       const row = { flow_id: flow.id, display_name: displayName, normalized_name: normalizedName, participant_token_hash: tokenHash, last_seen_at: nowIso() };
