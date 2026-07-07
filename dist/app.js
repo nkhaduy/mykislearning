@@ -818,6 +818,15 @@ let notificationMonitorLoading = false;
 let auditState = { rows: [], total: 0, page: 1, pageSize: 25, loading: false, error: "", overview: null, detail: null, detailLoading: false };
 let auditFilters = { date_from: "", date_to: "", actor_role: "", action: "", category: "", severity: "", entity_type: "", source: "", status: "", search: "", page: 1, pageSize: 25 };
 let retrainingState = { rows: [], loading: false, error: "", preview: null };
+let liveTrainingState = {
+  flows: [], detail: null, participants: [], loading: false, detailLoading: false, error: "",
+  createOpen: false, search: "", actionId: "", participantActionId: "",
+};
+let publicTrainingState = {
+  token: "", flow: null, steps: null, participant: null, completionEligible: false,
+  loading: false, joining: false, error: "", name: "", action: "", pollTimer: 0,
+  requestSeq: 0, lastJson: "",
+};
 let gallerySearch = "";
 let galleryYear = "";
 let resourceSearch = "";
@@ -998,6 +1007,161 @@ async function apiJson(url, options = {}) {
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || body.message || "Không thể tải dữ liệu.");
   return body;
+}
+
+function liveT(key) {
+  const labels = {
+    title: { vi: "Hành trình buổi học", en: "Live training journey", kr: "실시간 교육 여정" },
+    create: { vi: "Tạo hành trình buổi học", en: "Create journey", kr: "교육 여정 만들기" },
+    sessionTitle: { vi: "Tên buổi học", en: "Session title", kr: "교육명" },
+    description: { vi: "Mô tả", en: "Description", kr: "설명" },
+    pretestUrl: { vi: "Link Pre-test", en: "Pre-test link", kr: "사전 테스트 링크" },
+    posttestUrl: { vi: "Link Post-test", en: "Post-test link", kr: "사후 테스트 링크" },
+    evaluationUrl: { vi: "Link đánh giá", en: "Evaluation link", kr: "평가 링크" },
+    required: { vi: "Bắt buộc", en: "Required", kr: "필수" },
+    optional: { vi: "Không bắt buộc", en: "Optional", kr: "선택" },
+    openStep: { vi: "Mở bước", en: "Open step", kr: "단계 열기" },
+    closeStep: { vi: "Đóng bước", en: "Close step", kr: "단계 닫기" },
+    pretest: { vi: "Pre-test", en: "Pre-test", kr: "사전 테스트" },
+    posttest: { vi: "Post-test", en: "Post-test", kr: "사후 테스트" },
+    evaluation: { vi: "Đánh giá", en: "Evaluation", kr: "평가" },
+    completion: { vi: "Hoàn thành buổi học", en: "Complete session", kr: "교육 완료" },
+    doPretest: { vi: "Làm Pre-test", en: "Take Pre-test", kr: "사전 테스트 응시" },
+    doPosttest: { vi: "Làm Post-test", en: "Take Post-test", kr: "사후 테스트 응시" },
+    openEvaluation: { vi: "Mở form đánh giá", en: "Open evaluation form", kr: "평가 양식 열기" },
+    donePretest: { vi: "Tôi đã hoàn thành Pre-test", en: "I completed the Pre-test", kr: "사전 테스트 완료" },
+    donePosttest: { vi: "Tôi đã hoàn thành Post-test", en: "I completed the Post-test", kr: "사후 테스트 완료" },
+    doneEvaluation: { vi: "Tôi đã hoàn thành đánh giá", en: "I completed the evaluation", kr: "평가 완료" },
+    waiting: { vi: "Đang chờ HR mở phần này.", en: "Waiting for HR to open this step.", kr: "HR이 이 단계를 열 때까지 대기 중입니다." },
+    waitingNamed: { vi: "Đang chờ HR mở {step}...", en: "Waiting for HR to open {step}...", kr: "HR이 {step} 단계를 열 때까지 대기 중입니다..." },
+    missingUrl: { vi: "HR chưa cập nhật liên kết.", en: "HR has not added a link yet.", kr: "HR이 링크를 아직 입력하지 않았습니다." },
+    switchParticipant: { vi: "Đổi người tham gia", en: "Switch participant", kr: "참가자 변경" },
+    completed: { vi: "Bạn đã hoàn thành buổi học.", en: "You have completed the session.", kr: "교육을 완료했습니다." },
+    invalidLink: { vi: "Liên kết không hợp lệ", en: "Invalid link", kr: "유효하지 않은 링크" },
+    expiredLink: { vi: "Liên kết đã hết hạn", en: "Link expired", kr: "링크가 만료되었습니다" },
+    closedFlow: { vi: "Phiên học đã đóng", en: "Session closed", kr: "교육이 종료되었습니다" },
+    started: { vi: "Đã bắt đầu", en: "Started", kr: "시작됨" },
+    done: { vi: "Đã hoàn thành", en: "Completed", kr: "완료" },
+    notOpen: { vi: "Chưa mở", en: "Not open", kr: "열리지 않음" },
+    available: { vi: "Có thể thực hiện", en: "Available", kr: "진행 가능" },
+    fullName: { vi: "Họ và tên", en: "Full name", kr: "성명" },
+    start: { vi: "Bắt đầu", en: "Start", kr: "시작" },
+    copyLink: { vi: "Copy link", en: "Copy link", kr: "링크 복사" },
+    manage: { vi: "Mở quản lý", en: "Manage", kr: "관리" },
+    liveNote: { vi: "Trạng thái hoàn thành do người tham gia tự xác nhận. Kết quả Quizizz và Google Forms chưa được đồng bộ tự động.", en: "Completion is self-confirmed by participants. Quizizz and Google Forms results are not synchronized automatically yet.", kr: "완료 상태는 참가자 자기 확인 기준입니다. Quizizz와 Google Forms 결과는 아직 자동 동기화되지 않습니다." },
+    duplicateNote: { vi: "Nếu có người trùng họ tên, hãy yêu cầu nhập thêm mã nhân viên sau họ tên, ví dụ: Nguyễn Văn An - KIS0123.", en: "If names duplicate, ask participants to add employee code after their name, for example: Nguyen Van An - KIS0123.", kr: "동명이인이 있으면 이름 뒤에 사번을 추가하도록 안내하세요." },
+  };
+  return labels[key]?.[language] || labels[key]?.vi || key;
+}
+
+function liveTrainingStorageKey(flowId) {
+  return `mykis.publicTraining.${flowId}`;
+}
+
+function publicTokenHeader() {
+  const flowId = publicTrainingState.flow?.id;
+  const token = flowId ? localStorage.getItem(liveTrainingStorageKey(flowId)) : "";
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function applyPublicTrainingPayload(payload) {
+  publicTrainingState.flow = payload.flow || publicTrainingState.flow;
+  publicTrainingState.steps = payload.steps || publicTrainingState.steps;
+  publicTrainingState.participant = payload.participant || publicTrainingState.participant;
+  publicTrainingState.completionEligible = Boolean(payload.completionEligible);
+}
+
+async function fetchPublicTrainingInitial(accessToken) {
+  publicTrainingState.token = accessToken;
+  publicTrainingState.loading = true;
+  publicTrainingState.error = "";
+  render();
+  try {
+    const payload = await fetch(`/api/public/live-training/${encodeURIComponent(accessToken)}`).then((r) => r.json().then((b) => ({ ok: r.ok, b })));
+    if (!payload.ok) throw new Error(payload.b.error || "NOT_FOUND");
+    applyPublicTrainingPayload(payload.b);
+    publicTrainingState.loading = false;
+    render();
+    const flowId = publicTrainingState.flow?.id;
+    const stored = flowId ? localStorage.getItem(liveTrainingStorageKey(flowId)) : "";
+    if (stored) await fetchPublicTrainingState(false);
+    startPublicTrainingPolling();
+  } catch (err) {
+    publicTrainingState.loading = false;
+    publicTrainingState.error = err.message || "NOT_FOUND";
+    render();
+  }
+}
+
+async function fetchPublicTrainingState(shouldRender = true) {
+  if (!publicTrainingState.token || !publicTrainingState.flow?.id || publicTrainingState.inFlight) return;
+  const seq = ++publicTrainingState.requestSeq;
+  publicTrainingState.inFlight = true;
+  try {
+    const res = await fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/state`, { headers: publicTokenHeader() });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || "STATE_ERROR");
+    if (seq !== publicTrainingState.requestSeq) return;
+    const nextJson = JSON.stringify(body);
+    if (nextJson !== publicTrainingState.lastJson) {
+      publicTrainingState.lastJson = nextJson;
+      applyPublicTrainingPayload(body);
+      if (shouldRender && route.startsWith("/join/")) render();
+    }
+  } catch (err) {
+    if (String(err.message).includes("UNAUTHORIZED")) {
+      const flowId = publicTrainingState.flow?.id;
+      if (flowId) localStorage.removeItem(liveTrainingStorageKey(flowId));
+      publicTrainingState.participant = null;
+      if (shouldRender) render();
+    }
+  } finally {
+    publicTrainingState.inFlight = false;
+  }
+}
+
+function startPublicTrainingPolling() {
+  clearTimeout(publicTrainingState.pollTimer);
+  if (!route.startsWith("/join/")) return;
+  const interval = document.hidden ? 8000 : 2000;
+  publicTrainingState.pollTimer = setTimeout(async () => {
+    await fetchPublicTrainingState(true);
+    startPublicTrainingPolling();
+  }, interval);
+}
+
+async function loadLiveTrainingList() {
+  liveTrainingState.loading = true;
+  liveTrainingState.error = "";
+  render();
+  try {
+    const data = await apiJson("/api/admin/live-training");
+    liveTrainingState.flows = data.flows || [];
+  } catch (err) {
+    liveTrainingState.error = err.message;
+  } finally {
+    liveTrainingState.loading = false;
+    if (route === "/admin/live-training") render();
+  }
+}
+
+async function loadLiveTrainingDetail(id) {
+  liveTrainingState.detailLoading = true;
+  liveTrainingState.error = "";
+  render();
+  try {
+    const [detail, participants] = await Promise.all([
+      apiJson(`/api/admin/live-training/${encodeURIComponent(id)}`),
+      apiJson(`/api/admin/live-training/${encodeURIComponent(id)}/participants`),
+    ]);
+    liveTrainingState.detail = detail.flow;
+    liveTrainingState.participants = participants.participants || [];
+  } catch (err) {
+    liveTrainingState.error = err.message;
+  } finally {
+    liveTrainingState.detailLoading = false;
+    if (route.startsWith("/admin/live-training/")) render();
+  }
 }
 
 initMockDatabase();
@@ -4028,6 +4192,7 @@ function shellLabel(key) {
     navReportsSystem: { vi: "Báo cáo & Hệ thống", en: "Reports & System", kr: "보고서 및 시스템" },
     navPersonnel: { vi: "Nhân sự", en: "Personnel", kr: "인사" },
     offlineClassManagement: { vi: "Quản lý lớp offline", en: "Offline Class Management", kr: "오프라인 교육 관리" },
+    liveTrainingJourney: { vi: "Hành trình buổi học", en: "Live training journey", kr: "실시간 교육 여정" },
     trainingTracking: { vi: "Theo dõi đào tạo", en: "Training Tracking", kr: "교육 추적 관리" },
     cchnRegistration: { vi: "Đăng ký học CCHN", en: "Professional Certification Registration", kr: "전문 자격 교육 등록" },
     navComplianceShort: { vi: "Tuân thủ", en: "Compliance", kr: "컴플라이언스" },
@@ -4061,6 +4226,7 @@ function shellPageMeta(path = route) {
     "/admin/audit-log": [shellLabel("roleHr"), t("admin.auditLog")],
     "/admin/retraining": [shellLabel("roleHr"), shellLabel("retraining")],
     "/admin/training-tracking": [shellLabel("roleHr"), shellLabel("trainingTracking")],
+    "/admin/live-training": [shellLabel("roleHr"), shellLabel("liveTrainingJourney")],
     "/admin/sessions": [shellLabel("roleHr"), shellLabel("offlineClassManagement")],
     "/admin/cchn-registrations": [shellLabel("roleHr"), shellLabel("cchnRegistration")],
   };
@@ -4077,7 +4243,7 @@ function sideNav(role) {
   const groups = role === "hr"
     ? [
         [shellLabel("navOverview"), [["/admin", t("admin.overview")]]],
-        [shellLabel("navTraining"), [["/admin/courses", t("course.manage")], ["/admin/assign", t("enrollment.assign")], ["/admin/quizzes", t("quiz.quizzes")], ["/admin/learning-paths", t("lp.title")], ["/admin/sessions", shellLabel("offlineClassManagement")], ["/admin/training-tracking", shellLabel("trainingTracking")], ["/admin/cchn-registrations", shellLabel("cchnRegistration")]]],
+        [shellLabel("navTraining"), [["/admin/courses", t("course.manage")], ["/admin/assign", t("enrollment.assign")], ["/admin/quizzes", t("quiz.quizzes")], ["/admin/learning-paths", t("lp.title")], ["/admin/live-training", shellLabel("liveTrainingJourney")], ["/admin/sessions", shellLabel("offlineClassManagement")], ["/admin/training-tracking", shellLabel("trainingTracking")], ["/admin/cchn-registrations", shellLabel("cchnRegistration")]]],
         [shellLabel("navPersonnel"), [["/admin/employees", t("admin.employees")], ["/admin/accounts", t("admin.accountTitle")]]],
         [shellLabel("navComplianceShort"), [["/admin/certificates", t("certificates.certificate")]]],
         [shellLabel("navReportsSystem"), [["/admin/reports", t("reports.title")], ["/admin/notifications", shellLabel("notifications")], ["/admin/audit-log", t("admin.auditLog")]]],
@@ -5948,6 +6114,96 @@ function showLearningWarning(message){const el=document.getElementById("learning
 document.addEventListener("visibilitychange",()=>{const stage=document.querySelector(".lesson-stage");if(document.hidden){if(stage){blurStartedAt=Date.now();document.getElementById("course-video")?.pause();if(_ytWatchStart!==null){try{_ytWatchRanges.push({start:_ytWatchStart,end:youtubePlayer?.getCurrentTime()||_ytWatchStart});}catch{}  _ytWatchStart=null;ytFlushRanges(false);}logLearningActivity({eventType:"tab_hidden",accountId:session.accountId,courseId:stage.dataset.courseId,contentId:stage.dataset.contentId,metadata:{durationSeconds:0}});}return;}sendActivityHeartbeat();if(stage)showLearningWarning(lt("pausedOnLeave"));});
 window.addEventListener("blur",()=>{blurStartedAt=Date.now();document.getElementById("course-video")?.pause();});
 
+function liveStatusBadge(value) {
+  const cls = value === "open" || value === "live" || value ? "done" : "pending";
+  const text = value === "open" ? "Mở" : value === "closed" ? "Đóng" : value === "live" ? "Live" : value === "draft" ? "Draft" : value || "—";
+  return `<span class="badge ${cls}">${escapeHtml(text)}</span>`;
+}
+
+function adminLiveTrainingPage() {
+  const rows = (liveTrainingState.flows || []).filter((f) => !liveTrainingState.search || String(f.title || "").toLowerCase().includes(liveTrainingState.search.toLowerCase()));
+  const createForm = liveTrainingState.createOpen ? `<section class="ui-card live-training-form"><div class="ui-card-header"><h2>${liveT("create")}</h2><button class="icon-btn" data-live-create-close aria-label="Close">x</button></div>
+    <form id="liveTrainingCreateForm" class="form-grid">
+      <div class="field"><label>${liveT("sessionTitle")}</label><input name="title" required maxlength="180"></div>
+      <div class="field span-2"><label>${liveT("description")}</label><textarea name="description" rows="3"></textarea></div>
+      <div class="field"><label>${liveT("pretestUrl")}</label><input name="pretestUrl" type="url" placeholder="https://quizizz.com/..."></div>
+      <div class="field"><label>${liveT("posttestUrl")}</label><input name="posttestUrl" type="url" placeholder="https://quizizz.com/..."></div>
+      <div class="field"><label>${liveT("evaluationUrl")}</label><input name="evaluationUrl" type="url" placeholder="https://forms.gle/..."></div>
+      <label class="setting-row"><span>Pre-test ${liveT("required")}</span><input name="pretestRequired" type="checkbox" checked></label>
+      <label class="setting-row"><span>Post-test ${liveT("required")}</span><input name="posttestRequired" type="checkbox" checked></label>
+      <label class="setting-row"><span>${liveT("evaluation")} ${liveT("required")}</span><input name="evaluationRequired" type="checkbox" checked></label>
+      <div class="field"><label>Hết hạn</label><input name="expiresAt" type="datetime-local"></div>
+      <p class="field-help span-2">${liveT("duplicateNote")}</p>
+      <div class="span-2"><button class="btn btn-primary" type="submit">${liveT("create")}</button></div>
+      <p class="field-error span-2" data-live-create-error></p>
+    </form></section>` : "";
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", liveT("title"), "hr")}<div class="content route-content live-training-page">
+    <section class="page-header"><div><h1>${liveT("title")}</h1><p>${liveT("liveNote")}</p></div><button class="btn btn-primary" data-live-create-open>${liveT("create")}</button></section>
+    ${createForm}
+    <section class="ui-card"><div class="table-tools"><input data-live-search placeholder="${t("admin.search")}" value="${escapeHtmlAttribute(liveTrainingState.search)}"><button class="btn btn-outline" data-live-reload>${liveTrainingState.loading ? "Đang tải..." : "Làm mới"}</button></div>
+    ${liveTrainingState.error ? `<div class="ui-error">${escapeHtml(liveTrainingState.error)}</div>` : ""}
+    <div class="table-wrap"><table class="data-table"><thead><tr><th>${liveT("sessionTitle")}</th><th>Trạng thái</th><th>Ngày tạo</th><th>Hết hạn</th><th>Pre-test</th><th>Post-test</th><th>${liveT("evaluation")}</th><th>Người tham gia</th><th>${t("admin.action")}</th></tr></thead><tbody>
+      ${rows.map((f) => `<tr><td><strong>${escapeHtml(f.title)}</strong></td><td>${liveStatusBadge(f.status)}</td><td>${formatDateTime(f.created_at)}</td><td>${f.expires_at ? formatDateTime(f.expires_at) : "—"}</td><td>${liveStatusBadge(f.pretest_state)}</td><td>${liveStatusBadge(f.posttest_state)}</td><td>${liveStatusBadge(f.evaluation_state)}</td><td>${f.participant_count || 0} / ${f.completed_count || 0}</td><td><div class="row-actions"><a class="btn btn-outline mini-action" href="/admin/live-training/${f.id}" data-link>${liveT("manage")}</a><button class="btn btn-outline mini-action" data-copy-live-link="${escapeHtmlAttribute(f.publicLink || "")}">${liveT("copyLink")}</button><button class="btn btn-outline mini-action" data-live-close="${f.id}">Đóng phiên</button></div></td></tr>`).join("") || `<tr><td colspan="9"><div class="ui-empty">${liveTrainingState.loading ? "Đang tải..." : "Chưa có hành trình."}</div></td></tr>`}
+    </tbody></table></div></section></div></main></div>`;
+}
+
+function adminLiveTrainingDetailPage() {
+  const id = route.split("/")[3];
+  const f = liveTrainingState.detail;
+  if (!f || f.id !== id) return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", liveT("title"), "hr")}<div class="content"><div class="ui-skeleton ui-skeleton--block"></div></div></main></div>`;
+  const control = (step, label) => {
+    const state = f[`${step}_state`];
+    const counts = f.step_counts || {};
+    const started = counts[`${step}Started`] || 0;
+    const completed = counts[`${step}Completed`] || 0;
+    return `<article class="ui-card live-control"><div><h3>${label}</h3><p>${escapeHtml(f[`${step}_url`] || liveT("missingUrl"))}</p></div><div>${liveStatusBadge(state)}<small>${started} đã bắt đầu · ${completed} tự xác nhận</small></div><button class="btn btn-outline" data-live-step="${step}" data-live-state="${state === "open" ? "closed" : "open"}">${state === "open" ? liveT("closeStep") : liveT("openStep")}</button></article>`;
+  };
+  const participants = (liveTrainingState.participants || []).filter((p) => !liveTrainingState.search || p.displayName.toLowerCase().includes(liveTrainingState.search.toLowerCase()));
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", f.title, "hr")}<div class="content route-content live-training-page">
+    <a class="btn btn-ghost" href="/admin/live-training" data-link>← ${liveT("title")}</a>
+    <section class="page-header"><div><h1>${escapeHtml(f.title)}</h1><p>${escapeHtml(f.description || "")}</p></div><div class="row-actions"><button class="btn btn-outline" data-copy-live-link="${escapeHtmlAttribute(f.publicLink || "")}">${liveT("copyLink")}</button><button class="btn btn-outline" data-live-rotate="${f.id}">Rotate link</button></div></section>
+    <p class="field-help">${liveT("liveNote")}</p><p class="field-help">${liveT("duplicateNote")}</p>
+    <form id="liveTrainingUpdateForm" class="ui-card form-grid">
+      <div class="field"><label>${liveT("sessionTitle")}</label><input name="title" value="${escapeHtmlAttribute(f.title)}" required></div>
+      <div class="field"><label>Public link</label><input value="${escapeHtmlAttribute(f.publicLink || "")}" readonly></div>
+      <div class="field span-2"><label>${liveT("description")}</label><textarea name="description" rows="2">${escapeHtml(f.description || "")}</textarea></div>
+      <div class="field"><label>${liveT("pretestUrl")}</label><input name="pretestUrl" value="${escapeHtmlAttribute(f.pretest_url || "")}"></div>
+      <div class="field"><label>${liveT("posttestUrl")}</label><input name="posttestUrl" value="${escapeHtmlAttribute(f.posttest_url || "")}"></div>
+      <div class="field"><label>${liveT("evaluationUrl")}</label><input name="evaluationUrl" value="${escapeHtmlAttribute(f.evaluation_url || "")}"></div>
+      <label class="setting-row"><span>Pre-test ${liveT("required")}</span><input name="pretestRequired" type="checkbox" ${f.pretest_required ? "checked" : ""}></label>
+      <label class="setting-row"><span>Post-test ${liveT("required")}</span><input name="posttestRequired" type="checkbox" ${f.posttest_required ? "checked" : ""}></label>
+      <label class="setting-row"><span>${liveT("evaluation")} ${liveT("required")}</span><input name="evaluationRequired" type="checkbox" ${f.evaluation_required ? "checked" : ""}></label>
+      <div class="span-2"><button class="btn btn-primary" type="submit">Lưu</button></div><p class="field-error span-2" data-live-update-error></p>
+    </form>
+    <section class="live-controls">${control("pretest", liveT("pretest"))}${control("posttest", liveT("posttest"))}${control("evaluation", liveT("evaluation"))}${control("completion", liveT("completion"))}</section>
+    <section class="ui-card"><div class="table-tools"><input data-live-search placeholder="Tìm theo tên" value="${escapeHtmlAttribute(liveTrainingState.search)}"><button class="btn btn-outline" data-live-detail-reload>Làm mới</button></div>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>${liveT("fullName")}</th><th>Tham gia</th><th>Gần nhất</th><th>Pre</th><th>Post</th><th>${liveT("evaluation")}</th><th>${liveT("completion")}</th><th>${t("admin.action")}</th></tr></thead><tbody>
+      ${participants.map((p) => `<tr><td>${escapeHtml(p.displayName)}</td><td>${formatDateTime(p.createdAt)}</td><td>${formatDateTime(p.lastSeenAt)}</td><td>${p.pretestCompletedAt ? liveT("done") : p.pretestStartedAt ? liveT("started") : "—"}</td><td>${p.posttestCompletedAt ? liveT("done") : p.posttestStartedAt ? liveT("started") : "—"}</td><td>${p.evaluationCompletedAt ? liveT("done") : p.evaluationStartedAt ? liveT("started") : "—"}</td><td>${p.completedAt ? liveT("done") : "—"}</td><td><div class="row-actions"><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="pretestCompleted">Pre ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="posttestCompleted">Post ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="evaluationCompleted">${liveT("evaluation")} ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="completed">${liveT("completion")}</button><button class="btn btn-outline mini-action" data-live-participant-reset="${p.id}">Reset</button></div></td></tr>`).join("") || `<tr><td colspan="8"><div class="ui-empty">Chưa có người tham gia.</div></td></tr>`}
+      </tbody></table></div></section></div></main></div>`;
+}
+
+function publicTrainingPage(accessToken) {
+  if (publicTrainingState.token !== accessToken && !publicTrainingState.loading) queueMicrotask(() => fetchPublicTrainingInitial(accessToken));
+  const f = publicTrainingState.flow;
+  const p = publicTrainingState.participant;
+  const err = publicTrainingState.error || f?.error;
+  const errText = err === "FLOW_EXPIRED" ? liveT("expiredLink") : err === "FLOW_CLOSED" ? liveT("closedFlow") : err ? liveT("invalidLink") : "";
+  if (errText) return `<main class="public-training"><section class="public-training-card"><img src="/assets/kis-logo.png" alt="KIS Vietnam"><h1>${errText}</h1></section></main>`;
+  if (!f) return `<main class="public-training"><section class="public-training-card"><div class="ui-skeleton ui-skeleton--block"></div></section></main>`;
+  const join = !p ? `<form id="publicTrainingJoinForm" class="public-training-card"><img src="/assets/kis-logo.png" alt="KIS Vietnam"><h1>${escapeHtml(f.title)}</h1><p>${escapeHtml(f.description || "")}</p><div class="field"><label for="publicTrainingName">${liveT("fullName")}</label><input id="publicTrainingName" name="displayName" value="${escapeHtmlAttribute(publicTrainingState.name)}" required maxlength="120" autocomplete="name"><small>Họ tên được dùng để khôi phục tiến độ khi bạn truy cập lại.</small></div><button class="btn btn-primary" type="submit">${publicTrainingState.joining ? "Đang xử lý..." : liveT("start")}</button><p class="field-error">${escapeHtml(publicTrainingState.error || "")}</p></form>` : "";
+  const stepCard = (step, label, openLabel, doneLabel) => {
+    const s = publicTrainingState.steps?.[step] || {};
+    const started = p?.[`${step}StartedAt`];
+    const done = p?.[`${step}CompletedAt`];
+    const status = done ? liveT("done") : started ? liveT("started") : !s.required ? liveT("optional") : s.state === "open" ? liveT("available") : liveT("notOpen");
+    const body = s.state !== "open" ? liveT("waitingNamed").replace("{step}", label) : !s.url ? liveT("missingUrl") : `<button class="btn btn-primary" data-public-step-start="${step}">${openLabel}</button>${started ? `<button class="btn btn-outline" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : ""}`;
+    return `<article class="public-step ${done ? "is-done" : ""}"><div><h2>${label}</h2><span>${status}</span></div><p>${body}</p></article>`;
+  };
+  const journey = p ? `<section class="public-training-shell"><header><img src="/assets/kis-logo.png" alt="KIS Vietnam"><div><h1>${escapeHtml(f.title)}</h1><p>${escapeHtml(f.description || "")}</p><strong>${escapeHtml(p.displayName)}</strong></div><button class="btn btn-outline" data-public-switch>${liveT("switchParticipant")}</button></header>
+    ${p.completedAt ? `<section class="public-training-card"><h2>${liveT("completed")}</h2><p>${liveT("fullName")}: ${escapeHtml(p.displayName)}</p><p>${formatDateTime(p.completedAt)}</p></section>` : `<section class="public-stepper" aria-label="${liveT("title")}">${stepCard("pretest", liveT("pretest"), liveT("doPretest"), liveT("donePretest"))}${stepCard("posttest", liveT("posttest"), liveT("doPosttest"), liveT("donePosttest"))}${stepCard("evaluation", liveT("evaluation"), liveT("openEvaluation"), liveT("doneEvaluation"))}<article class="public-step"><div><h2>${liveT("completion")}</h2><span>${publicTrainingState.completionEligible ? liveT("available") : liveT("waiting")}</span></div><p>${publicTrainingState.completionEligible ? `<button class="btn btn-primary" data-public-complete>${liveT("completion")}</button>` : liveT("waiting")}</p></article></section>`}</section>` : "";
+  return `<main class="public-training">${join}${journey}</main>`;
+}
+
 function render() {
   const _af = document.activeElement;
   const _afId = _af?.id || "";
@@ -5956,6 +6212,18 @@ function render() {
 
   route = location.pathname.replace(/\/$/, "") || "/";
   document.body.dataset.route = route;
+  let robotsMeta = document.querySelector('meta[name="robots"]');
+  if (route.startsWith("/join/")) {
+    if (!robotsMeta) {
+      robotsMeta = document.createElement("meta");
+      robotsMeta.name = "robots";
+      document.head.appendChild(robotsMeta);
+    }
+    robotsMeta.content = "noindex, nofollow";
+  } else if (robotsMeta?.content === "noindex, nofollow") {
+    robotsMeta.remove();
+  }
+  if (!route.startsWith("/join/")) clearTimeout(publicTrainingState.pollTimer);
   session = sessionService.getValidSession();
   const routeParams = new URLSearchParams(location.search);
   selectedLoginRole = routeParams.get("role") || selectedLoginRole;
@@ -6013,7 +6281,8 @@ function render() {
   if (route === "/admin/audit-log" && app.querySelector("[data-audit-filter] input[name='search']") && !auditState.detail && !auditState.detailLoading) {
     return;
   }
-  if (route === "/") app.innerHTML = landingPage();
+  if (route.startsWith("/join/")) app.innerHTML = publicTrainingPage(decodeURIComponent(route.split("/").pop() || ""));
+  else if (route === "/") app.innerHTML = landingPage();
   else if (route === "/about-kis") app.innerHTML = aboutPage();
   else if (route === "/login") app.innerHTML = loginPage();
   else if (route === "/attendance/scan") app.innerHTML = attendanceScanPage(routeParams.get("token") || "");
@@ -6103,6 +6372,15 @@ function render() {
   else if (route === "/admin/development-plans") app.innerHTML = hasAdminAccess() ? adminDevelopmentPlansPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/reports") app.innerHTML = hasAdminAccess() ? reportsPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/training-tracking") app.innerHTML = hasAdminAccess() ? trainingTrackingPage() : session ? restrictedPage() : loginPage();
+  else if (route === "/admin/live-training") {
+    if (hasAdminAccess() && !liveTrainingState.loading && !liveTrainingState.flows.length) loadLiveTrainingList();
+    app.innerHTML = hasAdminAccess() ? adminLiveTrainingPage() : session ? restrictedPage() : loginPage();
+  }
+  else if (route.startsWith("/admin/live-training/")) {
+    const id = route.split("/")[3];
+    if (hasAdminAccess() && id && !liveTrainingState.detailLoading && liveTrainingState.detail?.id !== id) loadLiveTrainingDetail(id);
+    app.innerHTML = hasAdminAccess() ? adminLiveTrainingDetailPage() : session ? restrictedPage() : loginPage();
+  }
   else if (route === "/admin/cchn-registrations") app.innerHTML = hasAdminAccess() ? cchnRegistrationPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/audit-log") app.innerHTML = hasAdminAccess() ? auditLogPage() : session ? restrictedPage() : loginPage();
   else if (route === "/admin/learning-records") app.innerHTML = hasAdminAccess() ? adminLearningPage() : session ? restrictedPage() : loginPage();
@@ -6620,6 +6898,111 @@ function bindShellEvents() {
 
 function bindEvents() {
   bindShellEvents();
+  document.querySelector("[data-live-create-open]")?.addEventListener("click", () => { liveTrainingState.createOpen = true; render(); });
+  document.querySelector("[data-live-create-close]")?.addEventListener("click", () => { liveTrainingState.createOpen = false; render(); });
+  document.querySelector("[data-live-reload]")?.addEventListener("click", () => loadLiveTrainingList());
+  document.querySelector("[data-live-detail-reload]")?.addEventListener("click", () => loadLiveTrainingDetail(route.split("/")[3]));
+  document.querySelector("[data-live-search]")?.addEventListener("input", (e) => { liveTrainingState.search = e.target.value; render(); });
+  document.querySelectorAll("[data-copy-live-link]").forEach((el) => el.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(el.dataset.copyLiveLink || ""); toast("copied"); } catch { toast("error"); }
+  }));
+  document.getElementById("liveTrainingCreateForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const fd = new FormData(form);
+    const errEl = form.querySelector("[data-live-create-error]");
+    const payload = {
+      title: fd.get("title"), description: fd.get("description"),
+      pretestUrl: fd.get("pretestUrl"), posttestUrl: fd.get("posttestUrl"), evaluationUrl: fd.get("evaluationUrl"),
+      pretestRequired: fd.get("pretestRequired") === "on", posttestRequired: fd.get("posttestRequired") === "on", evaluationRequired: fd.get("evaluationRequired") === "on",
+      expiresAt: fd.get("expiresAt") ? new Date(fd.get("expiresAt")).toISOString() : null,
+    };
+    try {
+      const res = await apiJson("/api/admin/live-training", { method: "POST", body: JSON.stringify(payload) });
+      liveTrainingState.createOpen = false; liveTrainingState.flows = [];
+      navigate(`/admin/live-training/${res.flow.id}`);
+    } catch (err) { if (errEl) errEl.textContent = err.message; }
+  });
+  document.getElementById("liveTrainingUpdateForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const id = route.split("/")[3];
+    const fd = new FormData(event.currentTarget);
+    const payload = {
+      title: fd.get("title"), description: fd.get("description"),
+      pretestUrl: fd.get("pretestUrl"), posttestUrl: fd.get("posttestUrl"), evaluationUrl: fd.get("evaluationUrl"),
+      pretestRequired: fd.get("pretestRequired") === "on", posttestRequired: fd.get("posttestRequired") === "on", evaluationRequired: fd.get("evaluationRequired") === "on",
+    };
+    try { await apiJson(`/api/admin/live-training/${id}`, { method: "PATCH", body: JSON.stringify(payload) }); await loadLiveTrainingDetail(id); toast("success"); }
+    catch (err) { event.currentTarget.querySelector("[data-live-update-error]").textContent = err.message; }
+  });
+  document.querySelectorAll("[data-live-step]").forEach((el) => el.addEventListener("click", async () => {
+    const id = route.split("/")[3];
+    el.disabled = true;
+    try { await apiJson(`/api/admin/live-training/${id}/steps/${el.dataset.liveStep}`, { method: "PATCH", body: JSON.stringify({ state: el.dataset.liveState }) }); await loadLiveTrainingDetail(id); }
+    catch { toast("error"); el.disabled = false; }
+  }));
+  document.querySelectorAll("[data-live-close]").forEach((el) => el.addEventListener("click", async () => {
+    if (!confirm("Đóng phiên này?")) return;
+    try { await apiJson(`/api/admin/live-training/${el.dataset.liveClose}/close`, { method: "POST", body: "{}" }); await loadLiveTrainingList(); } catch { toast("error"); }
+  }));
+  document.querySelector("[data-live-rotate]")?.addEventListener("click", async (e) => {
+    if (!confirm("Rotate public link? Link cũ sẽ không còn dùng được.")) return;
+    try { await apiJson(`/api/admin/live-training/${e.currentTarget.dataset.liveRotate}/rotate-link`, { method: "POST", body: "{}" }); await loadLiveTrainingDetail(e.currentTarget.dataset.liveRotate); } catch { toast("error"); }
+  });
+  document.querySelectorAll("[data-live-participant]").forEach((el) => el.addEventListener("click", async () => {
+    const id = route.split("/")[3];
+    try { await apiJson(`/api/admin/live-training/${id}/participants/${el.dataset.liveParticipant}`, { method: "PATCH", body: JSON.stringify({ [el.dataset.field]: true }) }); await loadLiveTrainingDetail(id); } catch { toast("error"); }
+  }));
+  document.querySelectorAll("[data-live-participant-reset]").forEach((el) => el.addEventListener("click", async () => {
+    const id = route.split("/")[3];
+    try { await apiJson(`/api/admin/live-training/${id}/participants/${el.dataset.liveParticipantReset}`, { method: "PATCH", body: JSON.stringify({ reset: true }) }); await loadLiveTrainingDetail(id); } catch { toast("error"); }
+  }));
+  document.getElementById("publicTrainingJoinForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const name = new FormData(event.currentTarget).get("displayName");
+    publicTrainingState.name = String(name || "");
+    publicTrainingState.joining = true; publicTrainingState.error = ""; render();
+    try {
+      const res = await fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/join`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ displayName: name }) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "JOIN_ERROR");
+      applyPublicTrainingPayload(body);
+      localStorage.setItem(liveTrainingStorageKey(body.flow.id), body.participantToken);
+      publicTrainingState.joining = false; render(); startPublicTrainingPolling();
+    } catch (err) { publicTrainingState.joining = false; publicTrainingState.error = err.message; render(); }
+  });
+  document.querySelector("[data-public-switch]")?.addEventListener("click", () => {
+    const flowId = publicTrainingState.flow?.id;
+    if (flowId) localStorage.removeItem(liveTrainingStorageKey(flowId));
+    publicTrainingState.participant = null; render();
+  });
+  document.querySelectorAll("[data-public-step-start]").forEach((el) => el.addEventListener("click", async () => {
+    const step = el.dataset.publicStepStart;
+    try {
+      const res = await fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/steps/${step}/start`, { method: "POST", headers: publicTokenHeader() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "STEP_ERROR");
+      applyPublicTrainingPayload(body); render();
+      if (body.externalUrl) window.open(body.externalUrl, "_blank", "noopener,noreferrer");
+    } catch (err) { toast(err.message || "error"); }
+  }));
+  document.querySelectorAll("[data-public-step-complete]").forEach((el) => el.addEventListener("click", async () => {
+    const step = el.dataset.publicStepComplete;
+    try {
+      const res = await fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/steps/${step}/complete`, { method: "POST", headers: publicTokenHeader() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "STEP_ERROR");
+      applyPublicTrainingPayload(body); render();
+    } catch (err) { toast(err.message || "error"); }
+  }));
+  document.querySelector("[data-public-complete]")?.addEventListener("click", async () => {
+    try {
+      const res = await fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/complete`, { method: "POST", headers: publicTokenHeader() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "COMPLETE_ERROR");
+      applyPublicTrainingPayload(body); render();
+    } catch (err) { toast(err.message || "error"); }
+  });
   document.querySelector("[data-retry-sessions]")?.addEventListener("click",()=>{_sessions=null;_sessionsError="";fetchSessionsFromApi(session?.accountId||"","hr");});
   document.querySelector("[data-create-session]")?.addEventListener("click",()=>{
     selectedOfflineSessionId="";sessionFormOpen=true;

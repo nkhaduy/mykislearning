@@ -4973,6 +4973,45 @@ body.modal-open { overflow: hidden; }
 @media(max-width:520px){.employee-greeting__meta{align-items:flex-start;flex-direction:column;gap:2px!important}.employee-greeting__meta [aria-hidden]{display:none}.modal--xlarge,.notification-modal{width:100%;height:100dvh;max-height:100dvh;border-radius:0}.employee-form-grid aside{display:block}.form-2col{grid-template-columns:1fr}.span-2{grid-column:auto}.month-day{min-height:48px;padding:6px}.media-grid{grid-template-columns:1fr 1fr}.media-card>span:last-child{font-size:12px}.media-viewer{grid-template-columns:1fr}.media-viewer__nav{position:absolute;bottom:20px}.media-viewer__nav.prev{left:20px}.media-viewer__nav.next{right:20px}}
 @media(prefers-reduced-motion:reduce){.route-enter,.i18n-enter,.modal-backdrop.open,.modal-backdrop.open>.modal,.topbar-user__menu,.continue-hero,.album-card,.media-viewer{animation:none!important;transition:none!important;transform:none!important}}
 
+/* Public training external-link journey */
+.live-training-page .page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}
+.live-training-page .page-header h1{margin:0 0 6px;color:var(--navy)}
+.live-training-page .page-header p,.field-help{margin:0;color:var(--muted);line-height:1.55}
+.live-training-form,.live-training-page .ui-card{margin-bottom:18px}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.form-grid .span-2{grid-column:1/-1}
+.live-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0}
+.live-control{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px}
+.live-control p{max-width:100%;margin:4px 0 0;color:var(--muted);overflow-wrap:anywhere}
+.live-control small{display:block;margin-top:6px;color:var(--muted)}
+.public-training{min-height:100dvh;display:grid;place-items:center;padding:28px;background:#eef3f8;color:var(--text-primary)}
+.public-training-card,.public-training-shell{width:min(100%,920px);background:#fff;border:1px solid var(--border-subtle);border-radius:14px;padding:24px;box-shadow:0 10px 30px rgba(15,23,42,.08)}
+.public-training-card{max-width:520px;display:grid;gap:16px}
+.public-training-card img,.public-training-shell header img{width:118px;height:auto}
+.public-training-card h1,.public-training-shell h1{margin:0;color:var(--navy);font-size:clamp(24px,4vw,38px);letter-spacing:0}
+.public-training-shell{display:grid;gap:18px}
+.public-training-shell header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-bottom:1px solid var(--border-subtle);padding-bottom:18px}
+.public-training-shell header>div{min-width:0;flex:1}
+.public-training-shell header p{color:var(--muted);overflow-wrap:anywhere}
+.public-stepper{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.public-step{display:grid;gap:14px;min-width:0;padding:18px;border:1px solid var(--border-subtle);border-radius:12px;background:#f8fafc}
+.public-step.is-done{background:#edf8f2;border-color:#b8e2c5}
+.public-step>div{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.public-step h2{margin:0;font-size:18px;color:var(--navy)}
+.public-step span{font-size:12px;font-weight:800;color:var(--text-secondary)}
+.public-step p{display:flex;flex-wrap:wrap;gap:10px;margin:0;color:var(--muted);overflow-wrap:anywhere}
+.public-step .btn{min-height:44px}
+body[data-route^="/join/"] .toast{left:50%;right:auto;transform:translateX(-50%)}
+
+@media(max-width:760px){
+  .live-training-page .page-header,.public-training-shell header{display:grid}
+  .form-grid,.live-controls,.public-stepper{grid-template-columns:1fr}
+  .public-training{place-items:start;padding:14px}
+  .public-training-card,.public-training-shell{padding:18px;border-radius:12px}
+  .public-training-shell header .btn{width:100%}
+  .live-control{grid-template-columns:1fr}
+}
+
 .progress-overview>a.training-hours-kpi{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px;background:#fff;transition:background .16s ease}.training-hours-kpi:hover{background:#f4f8fc}.training-hours-kpi span{display:grid}.training-hours-kpi small{margin-top:3px;color:var(--muted);font-size:11px}.training-hours-kpi strong{font-size:24px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .offline-session-list,.session-admin-list{display:grid;gap:14px}.offline-session-card{display:grid;grid-template-columns:76px minmax(0,1fr) auto;align-items:center;gap:20px;padding:0;overflow:hidden}.session-date{display:grid;place-content:center;align-self:stretch;min-height:150px;background:#eaf1f7;text-align:center}.session-date strong{font-size:30px}.session-info{min-width:0;padding-block:18px}.session-info h2{margin:7px 0 2px;color:var(--navy)}.session-info h3{margin:0;font-size:16px}.session-info p{margin:5px 0;color:var(--muted)}.session-actions{display:flex;flex-direction:column;gap:8px;padding-right:20px}.session-admin-card{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px}.session-admin-card h2{margin:6px 0}.session-admin-card>div:last-child{display:flex;gap:8px}.attendance-modal td small{display:block}.training-report-kpis{grid-template-columns:repeat(4,minmax(0,1fr));margin:20px 0}.field-error:not(:empty){display:block;padding:10px;margin-top:8px;border-radius:8px;background:#fff0f0;color:#8f2d2d}
 @media(max-width:900px){.training-report-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.offline-session-card{grid-template-columns:64px minmax(0,1fr)}.session-actions{grid-column:2;padding:0 18px 18px 0;flex-direction:row}.session-admin-card{align-items:stretch;flex-direction:column}}
