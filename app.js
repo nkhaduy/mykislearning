@@ -1057,6 +1057,17 @@ function liveT(key) {
     networkError: { vi: "Không thể khôi phục tiến độ", en: "Could not restore progress", kr: "진행 상황을 복원할 수 없습니다" },
     retry: { vi: "Thử lại", en: "Try again", kr: "다시 시도" },
     nameHint: { vi: "Họ tên được dùng để khôi phục tiến độ khi bạn truy cập lại.", en: "Your name is used to restore progress when you return.", kr: "이름은 재접속 시 진행 상황을 복원하는 데 사용됩니다." },
+    notOnList: { vi: "Không có tên trong danh sách", en: "My name is not on the list", kr: "명단에 이름이 없습니다" },
+    backToList: { vi: "Quay lại danh sách", en: "Back to list", kr: "목록으로 돌아가기" },
+    searchName: { vi: "Tìm tên...", en: "Search name...", kr: "이름 검색..." },
+    selectName: { vi: "Chọn họ và tên", en: "Select your name", kr: "이름을 선택하세요" },
+    rosterTitle: { vi: "Danh sách tham gia", en: "Participant roster", kr: "참가자 명단" },
+    importRoster: { vi: "Nhập danh sách", en: "Import roster", kr: "명단 가져오기" },
+    saveRoster: { vi: "Lưu danh sách", en: "Save roster", kr: "명단 저장" },
+    clearRoster: { vi: "Xóa toàn bộ danh sách", en: "Clear entire roster", kr: "전체 명단 삭제" },
+    replaceRoster: { vi: "Thay thế danh sách", en: "Replace roster", kr: "명단 교체" },
+    appendRoster: { vi: "Bổ sung vào danh sách", en: "Append to roster", kr: "명단에 추가" },
+    speakerLabel: { vi: "Diễn giả", en: "Speaker", kr: "발표자" },
   };
   return labels[key]?.[language] || labels[key]?.vi || key;
 }
