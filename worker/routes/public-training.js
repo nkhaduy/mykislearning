@@ -368,6 +368,11 @@ export async function handlePublicTraining(request, env) {
     if ("evaluationRequired" in body) patch.evaluation_required = Boolean(body.evaluationRequired);
     if ("expiresAt" in body) patch.expires_at = body.expiresAt || null;
     if ("trainingSessionId" in body) patch.training_session_id = body.trainingSessionId || null;
+    if ("speakerName" in body) patch.speaker_name = cleanName(body.speakerName || "") || null;
+    if ("speakerTitle" in body) patch.speaker_title = cleanName(body.speakerTitle || "") || null;
+    if ("speakerOrg" in body) patch.speaker_org = cleanName(body.speakerOrg || "") || null;
+    if ("speakerBio" in body) patch.speaker_bio = String(body.speakerBio || "").trim() || null;
+    if ("speakerPhotoUrl" in body) patch.speaker_photo_url = assertUrl(body.speakerPhotoUrl, "speakerPhotoUrl");
     const { data, error } = await supabase.from("public_training_flows").update(patch).eq("id", id).select("*").single();
     if (error) return json({ ok: false, error: error.message }, 500);
     await audit(supabase, request, "public_training.updated", actor, id, { flowId: id }, flow, patch);
