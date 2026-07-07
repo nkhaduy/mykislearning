@@ -1,1 +1,0 @@
-This folder contains the built output assets for the worker "mykis-learning" generated at 2026-07-07T03:59:28.051Z.

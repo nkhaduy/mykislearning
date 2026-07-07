@@ -822,6 +822,7 @@ let liveTrainingState = {
   flows: [], detail: null, participants: [], loading: false, detailLoading: false, error: "",
   createOpen: false, search: "", actionId: "", participantActionId: "",
 };
+let liveDeleteState = { flowId: null, flowTitle: "", loading: false, error: "" };
 let publicTrainingState = {
   bootstrap: "unknown", // unknown | loadingFlow | checkingParticipant | needsName | ready | completed | networkError | error
   token: "", flow: null, steps: null, participant: null, completionEligible: false,
@@ -6145,6 +6146,32 @@ function showLearningWarning(message){const el=document.getElementById("learning
 document.addEventListener("visibilitychange",()=>{const stage=document.querySelector(".lesson-stage");if(document.hidden){if(stage){blurStartedAt=Date.now();document.getElementById("course-video")?.pause();if(_ytWatchStart!==null){try{_ytWatchRanges.push({start:_ytWatchStart,end:youtubePlayer?.getCurrentTime()||_ytWatchStart});}catch{}  _ytWatchStart=null;ytFlushRanges(false);}logLearningActivity({eventType:"tab_hidden",accountId:session.accountId,courseId:stage.dataset.courseId,contentId:stage.dataset.contentId,metadata:{durationSeconds:0}});}return;}sendActivityHeartbeat();if(stage)showLearningWarning(lt("pausedOnLeave"));});
 window.addEventListener("blur",()=>{blurStartedAt=Date.now();document.getElementById("course-video")?.pause();});
 
+function liveDeleteModal() {
+  if (!liveDeleteState.flowId) return "";
+  return `<div class="modal-backdrop open" id="liveDeleteModal" role="dialog" aria-modal="true" aria-labelledby="liveDeleteTitle">
+    <section class="shared-dialog">
+      <div class="shared-dialog__header">
+        <div class="shared-dialog__icon shared-dialog__icon--warning" aria-hidden="true">⚠</div>
+        <div class="shared-dialog__content">
+          <h2 id="liveDeleteTitle">Xóa hành trình?</h2>
+          <p>Thao tác này sẽ xóa vĩnh viễn:</p>
+          <ul style="margin:8px 0 8px 16px;line-height:1.7">
+            <li>Hành trình <strong>${escapeHtml(liveDeleteState.flowTitle)}</strong></li>
+            <li>Toàn bộ danh sách người tham gia và tiến độ</li>
+            <li>Liên kết public — người đang truy cập sẽ gặp lỗi tức thì</li>
+          </ul>
+          <p><strong>Không thể hoàn tác.</strong></p>
+          ${liveDeleteState.error ? `<p class="field-error" style="margin-top:8px">${escapeHtml(liveDeleteState.error)}</p>` : ""}
+        </div>
+      </div>
+      <div class="shared-dialog__footer">
+        <button class="btn btn-outline" id="liveDeleteCancel" ${liveDeleteState.loading ? "disabled" : ""}>Hủy</button>
+        <button class="btn btn-danger" id="liveDeleteConfirm" ${liveDeleteState.loading ? "disabled" : ""}>${liveDeleteState.loading ? "Đang xóa…" : "Xóa hành trình"}</button>
+      </div>
+    </section>
+  </div>`;
+}
+
 function liveStatusBadge(value) {
   const cls = value === "open" || value === "live" || value ? "done" : "pending";
   const text = value === "open" ? "Mở" : value === "closed" ? "Đóng" : value === "live" ? "Live" : value === "draft" ? "Draft" : value || "—";
@@ -6174,8 +6201,8 @@ function adminLiveTrainingPage() {
     <section class="ui-card"><div class="table-tools"><input data-live-search placeholder="${t("admin.search")}" value="${escapeHtmlAttribute(liveTrainingState.search)}"><button class="btn btn-outline" data-live-reload>${liveTrainingState.loading ? "Đang tải..." : "Làm mới"}</button></div>
     ${liveTrainingState.error ? `<div class="ui-error">${escapeHtml(liveTrainingState.error)}</div>` : ""}
     <div class="table-wrap"><table class="data-table"><thead><tr><th>${liveT("sessionTitle")}</th><th>Trạng thái</th><th>Ngày tạo</th><th>Hết hạn</th><th>Pre-test</th><th>Post-test</th><th>${liveT("evaluation")}</th><th>Người tham gia</th><th>${t("admin.action")}</th></tr></thead><tbody>
-      ${rows.map((f) => `<tr><td><strong>${escapeHtml(f.title)}</strong></td><td>${liveStatusBadge(f.status)}</td><td>${formatDateTime(f.created_at)}</td><td>${f.expires_at ? formatDateTime(f.expires_at) : "—"}</td><td>${liveStatusBadge(f.pretest_state)}</td><td>${liveStatusBadge(f.posttest_state)}</td><td>${liveStatusBadge(f.evaluation_state)}</td><td>${f.participant_count || 0} / ${f.completed_count || 0}</td><td><div class="row-actions"><a class="btn btn-outline mini-action" href="/admin/live-training/${f.id}" data-link>${liveT("manage")}</a><button class="btn btn-outline mini-action" data-copy-live-link="${escapeHtmlAttribute(f.publicLink || "")}">${liveT("copyLink")}</button><button class="btn btn-outline mini-action" data-live-close="${f.id}">Đóng phiên</button></div></td></tr>`).join("") || `<tr><td colspan="9"><div class="ui-empty">${liveTrainingState.loading ? "Đang tải..." : "Chưa có hành trình."}</div></td></tr>`}
-    </tbody></table></div></section></div></main></div>`;
+      ${rows.map((f) => `<tr><td><strong>${escapeHtml(f.title)}</strong></td><td>${liveStatusBadge(f.status)}</td><td>${formatDateTime(f.created_at)}</td><td>${f.expires_at ? formatDateTime(f.expires_at) : "—"}</td><td>${liveStatusBadge(f.pretest_state)}</td><td>${liveStatusBadge(f.posttest_state)}</td><td>${liveStatusBadge(f.evaluation_state)}</td><td>${f.participant_count || 0} / ${f.completed_count || 0}</td><td><div class="row-actions"><a class="btn btn-outline mini-action" href="/admin/live-training/${f.id}" data-link>${liveT("manage")}</a><button class="btn btn-outline mini-action" data-copy-live-link="${escapeHtmlAttribute(f.publicLink || "")}">${liveT("copyLink")}</button><button class="btn btn-outline mini-action" data-live-close="${f.id}">Đóng phiên</button><button class="btn btn-danger mini-action" data-live-delete="${f.id}" data-live-delete-title="${escapeHtmlAttribute(f.title)}">Xóa</button></div></td></tr>`).join("") || `<tr><td colspan="9"><div class="ui-empty">${liveTrainingState.loading ? "Đang tải..." : "Chưa có hành trình."}</div></td></tr>`}
+    </tbody></table></div></section></div></main></div>${liveDeleteModal()}`;
 }
 
 function adminLiveTrainingDetailPage() {
@@ -6192,7 +6219,7 @@ function adminLiveTrainingDetailPage() {
   const participants = (liveTrainingState.participants || []).filter((p) => !liveTrainingState.search || p.displayName.toLowerCase().includes(liveTrainingState.search.toLowerCase()));
   return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", f.title, "hr")}<div class="content route-content live-training-page">
     <a class="btn btn-ghost" href="/admin/live-training" data-link>← ${liveT("title")}</a>
-    <section class="page-header"><div><h1>${escapeHtml(f.title)}</h1><p>${escapeHtml(f.description || "")}</p></div><div class="row-actions"><button class="btn btn-outline" data-copy-live-link="${escapeHtmlAttribute(f.publicLink || "")}">${liveT("copyLink")}</button><button class="btn btn-outline" data-live-rotate="${f.id}">Rotate link</button></div></section>
+    <section class="page-header"><div><h1>${escapeHtml(f.title)}</h1><p>${escapeHtml(f.description || "")}</p></div><div class="row-actions"><button class="btn btn-outline" data-copy-live-link="${escapeHtmlAttribute(f.publicLink || "")}">${liveT("copyLink")}</button><button class="btn btn-outline" data-live-rotate="${f.id}">Rotate link</button><button class="btn btn-danger" data-live-delete="${f.id}" data-live-delete-title="${escapeHtmlAttribute(f.title)}">Xóa hành trình</button></div></section>
     <p class="field-help">${liveT("liveNote")}</p><p class="field-help">${liveT("duplicateNote")}</p>
     <form id="liveTrainingUpdateForm" class="ui-card form-grid">
       <div class="field"><label>${liveT("sessionTitle")}</label><input name="title" value="${escapeHtmlAttribute(f.title)}" required></div>
@@ -6210,7 +6237,7 @@ function adminLiveTrainingDetailPage() {
     <section class="ui-card"><div class="table-tools"><input data-live-search placeholder="Tìm theo tên" value="${escapeHtmlAttribute(liveTrainingState.search)}"><button class="btn btn-outline" data-live-detail-reload>Làm mới</button></div>
       <div class="table-wrap"><table class="data-table"><thead><tr><th>${liveT("fullName")}</th><th>Tham gia</th><th>Gần nhất</th><th>Pre</th><th>Post</th><th>${liveT("evaluation")}</th><th>${liveT("completion")}</th><th>${t("admin.action")}</th></tr></thead><tbody>
       ${participants.map((p) => `<tr><td>${escapeHtml(p.displayName)}</td><td>${formatDateTime(p.createdAt)}</td><td>${formatDateTime(p.lastSeenAt)}</td><td>${p.pretestCompletedAt ? liveT("done") : p.pretestStartedAt ? liveT("started") : "—"}</td><td>${p.posttestCompletedAt ? liveT("done") : p.posttestStartedAt ? liveT("started") : "—"}</td><td>${p.evaluationCompletedAt ? liveT("done") : p.evaluationStartedAt ? liveT("started") : "—"}</td><td>${p.completedAt ? liveT("done") : "—"}</td><td><div class="row-actions"><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="pretestCompleted">Pre ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="posttestCompleted">Post ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="evaluationCompleted">${liveT("evaluation")} ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="completed">${liveT("completion")}</button><button class="btn btn-outline mini-action" data-live-participant-reset="${p.id}">Reset</button></div></td></tr>`).join("") || `<tr><td colspan="8"><div class="ui-empty">Chưa có người tham gia.</div></td></tr>`}
-      </tbody></table></div></section></div></main></div>`;
+      </tbody></table></div></section></div></main></div>${liveDeleteModal()}`;
 }
 
 function publicTrainingPage(accessToken) {
@@ -6998,6 +7025,34 @@ function bindEvents() {
   document.querySelector("[data-live-rotate]")?.addEventListener("click", async (e) => {
     if (!confirm("Rotate public link? Link cũ sẽ không còn dùng được.")) return;
     try { await apiJson(`/api/admin/live-training/${e.currentTarget.dataset.liveRotate}/rotate-link`, { method: "POST", body: "{}" }); await loadLiveTrainingDetail(e.currentTarget.dataset.liveRotate); } catch { toast("error"); }
+  });
+  document.querySelectorAll("[data-live-delete]").forEach((el) => el.addEventListener("click", () => {
+    liveDeleteState = { flowId: el.dataset.liveDelete, flowTitle: el.dataset.liveDeleteTitle || "", loading: false, error: "" };
+    render();
+  }));
+  document.getElementById("liveDeleteCancel")?.addEventListener("click", () => {
+    liveDeleteState = { flowId: null, flowTitle: "", loading: false, error: "" };
+    render();
+  });
+  document.getElementById("liveDeleteConfirm")?.addEventListener("click", async () => {
+    const { flowId, flowTitle } = liveDeleteState;
+    if (!flowId || liveDeleteState.loading) return;
+    liveDeleteState = { flowId, flowTitle, loading: true, error: "" };
+    render();
+    try {
+      await apiJson(`/api/admin/live-training/${encodeURIComponent(flowId)}`, { method: "DELETE" });
+      liveDeleteState = { flowId: null, flowTitle: "", loading: false, error: "" };
+      liveTrainingState.flows = (liveTrainingState.flows || []).filter((f) => f.id !== flowId);
+      if (route.startsWith("/admin/live-training/") && route.split("/")[3] === flowId) {
+        navigate("/admin/live-training");
+      } else {
+        render();
+      }
+      toast("Đã xóa hành trình");
+    } catch (err) {
+      liveDeleteState = { flowId, flowTitle, loading: false, error: err.message || "Xóa thất bại. Thử lại." };
+      render();
+    }
   });
   document.querySelectorAll("[data-live-participant]").forEach((el) => el.addEventListener("click", async () => {
     const id = route.split("/")[3];

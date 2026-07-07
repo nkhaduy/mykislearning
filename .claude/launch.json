@@ -5,7 +5,8 @@
       "name": "kisvn-local",
       "runtimeExecutable": "node",
       "runtimeArgs": ["scripts/spa-fallback-server.mjs"],
-      "port": 4173
+      "port": 4173,
+      "autoPort": true
     }
   ]
 }
