@@ -5098,19 +5098,19 @@ body[data-route^="/join/"] .toast{left:50%;right:auto;transform:translateX(-50%)
 /* Join page two-column layout */
 .pub-join-layout{width:100%;max-width:820px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:20px;align-items:start}
 /* Speaker aside card (join page pre-join) */
-.pub-speaker-aside{display:grid;gap:14px;padding:24px;text-align:center;align-content:start}
-.pub-speaker-aside .pub-speaker-photo{width:80px;height:80px;border-radius:50%;object-fit:cover;margin:0 auto}
-.pub-speaker-aside .pub-speaker-initials{width:80px;height:80px;border-radius:50%;font-size:22px;font-weight:800;background:var(--navy,#0b1f3a);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto}
-.pub-speaker-aside .pub-speaker-info{display:grid;gap:4px}
-.pub-speaker-aside .pub-speaker-name{font-size:16px;font-weight:700;color:var(--navy,#0b1f3a)}
+.pub-speaker-aside{display:grid;gap:16px;padding:28px 24px;text-align:center;align-content:start}
+.pub-speaker-aside .pub-speaker-photo{width:144px;height:144px;border-radius:12px;object-fit:cover;object-position:top;margin:0 auto;box-shadow:0 4px 16px rgba(0,0,0,.18)}
+.pub-speaker-aside .pub-speaker-initials{width:144px;height:144px;border-radius:12px;font-size:40px;font-weight:800;background:var(--navy,#0b1f3a);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto}
+.pub-speaker-aside .pub-speaker-info{display:grid;gap:5px}
+.pub-speaker-aside .pub-speaker-name{font-size:17px;font-weight:700;color:var(--navy,#0b1f3a)}
 .pub-speaker-aside .pub-speaker-title{font-size:13px;color:var(--muted)}
 .pub-speaker-aside .pub-speaker-org{font-size:13px;color:var(--muted);font-style:italic}
-.pub-speaker-aside .pub-speaker-bio{margin:4px 0 0;font-size:13px;color:var(--text-primary,#1e293b);line-height:1.55;text-align:left}
-/* Speaker card */
+.pub-speaker-aside .pub-speaker-bio{margin:6px 0 0;font-size:13px;color:var(--text-primary,#1e293b);line-height:1.55;text-align:left}
+/* Speaker card (journey view, post-join) */
 .pub-speaker-card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:16px;margin-top:12px}
 .pub-speaker-inner{display:flex;align-items:flex-start;gap:14px}
-.pub-speaker-photo{width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0}
-.pub-speaker-initials{width:56px;height:56px;border-radius:50%;background:var(--navy,#0b1f3a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;flex-shrink:0}
+.pub-speaker-photo{width:88px;height:88px;border-radius:10px;object-fit:cover;object-position:top;flex-shrink:0}
+.pub-speaker-initials{width:88px;height:88px;border-radius:10px;background:var(--navy,#0b1f3a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;flex-shrink:0}
 .pub-speaker-info{display:grid;gap:2px;min-width:0}
 .pub-speaker-name{font-size:15px;font-weight:700;color:var(--navy,#0b1f3a)}
 .pub-speaker-title{font-size:13px;color:var(--muted)}
@@ -5141,13 +5141,27 @@ body[data-route^="/join/"] .toast{left:50%;right:auto;transform:translateX(-50%)
   .spk-tab-layout{grid-template-columns:1fr}
   .spk-preview-pane{position:static}
   .pub-join-layout{grid-template-columns:1fr;max-width:520px}
-  .pub-speaker-aside{order:2}
+  /* Mobile speaker aside: horizontal compact layout */
+  .pub-speaker-aside{order:2;display:flex;flex-direction:row;align-items:center;gap:16px;text-align:left;padding:18px}
+  .pub-speaker-aside .pub-speaker-photo{width:88px;height:88px;flex-shrink:0;margin:0}
+  .pub-speaker-aside .pub-speaker-initials{width:88px;height:88px;flex-shrink:0;font-size:28px;margin:0}
+  .pub-speaker-aside .pub-speaker-bio{display:none}
+  /* Journey speaker card mobile */
+  .pub-speaker-inner{align-items:center}
+  .pub-speaker-photo{width:64px;height:64px}
+  .pub-speaker-initials{width:64px;height:64px;font-size:20px}
+  /* Dropdown safe area */
+  .pub-roster-list{max-height:240px}
 }
 
 @media(max-width:390px){
   .pub-hdr{gap:8px;flex-wrap:nowrap}
   .pub-lang-wrap .language-switch{gap:0}
   .pub-lang-wrap .language-switch button{padding:0 7px;font-size:11px}
+  .pub-main{padding:0 12px 80px}
+  .pub-speaker-aside{padding:14px}
+  .pub-speaker-aside .pub-speaker-photo,.pub-speaker-aside .pub-speaker-initials{width:72px;height:72px}
+  .pub-roster-list{max-height:200px}
 }
 
 .public-outer .pub-switch-btn,

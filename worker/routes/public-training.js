@@ -471,6 +471,22 @@ export async function handlePublicTraining(request, env) {
   }
 
   const participantPatch = rest.match(/^participants\/([^/]+)$/);
+  if (participantPatch && method === "DELETE") {
+    const participantId = participantPatch[1];
+    const { data: pRow, error: fetchErr } = await supabase.from("public_training_participants")
+      .select("id,display_name").eq("flow_id", id).eq("id", participantId).maybeSingle();
+    if (fetchErr) return json({ ok: false, error: fetchErr.message }, 500);
+    if (!pRow) return notFound();
+    const { error: delErr } = await supabase.from("public_training_participants")
+      .delete().eq("id", participantId).eq("flow_id", id);
+    if (delErr) return json({ ok: false, error: delErr.message }, 500);
+    const verify = await supabase.from("public_training_participants").select("id").eq("id", participantId).maybeSingle();
+    if (verify.data) return json({ ok: false, error: "DELETE_FAILED" }, 500);
+    await audit(supabase, request, "public_training.participant_deleted", actor, id, {
+      flowId: id, participantId, displayNameSnapshot: pRow.display_name, deletedAt: nowIso(),
+    }, pRow, null);
+    return json({ ok: true });
+  }
   if (participantPatch && method === "PATCH") {
     const participantId = participantPatch[1];
     const body = await readJson(request);

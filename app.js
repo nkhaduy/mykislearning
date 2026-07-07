@@ -831,7 +831,7 @@ let publicTrainingState = {
   token: "", flow: null, steps: null, participant: null, completionEligible: false,
   loading: false, joining: false, error: "", name: "", action: "", pollTimer: 0,
   requestSeq: 0, lastJson: "", inFlight: false,
-  roster: [], rosterSearch: "", rosterDropdownOpen: false, selectedRosterId: null, outsideRoster: false,
+  roster: [], rosterLoading: false, rosterSearch: "", rosterDropdownOpen: false, selectedRosterId: null, outsideRoster: false,
 };
 let gallerySearch = "";
 let galleryYear = "";
@@ -1102,17 +1102,24 @@ async function fetchPublicTrainingInitial(accessToken) {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || "NOT_FOUND");
     applyPublicTrainingPayload(body);
-    // Fetch roster in background (best-effort)
-    fetch(`/api/public/live-training/${encodeURIComponent(accessToken)}/roster`).then((r) => r.json()).then((rb) => { if (rb.ok) publicTrainingState.roster = rb.roster || []; }).catch(() => {});
+    // Fetch roster before rendering name picker to avoid input→dropdown flash
+    publicTrainingState.rosterLoading = true;
     const flowId = publicTrainingState.flow?.id;
     const stored = flowId ? localStorage.getItem(liveTrainingStorageKey(flowId)) : "";
     if (stored) {
       publicTrainingState.bootstrap = "checkingParticipant";
       render(); // show hydration skeleton — no join form visible
+      fetch(`/api/public/live-training/${encodeURIComponent(accessToken)}/roster`).then((r) => r.json()).then((rb) => { if (rb.ok) publicTrainingState.roster = rb.roster || []; }).catch(() => {}).finally(() => { publicTrainingState.rosterLoading = false; });
       await fetchPublicTrainingState(true); // sets bootstrap to ready/completed/needsName
     } else {
       publicTrainingState.bootstrap = "needsName";
-      render();
+      render(); // show skeleton while roster loads
+      try {
+        const rb = await fetch(`/api/public/live-training/${encodeURIComponent(accessToken)}/roster`).then((r) => r.json());
+        if (rb.ok) publicTrainingState.roster = rb.roster || [];
+      } catch (_) {}
+      publicTrainingState.rosterLoading = false;
+      render(); // now show dropdown or input based on actual roster
     }
     startPublicTrainingPolling();
   } catch (err) {
@@ -6299,7 +6306,7 @@ function adminLiveTrainingDetailPage() {
   } else if (activeTab === "participants") {
     tabContent = `<section class="ui-card"><div class="table-tools"><input data-live-search placeholder="Tìm theo tên" value="${escapeHtmlAttribute(liveTrainingState.search)}"><button class="btn btn-outline" data-live-detail-reload>Làm mới</button></div>
       <div class="table-wrap"><table class="data-table"><thead><tr><th>${liveT("fullName")}</th><th>Tham gia</th><th>Gần nhất</th><th>Pre</th><th>Post</th><th>${liveT("evaluation")}</th><th>${liveT("completion")}</th><th>${t("admin.action")}</th></tr></thead><tbody>
-      ${participants.map((p) => `<tr><td>${escapeHtml(p.displayName)}</td><td>${formatDateTime(p.createdAt)}</td><td>${formatDateTime(p.lastSeenAt)}</td><td>${p.pretestCompletedAt ? liveT("done") : p.pretestStartedAt ? liveT("started") : "—"}</td><td>${p.posttestCompletedAt ? liveT("done") : p.posttestStartedAt ? liveT("started") : "—"}</td><td>${p.evaluationCompletedAt ? liveT("done") : p.evaluationStartedAt ? liveT("started") : "—"}</td><td>${p.completedAt ? liveT("done") : "—"}</td><td><div class="row-actions"><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="pretestCompleted">Pre ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="posttestCompleted">Post ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="evaluationCompleted">${liveT("evaluation")} ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="completed">${liveT("completion")}</button><button class="btn btn-outline mini-action" data-live-participant-reset="${p.id}">Reset</button></div></td></tr>`).join("") || `<tr><td colspan="8"><div class="ui-empty">Chưa có người tham gia.</div></td></tr>`}
+      ${participants.map((p) => `<tr><td>${escapeHtml(p.displayName)}</td><td>${formatDateTime(p.createdAt)}</td><td>${formatDateTime(p.lastSeenAt)}</td><td>${p.pretestCompletedAt ? liveT("done") : p.pretestStartedAt ? liveT("started") : "—"}</td><td>${p.posttestCompletedAt ? liveT("done") : p.posttestStartedAt ? liveT("started") : "—"}</td><td>${p.evaluationCompletedAt ? liveT("done") : p.evaluationStartedAt ? liveT("started") : "—"}</td><td>${p.completedAt ? liveT("done") : "—"}</td><td><div class="row-actions"><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="pretestCompleted">Pre ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="posttestCompleted">Post ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="evaluationCompleted">${liveT("evaluation")} ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="completed">${liveT("completion")}</button><button class="btn btn-outline mini-action" data-live-participant-reset="${p.id}">Reset</button><button class="btn btn-danger mini-action" data-live-participant-delete="${p.id}" data-live-participant-name="${escapeHtmlAttribute(p.displayName)}">Xóa</button></div></td></tr>`).join("") || `<tr><td colspan="8"><div class="ui-empty">Chưa có người tham gia.</div></td></tr>`}
       </tbody></table></div></section>`;
   } else if (activeTab === "roster") {
     tabContent = `<section class="ui-card live-roster-section">
@@ -6376,6 +6383,10 @@ function publicTrainingPage(accessToken) {
     const errText = err === "FLOW_EXPIRED" ? liveT("expiredLink") : err === "FLOW_CLOSED" ? liveT("closedFlow") : liveT("invalidLink");
     content = `<div class="pub-card pub-error-card"><h1>${errText}</h1></div>`;
   } else if (bs === "needsName") {
+    if (publicTrainingState.rosterLoading) {
+      content = `<div class="pub-card pub-join-card"><h1 class="pub-session-title">${escapeHtml(f?.title || "")}</h1><div class="pub-roster-skeleton" aria-busy="true"><div class="ui-skeleton" style="height:14px;width:40%;border-radius:6px;margin-bottom:10px"></div><div class="ui-skeleton" style="height:44px;border-radius:10px;margin-bottom:8px"></div><div class="ui-skeleton" style="height:180px;border-radius:10px"></div></div></div>`;
+      return `<div class="public-outer"><div class="pub-bg" aria-hidden="true"></div><div class="pub-ov" aria-hidden="true"></div>${header}<main class="pub-main">${content}</main></div>`;
+    }
     const hasRoster = publicTrainingState.roster && publicTrainingState.roster.length > 0;
     const outsideRoster = publicTrainingState.outsideRoster;
     const selectedId = publicTrainingState.selectedRosterId;
@@ -7365,6 +7376,23 @@ function bindEvents() {
   document.querySelectorAll("[data-live-participant-reset]").forEach((el) => el.addEventListener("click", async () => {
     const id = route.split("/")[3];
     try { await apiJson(`/api/admin/live-training/${id}/participants/${el.dataset.liveParticipantReset}`, { method: "PATCH", body: JSON.stringify({ reset: true }) }); await loadLiveTrainingDetail(id); } catch { toast("error"); }
+  }));
+  document.querySelectorAll("[data-live-participant-delete]").forEach((el) => el.addEventListener("click", () => {
+    const id = route.split("/")[3];
+    const participantId = el.dataset.liveParticipantDelete;
+    const participantName = el.dataset.liveParticipantName || "người tham gia này";
+    openDialog({
+      type: "confirm",
+      title: "Xóa người tham gia",
+      body: `Tiến độ của "${participantName}" sẽ bị xóa và không thể khôi phục.`,
+      onConfirm: async () => {
+        try {
+          await apiJson(`/api/admin/live-training/${id}/participants/${participantId}`, { method: "DELETE" });
+          await loadLiveTrainingDetail(id);
+          toast("Đã xóa người tham gia");
+        } catch { toast("error"); }
+      },
+    });
   }));
   document.getElementById("publicTrainingJoinForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
