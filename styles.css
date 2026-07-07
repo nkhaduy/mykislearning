@@ -394,6 +394,22 @@ a {
   color: var(--primary);
 }
 
+.btn-success {
+  color: #fff;
+  background: #16a34a;
+  border-color: #16a34a;
+}
+.btn-success:hover { background: #15803d; border-color: #15803d; }
+.btn-success:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-warning {
+  color: #fff;
+  background: #d97706;
+  border-color: #d97706;
+}
+.btn-warning:hover { background: #b45309; border-color: #b45309; }
+.btn-warning:disabled { opacity: 0.6; cursor: not-allowed; }
+
 .btn-danger {
   color: #fff;
   background: #dc2626;
