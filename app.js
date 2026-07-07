@@ -821,6 +821,7 @@ let retrainingState = { rows: [], loading: false, error: "", preview: null };
 let liveTrainingState = {
   flows: [], detail: null, participants: [], loading: false, detailLoading: false, error: "",
   createOpen: false, search: "", actionId: "", participantActionId: "",
+  roster: [], rosterLoading: false, rosterParsed: null, rosterReplaceMode: true, rosterSearch: "",
 };
 let liveDeleteState = { flowId: null, flowTitle: "", loading: false, error: "" };
 let publicTrainingState = {
