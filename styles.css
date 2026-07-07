@@ -5043,6 +5043,30 @@ body.modal-open { overflow: hidden; }
 .pub-done-card h2{margin:0 0 10px;font-size:clamp(20px,3vw,28px);color:var(--navy)}
 .pub-done-time{margin:0;color:var(--muted);font-size:14px}
 body[data-route^="/join/"] .toast{left:50%;right:auto;transform:translateX(-50%)}
+/* Roster picker */
+.pub-roster-wrap{display:grid;gap:10px}
+.pub-roster-label{font-size:14px;font-weight:700;color:var(--navy)}
+.pub-roster-search-wrap{position:relative}
+.pub-roster-search{width:100%;padding:10px 12px 10px 36px;border:1.5px solid #d1d5db;border-radius:10px;font-size:15px;outline:none;transition:border-color .15s}
+.pub-roster-search:focus{border-color:var(--primary)}
+.pub-roster-search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.pub-roster-list{max-height:300px;overflow-y:auto;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;display:grid;gap:1px}
+.pub-roster-item{display:grid;text-align:left;padding:10px 14px;border:none;background:transparent;cursor:pointer;border-radius:8px;transition:background .12s;gap:2px}
+.pub-roster-item:hover,.pub-roster-item:focus-visible{background:#f0f4ff;outline:none}
+.pub-roster-name{font-size:15px;font-weight:600;color:var(--navy)}
+.pub-roster-meta{font-size:12px;color:var(--muted)}
+.pub-roster-not-listed{border-top:1px solid #e5e7eb;color:var(--muted);font-size:13px;font-style:italic}
+.pub-roster-hint{margin:0;font-size:12px;color:var(--muted)}
+/* Roster admin section */
+.live-roster-section{margin-top:32px}
+.live-roster-dropzone{border:2px dashed #d1d5db;border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+.live-roster-dropzone:hover,.live-roster-dropzone.is-over{border-color:var(--primary);background:#f0f4ff}
+.live-roster-dropzone p{margin:8px 0 0;color:var(--muted);font-size:14px}
+.live-roster-preview-table{width:100%;border-collapse:collapse;font-size:13px}
+.live-roster-preview-table th{text-align:left;padding:6px 10px;background:#f8fafc;border-bottom:1.5px solid #e5e7eb;font-weight:700;color:var(--navy)}
+.live-roster-preview-table td{padding:6px 10px;border-bottom:1px solid #f1f5f9}
+.live-roster-stats{font-size:13px;color:var(--muted);margin:0}
+.live-roster-stats strong{color:var(--navy)}
 
 @media(max-width:760px){
   .live-training-page .page-header{display:grid}
