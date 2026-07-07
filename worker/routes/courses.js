@@ -35,6 +35,12 @@ async function deleteCourseOperationalDependencies(supabase, courseId) {
   const enrDel = await supabase.from("enrollments").delete().eq("course_id", courseId);
   if (enrDel.error) return { error: "enrollments: " + enrDel.error.message };
   await supabase.from("training_sessions").update({ status: "cancelled" }).eq("course_id", courseId);
+  const versionStatusReset = await supabase
+    .from("course_versions")
+    .update({ status: "draft" })
+    .eq("course_id", courseId)
+    .in("status", ["published", "retired", "archived"]);
+  if (versionStatusReset.error) return { error: "course_versions_status: " + versionStatusReset.error.message };
   const verDel = await supabase.from("course_versions").delete().eq("course_id", courseId);
   if (verDel.error) return { error: "course_versions: " + verDel.error.message };
 
