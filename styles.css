@@ -299,6 +299,8 @@ a {
 }
 
 .language-switch {
+  --lang-x: 12px;
+  --lang-w: 20px;
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -312,9 +314,10 @@ a {
 
 .language-switch button {
   position: relative;
-  min-width: auto;
-  min-height: auto;
-  padding: 0;
+  z-index: 1;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 4px;
   border: 0;
   color: var(--muted);
   background: transparent;
@@ -335,23 +338,24 @@ a {
   border-radius: 3px;
 }
 
-.language-switch span {
-  color: #cbd5e1;
-  font-size: 12px;
-  font-weight: 850;
-}
-
 /* Sliding underline indicator */
 .lang-ink {
   position: absolute;
   bottom: 6px;
-  left: 12px;
-  width: 20px;
+  left: 0;
+  width: var(--lang-w);
   height: 2px;
   background: var(--primary);
   border-radius: 2px;
   pointer-events: none;
-  transition: left 200ms ease, width 200ms ease;
+  transform: translateX(var(--lang-x));
+  transition: transform 200ms cubic-bezier(.22, .61, .36, 1), width 200ms cubic-bezier(.22, .61, .36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lang-ink {
+    transition: none;
+  }
 }
 
 .btn {
@@ -5007,12 +5011,14 @@ body.modal-open { overflow: hidden; }
 .pub-hdr{position:relative;z-index:10;width:100%;max-width:880px;display:flex;align-items:center;justify-content:space-between;padding:18px 24px;gap:16px}
 .pub-logo-link{display:inline-flex;flex-shrink:0}
 .pub-logo{height:32px;width:auto;object-fit:contain}
-.pub-lang-wrap .language-switch{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);min-height:40px}
-.pub-lang-wrap .language-switch button{color:rgba(255,255,255,.8);background:transparent;min-height:40px;padding:0 6px}
-.pub-lang-wrap .language-switch button.active{color:#fff;font-weight:800;background:var(--navy,#0b1f3a);border-radius:6px;padding:2px 8px}
-.pub-lang-wrap .language-switch button:hover:not(.active){color:#fff;background:rgba(255,255,255,.1);border-radius:6px}
-.pub-lang-wrap .language-switch span[aria-hidden]{color:rgba(255,255,255,.45)}
-.pub-lang-wrap .lang-ink{display:none}
+.pub-lang-wrap{flex:0 0 auto}
+.pub-lang-wrap .language-switch{background:transparent;border-color:transparent;min-height:44px;padding:0;gap:6px}
+.pub-lang-wrap .language-switch button{color:rgba(255,255,255,.74);background:transparent;min-height:44px;padding:0 6px;border-radius:6px}
+.pub-lang-wrap .language-switch button.active{color:#fff;font-weight:900;background:transparent}
+.pub-lang-wrap .language-switch button:hover:not(.active){color:#fff;background:rgba(255,255,255,.08)}
+.pub-lang-wrap .language-switch button:active{background:rgba(255,255,255,.14)}
+.pub-lang-wrap .language-switch button:focus-visible{outline:2px solid rgba(255,255,255,.8);outline-offset:2px}
+.pub-lang-wrap .lang-ink{bottom:3px;height:2px;background:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.15)}
 .pub-main{position:relative;z-index:10;width:100%;max-width:880px;padding:0 16px 48px;flex:1;display:flex;flex-direction:column;align-items:center;gap:16px}
 .pub-card{width:100%;max-width:520px;background:rgba(255,255,255,.96);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.28);color:var(--text-primary)}
 .pub-skeleton-card{display:grid;gap:10px;place-items:center;padding:40px 32px}
@@ -5027,8 +5033,11 @@ body.modal-open { overflow: hidden; }
 .pub-journey-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;background:rgba(255,255,255,.96);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,.22)}
 .pub-journey-meta{min-width:0;flex:1}
 .pub-participant-name{display:inline-block;margin-top:8px;font-size:15px;font-weight:700;color:var(--navy)}
-.pub-switch-btn{flex-shrink:0;color:rgba(255,255,255,.8);border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.08)}
-.pub-switch-btn:hover{background:rgba(255,255,255,.15);color:#fff}
+.pub-switch-btn{flex-shrink:0;color:var(--navy,#0b1f3a);border-color:rgba(11,31,58,.55);background:#fff;box-shadow:none}
+.pub-switch-btn:hover{background:#eef5ff;border-color:var(--navy,#0b1f3a);color:var(--navy,#0b1f3a)}
+.pub-switch-btn:active{background:#dfeeff;color:var(--navy,#0b1f3a);transform:translateY(0)}
+.pub-switch-btn:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
+.pub-switch-btn:disabled{opacity:.55;cursor:not-allowed;background:#f8fafc;color:#64748b;border-color:#cbd5e1}
 .pub-stepper{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .public-step{display:grid;gap:10px;min-width:0;padding:20px;border:1px solid rgba(255,255,255,.14);border-radius:14px;background:rgba(255,255,255,.9);color:var(--text-primary)}
 .public-step.is-done{background:rgba(237,248,242,.96);border-color:#b8e2c5}
@@ -5081,13 +5090,20 @@ body[data-route^="/join/"] .toast{left:50%;right:auto;transform:translateX(-50%)
 @media(max-width:760px){
   .live-training-page .page-header{display:grid}
   .form-grid,.live-controls,.pub-stepper,.public-stepper{grid-template-columns:1fr}
-  .pub-hdr{padding:14px 16px}
+  .pub-hdr{padding:14px 16px;flex-wrap:wrap;align-items:center}
+  .pub-lang-wrap{margin-left:auto}
   .pub-logo{height:28px}
   .pub-card{padding:22px 18px;border-radius:12px}
-  .pub-journey-header{padding:18px;border-radius:12px}
+  .pub-journey-header{padding:18px;border-radius:12px;flex-direction:column;align-items:stretch}
   .pub-switch-btn{width:100%}
   .pub-stepper{grid-template-columns:1fr}
   .live-control{grid-template-columns:1fr}
+}
+
+@media(max-width:390px){
+  .pub-hdr{gap:10px}
+  .pub-lang-wrap .language-switch{gap:2px}
+  .pub-lang-wrap .language-switch button{min-width:40px;padding:0 3px}
 }
 
 .progress-overview>a.training-hours-kpi{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px;background:#fff;transition:background .16s ease}.training-hours-kpi:hover{background:#f4f8fc}.training-hours-kpi span{display:grid}.training-hours-kpi small{margin-top:3px;color:var(--muted);font-size:11px}.training-hours-kpi strong{font-size:24px;white-space:nowrap;font-variant-numeric:tabular-nums}
