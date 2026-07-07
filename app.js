@@ -832,6 +832,7 @@ let publicTrainingState = {
   loading: false, joining: false, error: "", name: "", action: "", pollTimer: 0,
   requestSeq: 0, lastJson: "", inFlight: false,
   roster: [], rosterLoading: false, rosterSearch: "", rosterDropdownOpen: false, selectedRosterId: null, outsideRoster: false,
+  showOrientation: false, orientationError: "", orientationSaving: false,
 };
 let gallerySearch = "";
 let galleryYear = "";
@@ -1071,6 +1072,11 @@ function liveT(key) {
     replaceRoster: { vi: "Thay thế danh sách", en: "Replace roster", kr: "명단 교체" },
     appendRoster: { vi: "Bổ sung vào danh sách", en: "Append to roster", kr: "명단에 추가" },
     speakerLabel: { vi: "Diễn giả", en: "Speaker", kr: "발표자" },
+    greeting: { vi: "Xin chào, {name}!", en: "Hello, {name}!", kr: "안녕하세요, {name}님!" },
+    orientationTitle: { vi: "Lưu ý trước khi bắt đầu", en: "Before you begin", kr: "시작 전 안내" },
+    orientationBody: { vi: "Anh/Chị vui lòng hoàn thành đầy đủ Pre-test, Post-test và Phiếu khảo sát đánh giá sau buổi học để được ghi nhận là tham gia đầy đủ chương trình.", en: "Please complete the Pre-test, Post-test, and post-training evaluation survey to be recorded as having fully participated in the program.", kr: "교육에 정상적으로 참여한 것으로 인정받기 위해 사전 테스트, 사후 테스트 및 교육 만족도 설문을 모두 완료해 주세요." },
+    orientationNote: { vi: "Anh/Chị có thể quay lại trang này trong suốt buổi học để tiếp tục các bước khi được mở.", en: "You may return to this page during the session to continue each step once it becomes available.", kr: "교육 중 각 단계가 열리면 이 페이지로 돌아와 계속 진행할 수 있습니다." },
+    orientationAck: { vi: "Tôi đã hiểu", en: "I understand", kr: "확인했습니다" },
   };
   return labels[key]?.[language] || labels[key]?.vi || key;
 }
@@ -1217,6 +1223,11 @@ async function importRoster(id, records, replace) {
 }
 
 async function loadLiveTrainingDetail(id) {
+  // Reset tab and draft when opening a different flow
+  if (liveTrainingState.detail?.id && liveTrainingState.detail.id !== id) {
+    liveTrainingState.detailTab = "overview";
+    liveTrainingState.speakerDraft = null;
+  }
   liveTrainingState.detailLoading = true;
   liveTrainingState.error = "";
   render();
@@ -6441,7 +6452,13 @@ function publicTrainingPage(accessToken) {
       const initialsDiv = `<div class="pub-speaker-initials" aria-hidden="true" ${_sp.imageUrl ? 'style="display:none"' : ""}>${initials}</div>`;
       return `<div class="pub-card pub-speaker-card"><div class="pub-speaker-inner">${photoHtml}${initialsDiv}<div class="pub-speaker-info"><strong class="pub-speaker-name">${escapeHtml(_sp.name)}</strong>${_sp.role ? `<span class="pub-speaker-title">${escapeHtml(_sp.role)}</span>` : ""}${_sp.organization ? `<span class="pub-speaker-org">${escapeHtml(_sp.organization)}</span>` : ""}${_sp.bio ? `<p class="pub-speaker-bio">${escapeHtml(_sp.bio)}</p>` : ""}</div></div></div>`;
     })() : "";
-    content = `<div class="pub-journey"><div class="pub-journey-header"><div class="pub-journey-meta"><h1 class="pub-session-title">${escapeHtml(f.title)}</h1>${f.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}${speakerCard}<span class="pub-participant-name">${escapeHtml(p.displayName)}</span></div><button class="btn btn-outline pub-switch-btn" data-public-switch aria-label="${liveT("switchParticipant")}">${liveT("switchParticipant")}</button></div>${p.completedAt ? `<div class="pub-card pub-done-card"><h2>${liveT("completed")}</h2><p class="pub-done-time">${formatDateTime(p.completedAt)}</p></div>` : `<section class="pub-stepper" aria-label="${liveT("title")}">${stepCard("pretest", liveT("pretest"), liveT("doPretest"), liveT("donePretest"))}${stepCard("posttest", liveT("posttest"), liveT("doPosttest"), liveT("donePosttest"))}${stepCard("evaluation", liveT("evaluation"), liveT("openEvaluation"), liveT("doneEvaluation"))}<article class="public-step ${completionOpen ? "is-open" : ""}"><div><h2>${liveT("completion")}</h2><span class="pub-step-badge">${completionOpen ? liveT("available") : liveT("waiting")}</span></div><div class="pub-step-actions">${completionOpen ? `<button class="btn btn-success" data-public-complete>${liveT("completion")}</button>` : `<span class="pub-step-wait">${liveT("waiting")}</span>`}</div></article></section>`}</div>`;
+    const greetingHtml = p.displayName
+      ? `<p class="pub-greeting">${escapeHtml(liveT("greeting").replace("{name}", p.displayName))}</p>`
+      : "";
+    const orientationModal = publicTrainingState.showOrientation
+      ? `<div class="pub-orientation-backdrop" aria-modal="true" role="dialog" aria-labelledby="orientationTitle"><div class="pub-orientation-modal"><div class="pub-orientation-icon" aria-hidden="true"><svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><h2 id="orientationTitle" class="pub-orientation-title">${escapeHtml(liveT("orientationTitle"))}</h2><p class="pub-orientation-body">${escapeHtml(liveT("orientationBody"))}</p><p class="pub-orientation-note">${escapeHtml(liveT("orientationNote"))}</p>${publicTrainingState.orientationError ? `<p class="field-error" style="margin-top:8px">${escapeHtml(publicTrainingState.orientationError)}</p>` : ""}<button class="btn btn-primary pub-orientation-btn" data-orientation-ack ${publicTrainingState.orientationSaving ? "disabled" : ""}>${publicTrainingState.orientationSaving ? "..." : escapeHtml(liveT("orientationAck"))}</button></div></div>`
+      : "";
+    content = `${orientationModal}<div class="pub-journey"><div class="pub-journey-header"><div class="pub-journey-meta"><h1 class="pub-session-title">${escapeHtml(f.title)}</h1>${greetingHtml}${f.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}${speakerCard}</div><button class="btn btn-outline pub-switch-btn" data-public-switch aria-label="${liveT("switchParticipant")}">${liveT("switchParticipant")}</button></div>${p.completedAt ? `<div class="pub-card pub-done-card"><h2>${liveT("completed")}</h2><p class="pub-done-time">${formatDateTime(p.completedAt)}</p></div>` : `<section class="pub-stepper" aria-label="${liveT("title")}">${stepCard("pretest", liveT("pretest"), liveT("doPretest"), liveT("donePretest"))}${stepCard("posttest", liveT("posttest"), liveT("doPosttest"), liveT("donePosttest"))}${stepCard("evaluation", liveT("evaluation"), liveT("openEvaluation"), liveT("doneEvaluation"))}<article class="public-step ${completionOpen ? "is-open" : ""}"><div><h2>${liveT("completion")}</h2><span class="pub-step-badge">${completionOpen ? liveT("available") : liveT("waiting")}</span></div><div class="pub-step-actions">${completionOpen ? `<button class="btn btn-success" data-public-complete>${liveT("completion")}</button>` : `<span class="pub-step-wait">${liveT("waiting")}</span>`}</div></article></section>`}</div>`;
   }
 
   return `<div class="public-outer"><div class="pub-bg" aria-hidden="true"></div><div class="pub-ov" aria-hidden="true"></div>${header}<main class="pub-main" ${bs === "checkingParticipant" ? 'aria-busy="true"' : ""}>${content}</main></div>`;
@@ -7415,7 +7432,10 @@ function bindEvents() {
       localStorage.setItem(liveTrainingStorageKey(body.flow.id), body.participantToken);
       const p2 = publicTrainingState.participant;
       publicTrainingState.bootstrap = p2?.completedAt ? "completed" : "ready";
-      publicTrainingState.joining = false; render(); startPublicTrainingPolling();
+      publicTrainingState.joining = false;
+      // Show orientation popup if not yet acknowledged
+      if (p2 && !p2.orientationAcknowledgedAt) publicTrainingState.showOrientation = true;
+      render(); startPublicTrainingPolling();
     } catch (err) { publicTrainingState.joining = false; publicTrainingState.error = err.message; render(); }
   });
   // Roster search
@@ -7469,7 +7489,28 @@ function bindEvents() {
     publicTrainingState.error = "";
     publicTrainingState.selectedRosterId = null;
     publicTrainingState.outsideRoster = false;
+    publicTrainingState.showOrientation = false;
+    publicTrainingState.orientationError = "";
     render();
+  });
+  document.querySelector("[data-orientation-ack]")?.addEventListener("click", async () => {
+    if (publicTrainingState.orientationSaving) return;
+    publicTrainingState.orientationSaving = true;
+    publicTrainingState.orientationError = "";
+    render();
+    try {
+      const res = await fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/orientation`, { method: "POST", headers: publicTokenHeader() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "ACK_ERROR");
+      applyPublicTrainingPayload(body);
+      publicTrainingState.showOrientation = false;
+      publicTrainingState.orientationSaving = false;
+      render();
+    } catch (err) {
+      publicTrainingState.orientationError = err.message || "Không thể xác nhận. Vui lòng thử lại.";
+      publicTrainingState.orientationSaving = false;
+      render();
+    }
   });
   document.querySelectorAll("[data-public-step-start]").forEach((el) => el.addEventListener("click", async () => {
     const step = el.dataset.publicStepStart;

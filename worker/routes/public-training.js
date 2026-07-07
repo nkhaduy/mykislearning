@@ -106,6 +106,7 @@ function participantPublic(row) {
     completedAt: row.completed_at,
     lastSeenAt: row.last_seen_at,
     createdAt: row.created_at,
+    orientationAcknowledgedAt: row.orientation_acknowledged_at || null,
   };
 }
 
@@ -287,6 +288,15 @@ export async function handlePublicTraining(request, env) {
       if (!p[`${step}_started_at`]) return json({ ok: false, error: "STEP_NOT_STARTED" }, 409);
       const { data, error } = await supabase.from("public_training_participants")
         .update({ [`${step}_completed_at`]: nowIso(), last_seen_at: nowIso() }).eq("id", p.id).select("*").single();
+      if (error) return json({ ok: false, error: error.message }, 500);
+      return json({ ok: true, ...statePayload(flow, data) });
+    }
+
+    if (rest === "orientation" && method === "POST") {
+      const p = await requireParticipant(supabase, request, flow);
+      if (p.orientation_acknowledged_at) return json({ ok: true, ...statePayload(flow, p) });
+      const { data, error } = await supabase.from("public_training_participants")
+        .update({ orientation_acknowledged_at: nowIso(), last_seen_at: nowIso() }).eq("id", p.id).select("*").single();
       if (error) return json({ ok: false, error: error.message }, 500);
       return json({ ok: true, ...statePayload(flow, data) });
     }
