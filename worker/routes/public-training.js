@@ -83,6 +83,13 @@ function flowPublic(flow) {
     expired: isExpired(flow),
     available: available.ok,
     error: available.ok ? null : available.code,
+    speaker: flow.speaker_name ? {
+      name: flow.speaker_name,
+      role: flow.speaker_title || null,
+      organization: flow.speaker_org || null,
+      bio: flow.speaker_bio || null,
+      imageUrl: flow.speaker_photo_url || null,
+    } : null,
   };
 }
 

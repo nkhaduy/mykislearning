@@ -5012,13 +5012,13 @@ body.modal-open { overflow: hidden; }
 .pub-logo-link{display:inline-flex;flex-shrink:0}
 .pub-logo{height:32px;width:auto;object-fit:contain}
 .pub-lang-wrap{flex:0 0 auto}
-.pub-lang-wrap .language-switch{background:transparent;border-color:transparent;min-height:44px;padding:0;gap:6px}
-.pub-lang-wrap .language-switch button{color:rgba(255,255,255,.74);background:transparent;min-height:44px;padding:0 6px;border-radius:6px}
+.pub-lang-wrap .language-switch{background:transparent;border:none;min-height:38px;padding:0;gap:2px;border-radius:0}
+.pub-lang-wrap .language-switch button{color:rgba(255,255,255,.65);background:transparent;min-height:36px;min-width:0;padding:0 10px;border-radius:4px;font-size:12px;font-weight:700}
 .pub-lang-wrap .language-switch button.active{color:#fff;font-weight:900;background:transparent}
-.pub-lang-wrap .language-switch button:hover:not(.active){color:#fff;background:rgba(255,255,255,.08)}
+.pub-lang-wrap .language-switch button:hover:not(.active){color:rgba(255,255,255,.9);background:rgba(255,255,255,.08)}
 .pub-lang-wrap .language-switch button:active{background:rgba(255,255,255,.14)}
 .pub-lang-wrap .language-switch button:focus-visible{outline:2px solid rgba(255,255,255,.8);outline-offset:2px}
-.pub-lang-wrap .lang-ink{bottom:3px;height:2px;background:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.15)}
+.pub-lang-wrap .lang-ink{bottom:2px;height:2px;background:#fff;box-shadow:none}
 .pub-main{position:relative;z-index:10;width:100%;max-width:880px;padding:0 16px 48px;flex:1;display:flex;flex-direction:column;align-items:center;gap:16px}
 .pub-card{width:100%;max-width:520px;background:rgba(255,255,255,.96);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.28);color:var(--text-primary)}
 .pub-skeleton-card{display:grid;gap:10px;place-items:center;padding:40px 32px}
@@ -5101,9 +5101,9 @@ body[data-route^="/join/"] .toast{left:50%;right:auto;transform:translateX(-50%)
 }
 
 @media(max-width:390px){
-  .pub-hdr{gap:10px}
-  .pub-lang-wrap .language-switch{gap:2px}
-  .pub-lang-wrap .language-switch button{min-width:40px;padding:0 3px}
+  .pub-hdr{gap:8px;flex-wrap:nowrap}
+  .pub-lang-wrap .language-switch{gap:0}
+  .pub-lang-wrap .language-switch button{padding:0 7px;font-size:11px}
 }
 
 .public-outer .pub-switch-btn,
