@@ -7085,9 +7085,16 @@ function bindEvents() {
     startPublicTrainingPolling();
   });
   document.querySelector("[data-public-switch]")?.addEventListener("click", () => {
+    clearTimeout(publicTrainingState.pollTimer);
     const flowId = publicTrainingState.flow?.id;
     if (flowId) localStorage.removeItem(liveTrainingStorageKey(flowId));
-    publicTrainingState.participant = null; render();
+    publicTrainingState.participant = null;
+    publicTrainingState.bootstrap = "needsName";
+    publicTrainingState.name = "";
+    publicTrainingState.error = "";
+    publicTrainingState.selectedRosterId = null;
+    publicTrainingState.outsideRoster = false;
+    render();
   });
   document.querySelectorAll("[data-public-step-start]").forEach((el) => el.addEventListener("click", async () => {
     const step = el.dataset.publicStepStart;
