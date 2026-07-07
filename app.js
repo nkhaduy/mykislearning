@@ -1192,6 +1192,21 @@ async function loadLiveTrainingList() {
   }
 }
 
+async function loadRoster(id) {
+  liveTrainingState.rosterLoading = true;
+  try {
+    const data = await apiJson(`/api/admin/live-training/${encodeURIComponent(id)}/roster`);
+    liveTrainingState.roster = data.roster || [];
+  } catch (_) { liveTrainingState.roster = []; }
+  liveTrainingState.rosterLoading = false;
+  if (route.startsWith("/admin/live-training/")) render();
+}
+
+async function importRoster(id, records, replace) {
+  const data = await apiJson(`/api/admin/live-training/${encodeURIComponent(id)}/roster/import`, { method: "POST", body: JSON.stringify({ records, replace }) });
+  return data;
+}
+
 async function loadLiveTrainingDetail(id) {
   liveTrainingState.detailLoading = true;
   liveTrainingState.error = "";
@@ -1203,6 +1218,7 @@ async function loadLiveTrainingDetail(id) {
     ]);
     liveTrainingState.detail = detail.flow;
     liveTrainingState.participants = participants.participants || [];
+    loadRoster(id);
   } catch (err) {
     liveTrainingState.error = err.message;
   } finally {
