@@ -209,6 +209,12 @@ export async function handlePublicTraining(request, env) {
     const flow = await getFlowByToken(supabase, accessToken);
     if (!flow) return notFound();
 
+    if (rest === "roster" && method === "GET") {
+      const { data, error } = await supabase.from("public_training_roster").select("id,full_name,department,location,mode").eq("flow_id", flow.id).order("full_name");
+      if (error) return json({ ok: false, error: error.message }, 500);
+      return json({ ok: true, roster: (data || []).map((r) => ({ id: r.id, fullName: r.full_name, department: r.department, location: r.location, mode: r.mode })) });
+    }
+
     if (!rest && method === "GET") return json(statePayload(flow));
 
     const availability = flowAvailable(flow);
