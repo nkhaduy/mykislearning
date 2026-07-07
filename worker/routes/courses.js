@@ -6,6 +6,41 @@ import { auditLater } from "../services/audit-service.js";
 const STORAGE_BUCKET = "course-content";
 const SIGNED_URL_EXPIRES = 3600;
 
+async function deleteCourseOperationalDependencies(supabase, courseId) {
+  const lpSteps = await supabase
+    .from("learning_path_steps")
+    .select("id")
+    .eq("resource_id", courseId)
+    .eq("step_type", "course")
+    .then((r) => r)
+    .catch(() => ({ data: [], error: null }));
+  if (lpSteps.error) return { error: "learning_path_steps: " + lpSteps.error.message };
+
+  const stepIds = (lpSteps.data || []).map((step) => step.id).filter(Boolean);
+  if (stepIds.length) {
+    const progressDel = await supabase.from("learning_path_step_progress").delete().in("step_id", stepIds);
+    if (progressDel.error) return { error: "learning_path_step_progress: " + progressDel.error.message };
+    const stepsDel = await supabase.from("learning_path_steps").delete().in("id", stepIds);
+    if (stepsDel.error) return { error: "learning_path_steps: " + stepsDel.error.message };
+  }
+
+  await supabase.from("learning_path_version_steps").delete().eq("resource_id", courseId).eq("resource_type", "course");
+  await supabase.from("retraining_assignments").delete().eq("assignment_type", "course").eq("assignment_id", courseId);
+  await supabase.from("retraining_reviews").delete().eq("entity_type", "course").eq("entity_id", courseId);
+  await supabase.from("compliance_requirements").delete().eq("resource_id", courseId);
+  await supabase.from("content_progress").delete().eq("course_id", courseId);
+
+  const ccDel = await supabase.from("course_content").delete().eq("course_id", courseId);
+  if (ccDel.error) return { error: "course_content: " + ccDel.error.message };
+  const enrDel = await supabase.from("enrollments").delete().eq("course_id", courseId);
+  if (enrDel.error) return { error: "enrollments: " + enrDel.error.message };
+  await supabase.from("training_sessions").update({ status: "cancelled" }).eq("course_id", courseId);
+  const verDel = await supabase.from("course_versions").delete().eq("course_id", courseId);
+  if (verDel.error) return { error: "course_versions: " + verDel.error.message };
+
+  return { ok: true };
+}
+
 async function attachSignedUrls(supabase, items) {
   return Promise.all(
     items.map(async (item) => {
@@ -231,14 +266,8 @@ export async function handleCourses(request, env) {
         versions: versions.count || 0,
       };
 
-      // Delete dependencies in order: content, enrollments, sessions, versions (versions must go before courses row due to RESTRICT FK)
-      const ccDel = await supabase.from("course_content").delete().eq("course_id", id);
-      if (ccDel.error) return json({ error: "course_content: " + ccDel.error.message }, 500);
-      const enrDel = await supabase.from("enrollments").delete().eq("course_id", id);
-      if (enrDel.error) return json({ error: "enrollments: " + enrDel.error.message }, 500);
-      await supabase.from("training_sessions").update({ status: "cancelled" }).eq("course_id", id);
-      const verDel = await supabase.from("course_versions").delete().eq("course_id", id);
-      if (verDel.error) return json({ error: "course_versions: " + verDel.error.message }, 500);
+      const depsDeleted = await deleteCourseOperationalDependencies(supabase, id);
+      if (depsDeleted.error) return json({ error: depsDeleted.error }, 500);
 
       const { error } = await supabase.from("courses").delete().eq("id", id);
       if (error) return json({ error: error.message }, 500);
@@ -268,14 +297,8 @@ export async function handleCourses(request, env) {
       versions: versionCount.count || 0,
     };
 
-    // Delete all operational dependencies in safe order (course_versions must go before courses due to RESTRICT FK)
-    const cc2Del = await supabase.from("course_content").delete().eq("course_id", id);
-    if (cc2Del.error) return json({ error: "course_content: " + cc2Del.error.message }, 500);
-    const enr2Del = await supabase.from("enrollments").delete().eq("course_id", id);
-    if (enr2Del.error) return json({ error: "enrollments: " + enr2Del.error.message }, 500);
-    await supabase.from("training_sessions").update({ status: "cancelled" }).eq("course_id", id);
-    const ver2Del = await supabase.from("course_versions").delete().eq("course_id", id);
-    if (ver2Del.error) return json({ error: "course_versions: " + ver2Del.error.message }, 500);
+    const depsDeleted = await deleteCourseOperationalDependencies(supabase, id);
+    if (depsDeleted.error) return json({ error: depsDeleted.error }, 500);
 
     const { error } = await supabase.from("courses").delete().eq("id", id);
     if (error) return json({ error: error.message }, 500);
