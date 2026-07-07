@@ -412,6 +412,52 @@ export async function handlePublicTraining(request, env) {
     return json({ ok: true, participants: (data || []).map(participantPublic) });
   }
 
+  if (rest === "roster" && method === "GET") {
+    const { data, error } = await supabase.from("public_training_roster").select("*").eq("flow_id", id).order("full_name");
+    if (error) return json({ ok: false, error: error.message }, 500);
+    return json({ ok: true, roster: data || [] });
+  }
+
+  if (rest === "roster" && method === "DELETE") {
+    const { error } = await supabase.from("public_training_roster").delete().eq("flow_id", id);
+    if (error) return json({ ok: false, error: error.message }, 500);
+    await audit(supabase, request, "public_training.roster_cleared", actor, id, { flowId: id });
+    return json({ ok: true });
+  }
+
+  if (rest === "roster/import" && method === "POST") {
+    const body = await readJson(request);
+    if (!Array.isArray(body.records)) return json({ ok: false, error: "RECORDS_REQUIRED" }, 400);
+    const rows = [];
+    let skipped = 0;
+    for (const rec of body.records) {
+      const fullName = cleanName(rec.fullName || "");
+      if (fullName.length < 2 || fullName.length > 120) { skipped++; continue; }
+      const normalizedName = fullName.normalize("NFKC").toLocaleLowerCase("vi-VN");
+      rows.push({ flow_id: id, full_name: fullName, normalized_name: normalizedName, department: rec.department || null, location: rec.location || null, mode: rec.mode || null, source_row: rec.sourceRow || null });
+    }
+    if (body.replace) {
+      const { error: delErr } = await supabase.from("public_training_roster").delete().eq("flow_id", id);
+      if (delErr) return json({ ok: false, error: delErr.message }, 500);
+    }
+    let imported = 0;
+    if (rows.length > 0) {
+      const { data: upserted, error: upsertErr } = await supabase.from("public_training_roster").upsert(rows, { onConflict: "flow_id,normalized_name" }).select("id");
+      if (upsertErr) return json({ ok: false, error: upsertErr.message }, 500);
+      imported = upserted?.length || 0;
+    }
+    await audit(supabase, request, "public_training.roster_imported", actor, id, { flowId: id, imported, skipped, replace: Boolean(body.replace) });
+    return json({ ok: true, imported, skipped });
+  }
+
+  const rosterEntryDelete = rest.match(/^roster\/([^/]+)$/);
+  if (rosterEntryDelete && method === "DELETE") {
+    const rosterId = rosterEntryDelete[1];
+    const { error } = await supabase.from("public_training_roster").delete().eq("id", rosterId).eq("flow_id", id);
+    if (error) return json({ ok: false, error: error.message }, 500);
+    return json({ ok: true });
+  }
+
   const participantPatch = rest.match(/^participants\/([^/]+)$/);
   if (participantPatch && method === "PATCH") {
     const participantId = participantPatch[1];
