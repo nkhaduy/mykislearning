@@ -1099,6 +1099,8 @@ async function fetchPublicTrainingInitial(accessToken) {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || "NOT_FOUND");
     applyPublicTrainingPayload(body);
+    // Fetch roster in background (best-effort)
+    fetch(`/api/public/live-training/${encodeURIComponent(accessToken)}/roster`).then((r) => r.json()).then((rb) => { if (rb.ok) publicTrainingState.roster = rb.roster || []; }).catch(() => {});
     const flowId = publicTrainingState.flow?.id;
     const stored = flowId ? localStorage.getItem(liveTrainingStorageKey(flowId)) : "";
     if (stored) {
