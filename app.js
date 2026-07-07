@@ -823,9 +823,10 @@ let liveTrainingState = {
   createOpen: false, search: "", actionId: "", participantActionId: "",
 };
 let publicTrainingState = {
+  bootstrap: "unknown", // unknown | loadingFlow | checkingParticipant | needsName | ready | completed | networkError | error
   token: "", flow: null, steps: null, participant: null, completionEligible: false,
   loading: false, joining: false, error: "", name: "", action: "", pollTimer: 0,
-  requestSeq: 0, lastJson: "",
+  requestSeq: 0, lastJson: "", inFlight: false,
 };
 let gallerySearch = "";
 let galleryYear = "";
@@ -1050,6 +1051,10 @@ function liveT(key) {
     manage: { vi: "Mở quản lý", en: "Manage", kr: "관리" },
     liveNote: { vi: "Trạng thái hoàn thành do người tham gia tự xác nhận. Kết quả Quizizz và Google Forms chưa được đồng bộ tự động.", en: "Completion is self-confirmed by participants. Quizizz and Google Forms results are not synchronized automatically yet.", kr: "완료 상태는 참가자 자기 확인 기준입니다. Quizizz와 Google Forms 결과는 아직 자동 동기화되지 않습니다." },
     duplicateNote: { vi: "Nếu có người trùng họ tên, hãy yêu cầu nhập thêm mã nhân viên sau họ tên, ví dụ: Nguyễn Văn An - KIS0123.", en: "If names duplicate, ask participants to add employee code after their name, for example: Nguyen Van An - KIS0123.", kr: "동명이인이 있으면 이름 뒤에 사번을 추가하도록 안내하세요." },
+    resuming: { vi: "Đang khôi phục tiến độ…", en: "Restoring progress…", kr: "진행 상황 복원 중…" },
+    networkError: { vi: "Không thể khôi phục tiến độ", en: "Could not restore progress", kr: "진행 상황을 복원할 수 없습니다" },
+    retry: { vi: "Thử lại", en: "Try again", kr: "다시 시도" },
+    nameHint: { vi: "Họ tên được dùng để khôi phục tiến độ khi bạn truy cập lại.", en: "Your name is used to restore progress when you return.", kr: "이름은 재접속 시 진행 상황을 복원하는 데 사용됩니다." },
   };
   return labels[key]?.[language] || labels[key]?.vi || key;
 }
@@ -1073,21 +1078,27 @@ function applyPublicTrainingPayload(payload) {
 
 async function fetchPublicTrainingInitial(accessToken) {
   publicTrainingState.token = accessToken;
-  publicTrainingState.loading = true;
   publicTrainingState.error = "";
+  publicTrainingState.bootstrap = "loadingFlow";
   render();
   try {
-    const payload = await fetch(`/api/public/live-training/${encodeURIComponent(accessToken)}`).then((r) => r.json().then((b) => ({ ok: r.ok, b })));
-    if (!payload.ok) throw new Error(payload.b.error || "NOT_FOUND");
-    applyPublicTrainingPayload(payload.b);
-    publicTrainingState.loading = false;
-    render();
+    const res = await fetch(`/api/public/live-training/${encodeURIComponent(accessToken)}`);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || "NOT_FOUND");
+    applyPublicTrainingPayload(body);
     const flowId = publicTrainingState.flow?.id;
     const stored = flowId ? localStorage.getItem(liveTrainingStorageKey(flowId)) : "";
-    if (stored) await fetchPublicTrainingState(true);
+    if (stored) {
+      publicTrainingState.bootstrap = "checkingParticipant";
+      render(); // show hydration skeleton — no join form visible
+      await fetchPublicTrainingState(true); // sets bootstrap to ready/completed/needsName
+    } else {
+      publicTrainingState.bootstrap = "needsName";
+      render();
+    }
     startPublicTrainingPolling();
   } catch (err) {
-    publicTrainingState.loading = false;
+    publicTrainingState.bootstrap = "error";
     publicTrainingState.error = err.message || "NOT_FOUND";
     render();
   }
@@ -1106,17 +1117,32 @@ async function fetchPublicTrainingState(shouldRender = true) {
     if (!res.ok) throw new Error(body.error || "STATE_ERROR");
     if (seq !== publicTrainingState.requestSeq) return;
     const nextJson = JSON.stringify(body);
-    if (nextJson !== publicTrainingState.lastJson) {
+    const changed = nextJson !== publicTrainingState.lastJson;
+    if (changed) {
       publicTrainingState.lastJson = nextJson;
       applyPublicTrainingPayload(body);
+    }
+    // Always update bootstrap when resolving from checkingParticipant or when data changed
+    const wasChecking = publicTrainingState.bootstrap === "checkingParticipant" || publicTrainingState.bootstrap === "networkError";
+    if (changed || wasChecking) {
+      const p = publicTrainingState.participant;
+      publicTrainingState.bootstrap = p?.completedAt ? "completed" : p ? "ready" : "needsName";
       if (shouldRender && route.startsWith("/join/")) render();
     }
   } catch (err) {
-    if (String(err.message).includes("UNAUTHORIZED")) {
+    if (seq !== publicTrainingState.requestSeq) return;
+    if (String(err.message).includes("UNAUTHORIZED") || String(err.message).includes("INVALID_PARTICIPANT")) {
       const flowId = publicTrainingState.flow?.id;
       if (flowId) localStorage.removeItem(liveTrainingStorageKey(flowId));
       publicTrainingState.participant = null;
+      publicTrainingState.bootstrap = "needsName";
       if (shouldRender) render();
+    } else {
+      // Network/transient error — don't clear token, show retry
+      if (publicTrainingState.bootstrap === "checkingParticipant") {
+        publicTrainingState.bootstrap = "networkError";
+        if (shouldRender) render();
+      }
     }
   } finally {
     publicTrainingState.inFlight = false;
@@ -1126,6 +1152,8 @@ async function fetchPublicTrainingState(shouldRender = true) {
 function startPublicTrainingPolling() {
   clearTimeout(publicTrainingState.pollTimer);
   if (!route.startsWith("/join/")) return;
+  const bs = publicTrainingState.bootstrap;
+  if (bs !== "ready" && bs !== "completed") return; // only poll after hydration
   const interval = document.hidden ? 8000 : 2000;
   publicTrainingState.pollTimer = setTimeout(async () => {
     await fetchPublicTrainingState(true);
@@ -6186,25 +6214,44 @@ function adminLiveTrainingDetailPage() {
 }
 
 function publicTrainingPage(accessToken) {
-  if (publicTrainingState.token !== accessToken && !publicTrainingState.loading) queueMicrotask(() => fetchPublicTrainingInitial(accessToken));
+  const bs = publicTrainingState.bootstrap;
+  if (bs === "unknown" || (publicTrainingState.token !== accessToken)) {
+    queueMicrotask(() => fetchPublicTrainingInitial(accessToken));
+    publicTrainingState.bootstrap = "loadingFlow";
+  }
   const f = publicTrainingState.flow;
   const p = publicTrainingState.participant;
-  const err = publicTrainingState.error || f?.error;
-  const errText = err === "FLOW_EXPIRED" ? liveT("expiredLink") : err === "FLOW_CLOSED" ? liveT("closedFlow") : err ? liveT("invalidLink") : "";
-  if (errText) return `<main class="public-training"><section class="public-training-card"><img src="/assets/kis-logo.png" alt="KIS Vietnam"><h1>${errText}</h1></section></main>`;
-  if (!f) return `<main class="public-training"><section class="public-training-card"><div class="ui-skeleton ui-skeleton--block"></div></section></main>`;
-  const join = !p ? `<form id="publicTrainingJoinForm" class="public-training-card"><img src="/assets/kis-logo.png" alt="KIS Vietnam"><h1>${escapeHtml(f.title)}</h1><p>${escapeHtml(f.description || "")}</p><div class="field"><label for="publicTrainingName">${liveT("fullName")}</label><input id="publicTrainingName" name="displayName" value="${escapeHtmlAttribute(publicTrainingState.name)}" required maxlength="120" autocomplete="name"><small>Họ tên được dùng để khôi phục tiến độ khi bạn truy cập lại.</small></div><button class="btn btn-primary" type="submit">${publicTrainingState.joining ? "Đang xử lý..." : liveT("start")}</button><p class="field-error">${escapeHtml(publicTrainingState.error || "")}</p></form>` : "";
-  const stepCard = (step, label, openLabel, doneLabel) => {
-    const s = publicTrainingState.steps?.[step] || {};
-    const started = p?.[`${step}StartedAt`];
-    const done = p?.[`${step}CompletedAt`];
-    const status = done ? liveT("done") : started ? liveT("started") : !s.required ? liveT("optional") : s.state === "open" ? liveT("available") : liveT("notOpen");
-    const body = s.state !== "open" ? liveT("waitingNamed").replace("{step}", label) : !s.url ? liveT("missingUrl") : `<button class="btn btn-primary" data-public-step-start="${step}">${openLabel}</button>${started ? `<button class="btn btn-outline" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : ""}`;
-    return `<article class="public-step ${done ? "is-done" : ""}"><div><h2>${label}</h2><span>${status}</span></div><p>${body}</p></article>`;
-  };
-  const journey = p ? `<section class="public-training-shell"><header><img src="/assets/kis-logo.png" alt="KIS Vietnam"><div><h1>${escapeHtml(f.title)}</h1><p>${escapeHtml(f.description || "")}</p><strong>${escapeHtml(p.displayName)}</strong></div><button class="btn btn-outline" data-public-switch>${liveT("switchParticipant")}</button></header>
-    ${p.completedAt ? `<section class="public-training-card"><h2>${liveT("completed")}</h2><p>${liveT("fullName")}: ${escapeHtml(p.displayName)}</p><p>${formatDateTime(p.completedAt)}</p></section>` : `<section class="public-stepper" aria-label="${liveT("title")}">${stepCard("pretest", liveT("pretest"), liveT("doPretest"), liveT("donePretest"))}${stepCard("posttest", liveT("posttest"), liveT("doPosttest"), liveT("donePosttest"))}${stepCard("evaluation", liveT("evaluation"), liveT("openEvaluation"), liveT("doneEvaluation"))}<article class="public-step"><div><h2>${liveT("completion")}</h2><span>${publicTrainingState.completionEligible ? liveT("available") : liveT("waiting")}</span></div><p>${publicTrainingState.completionEligible ? `<button class="btn btn-primary" data-public-complete>${liveT("completion")}</button>` : liveT("waiting")}</p></article></section>`}</section>` : "";
-  return `<main class="public-training">${join}${journey}</main>`;
+
+  const header = `<header class="pub-hdr"><a href="/" data-link class="pub-logo-link" aria-label="KIS Vietnam"><img src="/assets/kis-logo-white.png" alt="KIS Vietnam" class="pub-logo"></a><div class="pub-lang-wrap">${languageSwitcher()}</div></header>`;
+
+  let content;
+  if (bs === "loadingFlow" || bs === "unknown") {
+    content = `<div class="pub-card pub-skeleton-card" aria-busy="true"><div class="ui-skeleton" style="height:22px;width:55%;border-radius:6px;margin-bottom:10px"></div><div class="ui-skeleton" style="height:14px;width:35%;border-radius:6px"></div></div>`;
+  } else if (bs === "checkingParticipant") {
+    content = `<div class="pub-card pub-skeleton-card" aria-busy="true" aria-live="polite"><p class="pub-resuming">${liveT("resuming")}</p>${f ? `<p class="pub-session-title-sm">${escapeHtml(f.title)}</p>` : ""}<div class="ui-skeleton" style="height:14px;width:40%;border-radius:6px;margin-top:12px"></div></div>`;
+  } else if (bs === "networkError") {
+    content = `<div class="pub-card"><p class="pub-resuming">${liveT("networkError")}</p><button class="btn btn-primary" data-public-retry style="margin-top:14px">${liveT("retry")}</button></div>`;
+  } else if (bs === "error") {
+    const err = publicTrainingState.error || f?.error || "";
+    const errText = err === "FLOW_EXPIRED" ? liveT("expiredLink") : err === "FLOW_CLOSED" ? liveT("closedFlow") : liveT("invalidLink");
+    content = `<div class="pub-card pub-error-card"><h1>${errText}</h1></div>`;
+  } else if (bs === "needsName") {
+    content = `<div class="pub-card pub-join-card"><h1 class="pub-session-title">${escapeHtml(f?.title || "")}</h1>${f?.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}<form id="publicTrainingJoinForm"><div class="field"><label for="publicTrainingName">${liveT("fullName")}</label><input id="publicTrainingName" name="displayName" value="${escapeHtmlAttribute(publicTrainingState.name)}" required maxlength="120" autocomplete="name" aria-required="true"><small>${liveT("nameHint")}</small></div><button class="btn btn-primary" type="submit" style="width:100%;min-height:48px">${publicTrainingState.joining ? liveT("resuming").replace("…", "") : liveT("start")}</button><p class="field-error" role="alert">${escapeHtml(publicTrainingState.error || "")}</p></form></div>`;
+  } else {
+    // ready or completed
+    const stepCard = (step, label, openLabel, doneLabel) => {
+      const s = publicTrainingState.steps?.[step] || {};
+      const started = p?.[`${step}StartedAt`];
+      const done = p?.[`${step}CompletedAt`];
+      const status = done ? liveT("done") : started ? liveT("started") : !s.required ? liveT("optional") : s.state === "open" ? liveT("available") : liveT("notOpen");
+      const body = s.state !== "open" ? `<span class="pub-step-wait">${liveT("waitingNamed").replace("{step}", label)}</span>` : !s.url ? `<span class="pub-step-wait">${liveT("missingUrl")}</span>` : `<button class="btn btn-primary" data-public-step-start="${step}">${openLabel}</button>${started ? `<button class="btn btn-outline" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : ""}`;
+      return `<article class="public-step ${done ? "is-done" : ""}"><div><h2>${label}</h2><span class="pub-step-badge">${status}</span></div><div class="pub-step-actions">${body}</div></article>`;
+    };
+    const completionOpen = publicTrainingState.completionEligible;
+    content = `<div class="pub-journey"><div class="pub-journey-header"><div class="pub-journey-meta"><h1 class="pub-session-title">${escapeHtml(f.title)}</h1>${f.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}<span class="pub-participant-name">${escapeHtml(p.displayName)}</span></div><button class="btn pub-switch-btn" data-public-switch aria-label="${liveT("switchParticipant")}">${liveT("switchParticipant")}</button></div>${p.completedAt ? `<div class="pub-card pub-done-card"><h2>${liveT("completed")}</h2><p class="pub-done-time">${formatDateTime(p.completedAt)}</p></div>` : `<section class="pub-stepper" aria-label="${liveT("title")}">${stepCard("pretest", liveT("pretest"), liveT("doPretest"), liveT("donePretest"))}${stepCard("posttest", liveT("posttest"), liveT("doPosttest"), liveT("donePosttest"))}${stepCard("evaluation", liveT("evaluation"), liveT("openEvaluation"), liveT("doneEvaluation"))}<article class="public-step ${completionOpen ? "is-open" : ""}"><div><h2>${liveT("completion")}</h2><span class="pub-step-badge">${completionOpen ? liveT("available") : liveT("waiting")}</span></div><div class="pub-step-actions">${completionOpen ? `<button class="btn btn-primary" data-public-complete>${liveT("completion")}</button>` : `<span class="pub-step-wait">${liveT("waiting")}</span>`}</div></article></section>`}</div>`;
+  }
+
+  return `<div class="public-outer"><div class="pub-bg" aria-hidden="true"></div><div class="pub-ov" aria-hidden="true"></div>${header}<main class="pub-main" ${bs === "checkingParticipant" ? 'aria-busy="true"' : ""}>${content}</main></div>`;
 }
 
 function render() {
@@ -6971,8 +7018,16 @@ function bindEvents() {
       if (!res.ok) throw new Error(body.error || "JOIN_ERROR");
       applyPublicTrainingPayload(body);
       localStorage.setItem(liveTrainingStorageKey(body.flow.id), body.participantToken);
+      const p2 = publicTrainingState.participant;
+      publicTrainingState.bootstrap = p2?.completedAt ? "completed" : "ready";
       publicTrainingState.joining = false; render(); startPublicTrainingPolling();
     } catch (err) { publicTrainingState.joining = false; publicTrainingState.error = err.message; render(); }
+  });
+  document.querySelector("[data-public-retry]")?.addEventListener("click", async () => {
+    publicTrainingState.bootstrap = "checkingParticipant";
+    render();
+    await fetchPublicTrainingState(true);
+    startPublicTrainingPolling();
   });
   document.querySelector("[data-public-switch]")?.addEventListener("click", () => {
     const flowId = publicTrainingState.flow?.id;
@@ -7505,7 +7560,7 @@ function setupPageSpecificHandlers() {
     navigate("/login");
     toast(uiText("logoutSuccess"));
   });
-  document.querySelectorAll("[data-language]").forEach((el) => el.addEventListener("click", () => {if(language===el.dataset.language)return;const main=document.querySelector(".app-main,.landing-page,.auth-page");main?.classList.add("i18n-transition");setTimeout(()=>{language=el.dataset.language;saveLanguage(language);render();requestAnimationFrame(()=>document.querySelector(".app-main,.landing-page,.auth-page")?.classList.add("i18n-enter"));},120);}));
+  document.querySelectorAll("[data-language]").forEach((el) => el.addEventListener("click", () => {if(language===el.dataset.language)return;const main=document.querySelector(".app-main,.landing-page,.auth-page,.public-outer");main?.classList.add("i18n-transition");setTimeout(()=>{language=el.dataset.language;saveLanguage(language);render();requestAnimationFrame(()=>document.querySelector(".app-main,.landing-page,.auth-page,.public-outer")?.classList.add("i18n-enter"));},120);}));
   document.querySelector("[data-quiz-create]")?.addEventListener("click",()=>{quizFormOpen=true;selectedQuizId="";quizBuilderQuestions=[];quizBuilderCollapsed={};quizAddingQType=false;render();});
   document.querySelectorAll("[data-quiz-edit]").forEach(el=>el.addEventListener("click",()=>{quizFormOpen=true;selectedQuizId=el.dataset.quizEdit;quizBuilderQuestions=structuredClone(getQuizById(selectedQuizId)?.questions||[]);quizBuilderCollapsed={};quizAddingQType=false;render();}));
   document.querySelectorAll("[data-quiz-close]").forEach(el=>el.addEventListener("click",()=>{quizFormOpen=false;selectedQuizId="";quizAddingQType=false;render();}));

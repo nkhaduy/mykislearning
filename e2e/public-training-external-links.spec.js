@@ -186,11 +186,11 @@ test("PUB-1 — /join/:token does not render app navigation or dashboard shell",
     pubPage.on("pageerror", (e) => errs.push(String(e)));
     try {
       await pubPage.goto(`${BASE}/join/${accessToken}`, { waitUntil: "domcontentloaded" });
-      await pubPage.waitForSelector(".public-training", { timeout: 10000 });
+      await pubPage.waitForSelector(".public-outer", { timeout: 10000 });
       const html = await pubPage.content();
-      expect(html).not.toContain("sidebar");
-      expect(html).not.toContain("topbar");
-      expect(html).not.toContain("data-link");
+      expect(html).not.toContain("class=\"sidebar");
+      expect(html).not.toContain("class=\"topbar");
+      expect(html).not.toContain("app-layout");
       expect(errs, `JS errors: ${errs.join(", ")}`).toHaveLength(0);
       await pubPage.screenshot({ path: `${RESULTS_DIR}/pub1-no-nav.png` });
     } finally {
@@ -258,12 +258,12 @@ test("PART-1 — Join creates participant and F5 restores progress via localStor
     const pubPage = await pubCtx.newPage();
     try {
       await pubPage.goto(`${BASE}/join/${accessToken}`, { waitUntil: "domcontentloaded" });
-      await pubPage.waitForSelector(".public-training", { timeout: 10000 });
+      await pubPage.waitForSelector("#publicTrainingName", { timeout: 10000 });
 
       // Join
       await pubPage.fill("#publicTrainingName", "Nguyễn Văn An Test");
       await pubPage.click("#publicTrainingJoinForm button[type=submit]");
-      await pubPage.waitForSelector(".public-training-shell", { timeout: 10000 });
+      await pubPage.waitForSelector(".pub-journey", { timeout: 10000 });
 
       // Verify localStorage was set
       const stored = await pubPage.evaluate((flowId) => {
@@ -273,8 +273,8 @@ test("PART-1 — Join creates participant and F5 restores progress via localStor
 
       // F5
       await pubPage.reload({ waitUntil: "domcontentloaded" });
-      await pubPage.waitForSelector(".public-training-shell", { timeout: 10000 });
-      const nameAfterReload = await pubPage.textContent(".public-training-shell header strong");
+      await pubPage.waitForSelector(".pub-journey", { timeout: 10000 });
+      const nameAfterReload = await pubPage.textContent(".pub-participant-name");
       expect(nameAfterReload?.trim()).toBe("Nguyễn Văn An Test");
 
       await pubPage.screenshot({ path: `${RESULTS_DIR}/part1-f5-restored.png` });
@@ -641,7 +641,7 @@ test("MOBILE-1 — Public page has no horizontal overflow on 390px", async ({ br
     const pubPage = await pubCtx.newPage();
     try {
       await pubPage.goto(`${BASE}/join/${accessToken}`, { waitUntil: "domcontentloaded" });
-      await pubPage.waitForSelector(".public-training", { timeout: 10000 });
+      await pubPage.waitForSelector(".public-outer", { timeout: 10000 });
 
       const overflow = await pubPage.evaluate(() => {
         return document.documentElement.scrollWidth > document.documentElement.clientWidth;
@@ -685,8 +685,8 @@ test("I18N-1 — No raw i18n key displayed on public or HR page (VI default)", a
     const pubPage = await pubCtx.newPage();
     try {
       await pubPage.goto(`${BASE}/join/${accessToken}`, { waitUntil: "domcontentloaded" });
-      await pubPage.waitForSelector(".public-training", { timeout: 10000 });
-      const pubContent = await pubPage.textContent(".public-training");
+      await pubPage.waitForSelector(".public-outer", { timeout: 10000 });
+      const pubContent = await pubPage.textContent(".public-outer");
       for (const key of rawKeys) {
         expect(pubContent, `public page should not have raw key "${key}"`).not.toContain(`:${key}`);
       }

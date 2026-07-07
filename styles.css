@@ -4984,31 +4984,56 @@ body.modal-open { overflow: hidden; }
 .live-control{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px}
 .live-control p{max-width:100%;margin:4px 0 0;color:var(--muted);overflow-wrap:anywhere}
 .live-control small{display:block;margin-top:6px;color:var(--muted)}
-.public-training{min-height:100dvh;display:grid;place-items:center;padding:28px;background:#eef3f8;color:var(--text-primary)}
-.public-training-card,.public-training-shell{width:min(100%,920px);background:#fff;border:1px solid var(--border-subtle);border-radius:14px;padding:24px;box-shadow:0 10px 30px rgba(15,23,42,.08)}
-.public-training-card{max-width:520px;display:grid;gap:16px}
-.public-training-card img,.public-training-shell header img{width:118px;height:auto}
-.public-training-card h1,.public-training-shell h1{margin:0;color:var(--navy);font-size:clamp(24px,4vw,38px);letter-spacing:0}
-.public-training-shell{display:grid;gap:18px}
-.public-training-shell header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-bottom:1px solid var(--border-subtle);padding-bottom:18px}
-.public-training-shell header>div{min-width:0;flex:1}
-.public-training-shell header p{color:var(--muted);overflow-wrap:anywhere}
-.public-stepper{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.public-step{display:grid;gap:14px;min-width:0;padding:18px;border:1px solid var(--border-subtle);border-radius:12px;background:#f8fafc}
-.public-step.is-done{background:#edf8f2;border-color:#b8e2c5}
-.public-step>div{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.public-step h2{margin:0;font-size:18px;color:var(--navy)}
-.public-step span{font-size:12px;font-weight:800;color:var(--text-secondary)}
-.public-step p{display:flex;flex-wrap:wrap;gap:10px;margin:0;color:var(--muted);overflow-wrap:anywhere}
-.public-step .btn{min-height:44px}
+/* Public training outer shell — Login-style dark background */
+.public-outer{position:relative;isolation:isolate;min-height:100dvh;display:flex;flex-direction:column;align-items:center;background:#0a1b2f;color:#fff}
+.pub-bg{position:fixed;inset:-10px;z-index:0;background:url("/public/images/kis-head-office.webp") center 52%/cover no-repeat;filter:blur(2.5px);transform:scale(1.015);pointer-events:none}
+.pub-ov{position:fixed;inset:0;z-index:1;background:linear-gradient(180deg,rgba(4,20,36,.78) 0%,rgba(4,20,36,.55) 55%,rgba(4,20,36,.68) 100%);pointer-events:none}
+.pub-hdr{position:relative;z-index:10;width:100%;max-width:880px;display:flex;align-items:center;justify-content:space-between;padding:18px 24px;gap:16px}
+.pub-logo-link{display:inline-flex;flex-shrink:0}
+.pub-logo{height:32px;width:auto;object-fit:contain}
+.pub-lang-wrap .language-switch button{color:rgba(255,255,255,.65);background:transparent}
+.pub-lang-wrap .language-switch button.active{color:#fff;font-weight:800}
+.pub-lang-wrap .language-switch span[aria-hidden]{color:rgba(255,255,255,.3)}
+.pub-main{position:relative;z-index:10;width:100%;max-width:880px;padding:0 16px 48px;flex:1;display:flex;flex-direction:column;align-items:center;gap:16px}
+.pub-card{width:100%;max-width:520px;background:rgba(255,255,255,.96);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.28);color:var(--text-primary)}
+.pub-skeleton-card{display:grid;gap:10px;place-items:center;padding:40px 32px}
+.pub-resuming{margin:0 0 8px;font-size:14px;color:var(--muted);text-align:center}
+.pub-session-title-sm{margin:0;font-size:16px;font-weight:600;color:var(--navy);text-align:center}
+.pub-error-card{text-align:center}
+.pub-error-card h1{margin:0;font-size:clamp(18px,3vw,26px);color:var(--navy)}
+.pub-join-card{display:grid;gap:20px}
+.pub-session-title{margin:0;font-size:clamp(22px,3.5vw,32px);font-weight:800;color:var(--navy);line-height:1.15}
+.pub-session-desc{margin:0;color:var(--muted);font-size:15px;line-height:1.55}
+.pub-journey{width:100%;max-width:880px;display:grid;gap:18px}
+.pub-journey-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;background:rgba(255,255,255,.96);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,.22)}
+.pub-journey-meta{min-width:0;flex:1}
+.pub-participant-name{display:inline-block;margin-top:8px;font-size:15px;font-weight:700;color:var(--navy)}
+.pub-switch-btn{flex-shrink:0;color:rgba(255,255,255,.8);border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.08)}
+.pub-switch-btn:hover{background:rgba(255,255,255,.15);color:#fff}
+.pub-stepper{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.public-step{display:grid;gap:10px;min-width:0;padding:20px;border:1px solid rgba(255,255,255,.14);border-radius:14px;background:rgba(255,255,255,.9);color:var(--text-primary)}
+.public-step.is-done{background:rgba(237,248,242,.96);border-color:#b8e2c5}
+.public-step.is-open{background:rgba(255,255,255,.98)}
+.public-step>div{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.public-step h2{margin:0;font-size:16px;font-weight:700;color:var(--navy)}
+.pub-step-badge{font-size:11px;font-weight:800;color:var(--muted);white-space:nowrap;padding:2px 8px;border-radius:20px;background:rgba(0,0,0,.06)}
+.pub-step-actions{display:flex;flex-wrap:wrap;gap:10px}
+.pub-step-actions .btn{min-height:44px}
+.pub-step-wait{font-size:13px;color:var(--muted);line-height:1.5}
+.pub-done-card{text-align:center;padding:40px 32px}
+.pub-done-card h2{margin:0 0 10px;font-size:clamp(20px,3vw,28px);color:var(--navy)}
+.pub-done-time{margin:0;color:var(--muted);font-size:14px}
 body[data-route^="/join/"] .toast{left:50%;right:auto;transform:translateX(-50%)}
 
 @media(max-width:760px){
-  .live-training-page .page-header,.public-training-shell header{display:grid}
-  .form-grid,.live-controls,.public-stepper{grid-template-columns:1fr}
-  .public-training{place-items:start;padding:14px}
-  .public-training-card,.public-training-shell{padding:18px;border-radius:12px}
-  .public-training-shell header .btn{width:100%}
+  .live-training-page .page-header{display:grid}
+  .form-grid,.live-controls,.pub-stepper,.public-stepper{grid-template-columns:1fr}
+  .pub-hdr{padding:14px 16px}
+  .pub-logo{height:28px}
+  .pub-card{padding:22px 18px;border-radius:12px}
+  .pub-journey-header{padding:18px;border-radius:12px}
+  .pub-switch-btn{width:100%}
+  .pub-stepper{grid-template-columns:1fr}
   .live-control{grid-template-columns:1fr}
 }
 
