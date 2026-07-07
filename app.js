@@ -7073,6 +7073,9 @@ function bindEvents() {
       title: fd.get("title"), description: fd.get("description"),
       pretestUrl: fd.get("pretestUrl"), posttestUrl: fd.get("posttestUrl"), evaluationUrl: fd.get("evaluationUrl"),
       pretestRequired: fd.get("pretestRequired") === "on", posttestRequired: fd.get("posttestRequired") === "on", evaluationRequired: fd.get("evaluationRequired") === "on",
+      speakerName: fd.get("speakerName") || "", speakerTitle: fd.get("speakerTitle") || "",
+      speakerOrg: fd.get("speakerOrg") || "", speakerBio: fd.get("speakerBio") || "",
+      speakerPhotoUrl: fd.get("speakerPhotoUrl") || "",
     };
     try { await apiJson(`/api/admin/live-training/${id}`, { method: "PATCH", body: JSON.stringify(payload) }); await loadLiveTrainingDetail(id); toast("success"); }
     catch (err) { event.currentTarget.querySelector("[data-live-update-error]").textContent = err.message; }
