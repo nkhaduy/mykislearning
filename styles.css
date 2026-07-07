@@ -315,9 +315,9 @@ a {
 .language-switch button {
   position: relative;
   z-index: 1;
-  min-width: 40px;
-  min-height: 40px;
-  padding: 0 4px;
+  min-width: auto;
+  min-height: auto;
+  padding: 0 5px;
   border: 0;
   color: var(--muted);
   background: transparent;
@@ -5004,6 +5004,29 @@ body.modal-open { overflow: hidden; }
 .live-control{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px}
 .live-control p{max-width:100%;margin:4px 0 0;color:var(--muted);overflow-wrap:anywhere}
 .live-control small{display:block;margin-top:6px;color:var(--muted)}
+/* Live Training Detail Tabs */
+.live-detail-tabs{display:flex;gap:2px;border-bottom:2px solid var(--line);margin-bottom:20px;overflow-x:auto;scrollbar-width:none}
+.live-detail-tab{flex-shrink:0;padding:10px 18px;border:none;background:transparent;cursor:pointer;font-size:14px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s;border-radius:6px 6px 0 0}
+.live-detail-tab:hover{color:var(--navy)}
+.live-detail-tab.is-active{color:var(--navy);border-bottom-color:var(--primary)}
+/* Speaker Tab Layout */
+.spk-tab-layout{display:grid;grid-template-columns:3fr 2fr;gap:24px;align-items:start}
+.spk-form{padding:24px}
+.spk-img-preview-wrap{display:flex;align-items:center;gap:10px;margin-top:8px}
+.spk-img-preview{width:72px;height:72px;border-radius:8px;object-fit:cover;border:1px solid var(--line)}
+.spk-preview-pane{position:sticky;top:84px;padding:20px;background:var(--surface,#f8fafc);border:1px solid var(--line);border-radius:12px}
+.spk-preview-label{margin:0 0 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.spk-preview-hint{margin:12px 0 0;font-size:12px;color:var(--muted)}
+.spk-preview-card{display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px;background:#fff;border:1px solid var(--line);border-radius:10px;text-align:center}
+.spk-preview-photo{width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--line)}
+.spk-preview-initials{width:80px;height:80px;border-radius:50%;background:var(--navy,#0b1f3a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800}
+.spk-preview-info{display:grid;gap:4px;width:100%}
+.spk-preview-name{font-size:16px;font-weight:700;color:var(--navy)}
+.spk-preview-role{font-size:13px;color:var(--muted)}
+.spk-preview-org{font-size:13px;color:var(--muted);font-style:italic}
+.spk-preview-bio{margin:6px 0 0;font-size:13px;color:var(--text-primary);line-height:1.55;text-align:left}
+.spk-preview-empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px 16px;color:var(--muted);text-align:center}
+.spk-preview-empty p{margin:0;font-size:13px}
 /* Public training outer shell — Login-style dark background */
 .public-outer{position:relative;isolation:isolate;min-height:100dvh;display:flex;flex-direction:column;align-items:center;background:#0a1b2f;color:#fff}
 .pub-bg{position:fixed;inset:-10px;z-index:0;background:url("/public/images/kis-head-office.webp") center 52%/cover no-repeat;filter:blur(2.5px);transform:scale(1.015);pointer-events:none}
@@ -5098,6 +5121,8 @@ body[data-route^="/join/"] .toast{left:50%;right:auto;transform:translateX(-50%)
   .pub-switch-btn{width:100%}
   .pub-stepper{grid-template-columns:1fr}
   .live-control{grid-template-columns:1fr}
+  .spk-tab-layout{grid-template-columns:1fr}
+  .spk-preview-pane{position:static}
 }
 
 @media(max-width:390px){

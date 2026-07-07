@@ -70,7 +70,7 @@ import {excelImportService} from "./lib/services/excelImportService.js";
 import {auditService} from "./lib/services/auditService.js";
 
 const app = document.getElementById("app");
-const SHOW_DEMO_CREDENTIALS = true;
+const SHOW_DEMO_CREDENTIALS = false;
 
 let language = getInitialLanguage();
 let route = location.pathname;
@@ -822,6 +822,8 @@ let liveTrainingState = {
   flows: [], detail: null, participants: [], loading: false, detailLoading: false, error: "",
   createOpen: false, search: "", actionId: "", participantActionId: "",
   roster: [], rosterLoading: false, rosterParsed: null, rosterReplaceMode: true, rosterSearch: "",
+  detailTab: "overview",
+  speakerDraft: null,
 };
 let liveDeleteState = { flowId: null, flowTitle: "", loading: false, error: "" };
 let publicTrainingState = {
@@ -6240,6 +6242,7 @@ function adminLiveTrainingDetailPage() {
   const id = route.split("/")[3];
   const f = liveTrainingState.detail;
   if (!f || f.id !== id) return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", liveT("title"), "hr")}<div class="content"><div class="ui-skeleton ui-skeleton--block"></div></div></main></div>`;
+  const activeTab = liveTrainingState.detailTab || "overview";
   const control = (step, label) => {
     const state = f[`${step}_state`];
     const counts = f.step_counts || {};
@@ -6248,34 +6251,58 @@ function adminLiveTrainingDetailPage() {
     return `<article class="ui-card live-control"><div><h3>${label}</h3><p>${escapeHtml(f[`${step}_url`] || liveT("missingUrl"))}</p></div><div>${liveStatusBadge(state)}<small>${started} đã bắt đầu · ${completed} tự xác nhận</small></div><button class="btn btn-outline" data-live-step="${step}" data-live-state="${state === "open" ? "closed" : "open"}">${state === "open" ? liveT("closeStep") : liveT("openStep")}</button></article>`;
   };
   const participants = (liveTrainingState.participants || []).filter((p) => !liveTrainingState.search || p.displayName.toLowerCase().includes(liveTrainingState.search.toLowerCase()));
-  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", f.title, "hr")}<div class="content route-content live-training-page">
-    <a class="btn btn-ghost" href="/admin/live-training" data-link>← ${liveT("title")}</a>
-    <section class="page-header"><div><h1>${escapeHtml(f.title)}</h1><p>${escapeHtml(f.description || "")}</p></div><div class="row-actions"><button class="btn btn-outline" data-copy-live-link="${escapeHtmlAttribute(f.publicLink || "")}">${liveT("copyLink")}</button><button class="btn btn-outline" data-live-rotate="${f.id}">Rotate link</button><button class="btn btn-danger" data-live-delete="${f.id}" data-live-delete-title="${escapeHtmlAttribute(f.title)}">Xóa hành trình</button></div></section>
-    <p class="field-help">${liveT("liveNote")}</p><p class="field-help">${liveT("duplicateNote")}</p>
-    <form id="liveTrainingUpdateForm" class="ui-card form-grid">
-      <div class="field"><label>${liveT("sessionTitle")}</label><input name="title" value="${escapeHtmlAttribute(f.title)}" required></div>
-      <div class="field"><label>Public link</label><input value="${escapeHtmlAttribute(f.publicLink || "")}" readonly></div>
-      <div class="field span-2"><label>${liveT("description")}</label><textarea name="description" rows="2">${escapeHtml(f.description || "")}</textarea></div>
-      <div class="field"><label>${liveT("pretestUrl")}</label><input name="pretestUrl" value="${escapeHtmlAttribute(f.pretest_url || "")}"></div>
-      <div class="field"><label>${liveT("posttestUrl")}</label><input name="posttestUrl" value="${escapeHtmlAttribute(f.posttest_url || "")}"></div>
-      <div class="field"><label>${liveT("evaluationUrl")}</label><input name="evaluationUrl" value="${escapeHtmlAttribute(f.evaluation_url || "")}"></div>
-      <label class="setting-row"><span>Pre-test ${liveT("required")}</span><input name="pretestRequired" type="checkbox" ${f.pretest_required ? "checked" : ""}></label>
-      <label class="setting-row"><span>Post-test ${liveT("required")}</span><input name="posttestRequired" type="checkbox" ${f.posttest_required ? "checked" : ""}></label>
-      <label class="setting-row"><span>${liveT("evaluation")} ${liveT("required")}</span><input name="evaluationRequired" type="checkbox" ${f.evaluation_required ? "checked" : ""}></label>
-      <div class="field span-2" style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px"><strong>${liveT("speakerLabel")}</strong></div>
-      <div class="field"><label>Tên diễn giả</label><input name="speakerName" value="${escapeHtmlAttribute(f.speaker_name || "")}"></div>
-      <div class="field"><label>Chức danh</label><input name="speakerTitle" value="${escapeHtmlAttribute(f.speaker_title || "")}"></div>
-      <div class="field"><label>Tổ chức</label><input name="speakerOrg" value="${escapeHtmlAttribute(f.speaker_org || "")}"></div>
-      <div class="field"><label>Ảnh diễn giả (URL)</label><input name="speakerPhotoUrl" type="url" value="${escapeHtmlAttribute(f.speaker_photo_url || "")}"></div>
-      <div class="field span-2"><label>Giới thiệu diễn giả</label><textarea name="speakerBio" rows="3">${escapeHtml(f.speaker_bio || "")}</textarea></div>
-      <div class="span-2"><button class="btn btn-primary" type="submit">Lưu</button></div><p class="field-error span-2" data-live-update-error></p>
-    </form>
-    <section class="live-controls">${control("pretest", liveT("pretest"))}${control("posttest", liveT("posttest"))}${control("evaluation", liveT("evaluation"))}${control("completion", liveT("completion"))}</section>
-    <section class="ui-card"><div class="table-tools"><input data-live-search placeholder="Tìm theo tên" value="${escapeHtmlAttribute(liveTrainingState.search)}"><button class="btn btn-outline" data-live-detail-reload>Làm mới</button></div>
+
+  // Speaker draft state (live preview in speaker tab)
+  const sd = liveTrainingState.speakerDraft || {};
+  const spName = sd.name !== undefined ? sd.name : (f.speaker_name || "");
+  const spTitle = sd.role !== undefined ? sd.role : (f.speaker_title || "");
+  const spOrg = sd.organization !== undefined ? sd.organization : (f.speaker_org || "");
+  const spBio = sd.bio !== undefined ? sd.bio : (f.speaker_bio || "");
+  const spImg = sd.imageUrl !== undefined ? sd.imageUrl : (f.speaker_photo_url || "");
+
+  const speakerPreviewCard = spName ? (() => {
+    const initials = spName.trim().split(/\s+/).map(w=>w[0]).slice(-2).join("").toUpperCase();
+    const photoEl = spImg
+      ? `<img class="spk-preview-photo" src="${escapeHtmlAttribute(spImg)}" alt="${escapeHtmlAttribute(spName)}" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">`
+      : "";
+    const initialsEl = `<div class="spk-preview-initials" ${spImg ? 'style="display:none"' : ""}>${escapeHtml(initials)}</div>`;
+    return `<div class="spk-preview-card">${photoEl}${initialsEl}<div class="spk-preview-info"><strong class="spk-preview-name">${escapeHtml(spName)}</strong>${spTitle?`<span class="spk-preview-role">${escapeHtml(spTitle)}</span>`:""}${spOrg?`<span class="spk-preview-org">${escapeHtml(spOrg)}</span>`:""}${spBio?`<p class="spk-preview-bio">${escapeHtml(spBio)}</p>`:""}</div></div>`;
+  })() : `<div class="spk-preview-empty"><svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg><p>Nhập thông tin diễn giả để xem trước</p></div>`;
+
+  const tabs = [
+    ["overview", "Tổng quan"],
+    ["controls", "Điều khiển"],
+    ["participants", "Người tham gia"],
+    ["roster", "Danh sách"],
+    ["speaker", "Diễn giả"],
+  ];
+  const tabBar = `<div class="live-detail-tabs" role="tablist">${tabs.map(([key, label]) => `<button role="tab" aria-selected="${activeTab===key}" class="live-detail-tab${activeTab===key?" is-active":""}" data-live-detail-tab="${key}">${label}${key==="roster"&&liveTrainingState.roster.length>0?` <span class="adm-badge-inline">${liveTrainingState.roster.length}</span>`:""}</button>`).join("")}</div>`;
+
+  let tabContent = "";
+  if (activeTab === "overview") {
+    tabContent = `
+      <p class="field-help">${liveT("liveNote")}</p><p class="field-help">${liveT("duplicateNote")}</p>
+      <form id="liveTrainingUpdateForm" class="ui-card form-grid">
+        <div class="field"><label>${liveT("sessionTitle")}</label><input name="title" value="${escapeHtmlAttribute(f.title)}" required></div>
+        <div class="field"><label>Public link</label><input value="${escapeHtmlAttribute(f.publicLink || "")}" readonly></div>
+        <div class="field span-2"><label>${liveT("description")}</label><textarea name="description" rows="2">${escapeHtml(f.description || "")}</textarea></div>
+        <div class="field"><label>${liveT("pretestUrl")}</label><input name="pretestUrl" value="${escapeHtmlAttribute(f.pretest_url || "")}"></div>
+        <div class="field"><label>${liveT("posttestUrl")}</label><input name="posttestUrl" value="${escapeHtmlAttribute(f.posttest_url || "")}"></div>
+        <div class="field"><label>${liveT("evaluationUrl")}</label><input name="evaluationUrl" value="${escapeHtmlAttribute(f.evaluation_url || "")}"></div>
+        <label class="setting-row"><span>Pre-test ${liveT("required")}</span><input name="pretestRequired" type="checkbox" ${f.pretest_required ? "checked" : ""}></label>
+        <label class="setting-row"><span>Post-test ${liveT("required")}</span><input name="posttestRequired" type="checkbox" ${f.posttest_required ? "checked" : ""}></label>
+        <label class="setting-row"><span>${liveT("evaluation")} ${liveT("required")}</span><input name="evaluationRequired" type="checkbox" ${f.evaluation_required ? "checked" : ""}></label>
+        <div class="span-2"><button class="btn btn-primary" type="submit">Lưu</button></div><p class="field-error span-2" data-live-update-error></p>
+      </form>`;
+  } else if (activeTab === "controls") {
+    tabContent = `<section class="live-controls">${control("pretest", liveT("pretest"))}${control("posttest", liveT("posttest"))}${control("evaluation", liveT("evaluation"))}${control("completion", liveT("completion"))}</section>`;
+  } else if (activeTab === "participants") {
+    tabContent = `<section class="ui-card"><div class="table-tools"><input data-live-search placeholder="Tìm theo tên" value="${escapeHtmlAttribute(liveTrainingState.search)}"><button class="btn btn-outline" data-live-detail-reload>Làm mới</button></div>
       <div class="table-wrap"><table class="data-table"><thead><tr><th>${liveT("fullName")}</th><th>Tham gia</th><th>Gần nhất</th><th>Pre</th><th>Post</th><th>${liveT("evaluation")}</th><th>${liveT("completion")}</th><th>${t("admin.action")}</th></tr></thead><tbody>
       ${participants.map((p) => `<tr><td>${escapeHtml(p.displayName)}</td><td>${formatDateTime(p.createdAt)}</td><td>${formatDateTime(p.lastSeenAt)}</td><td>${p.pretestCompletedAt ? liveT("done") : p.pretestStartedAt ? liveT("started") : "—"}</td><td>${p.posttestCompletedAt ? liveT("done") : p.posttestStartedAt ? liveT("started") : "—"}</td><td>${p.evaluationCompletedAt ? liveT("done") : p.evaluationStartedAt ? liveT("started") : "—"}</td><td>${p.completedAt ? liveT("done") : "—"}</td><td><div class="row-actions"><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="pretestCompleted">Pre ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="posttestCompleted">Post ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="evaluationCompleted">${liveT("evaluation")} ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="completed">${liveT("completion")}</button><button class="btn btn-outline mini-action" data-live-participant-reset="${p.id}">Reset</button></div></td></tr>`).join("") || `<tr><td colspan="8"><div class="ui-empty">Chưa có người tham gia.</div></td></tr>`}
-      </tbody></table></div></section>
-    <section class="ui-card live-roster-section">
+      </tbody></table></div></section>`;
+  } else if (activeTab === "roster") {
+    tabContent = `<section class="ui-card live-roster-section">
       <h2 style="margin:0 0 16px;font-size:18px">${liveT("rosterTitle")} <span style="font-weight:400;font-size:14px;color:var(--muted)">(${liveTrainingState.roster.length} ${liveT("required").toLowerCase()})</span></h2>
       <div class="live-roster-dropzone" id="liveRosterDropzone" tabindex="0" role="button" aria-label="Tải lên file Excel/CSV">
         <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -6290,7 +6317,39 @@ function adminLiveTrainingDetailPage() {
         <button class="btn btn-primary" style="margin-top:14px" id="liveRosterSaveBtn">${liveT("saveRoster")}</button></div>`;
       })() : ""}
       ${liveTrainingState.roster.length > 0 ? `<div style="margin-top:24px"><div class="table-tools" style="margin-bottom:8px"><input placeholder="Tìm trong danh sách..." data-live-roster-search value="${escapeHtmlAttribute(liveTrainingState.rosterSearch)}"><button class="btn btn-danger" style="margin-left:auto" data-live-roster-clear>🗑 ${liveT("clearRoster")}</button></div><div class="table-wrap" style="max-height:360px;overflow:auto"><table class="live-roster-preview-table"><thead><tr><th>#</th><th>Họ và tên</th><th>Phòng ban</th><th>Địa điểm</th><th>Hình thức</th><th></th></tr></thead><tbody>${(liveTrainingState.rosterSearch ? liveTrainingState.roster.filter(r=>r.full_name.toLowerCase().includes(liveTrainingState.rosterSearch.toLowerCase())) : liveTrainingState.roster).map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.full_name)}</td><td>${escapeHtml(r.department||"")}</td><td>${escapeHtml(r.location||"")}</td><td>${escapeHtml(r.mode||"")}</td><td><button class="btn btn-danger mini-action" data-live-roster-delete="${escapeHtmlAttribute(r.id)}">Xóa</button></td></tr>`).join("")}</tbody></table></div></div>` : ""}
-    </section>
+    </section>`;
+  } else if (activeTab === "speaker") {
+    tabContent = `<div class="spk-tab-layout">
+      <form id="liveTrainingSpeakerForm" class="ui-card spk-form">
+        <h2 style="margin:0 0 20px;font-size:17px;font-weight:700">Thông tin diễn giả</h2>
+        <div class="field"><label>Ảnh diễn giả (URL HTTPS)</label>
+          <input name="speakerPhotoUrl" type="url" placeholder="https://..." value="${escapeHtmlAttribute(spImg)}" data-speaker-preview-img autocomplete="off">
+          <small>Chỉ nhận URL HTTPS. Ảnh sẽ hiển thị ngay sau khi nhập.</small>
+          ${spImg ? `<div class="spk-img-preview-wrap"><img class="spk-img-preview" src="${escapeHtmlAttribute(spImg)}" alt="preview" onerror="this.closest('.spk-img-preview-wrap').style.display='none'"><button type="button" class="btn btn-ghost" style="font-size:12px;padding:0 8px;min-height:28px" data-speaker-clear-img>Xóa ảnh</button></div>` : ""}
+        </div>
+        <div class="field"><label>Họ và tên</label><input name="speakerName" value="${escapeHtmlAttribute(spName)}" placeholder="Nguyễn Văn A" data-speaker-preview="name" autocomplete="name"></div>
+        <div class="field"><label>Vai trò / Chức danh</label><input name="speakerTitle" value="${escapeHtmlAttribute(spTitle)}" placeholder="Chuyên viên đào tạo" data-speaker-preview="role"></div>
+        <div class="field"><label>Đơn vị / Phòng ban</label><input name="speakerOrg" value="${escapeHtmlAttribute(spOrg)}" placeholder="KIS Vietnam" data-speaker-preview="org"></div>
+        <div class="field"><label>Giới thiệu ngắn</label><textarea name="speakerBio" rows="4" placeholder="Giới thiệu ngắn về diễn giả..." data-speaker-preview="bio">${escapeHtml(spBio)}</textarea></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary" type="submit">Lưu diễn giả</button>
+          ${(f.speaker_name) ? `<button type="button" class="btn btn-ghost" data-speaker-clear>Xóa thông tin diễn giả</button>` : ""}
+        </div>
+        <p class="field-error" data-speaker-form-error style="margin-top:8px"></p>
+      </form>
+      <div class="spk-preview-pane">
+        <p class="spk-preview-label">Xem trước</p>
+        <div id="speakerPreviewContainer">${speakerPreviewCard}</div>
+        <p class="spk-preview-hint">Người học sẽ thấy card này sau khi bạn lưu.</p>
+      </div>
+    </div>`;
+  }
+
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", f.title, "hr")}<div class="content route-content live-training-page">
+    <a class="btn btn-ghost" href="/admin/live-training" data-link>← ${liveT("title")}</a>
+    <section class="page-header"><div><h1>${escapeHtml(f.title)}</h1><p>${escapeHtml(f.description || "")}</p></div><div class="row-actions"><button class="btn btn-outline" data-copy-live-link="${escapeHtmlAttribute(f.publicLink || "")}">${liveT("copyLink")}</button><button class="btn btn-outline" data-live-rotate="${f.id}">Rotate link</button><button class="btn btn-danger" data-live-delete="${f.id}" data-live-delete-title="${escapeHtmlAttribute(f.title)}">Xóa hành trình</button></div></section>
+    ${tabBar}
+    ${tabContent}
     </div></main></div>${liveDeleteModal()}`;
 }
 
@@ -7054,6 +7113,66 @@ function bindEvents() {
   document.querySelector("[data-live-create-close]")?.addEventListener("click", () => { liveTrainingState.createOpen = false; render(); });
   document.querySelector("[data-live-reload]")?.addEventListener("click", () => loadLiveTrainingList());
   document.querySelector("[data-live-detail-reload]")?.addEventListener("click", () => loadLiveTrainingDetail(route.split("/")[3]));
+  document.querySelectorAll("[data-live-detail-tab]").forEach((el) => el.addEventListener("click", () => { liveTrainingState.detailTab = el.dataset.liveDetailTab; render(); }));
+  // Speaker tab — live preview on input
+  document.querySelectorAll("[data-speaker-preview]").forEach((el) => el.addEventListener("input", () => {
+    if (!liveTrainingState.speakerDraft) liveTrainingState.speakerDraft = {};
+    const key = el.dataset.speakerPreview; // "name" | "role" | "org" | "bio"
+    liveTrainingState.speakerDraft[key === "org" ? "organization" : key] = el.value;
+    const container = document.getElementById("speakerPreviewContainer");
+    if (!container) return;
+    const d = liveTrainingState.speakerDraft || {};
+    const f2 = liveTrainingState.detail;
+    const nm = d.name !== undefined ? d.name : (f2?.speaker_name || "");
+    const rl = d.role !== undefined ? d.role : (f2?.speaker_title || "");
+    const og = d.organization !== undefined ? d.organization : (f2?.speaker_org || "");
+    const bi = d.bio !== undefined ? d.bio : (f2?.speaker_bio || "");
+    const im = d.imageUrl !== undefined ? d.imageUrl : (f2?.speaker_photo_url || "");
+    if (!nm) { container.innerHTML = `<div class="spk-preview-empty"><svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg><p>Nhập thông tin diễn giả để xem trước</p></div>`; return; }
+    const initials = nm.trim().split(/\s+/).map(w=>w[0]).slice(-2).join("").toUpperCase();
+    container.innerHTML = `<div class="spk-preview-card">${im?`<img class="spk-preview-photo" src="${escapeHtmlAttribute(im)}" alt="" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">`:""}${`<div class="spk-preview-initials" ${im?'style="display:none"':""}>${escapeHtml(initials)}</div>`}<div class="spk-preview-info"><strong class="spk-preview-name">${escapeHtml(nm)}</strong>${rl?`<span class="spk-preview-role">${escapeHtml(rl)}</span>`:""}${og?`<span class="spk-preview-org">${escapeHtml(og)}</span>`:""}${bi?`<p class="spk-preview-bio">${escapeHtml(bi)}</p>`:""}</div></div>`;
+  }));
+  document.querySelector("[data-speaker-preview-img]")?.addEventListener("input", (e) => {
+    if (!liveTrainingState.speakerDraft) liveTrainingState.speakerDraft = {};
+    const url = e.target.value.trim();
+    liveTrainingState.speakerDraft.imageUrl = url;
+    const container = document.getElementById("speakerPreviewContainer");
+    const photo = container?.querySelector(".spk-preview-photo");
+    const init = container?.querySelector(".spk-preview-initials");
+    if (photo) { photo.src = url; photo.style.display = url ? "" : "none"; if (init) init.style.display = url ? "none" : "flex"; }
+  });
+  document.querySelector("[data-speaker-clear-img]")?.addEventListener("click", () => {
+    if (!liveTrainingState.speakerDraft) liveTrainingState.speakerDraft = {};
+    liveTrainingState.speakerDraft.imageUrl = "";
+    const inp = document.querySelector("[data-speaker-preview-img]");
+    if (inp) inp.value = "";
+    render();
+  });
+  document.getElementById("liveTrainingSpeakerForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const id = route.split("/")[3];
+    const fd = new FormData(event.currentTarget);
+    const errEl = event.currentTarget.querySelector("[data-speaker-form-error]");
+    const urlVal = (fd.get("speakerPhotoUrl") || "").trim();
+    if (urlVal && !urlVal.startsWith("https://")) { if (errEl) errEl.textContent = "URL ảnh phải bắt đầu bằng https://"; return; }
+    const payload = { speakerName: fd.get("speakerName") || "", speakerTitle: fd.get("speakerTitle") || "", speakerOrg: fd.get("speakerOrg") || "", speakerBio: fd.get("speakerBio") || "", speakerPhotoUrl: urlVal };
+    try {
+      await apiJson(`/api/admin/live-training/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+      liveTrainingState.speakerDraft = null;
+      await loadLiveTrainingDetail(id);
+      toast("Đã lưu thông tin diễn giả");
+    } catch (err) { if (errEl) errEl.textContent = err.message; }
+  });
+  document.querySelector("[data-speaker-clear]")?.addEventListener("click", async () => {
+    if (!confirm("Xóa toàn bộ thông tin diễn giả?")) return;
+    const id = route.split("/")[3];
+    try {
+      await apiJson(`/api/admin/live-training/${id}`, { method: "PATCH", body: JSON.stringify({ speakerName: "", speakerTitle: "", speakerOrg: "", speakerBio: "", speakerPhotoUrl: "" }) });
+      liveTrainingState.speakerDraft = null;
+      await loadLiveTrainingDetail(id);
+      toast("Đã xóa thông tin diễn giả");
+    } catch { toast("error"); }
+  });
   document.querySelector("[data-live-search]")?.addEventListener("input", (e) => { liveTrainingState.search = e.target.value; render(); });
   document.querySelectorAll("[data-copy-live-link]").forEach((el) => el.addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(el.dataset.copyLiveLink || ""); toast("copied"); } catch { toast("error"); }
