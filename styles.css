@@ -12082,3 +12082,41 @@ textarea { min-height: 110px; }
   .ui-skeleton { transition: none; animation: none; }
   .ui-skeleton { background: #e9edf2; }
 }
+
+/* Public Training participant switch button must stay readable over the light journey panel. */
+.public-outer .pub-switch-btn,
+.public-outer .pub-switch-btn.btn-outline {
+  color: var(--navy,#0b1f3a);
+  border-color: rgba(11,31,58,.55);
+  background: #fff;
+  box-shadow: none;
+}
+
+.public-outer .pub-switch-btn:hover,
+.public-outer .pub-switch-btn.btn-outline:hover {
+  color: var(--navy,#0b1f3a);
+  border-color: var(--navy,#0b1f3a);
+  background: #eef5ff;
+}
+
+.public-outer .pub-switch-btn:active,
+.public-outer .pub-switch-btn.btn-outline:active {
+  color: var(--navy,#0b1f3a);
+  background: #dfeeff;
+  transform: translateY(0);
+}
+
+.public-outer .pub-switch-btn:focus-visible,
+.public-outer .pub-switch-btn.btn-outline:focus-visible {
+  outline: 3px solid rgba(37,99,235,.32);
+  outline-offset: 2px;
+}
+
+.public-outer .pub-switch-btn:disabled,
+.public-outer .pub-switch-btn.btn-outline:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  color: #64748b;
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
