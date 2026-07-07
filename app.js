@@ -828,6 +828,7 @@ let publicTrainingState = {
   token: "", flow: null, steps: null, participant: null, completionEligible: false,
   loading: false, joining: false, error: "", name: "", action: "", pollTimer: 0,
   requestSeq: 0, lastJson: "", inFlight: false,
+  roster: [], rosterSearch: "", rosterDropdownOpen: false, selectedRosterId: null, outsideRoster: false,
 };
 let gallerySearch = "";
 let galleryYear = "";
