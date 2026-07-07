@@ -7089,11 +7089,19 @@ function bindEvents() {
   }));
   document.getElementById("publicTrainingJoinForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const name = new FormData(event.currentTarget).get("displayName");
+    const name = new FormData(event.currentTarget).get("displayName") || publicTrainingState.name;
     publicTrainingState.name = String(name || "");
     publicTrainingState.joining = true; publicTrainingState.error = ""; render();
     try {
-      const res = await fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/join`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ displayName: name }) });
+      let joinBody;
+      if (publicTrainingState.selectedRosterId) {
+        joinBody = { rosterEntryId: publicTrainingState.selectedRosterId };
+      } else if (publicTrainingState.outsideRoster) {
+        joinBody = { displayName: name, outsideRoster: true };
+      } else {
+        joinBody = { displayName: name };
+      }
+      const res = await fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/join`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(joinBody) });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "JOIN_ERROR");
       applyPublicTrainingPayload(body);
@@ -7102,6 +7110,43 @@ function bindEvents() {
       publicTrainingState.bootstrap = p2?.completedAt ? "completed" : "ready";
       publicTrainingState.joining = false; render(); startPublicTrainingPolling();
     } catch (err) { publicTrainingState.joining = false; publicTrainingState.error = err.message; render(); }
+  });
+  // Roster search
+  document.getElementById("publicRosterSearch")?.addEventListener("input", (e) => {
+    publicTrainingState.rosterSearch = e.target.value;
+    render();
+    document.getElementById("publicRosterSearch")?.focus();
+  });
+  // Roster item selection
+  document.querySelectorAll("[data-roster-id]").forEach((el) => el.addEventListener("click", () => {
+    publicTrainingState.selectedRosterId = el.dataset.rosterId;
+    publicTrainingState.name = el.dataset.rosterName || "";
+    publicTrainingState.outsideRoster = false;
+    publicTrainingState.joining = true; publicTrainingState.error = ""; render();
+    fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/join`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rosterEntryId: publicTrainingState.selectedRosterId }) })
+      .then((r) => r.json().then((b) => ({ ok: r.ok, b })))
+      .then(({ ok, b }) => {
+        if (!ok) throw new Error(b.error || "JOIN_ERROR");
+        applyPublicTrainingPayload(b);
+        localStorage.setItem(liveTrainingStorageKey(b.flow.id), b.participantToken);
+        const p2 = publicTrainingState.participant;
+        publicTrainingState.bootstrap = p2?.completedAt ? "completed" : "ready";
+        publicTrainingState.joining = false; render(); startPublicTrainingPolling();
+      })
+      .catch((err) => { publicTrainingState.joining = false; publicTrainingState.selectedRosterId = null; publicTrainingState.error = err.message; render(); });
+  }));
+  // Not on list
+  document.querySelector("[data-roster-not-listed]")?.addEventListener("click", () => {
+    publicTrainingState.outsideRoster = true;
+    publicTrainingState.selectedRosterId = null;
+    publicTrainingState.name = "";
+    render();
+  });
+  // Back to roster list
+  document.querySelector("[data-roster-back]")?.addEventListener("click", () => {
+    publicTrainingState.outsideRoster = false;
+    publicTrainingState.selectedRosterId = null;
+    render();
   });
   document.querySelector("[data-public-retry]")?.addEventListener("click", async () => {
     publicTrainingState.bootstrap = "checkingParticipant";
