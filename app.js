@@ -7094,6 +7094,82 @@ function bindEvents() {
     if (!confirm("Rotate public link? Link cũ sẽ không còn dùng được.")) return;
     try { await apiJson(`/api/admin/live-training/${e.currentTarget.dataset.liveRotate}/rotate-link`, { method: "POST", body: "{}" }); await loadLiveTrainingDetail(e.currentTarget.dataset.liveRotate); } catch { toast("error"); }
   });
+  // Roster admin handlers
+  (() => {
+    const parseXlsxFile = (file) => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const XLSX = window.XLSX;
+            if (!XLSX) { reject(new Error("XLSX not loaded")); return; }
+            const wb = XLSX.read(evt.target.result, { type: "array" });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+            let headerRow = -1, nameCol = -1, deptCol = -1, locCol = -1, modeCol = -1;
+            for (let i = 0; i < Math.min(12, rows.length); i++) {
+              const row = rows[i];
+              for (let j = 0; j < row.length; j++) {
+                const cell = String(row[j] || "").trim().toLowerCase().normalize("NFKC");
+                if (nameCol < 0 && (cell.includes("full name") || cell.includes("họ và tên") || cell.includes("họ tên") || cell === "name" || (cell.includes("tên") && !cell.includes("địa")))) { headerRow = i; nameCol = j; }
+                if (deptCol < 0 && (cell.includes("department") || cell.includes("phòng") || cell.includes("bộ phận"))) deptCol = j;
+                if (locCol < 0 && (cell.includes("location") || cell.includes("địa điểm") || cell.includes("chi nhánh"))) locCol = j;
+                if (modeCol < 0 && (cell.includes("mode") || cell.includes("hình thức"))) modeCol = j;
+              }
+              if (headerRow >= 0) break;
+            }
+            if (headerRow < 0 || nameCol < 0) { reject(new Error("Không tìm thấy cột tên")); return; }
+            const records = []; const seen = new Set(); let duplicates = 0, skipped = 0;
+            for (let i = headerRow + 1; i < rows.length; i++) {
+              const row = rows[i];
+              const fullName = String(row[nameCol] || "").trim().replace(/\s+/g, " ");
+              if (!fullName || fullName.length < 2) { skipped++; continue; }
+              const normalized = fullName.normalize("NFKC").toLocaleLowerCase("vi-VN");
+              if (seen.has(normalized)) { duplicates++; continue; }
+              seen.add(normalized);
+              records.push({ fullName, department: deptCol >= 0 ? String(row[deptCol] || "").trim() : "", location: locCol >= 0 ? String(row[locCol] || "").trim() : "", mode: modeCol >= 0 ? String(row[modeCol] || "").trim() : "", sourceRow: i + 1 });
+            }
+            resolve({ records, valid: records.length, duplicates, skipped });
+          } catch (e) { reject(e); }
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+      });
+    };
+    const handleFile = (file) => {
+      if (!file) return;
+      parseXlsxFile(file).then((result) => { liveTrainingState.rosterParsed = result; render(); }).catch((e) => toast("Lỗi đọc file: " + e.message));
+    };
+    document.getElementById("liveRosterFileInput")?.addEventListener("change", (e) => handleFile(e.target.files[0]));
+    const dropzone = document.getElementById("liveRosterDropzone");
+    if (dropzone) {
+      dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("is-over"); });
+      dropzone.addEventListener("dragleave", () => dropzone.classList.remove("is-over"));
+      dropzone.addEventListener("drop", (e) => { e.preventDefault(); dropzone.classList.remove("is-over"); handleFile(e.dataTransfer.files[0]); });
+    }
+    document.querySelectorAll("[name='rosterMode']").forEach((el) => el.addEventListener("change", () => { liveTrainingState.rosterReplaceMode = el.value === "replace"; }));
+    document.getElementById("liveRosterSaveBtn")?.addEventListener("click", async () => {
+      const id = route.split("/")[3];
+      const p = liveTrainingState.rosterParsed;
+      if (!p) return;
+      try {
+        const result = await importRoster(id, p.records, liveTrainingState.rosterReplaceMode);
+        liveTrainingState.rosterParsed = null;
+        await loadRoster(id);
+        toast(`Đã lưu ${result.imported} người`);
+      } catch (e) { toast("Lỗi: " + e.message); }
+    });
+    document.querySelector("[data-live-roster-search]")?.addEventListener("input", (e) => { liveTrainingState.rosterSearch = e.target.value; render(); document.querySelector("[data-live-roster-search]")?.focus(); });
+    document.querySelector("[data-live-roster-clear]")?.addEventListener("click", async () => {
+      const id = route.split("/")[3];
+      if (!confirm("Xóa toàn bộ danh sách?")) return;
+      try { await apiJson(`/api/admin/live-training/${id}/roster`, { method: "DELETE" }); await loadRoster(id); toast("Đã xóa danh sách"); } catch { toast("error"); }
+    });
+    document.querySelectorAll("[data-live-roster-delete]").forEach((el) => el.addEventListener("click", async () => {
+      const id = route.split("/")[3];
+      try { await apiJson(`/api/admin/live-training/${id}/roster/${el.dataset.liveRosterDelete}`, { method: "DELETE" }); await loadRoster(id); } catch { toast("error"); }
+    }));
+  })();
   document.querySelectorAll("[data-live-delete]").forEach((el) => el.addEventListener("click", () => {
     liveDeleteState = { flowId: el.dataset.liveDelete, flowTitle: el.dataset.liveDeleteTitle || "", loading: false, error: "" };
     render();
