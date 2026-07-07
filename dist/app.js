@@ -1881,7 +1881,7 @@ function brand() {
 }
 
 function languageSwitcher() {
-  return `<div class="language-switch">${["vi", "en", "kr"].map((lang, index) => `<button type="button" class="${language === lang ? "active" : ""}" data-language="${lang}">${dictionaries[lang].lang}</button>${index < 2 ? `<span aria-hidden="true">|</span>` : ""}`).join("")}<span class="lang-ink" aria-hidden="true"></span></div>`;
+  return `<div class="language-switch" data-active-lang="${language}"><span class="lang-ink" aria-hidden="true"></span>${["vi", "en", "kr"].map((lang) => `<button type="button" class="${language === lang ? "active" : ""}" data-language="${lang}" data-public-lang="${lang}" aria-pressed="${language === lang ? "true" : "false"}">${dictionaries[lang].lang}</button>`).join("")}</div>`;
 }
 
 function header() {
@@ -6341,7 +6341,7 @@ function publicTrainingPage(accessToken) {
     };
     const completionOpen = publicTrainingState.completionEligible;
     const speakerCard = f.speaker_name ? `<div class="pub-card pub-speaker-card"><div class="pub-speaker-inner">${f.speaker_photo_url ? `<img class="pub-speaker-photo" src="${escapeHtmlAttribute(f.speaker_photo_url)}" alt="${escapeHtmlAttribute(f.speaker_name)}" loading="lazy">` : `<div class="pub-speaker-initials" aria-hidden="true">${escapeHtml(f.speaker_name.trim().split(/\s+/).map(w=>w[0]).slice(-2).join("").toUpperCase())}</div>`}<div class="pub-speaker-info"><strong class="pub-speaker-name">${escapeHtml(f.speaker_name)}</strong>${f.speaker_title ? `<span class="pub-speaker-title">${escapeHtml(f.speaker_title)}</span>` : ""}${f.speaker_org ? `<span class="pub-speaker-org">${escapeHtml(f.speaker_org)}</span>` : ""}${f.speaker_bio ? `<p class="pub-speaker-bio">${escapeHtml(f.speaker_bio)}</p>` : ""}</div></div></div>` : "";
-    content = `<div class="pub-journey"><div class="pub-journey-header"><div class="pub-journey-meta"><h1 class="pub-session-title">${escapeHtml(f.title)}</h1>${f.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}${speakerCard}<span class="pub-participant-name">${escapeHtml(p.displayName)}</span></div><button class="btn pub-switch-btn" data-public-switch aria-label="${liveT("switchParticipant")}">${liveT("switchParticipant")}</button></div>${p.completedAt ? `<div class="pub-card pub-done-card"><h2>${liveT("completed")}</h2><p class="pub-done-time">${formatDateTime(p.completedAt)}</p></div>` : `<section class="pub-stepper" aria-label="${liveT("title")}">${stepCard("pretest", liveT("pretest"), liveT("doPretest"), liveT("donePretest"))}${stepCard("posttest", liveT("posttest"), liveT("doPosttest"), liveT("donePosttest"))}${stepCard("evaluation", liveT("evaluation"), liveT("openEvaluation"), liveT("doneEvaluation"))}<article class="public-step ${completionOpen ? "is-open" : ""}"><div><h2>${liveT("completion")}</h2><span class="pub-step-badge">${completionOpen ? liveT("available") : liveT("waiting")}</span></div><div class="pub-step-actions">${completionOpen ? `<button class="btn btn-success" data-public-complete>${liveT("completion")}</button>` : `<span class="pub-step-wait">${liveT("waiting")}</span>`}</div></article></section>`}</div>`;
+    content = `<div class="pub-journey"><div class="pub-journey-header"><div class="pub-journey-meta"><h1 class="pub-session-title">${escapeHtml(f.title)}</h1>${f.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}${speakerCard}<span class="pub-participant-name">${escapeHtml(p.displayName)}</span></div><button class="btn btn-outline pub-switch-btn" data-public-switch aria-label="${liveT("switchParticipant")}">${liveT("switchParticipant")}</button></div>${p.completedAt ? `<div class="pub-card pub-done-card"><h2>${liveT("completed")}</h2><p class="pub-done-time">${formatDateTime(p.completedAt)}</p></div>` : `<section class="pub-stepper" aria-label="${liveT("title")}">${stepCard("pretest", liveT("pretest"), liveT("doPretest"), liveT("donePretest"))}${stepCard("posttest", liveT("posttest"), liveT("doPosttest"), liveT("donePosttest"))}${stepCard("evaluation", liveT("evaluation"), liveT("openEvaluation"), liveT("doneEvaluation"))}<article class="public-step ${completionOpen ? "is-open" : ""}"><div><h2>${liveT("completion")}</h2><span class="pub-step-badge">${completionOpen ? liveT("available") : liveT("waiting")}</span></div><div class="pub-step-actions">${completionOpen ? `<button class="btn btn-success" data-public-complete>${liveT("completion")}</button>` : `<span class="pub-step-wait">${liveT("waiting")}</span>`}</div></article></section>`}</div>`;
   }
 
   return `<div class="public-outer"><div class="pub-bg" aria-hidden="true"></div><div class="pub-ov" aria-hidden="true"></div>${header}<main class="pub-main" ${bs === "checkingParticipant" ? 'aria-busy="true"' : ""}>${content}</main></div>`;
@@ -6619,8 +6619,9 @@ function render() {
       if (!active || !ink) return;
       const swRect = sw.getBoundingClientRect();
       const btnRect = active.getBoundingClientRect();
-      ink.style.left = `${btnRect.left - swRect.left}px`;
-      ink.style.width = `${btnRect.width}px`;
+      sw.dataset.activeLang = active.dataset.language || "";
+      sw.style.setProperty("--lang-x", `${btnRect.left - swRect.left}px`);
+      sw.style.setProperty("--lang-w", `${btnRect.width}px`);
     });
   });
   // Landing entrance animation — trigger once per navigation to "/"
@@ -7097,12 +7098,21 @@ function bindEvents() {
   });
   // Roster admin handlers
   (() => {
-    const parseXlsxFile = (file) => {
+    const loadXlsx = () => {
+      if (window.XLSX) return Promise.resolve(window.XLSX);
       return new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+        s.onload = () => resolve(window.XLSX);
+        s.onerror = () => reject(new Error("Failed to load xlsx library"));
+        document.head.appendChild(s);
+      });
+    };
+    const parseXlsxFile = (file) => {
+      return loadXlsx().then((XLSX) => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (evt) => {
           try {
-            const XLSX = window.XLSX;
             if (!XLSX) { reject(new Error("XLSX not loaded")); return; }
             const wb = XLSX.read(evt.target.result, { type: "array" });
             const ws = wb.Sheets[wb.SheetNames[0]];
@@ -7135,7 +7145,7 @@ function bindEvents() {
         };
         reader.onerror = reject;
         reader.readAsArrayBuffer(file);
-      });
+      }));
     };
     const handleFile = (file) => {
       if (!file) return;
