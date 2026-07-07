@@ -7,10 +7,8 @@
 alter table public.course_versions
   drop constraint if exists course_versions_course_id_fkey;
 
--- Remove any orphaned course_versions rows whose parent course was deleted
--- (test fixtures may leave these behind)
-delete from public.course_versions cv
-where not exists (select 1 from public.courses c where c.id = cv.course_id);
+-- Remove the known orphaned test fixture row that was not cleaned up
+delete from public.course_versions where course_id = 'smooth-delete-1783070782178';
 
 alter table public.course_versions
   add constraint course_versions_course_id_fkey
