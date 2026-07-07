@@ -7097,12 +7097,21 @@ function bindEvents() {
   });
   // Roster admin handlers
   (() => {
-    const parseXlsxFile = (file) => {
+    const loadXlsx = () => {
+      if (window.XLSX) return Promise.resolve(window.XLSX);
       return new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+        s.onload = () => resolve(window.XLSX);
+        s.onerror = () => reject(new Error("Failed to load xlsx library"));
+        document.head.appendChild(s);
+      });
+    };
+    const parseXlsxFile = (file) => {
+      return loadXlsx().then((XLSX) => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (evt) => {
           try {
-            const XLSX = window.XLSX;
             if (!XLSX) { reject(new Error("XLSX not loaded")); return; }
             const wb = XLSX.read(evt.target.result, { type: "array" });
             const ws = wb.Sheets[wb.SheetNames[0]];
