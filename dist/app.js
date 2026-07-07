@@ -1084,7 +1084,7 @@ async function fetchPublicTrainingInitial(accessToken) {
     render();
     const flowId = publicTrainingState.flow?.id;
     const stored = flowId ? localStorage.getItem(liveTrainingStorageKey(flowId)) : "";
-    if (stored) await fetchPublicTrainingState(false);
+    if (stored) await fetchPublicTrainingState(true);
     startPublicTrainingPolling();
   } catch (err) {
     publicTrainingState.loading = false;
@@ -1094,7 +1094,10 @@ async function fetchPublicTrainingInitial(accessToken) {
 }
 
 async function fetchPublicTrainingState(shouldRender = true) {
-  if (!publicTrainingState.token || !publicTrainingState.flow?.id || publicTrainingState.inFlight) return;
+  const _flowId = publicTrainingState.flow?.id;
+  const _storedToken = _flowId ? localStorage.getItem(liveTrainingStorageKey(_flowId)) : "";
+  if (!_storedToken) return;
+  if (!publicTrainingState.token || !_flowId || publicTrainingState.inFlight) return;
   const seq = ++publicTrainingState.requestSeq;
   publicTrainingState.inFlight = true;
   try {

@@ -121,9 +121,12 @@ test("HR-2 — HR can create a flow and see detail page", async ({ browser }) =>
     expect(pubLink).toContain("/join/");
 
     await page.goto(`${BASE}/admin/live-training/${flowId}`, { waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".app-layout", { timeout: 8000 });
-    const content = await page.content();
-    expect(content).toContain(TEST_PREFIX);
+    // Wait for detail to load (skeleton gives way to real content)
+    await page.waitForFunction(
+      (prefix) => document.body.innerText.includes(prefix),
+      TEST_PREFIX,
+      { timeout: 15000 }
+    );
     await page.screenshot({ path: `${RESULTS_DIR}/hr2-detail.png` });
   } finally {
     if (flowId) await closeFlow(page, flowId);
