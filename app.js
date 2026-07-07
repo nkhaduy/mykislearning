@@ -6378,16 +6378,38 @@ function publicTrainingPage(accessToken) {
   } else if (bs === "needsName") {
     const hasRoster = publicTrainingState.roster && publicTrainingState.roster.length > 0;
     const outsideRoster = publicTrainingState.outsideRoster;
+    const selectedId = publicTrainingState.selectedRosterId;
+    const selectedName = publicTrainingState.name;
+    // Sort roster by given name (last word) for Vietnamese ordering
+    const sortedRoster = hasRoster ? [...publicTrainingState.roster].sort((a, b) => {
+      const givenA = (a.givenName || a.fullName.trim().split(/\s+/).pop() || a.fullName).normalize("NFKC");
+      const givenB = (b.givenName || b.fullName.trim().split(/\s+/).pop() || b.fullName).normalize("NFKC");
+      const cmp = new Intl.Collator("vi", { sensitivity: "base" }).compare(givenA, givenB);
+      return cmp !== 0 ? cmp : new Intl.Collator("vi", { sensitivity: "base" }).compare(a.fullName, b.fullName);
+    }) : [];
     let namePickerHtml;
-    if (hasRoster && !outsideRoster) {
+    if (hasRoster && !outsideRoster && !selectedId) {
       const rSearch = publicTrainingState.rosterSearch || "";
-      const filtered = rSearch ? publicTrainingState.roster.filter((r) => r.fullName.toLowerCase().normalize("NFKC").includes(rSearch.toLowerCase().normalize("NFKC")) || (r.department || "").toLowerCase().includes(rSearch.toLowerCase())) : publicTrainingState.roster;
-      const dropItems = filtered.map((r) => `<button type="button" class="pub-roster-item" data-roster-id="${escapeHtmlAttribute(r.id)}" data-roster-name="${escapeHtmlAttribute(r.fullName)}"><span class="pub-roster-name">${escapeHtml(r.fullName)}</span>${r.department || r.location || r.mode ? `<span class="pub-roster-meta">${[r.department, r.location, r.mode].filter(Boolean).map(escapeHtml).join(" · ")}</span>` : ""}</button>`).join("");
-      namePickerHtml = `<div class="pub-roster-wrap"><label class="pub-roster-label">${liveT("selectName")}</label><div class="pub-roster-search-wrap"><input id="publicRosterSearch" class="pub-roster-search" placeholder="${escapeHtmlAttribute(liveT("searchName"))}" value="${escapeHtmlAttribute(rSearch)}" autocomplete="off" aria-autocomplete="list" aria-controls="pubRosterList"><svg class="pub-roster-search-icon" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div><div class="pub-roster-list" id="pubRosterList" role="listbox">${dropItems}<button type="button" class="pub-roster-item pub-roster-not-listed" data-roster-not-listed>${liveT("notOnList")}</button></div><p class="pub-roster-hint">${liveT("nameHint")}</p></div>`;
+      const nkRSearch = rSearch.toLowerCase().normalize("NFKC");
+      const filtered = rSearch ? sortedRoster.filter((r) => r.fullName.toLowerCase().normalize("NFKC").includes(nkRSearch)) : sortedRoster;
+      const dropItems = filtered.map((r) => `<button type="button" class="pub-roster-item" data-roster-id="${escapeHtmlAttribute(r.id)}" data-roster-name="${escapeHtmlAttribute(r.fullName)}"><span class="pub-roster-name">${escapeHtml(r.fullName)}</span></button>`).join("");
+      namePickerHtml = `<div class="pub-roster-wrap"><label class="pub-roster-label">${liveT("selectName")}</label><div class="pub-roster-search-wrap"><input id="publicRosterSearch" class="pub-roster-search" placeholder="${escapeHtmlAttribute(liveT("searchName"))}" value="${escapeHtmlAttribute(rSearch)}" autocomplete="off" aria-autocomplete="list" aria-controls="pubRosterList"><svg class="pub-roster-search-icon" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div><div class="pub-roster-list" id="pubRosterList" role="listbox">${dropItems}<button type="button" class="pub-roster-item pub-roster-not-listed" data-roster-not-listed>${liveT("notOnList")}</button></div></div>`;
+    } else if (hasRoster && !outsideRoster && selectedId) {
+      // Selected state — show name + re-select + CTA
+      namePickerHtml = `<div class="pub-selected-wrap"><div class="pub-selected-card"><div class="pub-selected-initials">${escapeHtml(selectedName.trim().split(/\s+/).map(w=>w[0]).slice(-2).join("").toUpperCase())}</div><div class="pub-selected-info"><strong>${escapeHtml(selectedName)}</strong></div><button type="button" class="btn btn-ghost pub-selected-change" data-roster-reselect>${liveT("changeName") || "Chọn lại"}</button></div><button class="btn btn-primary" type="submit" style="width:100%;min-height:48px;margin-top:12px">${publicTrainingState.joining ? liveT("resuming").replace("…","") : liveT("start")}</button><p class="field-error" role="alert">${escapeHtml(publicTrainingState.error || "")}</p></div>`;
     } else {
       namePickerHtml = `<div class="field">${hasRoster ? `<button type="button" class="btn btn-ghost" style="margin-bottom:10px;font-size:13px" data-roster-back>← ${liveT("backToList")}</button>` : ""}<label for="publicTrainingName">${liveT("fullName")}</label><input id="publicTrainingName" name="displayName" value="${escapeHtmlAttribute(publicTrainingState.name)}" required maxlength="120" autocomplete="name" aria-required="true"><small>${liveT("nameHint")}</small></div>`;
     }
-    content = `<div class="pub-card pub-join-card"><h1 class="pub-session-title">${escapeHtml(f?.title || "")}</h1>${f?.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}<form id="publicTrainingJoinForm">${namePickerHtml}${!hasRoster || outsideRoster ? `<button class="btn btn-primary" type="submit" style="width:100%;min-height:48px">${publicTrainingState.joining ? liveT("resuming").replace("…", "") : liveT("start")}</button>` : ""}<p class="field-error" role="alert">${escapeHtml(publicTrainingState.error || "")}</p></form></div>`;
+    const speakerSide = (f?.speaker?.name) ? (() => {
+      const sp = f.speaker;
+      const inits = escapeHtml(sp.name.trim().split(/\s+/).map(w=>w[0]).slice(-2).join("").toUpperCase());
+      const photo = sp.imageUrl ? `<img class="pub-speaker-photo" src="${escapeHtmlAttribute(sp.imageUrl)}" alt="${escapeHtmlAttribute(sp.name)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">` : "";
+      return `<aside class="pub-card pub-speaker-aside">${photo}<div class="pub-speaker-initials" aria-hidden="true" ${sp.imageUrl?'style="display:none"':""}>${inits}</div><div class="pub-speaker-info"><strong class="pub-speaker-name">${escapeHtml(sp.name)}</strong>${sp.role?`<span class="pub-speaker-title">${escapeHtml(sp.role)}</span>`:""}${sp.organization?`<span class="pub-speaker-org">${escapeHtml(sp.organization)}</span>`:""}${sp.bio?`<p class="pub-speaker-bio">${escapeHtml(sp.bio)}</p>`:""}</div></aside>`;
+    })() : "";
+    const joinCard = `<div class="pub-card pub-join-card"><h1 class="pub-session-title">${escapeHtml(f?.title || "")}</h1>${f?.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}<form id="publicTrainingJoinForm">${namePickerHtml}${(!hasRoster || outsideRoster) && !selectedId ? `<button class="btn btn-primary" type="submit" style="width:100%;min-height:48px">${publicTrainingState.joining ? liveT("resuming").replace("…","") : liveT("start")}</button><p class="field-error" role="alert">${escapeHtml(publicTrainingState.error || "")}</p>` : ""}</form></div>`;
+    content = speakerSide
+      ? `<div class="pub-join-layout">${joinCard}${speakerSide}</div>`
+      : joinCard;
   } else {
     // ready or completed
     const stepCard = (step, label, openLabel, doneLabel) => {
@@ -7374,24 +7396,22 @@ function bindEvents() {
     render();
     document.getElementById("publicRosterSearch")?.focus();
   });
-  // Roster item selection
+  // Roster item selection — show selected state, wait for form submit
   document.querySelectorAll("[data-roster-id]").forEach((el) => el.addEventListener("click", () => {
     publicTrainingState.selectedRosterId = el.dataset.rosterId;
     publicTrainingState.name = el.dataset.rosterName || "";
     publicTrainingState.outsideRoster = false;
-    publicTrainingState.joining = true; publicTrainingState.error = ""; render();
-    fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/join`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rosterEntryId: publicTrainingState.selectedRosterId }) })
-      .then((r) => r.json().then((b) => ({ ok: r.ok, b })))
-      .then(({ ok, b }) => {
-        if (!ok) throw new Error(b.error || "JOIN_ERROR");
-        applyPublicTrainingPayload(b);
-        localStorage.setItem(liveTrainingStorageKey(b.flow.id), b.participantToken);
-        const p2 = publicTrainingState.participant;
-        publicTrainingState.bootstrap = p2?.completedAt ? "completed" : "ready";
-        publicTrainingState.joining = false; render(); startPublicTrainingPolling();
-      })
-      .catch((err) => { publicTrainingState.joining = false; publicTrainingState.selectedRosterId = null; publicTrainingState.error = err.message; render(); });
+    publicTrainingState.rosterSearch = "";
+    publicTrainingState.error = "";
+    render();
   }));
+  // Re-select (go back to dropdown)
+  document.querySelector("[data-roster-reselect]")?.addEventListener("click", () => {
+    publicTrainingState.selectedRosterId = null;
+    publicTrainingState.name = "";
+    publicTrainingState.error = "";
+    render();
+  });
   // Not on list
   document.querySelector("[data-roster-not-listed]")?.addEventListener("click", () => {
     publicTrainingState.outsideRoster = true;
