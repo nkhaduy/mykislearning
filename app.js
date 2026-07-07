@@ -6262,6 +6262,12 @@ function adminLiveTrainingDetailPage() {
       <label class="setting-row"><span>Pre-test ${liveT("required")}</span><input name="pretestRequired" type="checkbox" ${f.pretest_required ? "checked" : ""}></label>
       <label class="setting-row"><span>Post-test ${liveT("required")}</span><input name="posttestRequired" type="checkbox" ${f.posttest_required ? "checked" : ""}></label>
       <label class="setting-row"><span>${liveT("evaluation")} ${liveT("required")}</span><input name="evaluationRequired" type="checkbox" ${f.evaluation_required ? "checked" : ""}></label>
+      <div class="field span-2" style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px"><strong>${liveT("speakerLabel")}</strong></div>
+      <div class="field"><label>Tên diễn giả</label><input name="speakerName" value="${escapeHtmlAttribute(f.speaker_name || "")}"></div>
+      <div class="field"><label>Chức danh</label><input name="speakerTitle" value="${escapeHtmlAttribute(f.speaker_title || "")}"></div>
+      <div class="field"><label>Tổ chức</label><input name="speakerOrg" value="${escapeHtmlAttribute(f.speaker_org || "")}"></div>
+      <div class="field"><label>Ảnh diễn giả (URL)</label><input name="speakerPhotoUrl" type="url" value="${escapeHtmlAttribute(f.speaker_photo_url || "")}"></div>
+      <div class="field span-2"><label>Giới thiệu diễn giả</label><textarea name="speakerBio" rows="3">${escapeHtml(f.speaker_bio || "")}</textarea></div>
       <div class="span-2"><button class="btn btn-primary" type="submit">Lưu</button></div><p class="field-error span-2" data-live-update-error></p>
     </form>
     <section class="live-controls">${control("pretest", liveT("pretest"))}${control("posttest", liveT("posttest"))}${control("evaluation", liveT("evaluation"))}${control("completion", liveT("completion"))}</section>
