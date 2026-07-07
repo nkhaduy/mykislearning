@@ -1,7 +1,7 @@
 // @ts-check
 import { test, expect } from "playwright/test";
 
-const BASE = process.env.BASE_URL || "http://localhost:8788";
+const BASE = process.env.BASE_URL || "https://mykis-learning.nkhaduy.workers.dev";
 
 const HR_EMAIL = "hr@kisvn.vn";
 const HR_PASS = "KIS@Admin2025";
@@ -9,11 +9,11 @@ const EMP_EMAIL = "employee@kisvn.vn";
 const EMP_PASS = "KIS@Employee2025";
 
 async function loginAs(page, email, password) {
-  await page.goto(`${BASE}/login`);
-  await page.fill('input[type="email"], input[name="email"]', email);
-  await page.fill('input[type="password"], input[name="password"]', password);
-  await page.click('button[type="submit"], .btn-primary');
-  await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 10000 });
+  await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
+  await page.fill("#loginEmail", email);
+  await page.fill("#loginPassword", password);
+  await page.click("#loginSubmitBtn");
+  await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 15000 });
 }
 
 // ── 1. Shell render ─────────────────────────────────────────

@@ -325,6 +325,18 @@ export async function handlePublicTraining(request, env) {
     return json({ ok: true, flow: { ...rows.find((r) => r.id === id), publicLink: publicLink(request, flow.access_token) } });
   }
 
+  if (!rest && method === "DELETE") {
+    const { count } = await supabase.from("public_training_participants").select("*", { count: "exact", head: true }).eq("flow_id", id);
+    const { error: delError } = await supabase.from("public_training_flows").delete().eq("id", id);
+    if (delError) return json({ ok: false, error: delError.message }, 500);
+    const verify = await getFlowById(supabase, id);
+    if (verify) return json({ ok: false, error: "DELETE_FAILED" }, 500);
+    await audit(supabase, request, "public_training.deleted", actor, id, {
+      flowId: id, flowTitle: flow.title, participantCount: count ?? 0, deletedAt: nowIso(),
+    }, flow, null);
+    return json({ ok: true });
+  }
+
   if (!rest && method === "PATCH") {
     const body = await readJson(request);
     const patch = {};
