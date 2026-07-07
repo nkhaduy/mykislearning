@@ -7144,7 +7144,7 @@ function bindEvents() {
         };
         reader.onerror = reject;
         reader.readAsArrayBuffer(file);
-      });
+      }));
     };
     const handleFile = (file) => {
       if (!file) return;
