@@ -1337,7 +1337,7 @@ function updateStepCountdownDom(step) {
   const root = document.querySelector(`[data-countdown-popup="${step}"]`);
   if (!root) return;
   const secEl = root.querySelector("[data-countdown-sec]");
-  if (secEl) secEl.textContent = ready ? "" : liveT("countdownSec").replace("{n}", sec);
+  if (secEl) secEl.textContent = "";
   const waitBtn = root.querySelector("[data-countdown-wait]");
   if (waitBtn) waitBtn.textContent = liveT("countdownWaiting").replace("{n}", sec);
   root.classList.toggle("is-ready", ready);
@@ -6714,6 +6714,18 @@ function publicTrainingPage(accessToken) {
   const p = publicTrainingState.participant;
 
   const header = `<header class="pub-hdr"><a href="/" data-link class="pub-logo-link" aria-label="KIS Vietnam"><img src="/assets/kis-logo-white.png" alt="KIS Vietnam" class="pub-logo"></a><div class="pub-lang-wrap">${languageSwitcher()}</div></header>`;
+  const renderPublicSpeakerCard = (speaker, variant = "card") => {
+    if (!speaker?.name) return "";
+    const initials = escapeHtml(speaker.name.trim().split(/\s+/).map((w) => w[0]).slice(-2).join("").toUpperCase());
+    const posY = Math.max(0, Math.min(100, Number(speaker.positionY ?? 50) || 50));
+    const photoHtml = speaker.imageUrl
+      ? `<img class="pub-speaker-photo" src="${escapeHtmlAttribute(speaker.imageUrl)}" alt="${escapeHtmlAttribute(speaker.name)}" style="--speaker-position-y:${posY}%" loading="eager" decoding="async" fetchpriority="high" onload="this.classList.add('is-ready')" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">`
+      : "";
+    const initialsHtml = `<div class="pub-speaker-initials" aria-hidden="true" ${speaker.imageUrl ? 'style="display:none"' : ""}>${initials}</div>`;
+    const infoHtml = `<div class="pub-speaker-info"><strong class="pub-speaker-name">${escapeHtml(speaker.name)}</strong>${speaker.role ? `<span class="pub-speaker-title">${escapeHtml(speaker.role)}</span>` : ""}${speaker.organization ? `<span class="pub-speaker-org">${escapeHtml(speaker.organization)}</span>` : ""}${speaker.bio ? `<p class="pub-speaker-bio">${escapeHtml(speaker.bio)}</p>` : ""}</div>`;
+    if (variant === "aside") return `<aside class="pub-card pub-speaker-aside">${photoHtml}${initialsHtml}${infoHtml}</aside>`;
+    return `<div class="pub-card pub-speaker-card"><div class="pub-speaker-inner">${photoHtml}${initialsHtml}${infoHtml}</div></div>`;
+  };
 
   let content;
   if (bs === "loadingFlow" || bs === "unknown") {
@@ -6729,8 +6741,10 @@ function publicTrainingPage(accessToken) {
     const errText = err === "FLOW_EXPIRED" ? liveT("expiredLink") : err === "FLOW_CLOSED" ? liveT("closedFlow") : liveT("invalidLink");
     content = `<div class="pub-card pub-error-card"><h1>${errText}</h1></div>`;
   } else if (bs === "needsName") {
+    const speakerSide = renderPublicSpeakerCard(f?.speaker, "aside");
     if (publicTrainingState.rosterLoading) {
-      content = `<div class="pub-card pub-join-card"><h1 class="pub-session-title">${escapeHtml(f?.title || "")}</h1><div class="pub-roster-skeleton" aria-busy="true"><div class="ui-skeleton" style="height:14px;width:40%;border-radius:6px;margin-bottom:10px"></div><div class="ui-skeleton" style="height:44px;border-radius:10px;margin-bottom:8px"></div><div class="ui-skeleton" style="height:180px;border-radius:10px"></div></div></div>`;
+      const loadingJoinCard = `<div class="pub-card pub-join-card"><h1 class="pub-session-title">${escapeHtml(f?.title || "")}</h1><div class="pub-roster-skeleton" aria-busy="true"><div class="ui-skeleton" style="height:14px;width:40%;border-radius:6px;margin-bottom:10px"></div><div class="ui-skeleton" style="height:44px;border-radius:10px;margin-bottom:8px"></div><div class="ui-skeleton" style="height:180px;border-radius:10px"></div></div></div>`;
+      content = speakerSide ? `<div class="pub-join-layout">${loadingJoinCard}${speakerSide}</div>` : loadingJoinCard;
       return `<div class="public-outer"><div class="pub-bg" aria-hidden="true"></div><div class="pub-ov" aria-hidden="true"></div>${header}<main class="pub-main">${content}</main></div>`;
     }
     const hasRoster = publicTrainingState.roster && publicTrainingState.roster.length > 0;
@@ -6757,13 +6771,6 @@ function publicTrainingPage(accessToken) {
     } else {
       namePickerHtml = `<div class="field">${hasRoster ? `<button type="button" class="btn btn-ghost" style="margin-bottom:10px;font-size:13px" data-roster-back>← ${liveT("backToList")}</button>` : ""}<label for="publicTrainingName">${liveT("fullName")}</label><input id="publicTrainingName" name="displayName" value="${escapeHtmlAttribute(publicTrainingState.name)}" required maxlength="120" autocomplete="name" aria-required="true"><small>${liveT("nameHint")}</small></div>`;
     }
-    const speakerSide = (f?.speaker?.name) ? (() => {
-      const sp = f.speaker;
-      const inits = escapeHtml(sp.name.trim().split(/\s+/).map(w=>w[0]).slice(-2).join("").toUpperCase());
-      const posY = Math.max(0, Math.min(100, Number(sp.positionY ?? 50) || 50));
-      const photo = sp.imageUrl ? `<img class="pub-speaker-photo" src="${escapeHtmlAttribute(sp.imageUrl)}" alt="${escapeHtmlAttribute(sp.name)}" style="--speaker-position-y:${posY}%" loading="eager" decoding="async" fetchpriority="high" onload="this.classList.add('is-ready')" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">` : "";
-      return `<aside class="pub-card pub-speaker-aside">${photo}<div class="pub-speaker-initials" aria-hidden="true" ${sp.imageUrl?'style="display:none"':""}>${inits}</div><div class="pub-speaker-info"><strong class="pub-speaker-name">${escapeHtml(sp.name)}</strong>${sp.role?`<span class="pub-speaker-title">${escapeHtml(sp.role)}</span>`:""}${sp.organization?`<span class="pub-speaker-org">${escapeHtml(sp.organization)}</span>`:""}${sp.bio?`<p class="pub-speaker-bio">${escapeHtml(sp.bio)}</p>`:""}</div></aside>`;
-    })() : "";
     const joinCard = `<div class="pub-card pub-join-card"><h1 class="pub-session-title">${escapeHtml(f?.title || "")}</h1>${f?.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}<form id="publicTrainingJoinForm">${namePickerHtml}${(!hasRoster || outsideRoster) && !selectedId ? `<button class="btn btn-primary" type="submit" style="width:100%;min-height:48px">${publicTrainingState.joining ? liveT("resuming").replace("…","") : liveT("start")}</button><p class="field-error" role="alert">${escapeHtml(publicTrainingState.error || "")}</p>` : ""}</form></div>`;
     content = speakerSide
       ? `<div class="pub-join-layout">${joinCard}${speakerSide}</div>`
@@ -6793,13 +6800,11 @@ function publicTrainingPage(accessToken) {
         const cdReady = publicTrainingState.countdownReady;
         const copyLinkHtml = `<div class="pub-copy-wrap"><input class="pub-copy-url" readonly value="${escapeHtmlAttribute(s.url)}" aria-label="URL"><button class="btn btn-outline pub-copy-btn" data-public-copy-link="${step}">${liveT("copyLinkBtn")}</button></div>`;
         const openBtnHtml = `<button class="btn btn-primary pub-countdown-wait-btn" data-countdown-wait disabled>${liveT("countdownWaiting").replace("{n}", cdSec)}</button><a href="${escapeHtmlAttribute(s.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary pub-open-anchor" data-public-anchor-step="${step}" style="min-height:44px;align-items:center;justify-content:center">${liveT(`countdownOpen_${step}`)}</a>`;
-        const cdSecHtml = `<p class="pub-cd-sec" data-countdown-sec>${!cdReady ? liveT("countdownSec").replace("{n}", cdSec) : ""}</p>`;
+        const cdSecHtml = `<p class="pub-cd-sec" data-countdown-sec aria-hidden="true"></p>`;
         const showConfirm = cdReady;
         const confirmHtml = showConfirm
           ? `<button class="btn btn-success pub-confirm-btn" data-public-step-complete="${step}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> ${doneLabel}</button>`
-          : (cdReady
-            ? `<p class="pub-cd-hint">Anh/Chị vui lòng hoàn thành nội dung tại liên kết, sau đó quay lại và xác nhận bên dưới.</p>`
-            : `<p class="pub-cd-hint">Nút xác nhận sẽ hiển thị sau 5 giây…</p>`);
+          : `<span class="pub-confirm-placeholder" aria-hidden="true"></span>`;
         body = `<div class="pub-countdown-popup ${cdReady ? "is-ready" : ""}" data-countdown-popup="${step}"><h3 class="pub-cd-title">${liveT(`countdownTitle_${step}`)}</h3><p class="pub-cd-body">${liveT("countdownBody")}</p>${cdSecHtml}<p class="pub-cd-after">${liveT("countdownAfter")}</p>${openBtnHtml}${copyLinkHtml}<button class="btn btn-ghost" data-public-countdown-close style="margin-top:6px">${liveT("closeBtn")}</button>${confirmHtml}</div>`;
       } else {
         // Normal (not in countdown popup)
@@ -6807,19 +6812,10 @@ function publicTrainingPage(accessToken) {
         const showConfirmNormal = started || activated;
         body = `<button class="btn btn-primary" data-public-step-open="${step}">${openLabel}</button>${copyHtml}${showConfirmNormal ? `<button class="btn btn-success pub-confirm-btn" data-public-step-complete="${step}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> ${doneLabel}</button>` : ""}`;
       }
-      return `<article class="public-step ${done ? "is-done" : started ? "is-started" : ""}"><div><h2>${label}</h2><span class="pub-step-badge ${statusClass}">${done ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> ` : ""}${status}</span>${descHtml}</div><div class="pub-step-actions">${body}</div></article>`;
+      return `<article class="public-step ${done ? "is-done" : started ? "is-started" : ""}"><div class="pub-step-head"><h2>${label}</h2><span class="pub-step-badge ${statusClass}">${done ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> ` : ""}${status}</span>${descHtml}</div><div class="pub-step-actions">${body}</div></article>`;
     };
     const completionOpen = publicTrainingState.completionEligible;
-    const _sp = f.speaker;
-    const speakerCard = _sp?.name ? (() => {
-      const initials = escapeHtml(_sp.name.trim().split(/\s+/).map(w=>w[0]).slice(-2).join("").toUpperCase());
-      const posY = Math.max(0, Math.min(100, Number(_sp.positionY ?? 50) || 50));
-      const photoHtml = _sp.imageUrl
-        ? `<img class="pub-speaker-photo" src="${escapeHtmlAttribute(_sp.imageUrl)}" alt="${escapeHtmlAttribute(_sp.name)}" style="--speaker-position-y:${posY}%" loading="eager" decoding="async" fetchpriority="high" onload="this.classList.add('is-ready')" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">`
-        : "";
-      const initialsDiv = `<div class="pub-speaker-initials" aria-hidden="true" ${_sp.imageUrl ? 'style="display:none"' : ""}>${initials}</div>`;
-      return `<div class="pub-card pub-speaker-card"><div class="pub-speaker-inner">${photoHtml}${initialsDiv}<div class="pub-speaker-info"><strong class="pub-speaker-name">${escapeHtml(_sp.name)}</strong>${_sp.role ? `<span class="pub-speaker-title">${escapeHtml(_sp.role)}</span>` : ""}${_sp.organization ? `<span class="pub-speaker-org">${escapeHtml(_sp.organization)}</span>` : ""}${_sp.bio ? `<p class="pub-speaker-bio">${escapeHtml(_sp.bio)}</p>` : ""}</div></div></div>`;
-    })() : "";
+    const speakerCard = renderPublicSpeakerCard(f?.speaker, "card");
     const greetingHtml = p.displayName
       ? `<p class="pub-greeting">${escapeHtml(liveT("greeting").replace("{name}", p.displayName))}</p>`
       : "";

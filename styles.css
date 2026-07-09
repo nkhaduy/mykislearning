@@ -5073,13 +5073,15 @@ body.modal-open { overflow: hidden; }
 .pub-switch-btn:active{background:#dfeeff;color:var(--navy,#0b1f3a);transform:translateY(0)}
 .pub-switch-btn:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
 .pub-switch-btn:disabled{opacity:.55;cursor:not-allowed;background:#f8fafc;color:#64748b;border-color:#cbd5e1}
-.pub-stepper{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.pub-stepper{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
 .public-step{display:grid;gap:10px;min-width:0;padding:20px;border:1.5px solid rgba(255,255,255,.18);border-radius:14px;background:rgba(255,255,255,.9);color:var(--text-primary);transition:border-color .2s,background .2s}
 .public-step.is-done{background:rgba(220,252,231,.96);border-color:#4ade80}
 .public-step.is-started{background:rgba(239,246,255,.97);border-color:#93c5fd}
 .public-step.is-open{background:rgba(255,255,255,.98)}
 .public-step>div{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.public-step>.pub-step-head{justify-content:flex-start;flex-wrap:wrap;gap:8px 12px}
 .public-step h2{margin:0;font-size:16px;font-weight:700;color:var(--navy)}
+.pub-step-head h2{flex:0 1 auto;min-width:0;overflow-wrap:anywhere}
 .pub-step-badge{font-size:11px;font-weight:700;white-space:nowrap;padding:3px 9px;border-radius:20px;background:rgba(0,0,0,.07);color:var(--muted);display:inline-flex;align-items:center;gap:4px}
 .pub-step-badge--done{background:#dcfce7;color:#166534;border:1px solid #86efac}
 .pub-step-badge--started{background:#dbeafe;color:#1e40af;border:1px solid #93c5fd}
@@ -12233,7 +12235,7 @@ textarea { min-height: 110px; }
 /* ===== LIVE TRAINING FLEX STEPS (2026-07-09) ===== */
 
 /* Step description */
-.pub-step-desc{font-size:13px;color:var(--muted,#64748b);margin:4px 0 0;line-height:1.5}
+.pub-step-desc{flex-basis:100%;width:100%;font-size:13px;color:var(--muted,#64748b);margin:0;line-height:1.55;overflow-wrap:anywhere}
 
 /* Countdown popup inline */
 .pub-countdown-popup{background:rgba(255,255,255,.97);border:1.5px solid var(--border,#e2e8f0);border-radius:12px;padding:18px 20px;margin-bottom:10px;display:grid;gap:10px}
@@ -12243,13 +12245,14 @@ textarea { min-height: 110px; }
 .pub-countdown-wait-btn,.pub-open-anchor{width:100%;min-height:44px}
 .pub-cd-title{margin:0;font-size:15px;font-weight:700;color:var(--navy,#0b1f3a)}
 .pub-cd-body{margin:0;font-size:13px;color:var(--text-primary);line-height:1.6}
-.pub-cd-sec{min-height:22px;margin:0;font-size:12px;color:var(--muted,#64748b);line-height:22px}
+.pub-cd-sec{min-height:0;margin:0;font-size:0;line-height:0}
 .pub-cd-after{margin:0;font-size:13px;color:var(--success,#16a34a)}
 .pub-open-anchor{text-decoration:none}
+.pub-confirm-placeholder{display:block;min-height:44px}
 
 /* Copy link */
 .pub-copy-wrap{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.pub-copy-url{flex:1;min-width:0;font-size:12px;padding:8px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;background:#f8fafc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pub-copy-url{flex:1 1 220px;min-width:0;font-size:12px;padding:8px 10px;border:1px solid var(--border,#e2e8f0);border-radius:8px;background:#f8fafc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pub-copy-btn{flex-shrink:0;min-height:36px;font-size:13px}
 
 /* Active public flow badge in HR */
@@ -12268,6 +12271,8 @@ textarea { min-height: 110px; }
   .pub-countdown-popup{padding:14px 14px}
   .pub-copy-url{font-size:11px}
   .pub-copy-wrap{gap:6px}
+  .pub-copy-url,.pub-copy-btn{flex-basis:100%;width:100%}
+  .pub-step-actions>.btn,.pub-step-actions>.pub-countdown-popup{width:100%}
   .live-bulk-actions{gap:8px}
 }
 
