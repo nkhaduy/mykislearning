@@ -824,6 +824,7 @@ let liveTrainingState = {
   roster: [], rosterLoading: false, rosterParsed: null, rosterReplaceMode: true, rosterSearch: "",
   detailTab: "overview",
   speakerDraft: null,
+  bulkCompleteState: { loading: null },
 };
 let liveDeleteState = { flowId: null, flowTitle: "", loading: false, error: "" };
 let publicTrainingState = {
@@ -833,6 +834,11 @@ let publicTrainingState = {
   requestSeq: 0, lastJson: "", inFlight: false,
   roster: [], rosterLoading: false, rosterSearch: "", rosterDropdownOpen: false, selectedRosterId: null, outsideRoster: false,
   showOrientation: false, orientationError: "", orientationSaving: false,
+  // Countdown popup state
+  countdownStep: null, // step being prepared ("pretest"|"posttest"|"evaluation"|null)
+  countdownSec: 0, countdownTimer: 0, countdownUrl: null, countdownReady: false,
+  // /training route state
+  trainingMode: false, // true when accessed via /training
 };
 let gallerySearch = "";
 let galleryYear = "";
@@ -1077,6 +1083,31 @@ function liveT(key) {
     orientationBody: { vi: "Anh/Chị vui lòng hoàn thành đầy đủ Pre-test, Post-test và Phiếu khảo sát đánh giá sau buổi học để được ghi nhận là tham gia đầy đủ chương trình.", en: "Please complete the Pre-test, Post-test, and post-training evaluation survey to be recorded as having fully participated in the program.", kr: "교육에 정상적으로 참여한 것으로 인정받기 위해 사전 테스트, 사후 테스트 및 교육 만족도 설문을 모두 완료해 주세요." },
     orientationNote: { vi: "Anh/Chị có thể quay lại trang này trong suốt buổi học để tiếp tục các bước khi được mở.", en: "You may return to this page during the session to continue each step once it becomes available.", kr: "교육 중 각 단계가 열리면 이 페이지로 돌아와 계속 진행할 수 있습니다." },
     orientationAck: { vi: "Tôi đã hiểu", en: "I understand", kr: "확인했습니다" },
+    noActiveFlow: { vi: "Hiện chưa có buổi học nào đang được mở.", en: "No active session at this time.", kr: "현재 진행 중인 교육이 없습니다." },
+    countdownTitle_pretest: { vi: "Chuẩn bị làm Pre-test", en: "Preparing Pre-test", kr: "사전 테스트 준비" },
+    countdownTitle_posttest: { vi: "Chuẩn bị làm Post-test", en: "Preparing Post-test", kr: "사후 테스트 준비" },
+    countdownTitle_evaluation: { vi: "Chuẩn bị thực hiện khảo sát", en: "Preparing evaluation survey", kr: "평가 설문 준비" },
+    countdownBody: { vi: "Anh/Chị vui lòng hoàn thành nội dung tại trang được mở, sau đó quay lại MyKIS Learning để xác nhận đã hoàn thành.", en: "Please complete the content on the page that opens, then return here to confirm completion.", kr: "열린 페이지에서 내용을 완료한 후 MyKIS Learning으로 돌아와 완료를 확인해 주세요." },
+    countdownSec: { vi: "Liên kết sẽ sẵn sàng sau {n} giây.", en: "Link will be ready in {n} seconds.", kr: "{n}초 후 링크가 준비됩니다." },
+    countdownWaiting: { vi: "Mở sau {n} giây", en: "Opens in {n} seconds", kr: "{n}초 후 열림" },
+    countdownOpen_pretest: { vi: "Mở Pre-test", en: "Open Pre-test", kr: "사전 테스트 열기" },
+    countdownOpen_posttest: { vi: "Mở Post-test", en: "Open Post-test", kr: "사후 테스트 열기" },
+    countdownOpen_evaluation: { vi: "Mở khảo sát", en: "Open survey", kr: "설문 열기" },
+    countdownAfter: { vi: "Sau khi hoàn thành, Anh/Chị vui lòng quay lại trang này và chọn \"Tôi đã hoàn thành\".", en: "After completing, please return to this page and select \"I have completed\".", kr: "완료 후 이 페이지로 돌아와 \"완료했습니다\"를 선택해 주세요." },
+    copyLinkBtn: { vi: "Sao chép liên kết", en: "Copy link", kr: "링크 복사" },
+    copyLinkDone: { vi: "Đã sao chép liên kết.", en: "Link copied.", kr: "링크가 복사되었습니다." },
+    copyLinkFallback: { vi: "Không thể tự mở liên kết. Anh/Chị có thể sao chép và mở thủ công.", en: "Cannot open link automatically. You may copy and open it manually.", kr: "링크를 자동으로 열 수 없습니다. 수동으로 복사하여 열 수 있습니다." },
+    closeBtn: { vi: "Đóng", en: "Close", kr: "닫기" },
+    setActive: { vi: "Đưa lên /training", en: "Set as /training", kr: "/training으로 설정" },
+    unsetActive: { vi: "Ngừng hiển thị", en: "Remove from /training", kr: "/training에서 제거" },
+    activePublicBadge: { vi: "Đang hiển thị tại /training", en: "Live at /training", kr: "/training에서 활성" },
+    bulkCompleteTitle: { vi: "Cập nhật hàng loạt", en: "Bulk update", kr: "일괄 업데이트" },
+    bulkCompletePretest: { vi: "Đánh dấu tất cả hoàn thành Pre-test", en: "Mark all Pre-test complete", kr: "전체 사전 테스트 완료 표시" },
+    bulkCompletePosttest: { vi: "Đánh dấu tất cả hoàn thành Post-test", en: "Mark all Post-test complete", kr: "전체 사후 테스트 완료 표시" },
+    bulkCompleteEvaluation: { vi: "Đánh dấu tất cả hoàn thành Đánh giá", en: "Mark all Evaluation complete", kr: "전체 평가 완료 표시" },
+    bulkCompleteConfirm: { vi: "Đánh dấu hoàn thành {step} cho {n} người tham gia?", en: "Mark {step} complete for {n} participants?", kr: "{n}명의 참가자에 대해 {step} 완료로 표시하시겠습니까?" },
+    bulkCompleteSuccess: { vi: "Đã đánh dấu hoàn thành {step} cho {n} người tham gia.", en: "Marked {step} complete for {n} participants.", kr: "{n}명의 참가자에 대해 {step} 완료로 표시했습니다." },
+    changeName: { vi: "Chọn lại", en: "Change", kr: "변경" },
   };
   return labels[key]?.[language] || labels[key]?.vi || key;
 }
@@ -1158,7 +1189,7 @@ async function fetchPublicTrainingState(shouldRender = true) {
     if (changed || wasChecking) {
       const p = publicTrainingState.participant;
       publicTrainingState.bootstrap = p?.completedAt ? "completed" : p ? "ready" : "needsName";
-      if (shouldRender && route.startsWith("/join/")) render();
+      if (shouldRender && (route.startsWith("/join/") || route === "/training")) render();
     }
   } catch (err) {
     if (seq !== publicTrainingState.requestSeq) return;
@@ -1182,7 +1213,7 @@ async function fetchPublicTrainingState(shouldRender = true) {
 
 function startPublicTrainingPolling() {
   clearTimeout(publicTrainingState.pollTimer);
-  if (!route.startsWith("/join/")) return;
+  if (!route.startsWith("/join/") && route !== "/training") return;
   const bs = publicTrainingState.bootstrap;
   if (bs !== "ready" && bs !== "completed") return; // only poll after hydration
   const interval = document.hidden ? 8000 : 2000;
@@ -1190,6 +1221,30 @@ function startPublicTrainingPolling() {
     await fetchPublicTrainingState(true);
     startPublicTrainingPolling();
   }, interval);
+}
+
+async function fetchPublicTrainingForTrainingRoute() {
+  // /training route: first load active flow, then bootstrap via access token
+  publicTrainingState.trainingMode = true;
+  publicTrainingState.bootstrap = "loadingFlow";
+  publicTrainingState.error = "";
+  render();
+  try {
+    const res = await fetch("/api/public/live-training/active");
+    const body = await res.json().catch(() => ({}));
+    if (!body.ok || !body.flow) {
+      publicTrainingState.bootstrap = "noActiveFlow";
+      render();
+      return;
+    }
+    const accessToken = body.accessToken;
+    if (!accessToken) { publicTrainingState.bootstrap = "noActiveFlow"; render(); return; }
+    await fetchPublicTrainingInitial(accessToken);
+  } catch (err) {
+    publicTrainingState.bootstrap = "error";
+    publicTrainingState.error = err.message || "NOT_FOUND";
+    render();
+  }
 }
 
 async function loadLiveTrainingList() {
@@ -6298,24 +6353,46 @@ function adminLiveTrainingDetailPage() {
 
   let tabContent = "";
   if (activeTab === "overview") {
+    const isActivePubFlow = Boolean(f.isActivePublicFlow);
+    const trainingUrl = f.trainingUrl || "/training";
+    const activeFlowHtml = isActivePubFlow
+      ? `<div class="live-active-badge"><span class="badge-active-pub">${liveT("activePublicBadge")}</span><button class="btn btn-outline mini-action" data-copy-live-link="${escapeHtmlAttribute(trainingUrl)}">${liveT("copyLink")} /training</button><button class="btn btn-outline mini-action" data-live-unset-active="${escapeHtmlAttribute(f.id)}">${liveT("unsetActive")}</button></div>`
+      : `<button class="btn btn-outline" data-live-set-active="${escapeHtmlAttribute(f.id)}" data-live-set-active-title="${escapeHtmlAttribute(f.title)}">${liveT("setActive")}</button>`;
     tabContent = `
       <p class="field-help">${liveT("liveNote")}</p><p class="field-help">${liveT("duplicateNote")}</p>
+      <div class="ui-card" style="margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><strong style="font-size:13px">/training:</strong>${activeFlowHtml}</div>
       <form id="liveTrainingUpdateForm" class="ui-card form-grid">
         <div class="field"><label>${liveT("sessionTitle")}</label><input name="title" value="${escapeHtmlAttribute(f.title)}" required></div>
-        <div class="field"><label>Public link</label><input value="${escapeHtmlAttribute(f.publicLink || "")}" readonly></div>
+        <div class="field"><label>Public link (legacy)</label><input value="${escapeHtmlAttribute(f.publicLink || "")}" readonly></div>
         <div class="field span-2"><label>${liveT("description")}</label><textarea name="description" rows="2">${escapeHtml(f.description || "")}</textarea></div>
         <div class="field"><label>${liveT("pretestUrl")}</label><input name="pretestUrl" value="${escapeHtmlAttribute(f.pretest_url || "")}"></div>
+        <div class="field"><label>Mô tả Pre-test</label><textarea name="pretestDescription" rows="2" maxlength="500">${escapeHtml(f.pretest_description || "")}</textarea></div>
         <div class="field"><label>${liveT("posttestUrl")}</label><input name="posttestUrl" value="${escapeHtmlAttribute(f.posttest_url || "")}"></div>
+        <div class="field"><label>Mô tả Post-test</label><textarea name="posttestDescription" rows="2" maxlength="500">${escapeHtml(f.posttest_description || "")}</textarea></div>
         <div class="field"><label>${liveT("evaluationUrl")}</label><input name="evaluationUrl" value="${escapeHtmlAttribute(f.evaluation_url || "")}"></div>
+        <div class="field"><label>Mô tả Đánh giá</label><textarea name="evaluationDescription" rows="2" maxlength="500">${escapeHtml(f.evaluation_description || "")}</textarea></div>
         <label class="setting-row"><span>Pre-test ${liveT("required")}</span><input name="pretestRequired" type="checkbox" ${f.pretest_required ? "checked" : ""}></label>
+        <label class="setting-row"><span>Hiển thị link copy — Pre-test</span><input name="pretestShowCopyLink" type="checkbox" ${f.pretest_show_copy_link ? "checked" : ""}></label>
         <label class="setting-row"><span>Post-test ${liveT("required")}</span><input name="posttestRequired" type="checkbox" ${f.posttest_required ? "checked" : ""}></label>
+        <label class="setting-row"><span>Hiển thị link copy — Post-test</span><input name="posttestShowCopyLink" type="checkbox" ${f.posttest_show_copy_link ? "checked" : ""}></label>
         <label class="setting-row"><span>${liveT("evaluation")} ${liveT("required")}</span><input name="evaluationRequired" type="checkbox" ${f.evaluation_required ? "checked" : ""}></label>
+        <label class="setting-row"><span>Hiển thị link copy — Đánh giá</span><input name="evaluationShowCopyLink" type="checkbox" ${f.evaluation_show_copy_link ? "checked" : ""}></label>
         <div class="span-2"><button class="btn btn-primary" type="submit">Lưu</button></div><p class="field-error span-2" data-live-update-error></p>
       </form>`;
   } else if (activeTab === "controls") {
     tabContent = `<section class="live-controls">${control("pretest", liveT("pretest"))}${control("posttest", liveT("posttest"))}${control("evaluation", liveT("evaluation"))}${control("completion", liveT("completion"))}</section>`;
   } else if (activeTab === "participants") {
-    tabContent = `<section class="ui-card"><div class="table-tools"><input data-live-search placeholder="Tìm theo tên" value="${escapeHtmlAttribute(liveTrainingState.search)}"><button class="btn btn-outline" data-live-detail-reload>Làm mới</button></div>
+    const joinedCount = (liveTrainingState.participants || []).length;
+    const bulkState = liveTrainingState.bulkCompleteState || {};
+    tabContent = `<section class="ui-card live-bulk-section">
+      <h3 style="margin:0 0 12px;font-size:15px;font-weight:700">${liveT("bulkCompleteTitle")}</h3>
+      <div class="live-bulk-actions">
+        <button class="btn btn-outline live-bulk-btn live-bulk-pretest" data-bulk-complete="pretest" ${bulkState.loading === "pretest" ? "disabled" : ""}>${bulkState.loading === "pretest" ? "..." : `${liveT("bulkCompletePretest")} (${joinedCount})`}</button>
+        <button class="btn btn-outline live-bulk-btn live-bulk-posttest" data-bulk-complete="posttest" ${bulkState.loading === "posttest" ? "disabled" : ""}>${bulkState.loading === "posttest" ? "..." : `${liveT("bulkCompletePosttest")} (${joinedCount})`}</button>
+        <button class="btn btn-outline live-bulk-btn live-bulk-evaluation" data-bulk-complete="evaluation" ${bulkState.loading === "evaluation" ? "disabled" : ""}>${bulkState.loading === "evaluation" ? "..." : `${liveT("bulkCompleteEvaluation")} (${joinedCount})`}</button>
+      </div>
+    </section>
+    <section class="ui-card"><div class="table-tools"><input data-live-search placeholder="Tìm theo tên" value="${escapeHtmlAttribute(liveTrainingState.search)}"><button class="btn btn-outline" data-live-detail-reload>Làm mới</button></div>
       <div class="table-wrap"><table class="data-table"><thead><tr><th>${liveT("fullName")}</th><th>Tham gia</th><th>Gần nhất</th><th>Pre</th><th>Post</th><th>${liveT("evaluation")}</th><th>${liveT("completion")}</th><th>${t("admin.action")}</th></tr></thead><tbody>
       ${participants.map((p) => `<tr><td>${escapeHtml(p.displayName)}</td><td>${formatDateTime(p.createdAt)}</td><td>${formatDateTime(p.lastSeenAt)}</td><td>${p.pretestCompletedAt ? liveT("done") : p.pretestStartedAt ? liveT("started") : "—"}</td><td>${p.posttestCompletedAt ? liveT("done") : p.posttestStartedAt ? liveT("started") : "—"}</td><td>${p.evaluationCompletedAt ? liveT("done") : p.evaluationStartedAt ? liveT("started") : "—"}</td><td>${p.completedAt ? liveT("done") : "—"}</td><td><div class="row-actions"><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="pretestCompleted">Pre ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="posttestCompleted">Post ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="evaluationCompleted">${liveT("evaluation")} ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="completed">${liveT("completion")}</button><button class="btn btn-outline mini-action" data-live-participant-reset="${p.id}">Reset</button><button class="btn btn-danger mini-action" data-live-participant-delete="${p.id}" data-live-participant-name="${escapeHtmlAttribute(p.displayName)}">Xóa</button></div></td></tr>`).join("") || `<tr><td colspan="8"><div class="ui-empty">Chưa có người tham gia.</div></td></tr>`}
       </tbody></table></div></section>`;
@@ -6389,6 +6466,8 @@ function publicTrainingPage(accessToken) {
     content = `<div class="pub-card pub-skeleton-card" aria-busy="true" aria-live="polite"><p class="pub-resuming">${liveT("resuming")}</p>${f ? `<p class="pub-session-title-sm">${escapeHtml(f.title)}</p>` : ""}<div class="ui-skeleton" style="height:14px;width:40%;border-radius:6px;margin-top:12px"></div></div>`;
   } else if (bs === "networkError") {
     content = `<div class="pub-card"><p class="pub-resuming">${liveT("networkError")}</p><button class="btn btn-primary" data-public-retry style="margin-top:14px">${liveT("retry")}</button></div>`;
+  } else if (bs === "noActiveFlow") {
+    content = `<div class="pub-card pub-error-card"><h1>${liveT("noActiveFlow")}</h1></div>`;
   } else if (bs === "error") {
     const err = publicTrainingState.error || f?.error || "";
     const errText = err === "FLOW_EXPIRED" ? liveT("expiredLink") : err === "FLOW_CLOSED" ? liveT("closedFlow") : liveT("invalidLink");
@@ -6439,8 +6518,26 @@ function publicTrainingPage(accessToken) {
       const started = p?.[`${step}StartedAt`];
       const done = p?.[`${step}CompletedAt`];
       const status = done ? liveT("done") : started ? liveT("started") : !s.required ? liveT("optional") : s.state === "open" ? liveT("available") : liveT("notOpen");
-      const body = s.state !== "open" ? `<span class="pub-step-wait">${liveT("waitingNamed").replace("{step}", label)}</span>` : !s.url ? `<span class="pub-step-wait">${liveT("missingUrl")}</span>` : `<button class="btn btn-primary" data-public-step-start="${step}">${openLabel}</button>${started ? `<button class="btn btn-outline" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : ""}`;
-      return `<article class="public-step ${done ? "is-done" : ""}"><div><h2>${label}</h2><span class="pub-step-badge">${status}</span></div><div class="pub-step-actions">${body}</div></article>`;
+      const descHtml = s.description ? `<p class="pub-step-desc">${escapeHtml(s.description)}</p>` : "";
+      const isCountdownStep = publicTrainingState.countdownStep === step;
+      let body;
+      if (s.state !== "open") {
+        body = `<span class="pub-step-wait">${liveT("waitingNamed").replace("{step}", label)}</span>`;
+      } else if (!s.url) {
+        body = `<span class="pub-step-wait">${liveT("missingUrl")}</span>`;
+      } else if (isCountdownStep) {
+        // Countdown popup inline
+        const cdSec = publicTrainingState.countdownSec;
+        const cdReady = publicTrainingState.countdownReady;
+        const copyLinkHtml = (s.showCopyLink || cdReady) ? `<div class="pub-copy-wrap"><input class="pub-copy-url" readonly value="${escapeHtmlAttribute(s.url)}" aria-label="URL"><button class="btn btn-outline pub-copy-btn" data-public-copy-link="${step}">${liveT("copyLinkBtn")}</button></div>` : "";
+        const openBtnHtml = cdReady
+          ? `<a href="${escapeHtmlAttribute(s.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary pub-open-anchor" data-public-anchor-step="${step}" style="min-height:44px;display:flex;align-items:center;justify-content:center">${liveT(`countdownOpen_${step}`)}</a>`
+          : `<button class="btn btn-primary" disabled>${liveT("countdownWaiting").replace("{n}", cdSec)}</button>`;
+        body = `<div class="pub-countdown-popup"><h3 class="pub-cd-title">${liveT(`countdownTitle_${step}`)}</h3><p class="pub-cd-body">${liveT("countdownBody")}</p>${!cdReady ? `<p class="pub-cd-sec">${liveT("countdownSec").replace("{n}", cdSec)}</p>` : `<p class="pub-cd-after">${liveT("countdownAfter")}</p>`}${openBtnHtml}${copyLinkHtml}<button class="btn btn-ghost" data-public-countdown-close style="margin-top:6px">${liveT("closeBtn")}</button></div>${started ? `<button class="btn btn-outline" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : ""}`;
+      } else {
+        body = `<button class="btn btn-primary" data-public-step-open="${step}">${openLabel}</button>${s.showCopyLink ? `<div class="pub-copy-wrap"><input class="pub-copy-url" readonly value="${escapeHtmlAttribute(s.url)}" aria-label="URL"><button class="btn btn-outline pub-copy-btn" data-public-copy-link="${step}">${liveT("copyLinkBtn")}</button></div>` : ""}${started ? `<button class="btn btn-outline" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : ""}`;
+      }
+      return `<article class="public-step ${done ? "is-done" : ""}"><div><h2>${label}</h2><span class="pub-step-badge">${status}</span>${descHtml}</div><div class="pub-step-actions">${body}</div></article>`;
     };
     const completionOpen = publicTrainingState.completionEligible;
     const _sp = f.speaker;
@@ -6483,7 +6580,7 @@ function render() {
   } else if (robotsMeta?.content === "noindex, nofollow") {
     robotsMeta.remove();
   }
-  if (!route.startsWith("/join/")) clearTimeout(publicTrainingState.pollTimer);
+  if (!route.startsWith("/join/") && route !== "/training") clearTimeout(publicTrainingState.pollTimer);
   session = sessionService.getValidSession();
   const routeParams = new URLSearchParams(location.search);
   selectedLoginRole = routeParams.get("role") || selectedLoginRole;
@@ -6541,7 +6638,19 @@ function render() {
   if (route === "/admin/audit-log" && app.querySelector("[data-audit-filter] input[name='search']") && !auditState.detail && !auditState.detailLoading) {
     return;
   }
-  if (route.startsWith("/join/")) app.innerHTML = publicTrainingPage(decodeURIComponent(route.split("/").pop() || ""));
+  if (route === "/training") {
+    if (publicTrainingState.bootstrap === "unknown" || (publicTrainingState.trainingMode === false && publicTrainingState.bootstrap === "unknown")) {
+      queueMicrotask(() => fetchPublicTrainingForTrainingRoute());
+      publicTrainingState.bootstrap = "loadingFlow";
+      publicTrainingState.trainingMode = true;
+    } else if (!publicTrainingState.trainingMode) {
+      // was previously on /join/, now on /training — re-init
+      queueMicrotask(() => fetchPublicTrainingForTrainingRoute());
+      publicTrainingState.bootstrap = "loadingFlow";
+      publicTrainingState.trainingMode = true;
+    }
+    app.innerHTML = publicTrainingPage(publicTrainingState.token || "");
+  } else if (route.startsWith("/join/")) app.innerHTML = publicTrainingPage(decodeURIComponent(route.split("/").pop() || ""));
   else if (route === "/") app.innerHTML = landingPage();
   else if (route === "/about-kis") app.innerHTML = aboutPage();
   else if (route === "/login") app.innerHTML = loginPage();
@@ -7252,6 +7361,8 @@ function bindEvents() {
       title: fd.get("title"), description: fd.get("description"),
       pretestUrl: fd.get("pretestUrl"), posttestUrl: fd.get("posttestUrl"), evaluationUrl: fd.get("evaluationUrl"),
       pretestRequired: fd.get("pretestRequired") === "on", posttestRequired: fd.get("posttestRequired") === "on", evaluationRequired: fd.get("evaluationRequired") === "on",
+      pretestDescription: fd.get("pretestDescription") || "", posttestDescription: fd.get("posttestDescription") || "", evaluationDescription: fd.get("evaluationDescription") || "",
+      pretestShowCopyLink: fd.get("pretestShowCopyLink") === "on", posttestShowCopyLink: fd.get("posttestShowCopyLink") === "on", evaluationShowCopyLink: fd.get("evaluationShowCopyLink") === "on",
       speakerName: fd.get("speakerName") || "", speakerTitle: fd.get("speakerTitle") || "",
       speakerOrg: fd.get("speakerOrg") || "", speakerBio: fd.get("speakerBio") || "",
       speakerPhotoUrl: fd.get("speakerPhotoUrl") || "",
@@ -7273,6 +7384,44 @@ function bindEvents() {
     if (!confirm("Rotate public link? Link cũ sẽ không còn dùng được.")) return;
     try { await apiJson(`/api/admin/live-training/${e.currentTarget.dataset.liveRotate}/rotate-link`, { method: "POST", body: "{}" }); await loadLiveTrainingDetail(e.currentTarget.dataset.liveRotate); } catch { toast("error"); }
   });
+  // Active flow (set /training)
+  document.querySelectorAll("[data-live-set-active]").forEach((el) => el.addEventListener("click", async () => {
+    const flowId = el.dataset.liveSetActive;
+    const flowTitle = el.dataset.liveSetActiveTitle || "";
+    const currentFlows = liveTrainingState.flows || [];
+    const currentActive = currentFlows.find((r) => r.isActivePublicFlow);
+    const msg = currentActive && currentActive.id !== flowId
+      ? `Hành trình hiện tại trên /training sẽ được thay bằng "${flowTitle}".`
+      : `Đưa hành trình "${flowTitle}" lên /training?`;
+    if (!confirm(msg)) return;
+    try { await apiJson(`/api/admin/live-training/${flowId}/set-active`, { method: "POST", body: "{}" }); await loadLiveTrainingDetail(flowId); toast("success"); }
+    catch (err) { toast("error", err.message); }
+  }));
+  document.querySelectorAll("[data-live-unset-active]").forEach((el) => el.addEventListener("click", async () => {
+    const flowId = el.dataset.liveUnsetActive;
+    if (!confirm("Ngừng hiển thị hành trình này tại /training?")) return;
+    try { await apiJson(`/api/admin/live-training/${flowId}/unset-active`, { method: "POST", body: "{}" }); await loadLiveTrainingDetail(flowId); toast("success"); }
+    catch (err) { toast("error", err.message); }
+  }));
+  // Bulk complete
+  document.querySelectorAll("[data-bulk-complete]").forEach((el) => el.addEventListener("click", async () => {
+    const step = el.dataset.bulkComplete;
+    const joinedCount = (liveTrainingState.participants || []).length;
+    const stepLabel = step === "pretest" ? liveT("pretest") : step === "posttest" ? liveT("posttest") : liveT("evaluation");
+    const msg = liveT("bulkCompleteConfirm").replace("{step}", stepLabel).replace("{n}", joinedCount);
+    if (!confirm(msg)) return;
+    const id = route.split("/")[3];
+    if (!liveTrainingState.bulkCompleteState) liveTrainingState.bulkCompleteState = {};
+    liveTrainingState.bulkCompleteState.loading = step;
+    render();
+    try {
+      const data = await apiJson(`/api/admin/live-training/${id}/participants/bulk-complete`, { method: "POST", body: JSON.stringify({ step }) });
+      liveTrainingState.bulkCompleteState.loading = null;
+      const successMsg = liveT("bulkCompleteSuccess").replace("{step}", stepLabel).replace("{n}", data.affectedCount ?? 0);
+      toast("success", successMsg);
+      await loadLiveTrainingDetail(id);
+    } catch (err) { liveTrainingState.bulkCompleteState.loading = null; toast("error", err.message); render(); }
+  }));
   // Roster admin handlers
   (() => {
     const loadXlsx = () => {
@@ -7512,15 +7661,53 @@ function bindEvents() {
       render();
     }
   });
-  document.querySelectorAll("[data-public-step-start]").forEach((el) => el.addEventListener("click", async () => {
-    const step = el.dataset.publicStepStart;
-    try {
-      const res = await fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/steps/${step}/start`, { method: "POST", headers: publicTokenHeader() });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || "STEP_ERROR");
-      applyPublicTrainingPayload(body); render();
-      if (body.externalUrl) window.open(body.externalUrl, "_blank", "noopener,noreferrer");
-    } catch (err) { toast(err.message || "error"); }
+  // data-public-step-open: start countdown popup (new mobile-safe approach)
+  document.querySelectorAll("[data-public-step-open]").forEach((el) => el.addEventListener("click", () => {
+    const step = el.dataset.publicStepOpen;
+    const s = publicTrainingState.steps?.[step] || {};
+    clearTimeout(publicTrainingState.countdownTimer);
+    publicTrainingState.countdownStep = step;
+    publicTrainingState.countdownSec = 3;
+    publicTrainingState.countdownReady = false;
+    publicTrainingState.countdownUrl = s.url || null;
+    render();
+    function tick() {
+      if (publicTrainingState.countdownStep !== step) return;
+      if (publicTrainingState.countdownSec > 1) {
+        publicTrainingState.countdownSec--;
+        render();
+        publicTrainingState.countdownTimer = setTimeout(tick, 1000);
+      } else {
+        publicTrainingState.countdownReady = true;
+        render();
+      }
+    }
+    publicTrainingState.countdownTimer = setTimeout(tick, 1000);
+  }));
+  // data-public-anchor-step: user clicked the anchor after countdown — fire started request keepalive
+  document.querySelectorAll("[data-public-anchor-step]").forEach((el) => el.addEventListener("click", () => {
+    const step = el.dataset.publicAnchorStep;
+    // Fire-and-forget: don't await, don't block navigation
+    fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/steps/${step}/start`, { method: "POST", headers: publicTokenHeader(), keepalive: true }).then(async (res) => {
+      if (res.ok) { const body = await res.json().catch(() => ({})); applyPublicTrainingPayload(body); render(); }
+    }).catch(() => {});
+    publicTrainingState.countdownStep = null;
+    publicTrainingState.countdownReady = false;
+  }));
+  // data-public-countdown-close: close countdown without navigating
+  document.querySelectorAll("[data-public-countdown-close]").forEach((el) => el.addEventListener("click", () => {
+    clearTimeout(publicTrainingState.countdownTimer);
+    publicTrainingState.countdownStep = null;
+    publicTrainingState.countdownReady = false;
+    render();
+  }));
+  // data-public-copy-link: copy external URL to clipboard
+  document.querySelectorAll("[data-public-copy-link]").forEach((el) => el.addEventListener("click", async () => {
+    const step = el.dataset.publicCopyLink;
+    const s = publicTrainingState.steps?.[step] || {};
+    const url = s.url || publicTrainingState.countdownUrl || "";
+    if (!url) return;
+    try { await navigator.clipboard.writeText(url); toast("success", liveT("copyLinkDone")); } catch (_) { toast("error"); }
   }));
   document.querySelectorAll("[data-public-step-complete]").forEach((el) => el.addEventListener("click", async () => {
     const step = el.dataset.publicStepComplete;
@@ -9473,7 +9660,7 @@ function setupPageSpecificHandlers() {
   }
 }
 
-function toast(key) {
+function toast(key, customMsg) {
   let el = document.querySelector(".toast");
   if (!el) {
     el = document.createElement("div");
@@ -9482,12 +9669,16 @@ function toast(key) {
     el.setAttribute("aria-live", "polite");
     document.body.appendChild(el);
   }
-  const translated = t(`toast.${key}`);
-  el.textContent = key === "error"
-    ? t("toast.error")
-    : translated === `toast.${key}`
-      ? (key.includes(".") ? t(key) : key)
-      : translated;
+  if (customMsg) {
+    el.textContent = customMsg;
+  } else {
+    const translated = t(`toast.${key}`);
+    el.textContent = key === "error"
+      ? t("toast.error")
+      : translated === `toast.${key}`
+        ? (key.includes(".") ? t(key) : key)
+        : translated;
+  }
   el.classList.add("show");
   setTimeout(() => el.classList.remove("show"), 2600);
 }

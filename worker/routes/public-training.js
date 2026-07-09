@@ -123,9 +123,9 @@ function statePayload(flow, participant = null) {
   const payload = {
     flow: flowPublic(flow),
     steps: {
-      pretest: { state: flow.pretest_state, required: flow.pretest_required, url: flow.pretest_state === "open" ? flow.pretest_url : null },
-      posttest: { state: flow.posttest_state, required: flow.posttest_required, url: flow.posttest_state === "open" ? flow.posttest_url : null },
-      evaluation: { state: flow.evaluation_state, required: flow.evaluation_required, url: flow.evaluation_state === "open" ? flow.evaluation_url : null },
+      pretest: { state: flow.pretest_state, required: flow.pretest_required, url: flow.pretest_state === "open" ? flow.pretest_url : null, description: flow.pretest_description || null, showCopyLink: Boolean(flow.pretest_show_copy_link) },
+      posttest: { state: flow.posttest_state, required: flow.posttest_required, url: flow.posttest_state === "open" ? flow.posttest_url : null, description: flow.posttest_description || null, showCopyLink: Boolean(flow.posttest_show_copy_link) },
+      evaluation: { state: flow.evaluation_state, required: flow.evaluation_required, url: flow.evaluation_state === "open" ? flow.evaluation_url : null, description: flow.evaluation_description || null, showCopyLink: Boolean(flow.evaluation_show_copy_link) },
       completion: { state: flow.completion_state },
     },
     participant: participant ? participantPublic(participant) : null,
@@ -133,6 +133,21 @@ function statePayload(flow, participant = null) {
     note: "Trạng thái hoàn thành do người tham gia tự xác nhận. Kết quả Quizizz và Google Forms chưa được đồng bộ tự động.",
   };
   return payload;
+}
+
+async function getActiveFlow(supabase) {
+  const { data, error } = await supabase.from("public_training_active_flow")
+    .select("flow_id, updated_by, updated_at").eq("singleton_key", "active").maybeSingle();
+  if (error) throw Object.assign(new Error(error.message), { status: 500 });
+  if (!data || !data.flow_id) return null;
+  const flow = await getFlowById(supabase, data.flow_id);
+  return flow;
+}
+
+async function setActiveFlow(supabase, flowId, actorId) {
+  const { error } = await supabase.from("public_training_active_flow")
+    .upsert({ singleton_key: "active", flow_id: flowId, updated_by: actorId, updated_at: nowIso() }, { onConflict: "singleton_key" });
+  if (error) throw Object.assign(new Error(error.message), { status: 500 });
 }
 
 async function getFlowByToken(supabase, accessToken) {
@@ -162,9 +177,8 @@ async function requireParticipant(supabase, request, flow) {
 function assertCanStart(flow, p, step) {
   if (!STEPS.has(step)) throw Object.assign(new Error("INVALID_STEP"), { status: 404 });
   if (flow[`${step}_state`] !== "open") throw Object.assign(new Error("STEP_CLOSED"), { status: 409, code: "STEP_CLOSED" });
-  if (!flow[`${step}_url`]) throw Object.assign(new Error("STEP_URL_MISSING"), { status: 409, code: "STEP_URL_MISSING" });
-  if (step === "posttest" && flow.pretest_required && !p.pretest_completed_at) throw Object.assign(new Error("PRETEST_REQUIRED"), { status: 409 });
-  if (step === "evaluation" && flow.posttest_required && !p.posttest_completed_at) throw Object.assign(new Error("POSTTEST_REQUIRED"), { status: 409 });
+  if (!flow[`${step}_url`]) throw Object.assign(new Error("LINK_NOT_CONFIGURED"), { status: 409, code: "LINK_NOT_CONFIGURED" });
+  // No cross-step prerequisite: each step is independent
 }
 
 async function audit(supabase, request, action, actor, entityId, metadata = {}, beforeData = null, afterData = null) {
@@ -209,6 +223,17 @@ export async function handlePublicTraining(request, env) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/$/, "");
   const supabase = getSupabase(env);
+
+  // GET /api/public/live-training/active — returns the currently active flow for /training
+  if (path === "/api/public/live-training/active" && method === "GET") {
+    try {
+      const activeFlow = await getActiveFlow(supabase);
+      if (!activeFlow) return json({ ok: true, flow: null });
+      return json({ ok: true, flow: statePayload(activeFlow).flow, steps: statePayload(activeFlow).steps, accessToken: activeFlow.access_token });
+    } catch (e) {
+      return json({ ok: false, error: e.message }, e.status || 500);
+    }
+  }
 
   const publicMatch = path.match(/^\/api\/public\/live-training\/([^/]+)(?:\/(.+))?$/);
   if (publicMatch) {
@@ -319,7 +344,10 @@ export async function handlePublicTraining(request, env) {
   if (path === "/api/admin/live-training") {
     if (method === "GET") {
       const rows = await adminSummaryRows(supabase);
-      return json({ ok: true, flows: rows.map((r) => ({ ...r, publicLink: publicLink(request, r.access_token) })) });
+      const activeFlowRow = await getActiveFlow(supabase).catch(() => null);
+      const activeFlowId = activeFlowRow?.id || null;
+      const trainingUrl = `${new URL(request.url).origin}/training`;
+      return json({ ok: true, activeFlowId, trainingUrl, flows: rows.map((r) => ({ ...r, publicLink: publicLink(request, r.access_token), isActivePublicFlow: r.id === activeFlowId, trainingUrl })) });
     }
     if (method === "POST") {
       const body = await readJson(request);
@@ -357,7 +385,10 @@ export async function handlePublicTraining(request, env) {
 
   if (!rest && method === "GET") {
     const rows = await adminSummaryRows(supabase);
-    return json({ ok: true, flow: { ...rows.find((r) => r.id === id), publicLink: publicLink(request, flow.access_token) } });
+    const activeFlowRow = await getActiveFlow(supabase).catch(() => null);
+    const activeFlowId = activeFlowRow?.id || null;
+    const trainingUrl = `${new URL(request.url).origin}/training`;
+    return json({ ok: true, flow: { ...rows.find((r) => r.id === id), publicLink: publicLink(request, flow.access_token), isActivePublicFlow: id === activeFlowId, trainingUrl } });
   }
 
   if (!rest && method === "DELETE") {
@@ -390,6 +421,12 @@ export async function handlePublicTraining(request, env) {
     if ("speakerOrg" in body) patch.speaker_org = cleanName(body.speakerOrg || "") || null;
     if ("speakerBio" in body) patch.speaker_bio = String(body.speakerBio || "").trim() || null;
     if ("speakerPhotoUrl" in body) patch.speaker_photo_url = assertUrl(body.speakerPhotoUrl, "speakerPhotoUrl");
+    if ("pretestDescription" in body) patch.pretest_description = String(body.pretestDescription || "").trim() || null;
+    if ("posttestDescription" in body) patch.posttest_description = String(body.posttestDescription || "").trim() || null;
+    if ("evaluationDescription" in body) patch.evaluation_description = String(body.evaluationDescription || "").trim() || null;
+    if ("pretestShowCopyLink" in body) patch.pretest_show_copy_link = Boolean(body.pretestShowCopyLink);
+    if ("posttestShowCopyLink" in body) patch.posttest_show_copy_link = Boolean(body.posttestShowCopyLink);
+    if ("evaluationShowCopyLink" in body) patch.evaluation_show_copy_link = Boolean(body.evaluationShowCopyLink);
     const { data, error } = await supabase.from("public_training_flows").update(patch).eq("id", id).select("*").single();
     if (error) return json({ ok: false, error: error.message }, 500);
     await audit(supabase, request, "public_training.updated", actor, id, { flowId: id }, flow, patch);
@@ -432,6 +469,43 @@ export async function handlePublicTraining(request, env) {
     const { data, error } = await supabase.from("public_training_participants").select("*").eq("flow_id", id).order("created_at", { ascending: true });
     if (error) return json({ ok: false, error: error.message }, 500);
     return json({ ok: true, participants: (data || []).map(participantPublic) });
+  }
+
+  if (rest === "participants/bulk-complete" && method === "POST") {
+    const body = await readJson(request);
+    const step = body.step;
+    if (!STEPS.has(step)) return json({ ok: false, error: "INVALID_STEP" }, 400);
+    const completedField = `${step}_completed_at`;
+    const startedField = `${step}_started_at`;
+    const { data: allParticipants, error: fetchErr } = await supabase.from("public_training_participants")
+      .select("id, " + completedField + ", " + startedField).eq("flow_id", id);
+    if (fetchErr) return json({ ok: false, error: fetchErr.message }, 500);
+    const participants = allParticipants || [];
+    const toUpdate = participants.filter((p) => !p[completedField]).map((p) => p.id);
+    const now = nowIso();
+    if (toUpdate.length > 0) {
+      const { error: updErr } = await supabase.from("public_training_participants")
+        .update({ [startedField]: now, [completedField]: now })
+        .in("id", toUpdate).eq("flow_id", id);
+      if (updErr) return json({ ok: false, error: updErr.message }, 500);
+    }
+    await audit(supabase, request, "public_training.bulk_complete", actor, id, { flowId: id, step, affectedCount: toUpdate.length, actor: actor?.accountId || actor?.id || null, timestamp: now });
+    return json({ ok: true, affectedCount: toUpdate.length, total: participants.length });
+  }
+
+  if (rest === "set-active" && method === "POST") {
+    const previous = await getActiveFlow(supabase);
+    await setActiveFlow(supabase, id, actor?.accountId || actor?.id || null);
+    await audit(supabase, request, "public_training.set_active", actor, id, { flowId: id, previousFlowId: previous?.id || null });
+    return json({ ok: true, flowId: id });
+  }
+
+  if (rest === "unset-active" && method === "POST") {
+    const current = await getActiveFlow(supabase);
+    if (current?.id !== id) return json({ ok: false, error: "FLOW_NOT_ACTIVE" }, 409);
+    await setActiveFlow(supabase, null, actor?.accountId || actor?.id || null);
+    await audit(supabase, request, "public_training.unset_active", actor, id, { flowId: id });
+    return json({ ok: true });
   }
 
   if (rest === "roster" && method === "GET") {
