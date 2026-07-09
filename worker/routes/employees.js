@@ -73,8 +73,10 @@ export async function handleEmployees(request, env) {
 
     let query = supabase.from("profiles").select("*");
 
-    if (!includeDeleted) query = query.not("notes", "ilike", '%"soft_deleted":true%');
-    if (!includeDemo) query = query.not("notes", "ilike", '%"is_demo":true%');
+    // Use OR IS NULL so that profiles with notes=null are included.
+    // PostgreSQL: NOT (NULL ILIKE pattern) = NULL → falsy → row excluded without this guard.
+    if (!includeDeleted) query = query.or('notes.is.null,notes.not.ilike.%"soft_deleted":true%');
+    if (!includeDemo) query = query.or('notes.is.null,notes.not.ilike.%"is_demo":true%');
     if (department) query = query.eq("department", department);
     if (status) query = query.eq("account_status", status);
 
