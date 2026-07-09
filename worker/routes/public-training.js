@@ -250,9 +250,9 @@ export async function handlePublicTraining(request, env) {
     if (!flow) return notFound();
 
     if (rest === "roster" && method === "GET") {
-      const { data, error } = await supabase.from("public_training_roster").select("id,full_name,department,location,mode").eq("flow_id", flow.id).order("full_name");
+      const { data, error } = await supabase.from("public_training_roster").select("id,full_name,given_name,department,location,mode,source").eq("flow_id", flow.id).order("given_name", { nullsFirst: false }).order("full_name");
       if (error) return json({ ok: false, error: error.message }, 500);
-      return json({ ok: true, roster: (data || []).map((r) => ({ id: r.id, fullName: r.full_name, department: r.department, location: r.location, mode: r.mode })) });
+      return json({ ok: true, roster: (data || []).map((r) => ({ id: r.id, fullName: r.full_name, givenName: r.given_name || null, department: r.department, location: r.location, mode: r.mode, source: r.source || "excel" })) });
     }
 
     if (!rest && method === "GET") return json(statePayload(flow));
@@ -279,20 +279,9 @@ export async function handlePublicTraining(request, env) {
       }
       const rawToken = randomToken(32);
       const tokenHash = await sha256(rawToken);
-      // Check if HR already added this participant manually
-      const { data: hrRow } = await supabase.from("public_training_participants")
-        .select("*").eq("flow_id", flow.id).eq("normalized_name", normalizedName).is("participant_token_hash", null).maybeSingle();
-      let data, error;
-      if (hrRow) {
-        // Link token to existing HR-added participant, preserving their progress
-        ({ data, error } = await supabase.from("public_training_participants")
-          .update({ participant_token_hash: tokenHash, display_name: displayName, last_seen_at: nowIso() })
-          .eq("id", hrRow.id).select("*").single());
-      } else {
-        const row = { flow_id: flow.id, display_name: displayName, normalized_name: normalizedName, participant_token_hash: tokenHash, last_seen_at: nowIso() };
-        ({ data, error } = await supabase.from("public_training_participants")
-          .upsert(row, { onConflict: "flow_id,normalized_name" }).select("*").single());
-      }
+      const row = { flow_id: flow.id, display_name: displayName, normalized_name: normalizedName, participant_token_hash: tokenHash, last_seen_at: nowIso() };
+      const { data, error } = await supabase.from("public_training_participants")
+        .upsert(row, { onConflict: "flow_id,normalized_name" }).select("*").single();
       if (error) return json({ ok: false, error: error.message }, 500);
       return json({ ok: true, participantToken: rawToken, ...statePayload(flow, data) });
     }
@@ -514,44 +503,6 @@ export async function handlePublicTraining(request, env) {
     return json({ ok: true, participants: (data || []).map(participantPublic) });
   }
 
-  if (rest === "participants" && method === "POST") {
-    const body = await readJson(request);
-    const displayName = cleanName(body.displayName || "");
-    if (displayName.length < 2 || displayName.length > 120) return json({ ok: false, error: "INVALID_NAME" }, 400);
-    const department = String(body.department || "").trim().slice(0, 100) || null;
-    const location = String(body.location || "").trim().slice(0, 100) || null;
-    const mode = String(body.mode || "").trim().slice(0, 50) || null;
-    const note = String(body.note || "").trim().slice(0, 500) || null;
-    const normalizedName = normalizeName(displayName);
-
-    const { data: existing, error: checkErr } = await supabase.from("public_training_participants")
-      .select("id, display_name, source").eq("flow_id", id).eq("normalized_name", normalizedName).maybeSingle();
-    if (checkErr) return json({ ok: false, error: checkErr.message }, 500);
-    if (existing) {
-      return json({ ok: false, error: "DUPLICATE_PARTICIPANT", existingId: existing.id, existingName: existing.display_name }, 409);
-    }
-
-    const row = {
-      flow_id: id,
-      display_name: displayName,
-      normalized_name: normalizedName,
-      participant_token_hash: null,
-      source: "hr_manual",
-      is_external: true,
-      hr_department: department,
-      hr_location: location,
-      hr_mode: mode,
-      hr_note: note,
-      last_seen_at: nowIso(),
-    };
-    const { data: created, error: insertErr } = await supabase.from("public_training_participants").insert([row]).select("*").single();
-    if (insertErr) return json({ ok: false, error: insertErr.message }, 500);
-    await audit(supabase, request, "public_training.participant_hr_added", actor, id, {
-      flowId: id, participantId: created.id, displayName, actor: actor?.accountId || actor?.id || null, createdAt: nowIso(),
-    });
-    return json({ ok: true, participant: participantPublic(created) });
-  }
-
   if (rest === "participants/bulk-complete" && method === "POST") {
     const body = await readJson(request);
     const step = body.step;
@@ -590,9 +541,34 @@ export async function handlePublicTraining(request, env) {
   }
 
   if (rest === "roster" && method === "GET") {
-    const { data, error } = await supabase.from("public_training_roster").select("*").eq("flow_id", id).order("full_name");
+    const { data, error } = await supabase.from("public_training_roster").select("*").eq("flow_id", id).order("given_name", { nullsFirst: false }).order("full_name");
     if (error) return json({ ok: false, error: error.message }, 500);
     return json({ ok: true, roster: data || [] });
+  }
+
+  if (rest === "roster" && method === "POST") {
+    const body = await readJson(request);
+    const fullName = cleanName(body.fullName || "");
+    if (fullName.length < 2 || fullName.length > 120) return json({ ok: false, error: "INVALID_NAME" }, 400);
+    // givenName defaults to last word in full name (Vietnamese given name is last)
+    const rawGiven = cleanName(body.givenName || "");
+    const givenName = rawGiven || fullName.trim().split(/\s+/).pop();
+    const normalizedName = normalizeName(fullName);
+    const department = String(body.department || "").trim().slice(0, 100) || null;
+    const location = String(body.location || "").trim().slice(0, 100) || null;
+    const mode = String(body.mode || "").trim().slice(0, 50) || null;
+
+    const { data: existing } = await supabase.from("public_training_roster")
+      .select("id, full_name").eq("flow_id", id).eq("normalized_name", normalizedName).maybeSingle();
+    if (existing) return json({ ok: false, error: "DUPLICATE_ROSTER_ENTRY", existingId: existing.id, existingName: existing.full_name }, 409);
+
+    const row = { flow_id: id, full_name: fullName, normalized_name: normalizedName, given_name: givenName, department, location, mode, source: "hr_manual" };
+    const { data: created, error: insertErr } = await supabase.from("public_training_roster").insert([row]).select("*").single();
+    if (insertErr) return json({ ok: false, error: insertErr.message }, 500);
+    await audit(supabase, request, "public_training.roster_entry_added", actor, id, {
+      flowId: id, rosterId: created.id, fullName, actor: actor?.accountId || actor?.id || null,
+    });
+    return json({ ok: true, entry: created });
   }
 
   if (rest === "roster" && method === "DELETE") {

@@ -6550,20 +6550,7 @@ function adminLiveTrainingDetailPage() {
   } else if (activeTab === "participants") {
     const joinedCount = (liveTrainingState.participants || []).length;
     const bulkState = liveTrainingState.bulkCompleteState || {};
-    const manualState = liveTrainingState;
-    function participantSourceBadge(p) {
-      if (p.source === "hr_manual") return `<span class="ptc-badge ptc-badge--hr">HR thêm thủ công</span>`;
-      if (p.isExternal) return `<span class="ptc-badge ptc-badge--ext">Ngoài danh sách</span>`;
-      return `<span class="ptc-badge ptc-badge--roster">Trong danh sách</span>`;
-    }
-    function participantStatusBadge(p) {
-      if (p.completedAt) return `<span class="ptc-status ptc-status--done">Đã hoàn thành</span>`;
-      if (p.pretestStartedAt || p.posttestStartedAt || p.evaluationStartedAt || p.hasToken) return `<span class="ptc-status ptc-status--active">Đang tham gia</span>`;
-      return `<span class="ptc-status ptc-status--pending">Chưa truy cập</span>`;
-    }
-    const manualAddModal = manualState.manualAddOpen ? `<div class="modal-backdrop open"><section class="modal modal--small modal--structured"><header class="modal__header"><div><h2>Thêm người tham gia thủ công</h2></div><button class="icon-btn" data-manual-add-close>×</button></header><div class="modal__body"><div class="field"><label>Họ và tên <span style="color:red">*</span></label><input id="manualAddName" placeholder="Nguyễn Văn An" maxlength="120" autocomplete="off" style="width:100%"></div><div class="field"><label>Phòng ban</label><input id="manualAddDept" placeholder="Khối Môi giới" maxlength="100" style="width:100%"></div><div class="field"><label>Địa điểm</label><input id="manualAddLoc" placeholder="Hà Nội" maxlength="100" style="width:100%"></div><div class="field"><label>Hình thức</label><input id="manualAddMode" placeholder="Trực tiếp" maxlength="50" style="width:100%"></div><div class="field"><label>Ghi chú nội bộ</label><textarea id="manualAddNote" rows="2" maxlength="500" placeholder="Ghi chú dành cho HR..." style="width:100%"></textarea></div>${manualState.manualAddError ? `<p class="field-error" style="margin-top:8px">${escapeHtml(manualState.manualAddError)}</p>` : ""}</div><footer class="modal__footer"><button class="btn btn-outline" data-manual-add-close>Hủy</button><button class="btn btn-primary" data-manual-add-submit ${manualState.manualAddSaving ? "disabled" : ""} style="min-width:140px">${manualState.manualAddSaving ? "Đang lưu..." : "Thêm người tham gia"}</button></footer></section></div>` : "";
-    const dupHighlight = manualState.manualAddDupId;
-    tabContent = `${manualAddModal}<section class="ui-card live-bulk-section">
+    tabContent = `<section class="ui-card live-bulk-section">
       <h3 style="margin:0 0 12px;font-size:15px;font-weight:700">${liveT("bulkCompleteTitle")}</h3>
       <div class="live-bulk-actions">
         <button class="btn btn-outline live-bulk-btn live-bulk-pretest" data-bulk-complete="pretest" ${bulkState.loading === "pretest" ? "disabled" : ""}>${bulkState.loading === "pretest" ? "..." : `${liveT("bulkCompletePretest")} (${joinedCount})`}</button>
@@ -6571,12 +6558,20 @@ function adminLiveTrainingDetailPage() {
         <button class="btn btn-outline live-bulk-btn live-bulk-evaluation" data-bulk-complete="evaluation" ${bulkState.loading === "evaluation" ? "disabled" : ""}>${bulkState.loading === "evaluation" ? "..." : `${liveT("bulkCompleteEvaluation")} (${joinedCount})`}</button>
       </div>
     </section>
-    <section class="ui-card"><div class="table-tools"><input data-live-search placeholder="Tìm theo tên" value="${escapeHtmlAttribute(liveTrainingState.search)}"><button class="btn btn-outline" data-live-detail-reload>Làm mới</button><button class="btn btn-primary" data-manual-add-open style="margin-left:auto;gap:6px;min-height:44px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> Thêm người tham gia</button></div>
-      <div class="table-wrap"><table class="data-table"><thead><tr><th>${liveT("fullName")}</th><th>Nguồn</th><th>Trạng thái</th><th>Pre</th><th>Post</th><th>${liveT("evaluation")}</th><th>${liveT("completion")}</th><th>${t("admin.action")}</th></tr></thead><tbody>
-      ${participants.map((p) => `<tr${dupHighlight === p.id ? ' class="row--dup-highlight" id="dup-participant-' + p.id + '"' : ""}><td>${escapeHtml(p.displayName)}</td><td>${participantSourceBadge(p)}</td><td>${participantStatusBadge(p)}</td><td>${p.pretestCompletedAt ? liveT("done") : p.pretestStartedAt ? liveT("started") : "—"}</td><td>${p.posttestCompletedAt ? liveT("done") : p.posttestStartedAt ? liveT("started") : "—"}</td><td>${p.evaluationCompletedAt ? liveT("done") : p.evaluationStartedAt ? liveT("started") : "—"}</td><td>${p.completedAt ? liveT("done") : "—"}</td><td><div class="row-actions"><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="pretestCompleted">Pre ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="posttestCompleted">Post ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="evaluationCompleted">${liveT("evaluation")} ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="completed">${liveT("completion")}</button><button class="btn btn-outline mini-action" data-live-participant-reset="${p.id}">Reset</button><button class="btn btn-danger mini-action" data-live-participant-delete="${p.id}" data-live-participant-name="${escapeHtmlAttribute(p.displayName)}">Xóa</button></div></td></tr>`).join("") || `<tr><td colspan="8"><div class="ui-empty">Chưa có người tham gia.</div></td></tr>`}
+    <section class="ui-card"><div class="table-tools"><input data-live-search placeholder="Tìm theo tên" value="${escapeHtmlAttribute(liveTrainingState.search)}"><button class="btn btn-outline" data-live-detail-reload>Làm mới</button></div>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>${liveT("fullName")}</th><th>Tham gia</th><th>Gần nhất</th><th>Pre</th><th>Post</th><th>${liveT("evaluation")}</th><th>${liveT("completion")}</th><th>${t("admin.action")}</th></tr></thead><tbody>
+      ${participants.map((p) => `<tr><td>${escapeHtml(p.displayName)}</td><td>${formatDateTime(p.createdAt)}</td><td>${formatDateTime(p.lastSeenAt)}</td><td>${p.pretestCompletedAt ? liveT("done") : p.pretestStartedAt ? liveT("started") : "—"}</td><td>${p.posttestCompletedAt ? liveT("done") : p.posttestStartedAt ? liveT("started") : "—"}</td><td>${p.evaluationCompletedAt ? liveT("done") : p.evaluationStartedAt ? liveT("started") : "—"}</td><td>${p.completedAt ? liveT("done") : "—"}</td><td><div class="row-actions"><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="pretestCompleted">Pre ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="posttestCompleted">Post ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="evaluationCompleted">${liveT("evaluation")} ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="completed">${liveT("completion")}</button><button class="btn btn-outline mini-action" data-live-participant-reset="${p.id}">Reset</button><button class="btn btn-danger mini-action" data-live-participant-delete="${p.id}" data-live-participant-name="${escapeHtmlAttribute(p.displayName)}">Xóa</button></div></td></tr>`).join("") || `<tr><td colspan="8"><div class="ui-empty">Chưa có người tham gia.</div></td></tr>`}
       </tbody></table></div></section>`;
   } else if (activeTab === "roster") {
-    tabContent = `<section class="ui-card live-roster-section">
+    const rs = liveTrainingState;
+    const rosterAddModal = rs.manualAddOpen ? `<div class="modal-backdrop open"><section class="modal modal--small modal--structured"><header class="modal__header"><div><h2>Thêm vào danh sách</h2></div><button class="icon-btn" data-manual-add-close>×</button></header><div class="modal__body"><div class="field"><label>Họ và tên <span style="color:var(--danger)">*</span></label><input id="manualAddName" placeholder="Nguyễn Trần Hải Anh" maxlength="120" autocomplete="off" style="width:100%"></div><div class="field"><label>Tên dùng để sắp xếp <span style="font-size:12px;color:var(--muted)">(tự lấy nếu bỏ trống)</span></label><input id="manualAddGiven" placeholder="Anh" maxlength="60" style="width:100%"></div><div class="field"><label>Phòng ban</label><input id="manualAddDept" placeholder="Khối Môi giới" maxlength="100" style="width:100%"></div><div class="field"><label>Địa điểm</label><input id="manualAddLoc" placeholder="Hà Nội" maxlength="100" style="width:100%"></div><div class="field"><label>Hình thức</label><input id="manualAddMode" placeholder="Trực tiếp" maxlength="50" style="width:100%"></div>${rs.manualAddError ? `<p class="field-error" style="margin-top:8px">${escapeHtml(rs.manualAddError)}</p>` : ""}</div><footer class="modal__footer"><button class="btn btn-outline" data-manual-add-close>Hủy</button><button class="btn btn-primary" data-manual-add-submit ${rs.manualAddSaving ? "disabled" : ""} style="min-width:140px">${rs.manualAddSaving ? "Đang lưu..." : "Thêm vào danh sách"}</button></footer></section></div>` : "";
+    const dupHighlight = rs.manualAddDupId;
+    function rosterSourceBadge(r) {
+      return r.source === "hr_manual"
+        ? `<span class="ptc-badge ptc-badge--hr">HR thêm</span>`
+        : `<span class="ptc-badge ptc-badge--roster">Từ Excel</span>`;
+    }
+    tabContent = `${rosterAddModal}<section class="ui-card live-roster-section">
       <h2 style="margin:0 0 16px;font-size:18px">${liveT("rosterTitle")} <span style="font-weight:400;font-size:14px;color:var(--muted)">(${liveTrainingState.roster.length} ${liveT("required").toLowerCase()})</span></h2>
       <div class="live-roster-dropzone" id="liveRosterDropzone" tabindex="0" role="button" aria-label="Tải lên file Excel/CSV">
         <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -6590,7 +6585,7 @@ function adminLiveTrainingDetailPage() {
         <div class="table-wrap" style="max-height:280px;overflow:auto"><table class="live-roster-preview-table"><thead><tr><th>#</th><th>Họ và tên</th><th>Phòng ban</th><th>Địa điểm</th><th>Hình thức</th></tr></thead><tbody>${p.records.slice(0,50).map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.fullName)}</td><td>${escapeHtml(r.department||"")}</td><td>${escapeHtml(r.location||"")}</td><td>${escapeHtml(r.mode||"")}</td></tr>`).join("")}${p.records.length>50?`<tr><td colspan="5" style="text-align:center;color:var(--muted)">... và ${p.records.length-50} dòng nữa</td></tr>`:""}</tbody></table></div>
         <button class="btn btn-primary" style="margin-top:14px" id="liveRosterSaveBtn">${liveT("saveRoster")}</button></div>`;
       })() : ""}
-      ${liveTrainingState.roster.length > 0 ? `<div style="margin-top:24px"><div class="table-tools" style="margin-bottom:8px"><input placeholder="Tìm trong danh sách..." data-live-roster-search value="${escapeHtmlAttribute(liveTrainingState.rosterSearch)}"><button class="btn btn-danger" style="margin-left:auto" data-live-roster-clear>🗑 ${liveT("clearRoster")}</button></div><div class="table-wrap" style="max-height:360px;overflow:auto"><table class="live-roster-preview-table"><thead><tr><th>#</th><th>Họ và tên</th><th>Phòng ban</th><th>Địa điểm</th><th>Hình thức</th><th></th></tr></thead><tbody>${(liveTrainingState.rosterSearch ? liveTrainingState.roster.filter(r=>r.full_name.toLowerCase().includes(liveTrainingState.rosterSearch.toLowerCase())) : liveTrainingState.roster).map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.full_name)}</td><td>${escapeHtml(r.department||"")}</td><td>${escapeHtml(r.location||"")}</td><td>${escapeHtml(r.mode||"")}</td><td><button class="btn btn-danger mini-action" data-live-roster-delete="${escapeHtmlAttribute(r.id)}">Xóa</button></td></tr>`).join("")}</tbody></table></div></div>` : ""}
+      ${liveTrainingState.roster.length > 0 ? `<div style="margin-top:24px"><div class="table-tools" style="margin-bottom:8px"><input placeholder="Tìm trong danh sách..." data-live-roster-search value="${escapeHtmlAttribute(liveTrainingState.rosterSearch)}"><button class="btn btn-primary" data-manual-add-open style="gap:6px;min-height:44px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> Thêm vào danh sách</button><button class="btn btn-danger" style="margin-left:auto" data-live-roster-clear>🗑 ${liveT("clearRoster")}</button></div><div class="table-wrap" style="max-height:360px;overflow:auto"><table class="live-roster-preview-table"><thead><tr><th>#</th><th>Họ và tên</th><th>Nguồn</th><th>Phòng ban</th><th>Địa điểm</th><th>Hình thức</th><th></th></tr></thead><tbody>${(liveTrainingState.rosterSearch ? liveTrainingState.roster.filter(r=>r.full_name.toLowerCase().includes(liveTrainingState.rosterSearch.toLowerCase())) : liveTrainingState.roster).map((r,i)=>`<tr${dupHighlight === r.id ? ` class="row--dup-highlight" id="dup-roster-${r.id}"` : ""}><td>${i+1}</td><td>${escapeHtml(r.full_name)}</td><td>${rosterSourceBadge(r)}</td><td>${escapeHtml(r.department||"")}</td><td>${escapeHtml(r.location||"")}</td><td>${escapeHtml(r.mode||"")}</td><td><button class="btn btn-danger mini-action" data-live-roster-delete="${escapeHtmlAttribute(r.id)}">Xóa</button></td></tr>`).join("")}</tbody></table></div></div>` : `<div style="margin-top:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><p class="live-roster-stats" style="margin:0">Chưa có danh sách.</p><button class="btn btn-primary" data-manual-add-open style="gap:6px;min-height:44px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> Thêm vào danh sách</button></div>`}
     </section>`;
   } else if (activeTab === "speaker") {
     const cropState = liveTrainingState;
@@ -6707,11 +6702,16 @@ function publicTrainingPage(accessToken) {
       const s = publicTrainingState.steps?.[step] || {};
       const started = p?.[`${step}StartedAt`];
       const done = p?.[`${step}CompletedAt`];
+      const activated = publicTrainingState.stepActivated?.[step];
+      const statusClass = done ? "pub-step-badge--done" : started ? "pub-step-badge--started" : s.state === "open" ? "pub-step-badge--open" : "pub-step-badge--waiting";
       const status = done ? liveT("done") : started ? liveT("started") : !s.required ? liveT("optional") : s.state === "open" ? liveT("available") : liveT("notOpen");
       const descHtml = s.description ? `<p class="pub-step-desc">${escapeHtml(s.description)}</p>` : "";
       const isCountdownStep = publicTrainingState.countdownStep === step;
       let body;
-      if (s.state !== "open") {
+      if (done) {
+        // Completed — show a clear green done button (non-interactive)
+        body = `<button class="btn btn-step-done" disabled aria-label="${escapeHtmlAttribute(doneLabel)}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> ${doneLabel}</button>`;
+      } else if (s.state !== "open") {
         body = `<span class="pub-step-wait">${liveT("waitingNamed").replace("{step}", label)}</span>`;
       } else if (!s.url) {
         body = `<span class="pub-step-wait">${liveT("missingUrl")}</span>`;
@@ -6719,25 +6719,25 @@ function publicTrainingPage(accessToken) {
         // Countdown popup inline
         const cdSec = publicTrainingState.countdownSec;
         const cdReady = publicTrainingState.countdownReady;
-        // Always show copy link inside countdown popup
         const copyLinkHtml = `<div class="pub-copy-wrap"><input class="pub-copy-url" readonly value="${escapeHtmlAttribute(s.url)}" aria-label="URL"><button class="btn btn-outline pub-copy-btn" data-public-copy-link="${step}">${liveT("copyLinkBtn")}</button></div>`;
-        // Anchor always present once ready; disabled button while counting
         const openBtnHtml = cdReady
           ? `<a href="${escapeHtmlAttribute(s.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary pub-open-anchor" data-public-anchor-step="${step}" style="min-height:44px;display:flex;align-items:center;justify-content:center">${liveT(`countdownOpen_${step}`)}</a>`
           : `<button class="btn btn-primary" disabled>${liveT("countdownWaiting").replace("{n}", cdSec)}</button>`;
         const cdSecHtml = !cdReady ? `<p class="pub-cd-sec">${liveT("countdownSec").replace("{n}", cdSec)}</p>` : "";
-        const activated = publicTrainingState.stepActivated?.[step];
         const showConfirm = cdReady && (started || activated);
-        const confirmHtml = showConfirm ? `<button class="btn btn-success" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : (cdReady ? `<p style="font-size:13px;color:var(--muted);text-align:center;margin:0">Nút xác nhận sẽ hiển thị sau khi Anh/Chị mở hoặc sao chép liên kết.</p>` : `<p class="pub-cd-wait-hint" style="font-size:13px;color:var(--muted);text-align:center;margin:0">Nút xác nhận sẽ hiển thị sau 5 giây…</p>`);
+        const confirmHtml = showConfirm
+          ? `<button class="btn btn-success pub-confirm-btn" data-public-step-complete="${step}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> ${doneLabel}</button>`
+          : (cdReady
+            ? `<p class="pub-cd-hint">Anh/Chị vui lòng hoàn thành nội dung tại liên kết, sau đó quay lại và xác nhận bên dưới.</p>`
+            : `<p class="pub-cd-hint">Nút xác nhận sẽ hiển thị sau 5 giây…</p>`);
         body = `<div class="pub-countdown-popup"><h3 class="pub-cd-title">${liveT(`countdownTitle_${step}`)}</h3><p class="pub-cd-body">${liveT("countdownBody")}</p>${cdSecHtml}<p class="pub-cd-after">${liveT("countdownAfter")}</p>${openBtnHtml}${copyLinkHtml}<button class="btn btn-ghost" data-public-countdown-close style="margin-top:6px">${liveT("closeBtn")}</button>${confirmHtml}</div>`;
       } else {
-        // Normal state: show open button (and complete button if already started or activated)
-        const activated = publicTrainingState.stepActivated?.[step];
+        // Normal (not in countdown popup)
         const copyHtml = s.showCopyLink ? `<div class="pub-copy-wrap"><input class="pub-copy-url" readonly value="${escapeHtmlAttribute(s.url)}" aria-label="URL"><button class="btn btn-outline pub-copy-btn" data-public-copy-link="${step}">${liveT("copyLinkBtn")}</button></div>` : "";
         const showConfirmNormal = started || activated;
-        body = `<button class="btn btn-primary" data-public-step-open="${step}">${openLabel}</button>${copyHtml}${showConfirmNormal ? `<button class="btn btn-outline" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : ""}`;
+        body = `<button class="btn btn-primary" data-public-step-open="${step}">${openLabel}</button>${copyHtml}${showConfirmNormal ? `<button class="btn btn-success pub-confirm-btn" data-public-step-complete="${step}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> ${doneLabel}</button>` : ""}`;
       }
-      return `<article class="public-step ${done ? "is-done" : ""}"><div><h2>${label}</h2><span class="pub-step-badge">${status}</span>${descHtml}</div><div class="pub-step-actions">${body}</div></article>`;
+      return `<article class="public-step ${done ? "is-done" : started ? "is-started" : ""}"><div><h2>${label}</h2><span class="pub-step-badge ${statusClass}">${done ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> ` : ""}${status}</span>${descHtml}</div><div class="pub-step-actions">${body}</div></article>`;
     };
     const completionOpen = publicTrainingState.completionEligible;
     const _sp = f.speaker;
@@ -7770,7 +7770,7 @@ function bindEvents() {
       },
     });
   }));
-  // Manual add participant
+  // Manual add to roster
   document.querySelector("[data-manual-add-open]")?.addEventListener("click", () => {
     liveTrainingState.manualAddOpen = true;
     liveTrainingState.manualAddError = "";
@@ -7787,10 +7787,10 @@ function bindEvents() {
   document.querySelector("[data-manual-add-submit]")?.addEventListener("click", async () => {
     const flowId = route.split("/")[3];
     const name = document.getElementById("manualAddName")?.value?.trim() || "";
+    const given = document.getElementById("manualAddGiven")?.value?.trim() || "";
     const dept = document.getElementById("manualAddDept")?.value?.trim() || "";
     const loc = document.getElementById("manualAddLoc")?.value?.trim() || "";
     const mode = document.getElementById("manualAddMode")?.value?.trim() || "";
-    const note = document.getElementById("manualAddNote")?.value?.trim() || "";
     if (!name || name.length < 2) {
       liveTrainingState.manualAddError = "Vui lòng nhập họ và tên (ít nhất 2 ký tự).";
       render(); return;
@@ -7799,35 +7799,29 @@ function bindEvents() {
     liveTrainingState.manualAddError = "";
     render();
     try {
-      const res = await fetch(`/api/admin/live-training/${encodeURIComponent(flowId)}/participants`, {
+      const res = await fetch(`/api/admin/live-training/${encodeURIComponent(flowId)}/roster`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(session ? { Authorization: `Bearer ${session.token}` } : {}) },
-        body: JSON.stringify({ displayName: name, department: dept, location: loc, mode, note }),
+        body: JSON.stringify({ fullName: name, givenName: given, department: dept, location: loc, mode }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (body.error === "DUPLICATE_PARTICIPANT") {
-          liveTrainingState.manualAddError = `Người tham gia này đã tồn tại trong hành trình.`;
+        if (body.error === "DUPLICATE_ROSTER_ENTRY") {
+          liveTrainingState.manualAddError = "Tên này đã có trong danh sách.";
           liveTrainingState.manualAddDupId = body.existingId || null;
           liveTrainingState.manualAddOpen = false;
           render();
-          if (body.existingId) {
-            setTimeout(() => {
-              const el = document.getElementById(`dup-participant-${body.existingId}`);
-              el?.scrollIntoView({ behavior: "smooth", block: "center" });
-            }, 100);
-          }
+          if (body.existingId) setTimeout(() => document.getElementById(`dup-roster-${body.existingId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
           return;
         }
         throw new Error(body.error || "ADD_FAILED");
       }
-      // Append without full reload
-      if (body.participant) liveTrainingState.participants = [...(liveTrainingState.participants || []), body.participant];
+      if (body.entry) liveTrainingState.roster = [...(liveTrainingState.roster || []), body.entry].sort((a, b) => (a.full_name || "").localeCompare(b.full_name || "", "vi"));
       liveTrainingState.manualAddOpen = false;
       liveTrainingState.manualAddError = "";
       liveTrainingState.manualAddDupId = null;
       render();
-      toast("Đã thêm người tham gia");
+      toast("Đã thêm vào danh sách");
     } catch (err) {
       liveTrainingState.manualAddError = err.message || "Có lỗi xảy ra.";
       render();
