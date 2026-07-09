@@ -2137,6 +2137,7 @@ function header() {
       <div class="container header-inner">
         ${brand()}
         <nav class="nav">
+          <span class="nav-ink" aria-hidden="true"></span>
           <a href="/" data-link ${route === "/" ? 'aria-current="page" class="is-active"' : ""}>${t("nav.home")}</a>
           <a href="/about-kis" data-link ${route === "/about-kis" ? 'aria-current="page" class="is-active"' : ""}>${t("nav.about")}</a>
           <button class="nav-button" data-scroll="featured-courses">${t("nav.courses")}</button>
@@ -7059,6 +7060,21 @@ function render() {
       sw.style.setProperty("--lang-x", `${btnRect.left - swRect.left}px`);
       sw.style.setProperty("--lang-w", `${btnRect.width}px`);
     });
+    // Sliding nav indicator
+    const nav = document.querySelector("header.header .nav");
+    if (nav) {
+      const ink = nav.querySelector(".nav-ink");
+      const activeLink = nav.querySelector("a.is-active, a[aria-current='page']");
+      if (ink && activeLink) {
+        const navRect = nav.getBoundingClientRect();
+        const linkRect = activeLink.getBoundingClientRect();
+        nav.style.setProperty("--nav-x", `${linkRect.left - navRect.left}px`);
+        nav.style.setProperty("--nav-w", `${linkRect.width}px`);
+        nav.style.setProperty("--nav-ink-opacity", "1");
+      } else if (ink) {
+        nav.style.setProperty("--nav-ink-opacity", "0");
+      }
+    }
   });
   // Landing entrance animation — trigger once per navigation to "/"
   if (route === "/" && !dialogState) {
@@ -7473,6 +7489,18 @@ function bindShellEvents() {
   });
   window.addEventListener("resize", () => {
     if (window.innerWidth >= 901 && mobileNavOpen) { mobileNavOpen = false; document.body.classList.remove("nav-open"); render(); }
+    // Reposition nav ink on resize
+    const nav = document.querySelector("header.header .nav");
+    if (nav) {
+      const ink = nav.querySelector(".nav-ink");
+      const activeLink = nav.querySelector("a.is-active, a[aria-current='page']");
+      if (ink && activeLink) {
+        const navRect = nav.getBoundingClientRect();
+        const linkRect = activeLink.getBoundingClientRect();
+        nav.style.setProperty("--nav-x", `${linkRect.left - navRect.left}px`);
+        nav.style.setProperty("--nav-w", `${linkRect.width}px`);
+      }
+    }
   });
 }
 

@@ -8913,22 +8913,29 @@ body { overflow-x: clip; }
 }
 
 /* ── Header — active nav state ── */
+.nav {
+  position: relative;
+}
 .nav a[aria-current="page"],
 .nav a.is-active {
   color: var(--tok-navy);
   font-weight: 800;
-  position: relative;
 }
-.nav a[aria-current="page"]::after,
-.nav a.is-active::after {
-  content: "";
+.nav-ink {
   position: absolute;
   bottom: -4px;
   left: 0;
-  right: 0;
   height: 2px;
-  background: var(--tok-navy);
+  width: var(--nav-w, 0px);
+  background: var(--tok-navy, #0b1f3a);
   border-radius: 2px;
+  pointer-events: none;
+  transform: translateX(var(--nav-x, 0px));
+  opacity: var(--nav-ink-opacity, 0);
+  transition: transform 250ms cubic-bezier(.22,.61,.36,1), width 250ms cubic-bezier(.22,.61,.36,1), opacity 150ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-ink { transition: none; }
 }
 
 /* ── Eyebrow label ── */
@@ -10680,16 +10687,19 @@ body { overflow-x: clip; }
   background: rgba(23, 74, 124, 0.1);
   animation: none;
 }
+.about-page .timeline-carousel .container {
+  max-width: 1280px;
+}
 .about-page .timeline-carousel__content {
-  min-height: 430px;
+  min-height: 460px;
 }
 .about-page .timeline-carousel__content-inner {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 0.58fr) minmax(280px, 0.42fr);
-  gap: clamp(28px, 4vw, 48px);
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 480px);
+  gap: clamp(32px, 4.5vw, 56px);
   align-items: center;
-  min-height: 430px;
+  min-height: 460px;
   opacity: 1;
   transition: opacity 150ms ease;
 }
@@ -10699,28 +10709,36 @@ body { overflow-x: clip; }
 .about-page .timeline-carousel__watermark {
   right: -12px;
   bottom: -18px;
+  font-size: clamp(160px, 16vw, 280px);
   color: #edf2f7;
-  opacity: 0.52;
+  opacity: 0.38;
   animation: none;
 }
 .about-page .timeline-carousel__image {
   box-shadow: none;
   border: 1px solid #dfe7f0;
+  aspect-ratio: 3 / 2;
 }
 .about-page .timeline-carousel__image img {
   animation: none;
 }
 .about-page .timeline-carousel__info {
-  max-width: 460px;
+  max-width: none;
 }
 .about-page .timeline-carousel__year-big {
-  margin: 0 0 26px;
+  font-size: clamp(48px, 4.5vw, 72px);
+  margin: 0 0 24px;
   color: #0b1f3a;
   background: none;
   -webkit-text-fill-color: currentColor;
   animation: none;
 }
+.about-page .timeline-carousel__events {
+  gap: 18px;
+}
 .about-page .timeline-carousel__events li {
+  font-size: clamp(15.5px, 1.1vw + 2px, 18px);
+  line-height: 1.7;
   animation: none;
 }
 .about-page .timeline-carousel__btn {
@@ -10830,6 +10848,12 @@ body { overflow-x: clip; }
   }
 }
 @media (max-width: 560px) {
+  .about-page .timeline-carousel__events li {
+    font-size: 15px;
+  }
+  .about-page .timeline-carousel__year-big {
+    font-size: clamp(40px, 11vw, 60px);
+  }
   .about-page .about-hero-v2__stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
