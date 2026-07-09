@@ -562,7 +562,7 @@ export async function handlePublicTraining(request, env) {
       .select("id, full_name").eq("flow_id", id).eq("normalized_name", normalizedName).maybeSingle();
     if (existing) return json({ ok: false, error: "DUPLICATE_ROSTER_ENTRY", existingId: existing.id, existingName: existing.full_name }, 409);
 
-    const row = { flow_id: id, full_name: fullName, normalized_name: normalizedName, given_name: givenName, department, location, mode, source: "hr_manual" };
+    const row = { flow_id: id, full_name: fullName, normalized_name: normalizedName, given_name: givenName, department, location, mode, source: "manual" };
     const { data: created, error: insertErr } = await supabase.from("public_training_roster").insert([row]).select("*").single();
     if (insertErr) return json({ ok: false, error: insertErr.message }, 500);
     await audit(supabase, request, "public_training.roster_entry_added", actor, id, {
