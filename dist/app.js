@@ -849,6 +849,7 @@ let galleryYear = "";
 let resourceSearch = "";
 let employeeFormOpen=false;
 let employeeCreateResult=null;
+let _pendingEmployee=null;
 let notificationModalOpen=false;
 let notificationFilter="all";
 let notificationPage=1;
@@ -3053,11 +3054,48 @@ function bindEmployeeDirectoryResultEvents(root = document) {
     _deleteEmployeeConfirming = false;
     render();
   }));
+  root.querySelector("[data-dismiss-pending-employee]")?.addEventListener("click", () => { _pendingEmployee = null; renderEmployeeDirectoryResults(); });
+  root.querySelector("[data-retry-create-employee]")?.addEventListener("click", () => {
+    if (!_pendingEmployee?.formData) return;
+    const savedData = _pendingEmployee.formData, photoFile = _pendingEmployee.photoFile;
+    const pendingId = `emp-pending-${Date.now()}`;
+    _pendingEmployee = { ..._pendingEmployee, id: pendingId, status: "creating", error: null, errorMsg: null };
+    renderEmployeeDirectoryResults();
+    const slowTimer = setTimeout(() => { if (_pendingEmployee?.id === pendingId && _pendingEmployee.status === "creating") { _pendingEmployee = { ..._pendingEmployee, status: "slow" }; renderEmployeeDirectoryResults(); } }, 15000);
+    employeeService.create(savedData).then(result => {
+      clearTimeout(slowTimer);
+      if (!result.ok) { const errMap = { duplicate_email: "Email này đã được sử dụng bởi tài khoản khác.", DUPLICATE_EMAIL: "Email này đã được sử dụng bởi tài khoản khác.", duplicate_code: "Mã nhân viên này đã tồn tại.", DUPLICATE_CODE: "Mã nhân viên này đã tồn tại.", MISSING_FULL_NAME: "Vui lòng nhập họ và tên.", MISSING_EMAIL: "Vui lòng nhập email hợp lệ." }; if (_pendingEmployee?.id === pendingId) _pendingEmployee = { ..._pendingEmployee, status: "error", errorMsg: errMap[result.error] || result.error || "Không thể tạo tài khoản." }; renderEmployeeDirectoryResults(); return; }
+      if (_pendingEmployee?.id === pendingId) _pendingEmployee = null;
+      const newEmp = { id: result.account.id, fullName: result.account.fullName, email: result.account.email, department: savedData.department || "", position: savedData.position || "", employeeCode: savedData.employeeCode || "", accountStatus: savedData.accountStatus || "active", role: "employee", phone: "", joinedDate: savedData.joinDate || "", managerName: savedData.managerName || "", location: savedData.location || "", certificateType: "", createdAt: new Date().toISOString() };
+      _apiEmployees = [newEmp, ..._apiEmployees];
+      employeeCreateResult = result;
+      render();
+      if (photoFile) employeeService.uploadPhoto(result.account.id, photoFile).catch(() => toast("Tài khoản đã được tạo, nhưng ảnh đại diện chưa tải lên được."));
+    }).catch(() => { clearTimeout(slowTimer); if (_pendingEmployee?.id === pendingId) _pendingEmployee = { ..._pendingEmployee, status: "error", errorMsg: "Không thể tạo tài khoản. Vui lòng thử lại." }; renderEmployeeDirectoryResults(); });
+  });
+}
+
+function pendingEmployeeRowHtml() {
+  if (!_pendingEmployee) return "";
+  const isError = _pendingEmployee.status === "error";
+  const isSlow = _pendingEmployee.status === "slow";
+  const statusCell = isError
+    ? `<span class="badge disabled">Lỗi tạo</span>`
+    : `<span class="badge pending"><span class="spinner-xs" aria-hidden="true"></span>${isSlow ? "Đang xử lý..." : "Đang tạo"}</span>`;
+  const nameCell = isError
+    ? `<strong>${escapeHtml(_pendingEmployee.fullName)}</strong><br><small class="text-error">${escapeHtml(_pendingEmployee.errorMsg || "Không thể tạo tài khoản")}</small>`
+    : `<strong>${escapeHtml(_pendingEmployee.fullName)}</strong><br><small class="muted">Đang tạo tài khoản...</small>`;
+  const actionCell = isError
+    ? `<div class="row-actions"><button class="btn btn-outline mini-action" data-retry-create-employee>Thử lại</button><button class="btn btn-outline mini-action" data-dismiss-pending-employee>Bỏ qua</button></div>`
+    : "";
+  return `<tr class="employee-pending-row${isError ? " employee-pending-error" : ""}"><td>—</td><td>${nameCell}</td><td>${escapeHtml(_pendingEmployee.department || "")}</td><td>${escapeHtml(_pendingEmployee.position || "")}</td><td>${escapeHtml(_pendingEmployee.email || "")}</td><td>${statusCell}</td><td></td><td>${actionCell}</td></tr>`;
 }
 
 function employeeDirectoryTable(rows, offset = 0) {
-  if (!rows.length) return `<div class="empty-state"><p>Không tìm thấy nhân viên nào.</p></div>`;
-  return `<div class="table-wrap employee-directory-table"><table><thead><tr><th>STT</th><th>${t("table.fullName")}</th><th>${t("table.department")}</th><th>${t("table.position")}</th><th>${t("table.email")}</th><th>${t("table.accountStatus")}</th><th>CCHN</th><th>${t("admin.action")}</th></tr></thead><tbody>${rows.map((emp, index) => `<tr>
+  const pendingRow = pendingEmployeeRowHtml();
+  if (!rows.length && !pendingRow) return `<div class="empty-state"><p>Không tìm thấy nhân viên nào.</p></div>`;
+  const thead = `<thead><tr><th>STT</th><th>${t("table.fullName")}</th><th>${t("table.department")}</th><th>${t("table.position")}</th><th>${t("table.email")}</th><th>${t("table.accountStatus")}</th><th>CCHN</th><th>${t("admin.action")}</th></tr></thead>`;
+  const bodyRows = rows.map((emp, index) => `<tr>
     <td>${offset + index + 1}</td>
     <td><strong>${escapeHtml(emp.fullName || "")}</strong></td>
     <td>${escapeHtml(emp.department || "")}</td>
@@ -3072,7 +3110,8 @@ function employeeDirectoryTable(rows, offset = 0) {
       <button class="btn btn-outline mini-action" data-reset-account="${escapeHtmlAttribute(emp.id)}">${t("admin.resetPassword")}</button>
       <button type="button" class="btn btn-outline mini-action danger-action" data-delete-employee="${escapeHtmlAttribute(emp.id)}" data-delete-employee-name="${escapeHtmlAttribute(emp.fullName || "")}">Xóa</button>
     </div></td>
-  </tr>`).join("")}</tbody></table></div>`;
+  </tr>`).join("");
+  return `<div class="table-wrap employee-directory-table"><table>${thead}<tbody>${pendingRow}${bodyRows}</tbody></table></div>`;
 }
 
 function loginPage() {
@@ -8260,7 +8299,7 @@ const {localStorageAdapter:lsa}=await import("./lib/storage/localStorageAdapter.
   initTimelineCarousel();
   document.querySelectorAll("[data-close-employee-form]").forEach(el=>el.addEventListener("click",()=>{employeeFormOpen=false;employeeCreateResult=null;render();}));
   document.getElementById("newEmployeePhoto")?.addEventListener("change",event=>{const file=event.target.files?.[0],preview=document.querySelector(".employee-photo-preview");if(!file||!preview)return;const url=URL.createObjectURL(file);preview.innerHTML=`<img src="${url}" alt="Xem trước ảnh đại diện">`;preview.querySelector("img").addEventListener("load",()=>URL.revokeObjectURL(url),{once:true});});
-  document.getElementById("employeeCreateForm")?.addEventListener("submit",async event=>{event.preventDefault();const form=event.currentTarget,button=form.querySelector('[type="submit"]'),data=Object.fromEntries(new FormData(form));button.disabled=true;button.textContent="Đang tạo...";let result;try{result=await employeeService.create(data);}catch(e){result={ok:false,error:"CREATE_FAILED"};}if(!result.ok){const box=form.querySelector("[data-employee-form-error]");const errMap={duplicate_email:"Email này đã được sử dụng bởi tài khoản khác.",DUPLICATE_EMAIL:"Email này đã được sử dụng bởi tài khoản khác.",duplicate_code:"Mã nhân viên này đã tồn tại.",DUPLICATE_CODE:"Mã nhân viên này đã tồn tại.",MISSING_FULL_NAME:"Vui lòng nhập họ và tên.",MISSING_EMAIL:"Vui lòng nhập email hợp lệ.",PASSWORD_SET_FAILED:"Tạo tài khoản thành công nhưng không đặt được mật khẩu. Vui lòng reset mật khẩu thủ công.",ACCOUNT_NOT_FOUND:"Lỗi hệ thống: không tìm thấy hồ sơ vừa tạo. Vui lòng thử lại."};box.textContent=errMap[result.error]||result.error||"Không thể tạo tài khoản. Vui lòng thử lại.";button.disabled=false;button.textContent="Tạo hồ sơ & tài khoản";return;}const file=form.querySelector('[name="photo"]')?.files?.[0];if(file)try{await employeeService.uploadPhoto(result.account.id,file);}catch{}employeeCreateResult=result;render();});
+  document.getElementById("employeeCreateForm")?.addEventListener("submit",event=>{event.preventDefault();const form=event.currentTarget,data=Object.fromEntries(new FormData(form)),photoFile=form.querySelector('[name="photo"]')?.files?.[0]||null;const pendingId=`emp-pending-${Date.now()}`;_pendingEmployee={id:pendingId,fullName:data.fullName||"",email:data.email||"",department:data.department||"",position:data.position||"",employeeCode:data.employeeCode||"",status:"creating",error:null,photoFile,formData:data};employeeFormOpen=false;employeeCreateResult=null;render();const slowTimer=setTimeout(()=>{if(_pendingEmployee?.id===pendingId&&_pendingEmployee.status==="creating"){_pendingEmployee={..._pendingEmployee,status:"slow"};renderEmployeeDirectoryResults();}},15000);employeeService.create(data).then(result=>{clearTimeout(slowTimer);if(!result.ok){const errMap={duplicate_email:"Email này đã được sử dụng bởi tài khoản khác.",DUPLICATE_EMAIL:"Email này đã được sử dụng bởi tài khoản khác.",duplicate_code:"Mã nhân viên này đã tồn tại.",DUPLICATE_CODE:"Mã nhân viên này đã tồn tại.",MISSING_FULL_NAME:"Vui lòng nhập họ và tên.",MISSING_EMAIL:"Vui lòng nhập email hợp lệ.",PASSWORD_SET_FAILED:"Tạo tài khoản thành công nhưng không đặt được mật khẩu. Vui lòng reset mật khẩu thủ công.",ACCOUNT_NOT_FOUND:"Lỗi hệ thống: không tìm thấy hồ sơ vừa tạo. Vui lòng thử lại."};if(_pendingEmployee?.id===pendingId)_pendingEmployee={..._pendingEmployee,status:"error",errorMsg:errMap[result.error]||result.error||"Không thể tạo tài khoản."};renderEmployeeDirectoryResults();return;}clearTimeout(slowTimer);if(_pendingEmployee?.id===pendingId)_pendingEmployee=null;const newEmp={id:result.account.id,fullName:result.account.fullName,email:result.account.email,department:data.department||"",position:data.position||"",employeeCode:data.employeeCode||"",accountStatus:data.accountStatus||"active",role:"employee",phone:"",joinedDate:data.joinDate||"",managerName:data.managerName||"",location:data.location||"",certificateType:"",createdAt:new Date().toISOString()};_apiEmployees=[newEmp,..._apiEmployees];employeeCreateResult=result;render();if(photoFile)employeeService.uploadPhoto(result.account.id,photoFile).catch(()=>toast("Tài khoản đã được tạo, nhưng ảnh đại diện chưa tải lên được."));}).catch(()=>{clearTimeout(slowTimer);if(_pendingEmployee?.id===pendingId)_pendingEmployee={..._pendingEmployee,status:"error",errorMsg:"Không thể tạo tài khoản. Vui lòng thử lại."};renderEmployeeDirectoryResults();});});
   document.querySelector("[data-copy-created-account]")?.addEventListener("click",()=>navigator.clipboard.writeText(`${employeeCreateResult.account.email}\n${employeeCreateResult.temporaryPassword}`).then(()=>toast("copied")));
   document.querySelector("[data-open-notifications]")?.addEventListener("click",()=>{notificationModalOpen=true;notificationPage=1;render();refreshNotificationsCache();});
   document.querySelector("[data-retraining-refresh]")?.addEventListener("click",()=>loadRetrainingReviews(true));
