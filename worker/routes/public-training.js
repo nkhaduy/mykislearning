@@ -107,6 +107,13 @@ function participantPublic(row) {
     lastSeenAt: row.last_seen_at,
     createdAt: row.created_at,
     orientationAcknowledgedAt: row.orientation_acknowledged_at || null,
+    source: row.source || "self",
+    isExternal: Boolean(row.is_external),
+    hrDepartment: row.hr_department || null,
+    hrLocation: row.hr_location || null,
+    hrMode: row.hr_mode || null,
+    hrNote: row.hr_note || null,
+    hasToken: Boolean(row.participant_token_hash),
   };
 }
 
@@ -272,9 +279,20 @@ export async function handlePublicTraining(request, env) {
       }
       const rawToken = randomToken(32);
       const tokenHash = await sha256(rawToken);
-      const row = { flow_id: flow.id, display_name: displayName, normalized_name: normalizedName, participant_token_hash: tokenHash, last_seen_at: nowIso() };
-      const { data, error } = await supabase.from("public_training_participants")
-        .upsert(row, { onConflict: "flow_id,normalized_name" }).select("*").single();
+      // Check if HR already added this participant manually
+      const { data: hrRow } = await supabase.from("public_training_participants")
+        .select("*").eq("flow_id", flow.id).eq("normalized_name", normalizedName).is("participant_token_hash", null).maybeSingle();
+      let data, error;
+      if (hrRow) {
+        // Link token to existing HR-added participant, preserving their progress
+        ({ data, error } = await supabase.from("public_training_participants")
+          .update({ participant_token_hash: tokenHash, display_name: displayName, last_seen_at: nowIso() })
+          .eq("id", hrRow.id).select("*").single());
+      } else {
+        const row = { flow_id: flow.id, display_name: displayName, normalized_name: normalizedName, participant_token_hash: tokenHash, last_seen_at: nowIso() };
+        ({ data, error } = await supabase.from("public_training_participants")
+          .upsert(row, { onConflict: "flow_id,normalized_name" }).select("*").single());
+      }
       if (error) return json({ ok: false, error: error.message }, 500);
       return json({ ok: true, participantToken: rawToken, ...statePayload(flow, data) });
     }
@@ -310,7 +328,10 @@ export async function handlePublicTraining(request, env) {
       const step = completeMatch[1];
       const p = await requireParticipant(supabase, request, flow);
       assertCanStart(flow, p, step);
-      if (!p[`${step}_started_at`]) return json({ ok: false, error: "STEP_NOT_STARTED" }, 409);
+      // If started_at not set (e.g. tab didn't open, network error on start call), auto-set it now
+      if (!p[`${step}_started_at`]) {
+        await supabase.from("public_training_participants").update({ [`${step}_started_at`]: nowIso() }).eq("id", p.id);
+      }
       const { data, error } = await supabase.from("public_training_participants")
         .update({ [`${step}_completed_at`]: nowIso(), last_seen_at: nowIso() }).eq("id", p.id).select("*").single();
       if (error) return json({ ok: false, error: error.message }, 500);
@@ -433,6 +454,28 @@ export async function handlePublicTraining(request, env) {
     return json({ ok: true, flow: { ...data, publicLink: publicLink(request, data.access_token) } });
   }
 
+  if (rest === "speaker-photo" && method === "POST") {
+    const contentType = request.headers.get("Content-Type") || "";
+    if (!contentType.includes("multipart/form-data")) return json({ ok: false, error: "MULTIPART_REQUIRED" }, 400);
+    const formData = await request.formData().catch(() => null);
+    if (!formData) return json({ ok: false, error: "FORM_PARSE_ERROR" }, 400);
+    const file = formData.get("photo");
+    if (!file || typeof file === "string") return json({ ok: false, error: "PHOTO_REQUIRED" }, 400);
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) return json({ ok: false, error: "INVALID_FILE_TYPE" }, 400);
+    if (file.size > 5_242_880) return json({ ok: false, error: "FILE_TOO_LARGE" }, 400);
+    const ext = file.type === "image/webp" ? "webp" : file.type === "image/png" ? "png" : "jpg";
+    const storagePath = `flows/${id}/${randomToken(16)}.${ext}`;
+    const arrayBuffer = await file.arrayBuffer();
+    const { data: uploadData, error: uploadErr } = await supabase.storage.from("speaker-photos").upload(storagePath, arrayBuffer, { contentType: file.type, upsert: false });
+    if (uploadErr) return json({ ok: false, error: uploadErr.message }, 500);
+    const { data: { publicUrl } } = supabase.storage.from("speaker-photos").getPublicUrl(storagePath);
+    const { data: updated, error: patchErr } = await supabase.from("public_training_flows").update({ speaker_photo_url: publicUrl }).eq("id", id).select("*").single();
+    if (patchErr) return json({ ok: false, error: patchErr.message }, 500);
+    await audit(supabase, request, "public_training.speaker_photo_uploaded", actor, id, { flowId: id, storagePath });
+    return json({ ok: true, speakerPhotoUrl: publicUrl, flow: { ...updated, publicLink: publicLink(request, updated.access_token) } });
+  }
+
   if (rest === "close" && method === "POST") {
     const { data, error } = await supabase.from("public_training_flows").update({ status: "closed" }).eq("id", id).select("*").single();
     if (error) return json({ ok: false, error: error.message }, 500);
@@ -469,6 +512,44 @@ export async function handlePublicTraining(request, env) {
     const { data, error } = await supabase.from("public_training_participants").select("*").eq("flow_id", id).order("created_at", { ascending: true });
     if (error) return json({ ok: false, error: error.message }, 500);
     return json({ ok: true, participants: (data || []).map(participantPublic) });
+  }
+
+  if (rest === "participants" && method === "POST") {
+    const body = await readJson(request);
+    const displayName = cleanName(body.displayName || "");
+    if (displayName.length < 2 || displayName.length > 120) return json({ ok: false, error: "INVALID_NAME" }, 400);
+    const department = String(body.department || "").trim().slice(0, 100) || null;
+    const location = String(body.location || "").trim().slice(0, 100) || null;
+    const mode = String(body.mode || "").trim().slice(0, 50) || null;
+    const note = String(body.note || "").trim().slice(0, 500) || null;
+    const normalizedName = normalizeName(displayName);
+
+    const { data: existing, error: checkErr } = await supabase.from("public_training_participants")
+      .select("id, display_name, source").eq("flow_id", id).eq("normalized_name", normalizedName).maybeSingle();
+    if (checkErr) return json({ ok: false, error: checkErr.message }, 500);
+    if (existing) {
+      return json({ ok: false, error: "DUPLICATE_PARTICIPANT", existingId: existing.id, existingName: existing.display_name }, 409);
+    }
+
+    const row = {
+      flow_id: id,
+      display_name: displayName,
+      normalized_name: normalizedName,
+      participant_token_hash: null,
+      source: "hr_manual",
+      is_external: true,
+      hr_department: department,
+      hr_location: location,
+      hr_mode: mode,
+      hr_note: note,
+      last_seen_at: nowIso(),
+    };
+    const { data: created, error: insertErr } = await supabase.from("public_training_participants").insert([row]).select("*").single();
+    if (insertErr) return json({ ok: false, error: insertErr.message }, 500);
+    await audit(supabase, request, "public_training.participant_hr_added", actor, id, {
+      flowId: id, participantId: created.id, displayName, actor: actor?.accountId || actor?.id || null, createdAt: nowIso(),
+    });
+    return json({ ok: true, participant: participantPublic(created) });
   }
 
   if (rest === "participants/bulk-complete" && method === "POST") {

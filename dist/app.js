@@ -825,6 +825,8 @@ let liveTrainingState = {
   detailTab: "overview",
   speakerDraft: null,
   bulkCompleteState: { loading: null },
+  manualAddOpen: false, manualAddSaving: false, manualAddError: "", manualAddDupId: null,
+  cropOpen: false, cropFile: null, cropDataUrl: null, cropAspect: "4:5",
 };
 let liveDeleteState = { flowId: null, flowTitle: "", loading: false, error: "" };
 let publicTrainingState = {
@@ -838,6 +840,7 @@ let publicTrainingState = {
   // Countdown popup state for external link steps
   countdownStep: null, // step being prepared ("pretest"|"posttest"|"evaluation"|null)
   countdownSec: 0, countdownTimer: 0, countdownUrl: null, countdownReady: false,
+  stepActivated: {}, // tracks steps where user clicked open or copied link
   // /training route state
   trainingMode: false, // true when accessed via /training
 };
@@ -1117,6 +1120,148 @@ function liveT(key) {
 
 function liveTrainingStorageKey(flowId) {
   return `mykis.publicTraining.${flowId}`;
+}
+
+// Speaker image crop editor — pure canvas, no library
+let _cropState = null;
+function initCropEditor() {
+  const wrap = document.getElementById("cropCanvasWrap");
+  const canvas = document.getElementById("cropCanvas");
+  const previewCanvas = document.getElementById("cropPreviewCanvas");
+  const zoomInput = document.getElementById("cropZoom");
+  const saveBtn = document.getElementById("cropSaveBtn");
+  const resetBtnEl = document.getElementById("cropResetBtn");
+  if (!wrap || !canvas || !liveTrainingState.cropDataUrl) return;
+
+  const ASPECT = 4 / 5;
+  const img = new Image();
+  img.onload = () => {
+    const wrapW = wrap.clientWidth || 360;
+    const wrapH = Math.round(wrapW / ASPECT);
+    canvas.width = wrapW;
+    canvas.height = wrapH;
+    if (previewCanvas) { previewCanvas.width = 200; previewCanvas.height = 250; }
+
+    const fitScale = Math.max(wrapW / img.width, wrapH / img.height);
+    _cropState = {
+      img, wrapW, wrapH, zoom: 1,
+      offsetX: (wrapW - img.width * fitScale) / 2,
+      offsetY: (wrapH - img.height * fitScale) / 2,
+      baseScale: fitScale,
+      dragging: false, lastX: 0, lastY: 0,
+    };
+
+    function clampOffset(cs) {
+      const scale = cs.baseScale * cs.zoom;
+      const iw = cs.img.width * scale, ih = cs.img.height * scale;
+      cs.offsetX = Math.min(0, Math.max(cs.wrapW - iw, cs.offsetX));
+      cs.offsetY = Math.min(0, Math.max(cs.wrapH - ih, cs.offsetY));
+    }
+
+    function drawCrop() {
+      if (!_cropState) return;
+      const cs = _cropState;
+      const scale = cs.baseScale * cs.zoom;
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, cs.wrapW, cs.wrapH);
+      ctx.drawImage(cs.img, cs.offsetX, cs.offsetY, cs.img.width * scale, cs.img.height * scale);
+      // Dim overlay for crop area indication
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.fillRect(0, 0, cs.wrapW, cs.wrapH);
+      ctx.clearRect(0, 0, cs.wrapW, cs.wrapH);
+      ctx.drawImage(cs.img, cs.offsetX, cs.offsetY, cs.img.width * scale, cs.img.height * scale);
+      if (previewCanvas) {
+        const pCtx = previewCanvas.getContext("2d");
+        pCtx.clearRect(0, 0, 200, 250);
+        pCtx.drawImage(canvas, 0, 0, cs.wrapW, cs.wrapH, 0, 0, 200, 250);
+      }
+    }
+
+    function resetCrop() {
+      if (!_cropState) return;
+      const cs = _cropState;
+      cs.zoom = 1;
+      cs.offsetX = (cs.wrapW - cs.img.width * cs.baseScale) / 2;
+      cs.offsetY = (cs.wrapH - cs.img.height * cs.baseScale) / 2;
+      clampOffset(cs);
+      if (zoomInput) zoomInput.value = 100;
+      drawCrop();
+    }
+
+    drawCrop();
+
+    // Drag
+    canvas.onmousedown = (e) => { _cropState.dragging = true; _cropState.lastX = e.clientX; _cropState.lastY = e.clientY; canvas.style.cursor = "grabbing"; };
+    window.onmousemove = (e) => {
+      if (!_cropState?.dragging) return;
+      const cs = _cropState;
+      cs.offsetX += e.clientX - cs.lastX; cs.offsetY += e.clientY - cs.lastY;
+      cs.lastX = e.clientX; cs.lastY = e.clientY;
+      clampOffset(cs); drawCrop();
+    };
+    window.onmouseup = () => { if (_cropState) { _cropState.dragging = false; canvas.style.cursor = "grab"; } };
+    // Touch drag
+    canvas.ontouchstart = (e) => { e.preventDefault(); _cropState.dragging = true; _cropState.lastX = e.touches[0].clientX; _cropState.lastY = e.touches[0].clientY; };
+    canvas.ontouchmove = (e) => { e.preventDefault(); if (!_cropState?.dragging) return; const cs = _cropState; cs.offsetX += e.touches[0].clientX - cs.lastX; cs.offsetY += e.touches[0].clientY - cs.lastY; cs.lastX = e.touches[0].clientX; cs.lastY = e.touches[0].clientY; clampOffset(cs); drawCrop(); };
+    canvas.ontouchend = () => { if (_cropState) _cropState.dragging = false; };
+    // Zoom
+    if (zoomInput) zoomInput.addEventListener("input", () => {
+      if (!_cropState) return;
+      _cropState.zoom = parseInt(zoomInput.value, 10) / 100;
+      clampOffset(_cropState); drawCrop();
+    });
+    canvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      if (!_cropState) return;
+      _cropState.zoom = Math.max(1, Math.min(3, _cropState.zoom - e.deltaY * 0.002));
+      if (zoomInput) zoomInput.value = Math.round(_cropState.zoom * 100);
+      clampOffset(_cropState); drawCrop();
+    }, { passive: false });
+    if (resetBtnEl) resetBtnEl.addEventListener("click", resetCrop);
+    document.getElementById("cropReset")?.addEventListener("click", resetCrop);
+
+    if (saveBtn) saveBtn.addEventListener("click", async () => {
+      if (!_cropState) return;
+      const flowId = route.split("/")[3];
+      saveBtn.disabled = true; saveBtn.textContent = "Đang lưu...";
+      try {
+        const outCanvas = document.createElement("canvas");
+        outCanvas.width = 1200; outCanvas.height = 1500;
+        const octx = outCanvas.getContext("2d");
+        const cs = _cropState;
+        const scale = cs.baseScale * cs.zoom;
+        const sx = -cs.offsetX / scale, sy = -cs.offsetY / scale;
+        const sw = cs.wrapW / scale, sh = cs.wrapH / scale;
+        octx.drawImage(cs.img, sx, sy, sw, sh, 0, 0, 1200, 1500);
+        const blob = await new Promise((res) => outCanvas.toBlob(res, "image/webp", 0.88));
+        if (!blob) throw new Error("CANVAS_BLOB_FAILED");
+        const fd = new FormData();
+        fd.append("photo", blob, "speaker.webp");
+        const resp = await fetch(`/api/admin/live-training/${encodeURIComponent(flowId)}/speaker-photo`, {
+          method: "POST",
+          headers: session ? { Authorization: `Bearer ${session.token}` } : {},
+          body: fd,
+        });
+        const rbody = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(rbody.error || "UPLOAD_FAILED");
+        // Update state with new URL
+        if (liveTrainingState.detail) liveTrainingState.detail = { ...liveTrainingState.detail, speaker_photo_url: rbody.speakerPhotoUrl };
+        liveTrainingState.speakerDraft = { ...(liveTrainingState.speakerDraft || {}), imageUrl: rbody.speakerPhotoUrl };
+        liveTrainingState.cropOpen = false;
+        liveTrainingState.cropDataUrl = null;
+        liveTrainingState.cropFile = null;
+        _cropState = null;
+        render();
+        toast("Đã lưu ảnh diễn giả");
+      } catch (err) {
+        saveBtn.disabled = false; saveBtn.textContent = "Lưu ảnh";
+        toast("error", err.message || "Lỗi tải ảnh lên");
+      }
+    });
+
+    canvas.style.cursor = "grab";
+  };
+  img.src = liveTrainingState.cropDataUrl;
 }
 
 function publicTokenHeader() {
@@ -6405,7 +6550,20 @@ function adminLiveTrainingDetailPage() {
   } else if (activeTab === "participants") {
     const joinedCount = (liveTrainingState.participants || []).length;
     const bulkState = liveTrainingState.bulkCompleteState || {};
-    tabContent = `<section class="ui-card live-bulk-section">
+    const manualState = liveTrainingState;
+    function participantSourceBadge(p) {
+      if (p.source === "hr_manual") return `<span class="ptc-badge ptc-badge--hr">HR thêm thủ công</span>`;
+      if (p.isExternal) return `<span class="ptc-badge ptc-badge--ext">Ngoài danh sách</span>`;
+      return `<span class="ptc-badge ptc-badge--roster">Trong danh sách</span>`;
+    }
+    function participantStatusBadge(p) {
+      if (p.completedAt) return `<span class="ptc-status ptc-status--done">Đã hoàn thành</span>`;
+      if (p.pretestStartedAt || p.posttestStartedAt || p.evaluationStartedAt || p.hasToken) return `<span class="ptc-status ptc-status--active">Đang tham gia</span>`;
+      return `<span class="ptc-status ptc-status--pending">Chưa truy cập</span>`;
+    }
+    const manualAddModal = manualState.manualAddOpen ? `<div class="modal-backdrop open"><section class="modal modal--small modal--structured"><header class="modal__header"><div><h2>Thêm người tham gia thủ công</h2></div><button class="icon-btn" data-manual-add-close>×</button></header><div class="modal__body"><div class="field"><label>Họ và tên <span style="color:red">*</span></label><input id="manualAddName" placeholder="Nguyễn Văn An" maxlength="120" autocomplete="off" style="width:100%"></div><div class="field"><label>Phòng ban</label><input id="manualAddDept" placeholder="Khối Môi giới" maxlength="100" style="width:100%"></div><div class="field"><label>Địa điểm</label><input id="manualAddLoc" placeholder="Hà Nội" maxlength="100" style="width:100%"></div><div class="field"><label>Hình thức</label><input id="manualAddMode" placeholder="Trực tiếp" maxlength="50" style="width:100%"></div><div class="field"><label>Ghi chú nội bộ</label><textarea id="manualAddNote" rows="2" maxlength="500" placeholder="Ghi chú dành cho HR..." style="width:100%"></textarea></div>${manualState.manualAddError ? `<p class="field-error" style="margin-top:8px">${escapeHtml(manualState.manualAddError)}</p>` : ""}</div><footer class="modal__footer"><button class="btn btn-outline" data-manual-add-close>Hủy</button><button class="btn btn-primary" data-manual-add-submit ${manualState.manualAddSaving ? "disabled" : ""} style="min-width:140px">${manualState.manualAddSaving ? "Đang lưu..." : "Thêm người tham gia"}</button></footer></section></div>` : "";
+    const dupHighlight = manualState.manualAddDupId;
+    tabContent = `${manualAddModal}<section class="ui-card live-bulk-section">
       <h3 style="margin:0 0 12px;font-size:15px;font-weight:700">${liveT("bulkCompleteTitle")}</h3>
       <div class="live-bulk-actions">
         <button class="btn btn-outline live-bulk-btn live-bulk-pretest" data-bulk-complete="pretest" ${bulkState.loading === "pretest" ? "disabled" : ""}>${bulkState.loading === "pretest" ? "..." : `${liveT("bulkCompletePretest")} (${joinedCount})`}</button>
@@ -6413,9 +6571,9 @@ function adminLiveTrainingDetailPage() {
         <button class="btn btn-outline live-bulk-btn live-bulk-evaluation" data-bulk-complete="evaluation" ${bulkState.loading === "evaluation" ? "disabled" : ""}>${bulkState.loading === "evaluation" ? "..." : `${liveT("bulkCompleteEvaluation")} (${joinedCount})`}</button>
       </div>
     </section>
-    <section class="ui-card"><div class="table-tools"><input data-live-search placeholder="Tìm theo tên" value="${escapeHtmlAttribute(liveTrainingState.search)}"><button class="btn btn-outline" data-live-detail-reload>Làm mới</button></div>
-      <div class="table-wrap"><table class="data-table"><thead><tr><th>${liveT("fullName")}</th><th>Tham gia</th><th>Gần nhất</th><th>Pre</th><th>Post</th><th>${liveT("evaluation")}</th><th>${liveT("completion")}</th><th>${t("admin.action")}</th></tr></thead><tbody>
-      ${participants.map((p) => `<tr><td>${escapeHtml(p.displayName)}</td><td>${formatDateTime(p.createdAt)}</td><td>${formatDateTime(p.lastSeenAt)}</td><td>${p.pretestCompletedAt ? liveT("done") : p.pretestStartedAt ? liveT("started") : "—"}</td><td>${p.posttestCompletedAt ? liveT("done") : p.posttestStartedAt ? liveT("started") : "—"}</td><td>${p.evaluationCompletedAt ? liveT("done") : p.evaluationStartedAt ? liveT("started") : "—"}</td><td>${p.completedAt ? liveT("done") : "—"}</td><td><div class="row-actions"><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="pretestCompleted">Pre ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="posttestCompleted">Post ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="evaluationCompleted">${liveT("evaluation")} ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="completed">${liveT("completion")}</button><button class="btn btn-outline mini-action" data-live-participant-reset="${p.id}">Reset</button><button class="btn btn-danger mini-action" data-live-participant-delete="${p.id}" data-live-participant-name="${escapeHtmlAttribute(p.displayName)}">Xóa</button></div></td></tr>`).join("") || `<tr><td colspan="8"><div class="ui-empty">Chưa có người tham gia.</div></td></tr>`}
+    <section class="ui-card"><div class="table-tools"><input data-live-search placeholder="Tìm theo tên" value="${escapeHtmlAttribute(liveTrainingState.search)}"><button class="btn btn-outline" data-live-detail-reload>Làm mới</button><button class="btn btn-primary" data-manual-add-open style="margin-left:auto;gap:6px;min-height:44px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> Thêm người tham gia</button></div>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>${liveT("fullName")}</th><th>Nguồn</th><th>Trạng thái</th><th>Pre</th><th>Post</th><th>${liveT("evaluation")}</th><th>${liveT("completion")}</th><th>${t("admin.action")}</th></tr></thead><tbody>
+      ${participants.map((p) => `<tr${dupHighlight === p.id ? ' class="row--dup-highlight" id="dup-participant-' + p.id + '"' : ""}><td>${escapeHtml(p.displayName)}</td><td>${participantSourceBadge(p)}</td><td>${participantStatusBadge(p)}</td><td>${p.pretestCompletedAt ? liveT("done") : p.pretestStartedAt ? liveT("started") : "—"}</td><td>${p.posttestCompletedAt ? liveT("done") : p.posttestStartedAt ? liveT("started") : "—"}</td><td>${p.evaluationCompletedAt ? liveT("done") : p.evaluationStartedAt ? liveT("started") : "—"}</td><td>${p.completedAt ? liveT("done") : "—"}</td><td><div class="row-actions"><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="pretestCompleted">Pre ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="posttestCompleted">Post ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="evaluationCompleted">${liveT("evaluation")} ✓</button><button class="btn btn-outline mini-action" data-live-participant="${p.id}" data-field="completed">${liveT("completion")}</button><button class="btn btn-outline mini-action" data-live-participant-reset="${p.id}">Reset</button><button class="btn btn-danger mini-action" data-live-participant-delete="${p.id}" data-live-participant-name="${escapeHtmlAttribute(p.displayName)}">Xóa</button></div></td></tr>`).join("") || `<tr><td colspan="8"><div class="ui-empty">Chưa có người tham gia.</div></td></tr>`}
       </tbody></table></div></section>`;
   } else if (activeTab === "roster") {
     tabContent = `<section class="ui-card live-roster-section">
@@ -6435,12 +6593,23 @@ function adminLiveTrainingDetailPage() {
       ${liveTrainingState.roster.length > 0 ? `<div style="margin-top:24px"><div class="table-tools" style="margin-bottom:8px"><input placeholder="Tìm trong danh sách..." data-live-roster-search value="${escapeHtmlAttribute(liveTrainingState.rosterSearch)}"><button class="btn btn-danger" style="margin-left:auto" data-live-roster-clear>🗑 ${liveT("clearRoster")}</button></div><div class="table-wrap" style="max-height:360px;overflow:auto"><table class="live-roster-preview-table"><thead><tr><th>#</th><th>Họ và tên</th><th>Phòng ban</th><th>Địa điểm</th><th>Hình thức</th><th></th></tr></thead><tbody>${(liveTrainingState.rosterSearch ? liveTrainingState.roster.filter(r=>r.full_name.toLowerCase().includes(liveTrainingState.rosterSearch.toLowerCase())) : liveTrainingState.roster).map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.full_name)}</td><td>${escapeHtml(r.department||"")}</td><td>${escapeHtml(r.location||"")}</td><td>${escapeHtml(r.mode||"")}</td><td><button class="btn btn-danger mini-action" data-live-roster-delete="${escapeHtmlAttribute(r.id)}">Xóa</button></td></tr>`).join("")}</tbody></table></div></div>` : ""}
     </section>`;
   } else if (activeTab === "speaker") {
-    tabContent = `<div class="spk-tab-layout">
+    const cropState = liveTrainingState;
+    const cropDialog = cropState.cropOpen && cropState.cropDataUrl ? `<div class="modal-backdrop open"><section class="modal crop-dialog"><header class="modal__header"><div><h2>Chỉnh khung ảnh</h2><p style="font-size:13px;color:var(--muted)">Kéo để đổi vị trí · Cuộn để zoom</p></div><button class="icon-btn" data-crop-cancel>×</button></header><div class="modal__body crop-dialog__body"><div class="crop-dialog__editor"><div class="crop-canvas-wrap" id="cropCanvasWrap"><canvas id="cropCanvas"></canvas><div class="crop-overlay" id="cropOverlay"></div></div><div class="crop-controls"><label style="font-size:13px;font-weight:600;color:var(--navy)">Zoom</label><input type="range" id="cropZoom" min="100" max="300" value="100" style="flex:1"><button class="btn btn-ghost" id="cropReset" style="min-height:36px;font-size:13px">Reset</button></div><div style="display:flex;gap:8px;margin-top:4px"><span style="font-size:12px;color:var(--muted)">Tỷ lệ: 4:5</span></div></div><div class="crop-dialog__preview"><p style="font-size:13px;font-weight:600;margin:0 0 12px;color:var(--navy)">Xem trước card</p><div id="cropPreviewCard" class="spk-preview-card"><div id="cropPreviewImgWrap" style="width:100%;aspect-ratio:4/5;overflow:hidden;border-radius:8px;background:#f1f5f9"><canvas id="cropPreviewCanvas" style="width:100%;height:100%;display:block"></canvas></div><div class="spk-preview-info"><span class="spk-preview-name">${escapeHtml(spName || "Tên diễn giả")}</span>${spTitle ? `<span class="spk-preview-role">${escapeHtml(spTitle)}</span>` : ""}</div></div></div></div><footer class="modal__footer" style="position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:12px 20px"><button class="btn btn-outline" data-crop-cancel>Hủy</button><button class="btn btn-ghost" id="cropResetBtn">Reset</button><button class="btn btn-primary" id="cropSaveBtn" style="min-width:120px">Lưu ảnh</button></footer></section></div>` : "";
+    tabContent = `${cropDialog}<div class="spk-tab-layout">
       <form id="liveTrainingSpeakerForm" class="ui-card spk-form">
         <h2 style="margin:0 0 20px;font-size:17px;font-weight:700">Thông tin diễn giả</h2>
-        <div class="field"><label>Ảnh diễn giả (URL HTTPS)</label>
-          <input name="speakerPhotoUrl" type="url" placeholder="https://..." value="${escapeHtmlAttribute(spImg)}" data-speaker-preview-img autocomplete="off">
-          <small>Chỉ nhận URL HTTPS. Ảnh sẽ hiển thị ngay sau khi nhập.</small>
+        <div class="field">
+          <label>Ảnh diễn giả</label>
+          <div class="spk-photo-row">
+            <label class="btn btn-outline" style="cursor:pointer;min-height:44px;display:inline-flex;align-items:center;gap:6px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Tải ảnh lên
+              <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none" data-speaker-file-input>
+            </label>
+            <span class="spk-photo-or">hoặc</span>
+            <input name="speakerPhotoUrl" type="url" placeholder="URL HTTPS..." value="${escapeHtmlAttribute(spImg)}" data-speaker-preview-img autocomplete="off" style="flex:1;min-width:0">
+          </div>
+          <small>Upload: JPEG/PNG/WebP, tối đa 5 MB. Ảnh sẽ được crop trước khi lưu.</small>
           ${spImg ? `<div class="spk-img-preview-wrap"><img class="spk-img-preview" src="${escapeHtmlAttribute(spImg)}" alt="preview" onerror="this.closest('.spk-img-preview-wrap').style.display='none'"><button type="button" class="btn btn-ghost" style="font-size:12px;padding:0 8px;min-height:28px" data-speaker-clear-img>Xóa ảnh</button></div>` : ""}
         </div>
         <div class="field"><label>Họ và tên</label><input name="speakerName" value="${escapeHtmlAttribute(spName)}" placeholder="Nguyễn Văn A" data-speaker-preview="name" autocomplete="name"></div>
@@ -6557,11 +6726,16 @@ function publicTrainingPage(accessToken) {
           ? `<a href="${escapeHtmlAttribute(s.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary pub-open-anchor" data-public-anchor-step="${step}" style="min-height:44px;display:flex;align-items:center;justify-content:center">${liveT(`countdownOpen_${step}`)}</a>`
           : `<button class="btn btn-primary" disabled>${liveT("countdownWaiting").replace("{n}", cdSec)}</button>`;
         const cdSecHtml = !cdReady ? `<p class="pub-cd-sec">${liveT("countdownSec").replace("{n}", cdSec)}</p>` : "";
-        body = `<div class="pub-countdown-popup"><h3 class="pub-cd-title">${liveT(`countdownTitle_${step}`)}</h3><p class="pub-cd-body">${liveT("countdownBody")}</p>${cdSecHtml}<p class="pub-cd-after">${liveT("countdownAfter")}</p>${openBtnHtml}${copyLinkHtml}<button class="btn btn-ghost" data-public-countdown-close style="margin-top:6px">${liveT("closeBtn")}</button></div>${started ? `<button class="btn btn-outline" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : ""}`;
+        const activated = publicTrainingState.stepActivated?.[step];
+        const showConfirm = cdReady && (started || activated);
+        const confirmHtml = showConfirm ? `<button class="btn btn-success" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : (cdReady ? `<p style="font-size:13px;color:var(--muted);text-align:center;margin:0">Nút xác nhận sẽ hiển thị sau khi Anh/Chị mở hoặc sao chép liên kết.</p>` : `<p class="pub-cd-wait-hint" style="font-size:13px;color:var(--muted);text-align:center;margin:0">Nút xác nhận sẽ hiển thị sau 5 giây…</p>`);
+        body = `<div class="pub-countdown-popup"><h3 class="pub-cd-title">${liveT(`countdownTitle_${step}`)}</h3><p class="pub-cd-body">${liveT("countdownBody")}</p>${cdSecHtml}<p class="pub-cd-after">${liveT("countdownAfter")}</p>${openBtnHtml}${copyLinkHtml}<button class="btn btn-ghost" data-public-countdown-close style="margin-top:6px">${liveT("closeBtn")}</button>${confirmHtml}</div>`;
       } else {
-        // Normal state: show open button (and complete button if already started)
+        // Normal state: show open button (and complete button if already started or activated)
+        const activated = publicTrainingState.stepActivated?.[step];
         const copyHtml = s.showCopyLink ? `<div class="pub-copy-wrap"><input class="pub-copy-url" readonly value="${escapeHtmlAttribute(s.url)}" aria-label="URL"><button class="btn btn-outline pub-copy-btn" data-public-copy-link="${step}">${liveT("copyLinkBtn")}</button></div>` : "";
-        body = `<button class="btn btn-primary" data-public-step-open="${step}">${openLabel}</button>${copyHtml}${started ? `<button class="btn btn-outline" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : ""}`;
+        const showConfirmNormal = started || activated;
+        body = `<button class="btn btn-primary" data-public-step-open="${step}">${openLabel}</button>${copyHtml}${showConfirmNormal ? `<button class="btn btn-outline" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : ""}`;
       }
       return `<article class="public-step ${done ? "is-done" : ""}"><div><h2>${label}</h2><span class="pub-step-badge">${status}</span>${descHtml}</div><div class="pub-step-actions">${body}</div></article>`;
     };
@@ -7596,6 +7770,101 @@ function bindEvents() {
       },
     });
   }));
+  // Manual add participant
+  document.querySelector("[data-manual-add-open]")?.addEventListener("click", () => {
+    liveTrainingState.manualAddOpen = true;
+    liveTrainingState.manualAddError = "";
+    liveTrainingState.manualAddDupId = null;
+    render();
+    setTimeout(() => document.getElementById("manualAddName")?.focus(), 50);
+  });
+  document.querySelectorAll("[data-manual-add-close]").forEach((el) => el.addEventListener("click", () => {
+    liveTrainingState.manualAddOpen = false;
+    liveTrainingState.manualAddError = "";
+    liveTrainingState.manualAddDupId = null;
+    render();
+  }));
+  document.querySelector("[data-manual-add-submit]")?.addEventListener("click", async () => {
+    const flowId = route.split("/")[3];
+    const name = document.getElementById("manualAddName")?.value?.trim() || "";
+    const dept = document.getElementById("manualAddDept")?.value?.trim() || "";
+    const loc = document.getElementById("manualAddLoc")?.value?.trim() || "";
+    const mode = document.getElementById("manualAddMode")?.value?.trim() || "";
+    const note = document.getElementById("manualAddNote")?.value?.trim() || "";
+    if (!name || name.length < 2) {
+      liveTrainingState.manualAddError = "Vui lòng nhập họ và tên (ít nhất 2 ký tự).";
+      render(); return;
+    }
+    liveTrainingState.manualAddSaving = true;
+    liveTrainingState.manualAddError = "";
+    render();
+    try {
+      const res = await fetch(`/api/admin/live-training/${encodeURIComponent(flowId)}/participants`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(session ? { Authorization: `Bearer ${session.token}` } : {}) },
+        body: JSON.stringify({ displayName: name, department: dept, location: loc, mode, note }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (body.error === "DUPLICATE_PARTICIPANT") {
+          liveTrainingState.manualAddError = `Người tham gia này đã tồn tại trong hành trình.`;
+          liveTrainingState.manualAddDupId = body.existingId || null;
+          liveTrainingState.manualAddOpen = false;
+          render();
+          if (body.existingId) {
+            setTimeout(() => {
+              const el = document.getElementById(`dup-participant-${body.existingId}`);
+              el?.scrollIntoView({ behavior: "smooth", block: "center" });
+            }, 100);
+          }
+          return;
+        }
+        throw new Error(body.error || "ADD_FAILED");
+      }
+      // Append without full reload
+      if (body.participant) liveTrainingState.participants = [...(liveTrainingState.participants || []), body.participant];
+      liveTrainingState.manualAddOpen = false;
+      liveTrainingState.manualAddError = "";
+      liveTrainingState.manualAddDupId = null;
+      render();
+      toast("Đã thêm người tham gia");
+    } catch (err) {
+      liveTrainingState.manualAddError = err.message || "Có lỗi xảy ra.";
+      render();
+    } finally {
+      liveTrainingState.manualAddSaving = false;
+      render();
+    }
+  });
+
+  // Speaker photo file upload → crop dialog
+  document.querySelector("[data-speaker-file-input]")?.addEventListener("change", (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) { toast("error", "Chỉ nhận JPEG, PNG, WebP."); return; }
+    if (file.size > 5_242_880) { toast("error", "Ảnh vượt quá 5 MB."); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      liveTrainingState.cropDataUrl = ev.target.result;
+      liveTrainingState.cropFile = file;
+      liveTrainingState.cropOpen = true;
+      render();
+      setTimeout(() => initCropEditor(), 80);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  });
+  document.querySelector("[data-crop-cancel]")?.addEventListener("click", () => {
+    liveTrainingState.cropOpen = false;
+    liveTrainingState.cropDataUrl = null;
+    liveTrainingState.cropFile = null;
+    render();
+  });
+  if (liveTrainingState.cropOpen && liveTrainingState.cropDataUrl) {
+    initCropEditor();
+  }
+
   document.getElementById("publicTrainingJoinForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const name = new FormData(event.currentTarget).get("displayName") || publicTrainingState.name;
@@ -7734,6 +8003,9 @@ function bindEvents() {
   // data-public-anchor-step: user clicked the anchor — fire started keepalive, keep popup open
   document.querySelectorAll("[data-public-anchor-step]").forEach((el) => el.addEventListener("click", () => {
     const step = el.dataset.publicAnchorStep;
+    // Mark as activated so confirm button shows
+    publicTrainingState.stepActivated = { ...publicTrainingState.stepActivated, [step]: true };
+    render();
     // Fire-and-forget: don't await, don't block navigation, don't close popup
     fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/steps/${step}/start`, { method: "POST", headers: publicTokenHeader(), keepalive: true }).then(async (res) => {
       if (res.ok) { const body = await res.json().catch(() => ({})); applyPublicTrainingPayload(body); render(); }
@@ -7753,7 +8025,12 @@ function bindEvents() {
     const s = publicTrainingState.steps?.[step] || {};
     const url = s.url || publicTrainingState.countdownUrl || "";
     if (!url) return;
+    // Mark step as activated so confirm button shows after countdown
+    publicTrainingState.stepActivated = { ...publicTrainingState.stepActivated, [step]: true };
+    // Best-effort: record started server-side
+    fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/steps/${step}/start`, { method: "POST", headers: publicTokenHeader(), keepalive: true }).catch(() => {});
     try { await navigator.clipboard.writeText(url); toast("success", liveT("copyLinkDone")); } catch (_) { toast("error"); }
+    render();
   }));
   document.querySelectorAll("[data-public-step-complete]").forEach((el) => el.addEventListener("click", async () => {
     const step = el.dataset.publicStepComplete;
