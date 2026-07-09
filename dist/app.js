@@ -834,7 +834,8 @@ let publicTrainingState = {
   requestSeq: 0, lastJson: "", inFlight: false,
   roster: [], rosterLoading: false, rosterSearch: "", rosterDropdownOpen: false, selectedRosterId: null, outsideRoster: false,
   showOrientation: false, orientationError: "", orientationSaving: false,
-  // Countdown popup state
+  orientationCountdown: 5, orientationCountdownTimer: 0, orientationCountdownDone: false,
+  // Countdown popup state for external link steps
   countdownStep: null, // step being prepared ("pretest"|"posttest"|"evaluation"|null)
   countdownSec: 0, countdownTimer: 0, countdownUrl: null, countdownReady: false,
   // /training route state
@@ -1082,7 +1083,9 @@ function liveT(key) {
     orientationTitle: { vi: "Lưu ý trước khi bắt đầu", en: "Before you begin", kr: "시작 전 안내" },
     orientationBody: { vi: "Anh/Chị vui lòng hoàn thành đầy đủ Pre-test, Post-test và Phiếu khảo sát đánh giá sau buổi học để được ghi nhận là tham gia đầy đủ chương trình.", en: "Please complete the Pre-test, Post-test, and post-training evaluation survey to be recorded as having fully participated in the program.", kr: "교육에 정상적으로 참여한 것으로 인정받기 위해 사전 테스트, 사후 테스트 및 교육 만족도 설문을 모두 완료해 주세요." },
     orientationNote: { vi: "Anh/Chị có thể quay lại trang này trong suốt buổi học để tiếp tục các bước khi được mở.", en: "You may return to this page during the session to continue each step once it becomes available.", kr: "교육 중 각 단계가 열리면 이 페이지로 돌아와 계속 진행할 수 있습니다." },
-    orientationAck: { vi: "Tôi đã hiểu", en: "I understand", kr: "확인했습니다" },
+    orientationAck: { vi: "Tôi đã đọc và xác nhận", en: "I have read and confirm", kr: "읽고 확인했습니다" },
+    orientationAckCountdown: { vi: "Tôi đã đọc và xác nhận ({n})", en: "I have read and confirm ({n})", kr: "읽고 확인했습니다 ({n})" },
+    orientationCountdownHint: { vi: "Vui lòng đọc nội dung bên trên — có thể xác nhận sau {n} giây.", en: "Please read the content above — you may confirm in {n} seconds.", kr: "위 내용을 읽어 주세요 — {n}초 후 확인 가능합니다." },
     noActiveFlow: { vi: "Hiện chưa có buổi học nào đang được mở.", en: "No active session at this time.", kr: "현재 진행 중인 교육이 없습니다." },
     countdownTitle_pretest: { vi: "Chuẩn bị làm Pre-test", en: "Preparing Pre-test", kr: "사전 테스트 준비" },
     countdownTitle_posttest: { vi: "Chuẩn bị làm Post-test", en: "Preparing Post-test", kr: "사후 테스트 준비" },
@@ -1209,6 +1212,24 @@ async function fetchPublicTrainingState(shouldRender = true) {
   } finally {
     publicTrainingState.inFlight = false;
   }
+}
+
+function startOrientationCountdown() {
+  clearTimeout(publicTrainingState.orientationCountdownTimer);
+  publicTrainingState.orientationCountdown = 5;
+  publicTrainingState.orientationCountdownDone = false;
+  function tick() {
+    if (!publicTrainingState.showOrientation) return; // dismissed
+    if (publicTrainingState.orientationCountdown > 1) {
+      publicTrainingState.orientationCountdown--;
+      render();
+      publicTrainingState.orientationCountdownTimer = setTimeout(tick, 1000);
+    } else {
+      publicTrainingState.orientationCountdownDone = true;
+      render();
+    }
+  }
+  publicTrainingState.orientationCountdownTimer = setTimeout(tick, 1000);
 }
 
 function startPublicTrainingPolling() {
@@ -6529,13 +6550,18 @@ function publicTrainingPage(accessToken) {
         // Countdown popup inline
         const cdSec = publicTrainingState.countdownSec;
         const cdReady = publicTrainingState.countdownReady;
-        const copyLinkHtml = (s.showCopyLink || cdReady) ? `<div class="pub-copy-wrap"><input class="pub-copy-url" readonly value="${escapeHtmlAttribute(s.url)}" aria-label="URL"><button class="btn btn-outline pub-copy-btn" data-public-copy-link="${step}">${liveT("copyLinkBtn")}</button></div>` : "";
+        // Always show copy link inside countdown popup
+        const copyLinkHtml = `<div class="pub-copy-wrap"><input class="pub-copy-url" readonly value="${escapeHtmlAttribute(s.url)}" aria-label="URL"><button class="btn btn-outline pub-copy-btn" data-public-copy-link="${step}">${liveT("copyLinkBtn")}</button></div>`;
+        // Anchor always present once ready; disabled button while counting
         const openBtnHtml = cdReady
           ? `<a href="${escapeHtmlAttribute(s.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary pub-open-anchor" data-public-anchor-step="${step}" style="min-height:44px;display:flex;align-items:center;justify-content:center">${liveT(`countdownOpen_${step}`)}</a>`
           : `<button class="btn btn-primary" disabled>${liveT("countdownWaiting").replace("{n}", cdSec)}</button>`;
-        body = `<div class="pub-countdown-popup"><h3 class="pub-cd-title">${liveT(`countdownTitle_${step}`)}</h3><p class="pub-cd-body">${liveT("countdownBody")}</p>${!cdReady ? `<p class="pub-cd-sec">${liveT("countdownSec").replace("{n}", cdSec)}</p>` : `<p class="pub-cd-after">${liveT("countdownAfter")}</p>`}${openBtnHtml}${copyLinkHtml}<button class="btn btn-ghost" data-public-countdown-close style="margin-top:6px">${liveT("closeBtn")}</button></div>${started ? `<button class="btn btn-outline" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : ""}`;
+        const cdSecHtml = !cdReady ? `<p class="pub-cd-sec">${liveT("countdownSec").replace("{n}", cdSec)}</p>` : "";
+        body = `<div class="pub-countdown-popup"><h3 class="pub-cd-title">${liveT(`countdownTitle_${step}`)}</h3><p class="pub-cd-body">${liveT("countdownBody")}</p>${cdSecHtml}<p class="pub-cd-after">${liveT("countdownAfter")}</p>${openBtnHtml}${copyLinkHtml}<button class="btn btn-ghost" data-public-countdown-close style="margin-top:6px">${liveT("closeBtn")}</button></div>${started ? `<button class="btn btn-outline" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : ""}`;
       } else {
-        body = `<button class="btn btn-primary" data-public-step-open="${step}">${openLabel}</button>${s.showCopyLink ? `<div class="pub-copy-wrap"><input class="pub-copy-url" readonly value="${escapeHtmlAttribute(s.url)}" aria-label="URL"><button class="btn btn-outline pub-copy-btn" data-public-copy-link="${step}">${liveT("copyLinkBtn")}</button></div>` : ""}${started ? `<button class="btn btn-outline" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : ""}`;
+        // Normal state: show open button (and complete button if already started)
+        const copyHtml = s.showCopyLink ? `<div class="pub-copy-wrap"><input class="pub-copy-url" readonly value="${escapeHtmlAttribute(s.url)}" aria-label="URL"><button class="btn btn-outline pub-copy-btn" data-public-copy-link="${step}">${liveT("copyLinkBtn")}</button></div>` : "";
+        body = `<button class="btn btn-primary" data-public-step-open="${step}">${openLabel}</button>${copyHtml}${started ? `<button class="btn btn-outline" data-public-step-complete="${step}" ${done ? "disabled" : ""}>${doneLabel}</button>` : ""}`;
       }
       return `<article class="public-step ${done ? "is-done" : ""}"><div><h2>${label}</h2><span class="pub-step-badge">${status}</span>${descHtml}</div><div class="pub-step-actions">${body}</div></article>`;
     };
@@ -6552,8 +6578,18 @@ function publicTrainingPage(accessToken) {
     const greetingHtml = p.displayName
       ? `<p class="pub-greeting">${escapeHtml(liveT("greeting").replace("{name}", p.displayName))}</p>`
       : "";
+    const oCd = publicTrainingState.orientationCountdown;
+    const oCdDone = publicTrainingState.orientationCountdownDone;
+    const oBtnLabel = publicTrainingState.orientationSaving
+      ? "..."
+      : oCdDone
+        ? escapeHtml(liveT("orientationAck"))
+        : escapeHtml(liveT("orientationAckCountdown").replace("{n}", oCd));
+    const oHintHtml = !oCdDone
+      ? `<p class="pub-orientation-countdown-hint">${escapeHtml(liveT("orientationCountdownHint").replace("{n}", oCd))}</p>`
+      : "";
     const orientationModal = publicTrainingState.showOrientation
-      ? `<div class="pub-orientation-backdrop" aria-modal="true" role="dialog" aria-labelledby="orientationTitle"><div class="pub-orientation-modal"><div class="pub-orientation-icon" aria-hidden="true"><svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><h2 id="orientationTitle" class="pub-orientation-title">${escapeHtml(liveT("orientationTitle"))}</h2><p class="pub-orientation-body">${escapeHtml(liveT("orientationBody"))}</p><p class="pub-orientation-note">${escapeHtml(liveT("orientationNote"))}</p>${publicTrainingState.orientationError ? `<p class="field-error" style="margin-top:8px">${escapeHtml(publicTrainingState.orientationError)}</p>` : ""}<button class="btn btn-primary pub-orientation-btn" data-orientation-ack ${publicTrainingState.orientationSaving ? "disabled" : ""}>${publicTrainingState.orientationSaving ? "..." : escapeHtml(liveT("orientationAck"))}</button></div></div>`
+      ? `<div class="pub-orientation-backdrop" aria-modal="true" role="dialog" aria-labelledby="orientationTitle"><div class="pub-orientation-modal"><div class="pub-orientation-icon" aria-hidden="true"><svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><h2 id="orientationTitle" class="pub-orientation-title">${escapeHtml(liveT("orientationTitle"))}</h2><p class="pub-orientation-body">${escapeHtml(liveT("orientationBody"))}</p><p class="pub-orientation-note">${escapeHtml(liveT("orientationNote"))}</p>${oHintHtml}${publicTrainingState.orientationError ? `<p class="field-error" style="margin-top:8px">${escapeHtml(publicTrainingState.orientationError)}</p>` : ""}<button class="btn btn-primary pub-orientation-btn" data-orientation-ack ${(publicTrainingState.orientationSaving || !oCdDone) ? "disabled" : ""}>${oBtnLabel}</button></div></div>`
       : "";
     content = `${orientationModal}<div class="pub-journey"><div class="pub-journey-header"><div class="pub-journey-meta"><h1 class="pub-session-title">${escapeHtml(f.title)}</h1>${greetingHtml}${f.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}${speakerCard}</div><button class="btn btn-outline pub-switch-btn" data-public-switch aria-label="${liveT("switchParticipant")}">${liveT("switchParticipant")}</button></div>${p.completedAt ? `<div class="pub-card pub-done-card"><h2>${liveT("completed")}</h2><p class="pub-done-time">${formatDateTime(p.completedAt)}</p></div>` : `<section class="pub-stepper" aria-label="${liveT("title")}">${stepCard("pretest", liveT("pretest"), liveT("doPretest"), liveT("donePretest"))}${stepCard("posttest", liveT("posttest"), liveT("doPosttest"), liveT("donePosttest"))}${stepCard("evaluation", liveT("evaluation"), liveT("openEvaluation"), liveT("doneEvaluation"))}<article class="public-step ${completionOpen ? "is-open" : ""}"><div><h2>${liveT("completion")}</h2><span class="pub-step-badge">${completionOpen ? liveT("available") : liveT("waiting")}</span></div><div class="pub-step-actions">${completionOpen ? `<button class="btn btn-success" data-public-complete>${liveT("completion")}</button>` : `<span class="pub-step-wait">${liveT("waiting")}</span>`}</div></article></section>`}</div>`;
   }
@@ -7583,7 +7619,10 @@ function bindEvents() {
       publicTrainingState.bootstrap = p2?.completedAt ? "completed" : "ready";
       publicTrainingState.joining = false;
       // Show orientation popup if not yet acknowledged
-      if (p2 && !p2.orientationAcknowledgedAt) publicTrainingState.showOrientation = true;
+      if (p2 && !p2.orientationAcknowledgedAt) {
+        publicTrainingState.showOrientation = true;
+        startOrientationCountdown();
+      }
       render(); startPublicTrainingPolling();
     } catch (err) { publicTrainingState.joining = false; publicTrainingState.error = err.message; render(); }
   });
@@ -7640,10 +7679,13 @@ function bindEvents() {
     publicTrainingState.outsideRoster = false;
     publicTrainingState.showOrientation = false;
     publicTrainingState.orientationError = "";
+    clearTimeout(publicTrainingState.orientationCountdownTimer);
+    publicTrainingState.orientationCountdown = 5;
+    publicTrainingState.orientationCountdownDone = false;
     render();
   });
   document.querySelector("[data-orientation-ack]")?.addEventListener("click", async () => {
-    if (publicTrainingState.orientationSaving) return;
+    if (publicTrainingState.orientationSaving || !publicTrainingState.orientationCountdownDone) return;
     publicTrainingState.orientationSaving = true;
     publicTrainingState.orientationError = "";
     render();
@@ -7652,8 +7694,10 @@ function bindEvents() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "ACK_ERROR");
       applyPublicTrainingPayload(body);
+      clearTimeout(publicTrainingState.orientationCountdownTimer);
       publicTrainingState.showOrientation = false;
       publicTrainingState.orientationSaving = false;
+      publicTrainingState.orientationCountdownDone = false;
       render();
     } catch (err) {
       publicTrainingState.orientationError = err.message || "Không thể xác nhận. Vui lòng thử lại.";
@@ -7661,40 +7705,42 @@ function bindEvents() {
       render();
     }
   });
-  // data-public-step-open: start countdown popup (new mobile-safe approach)
+  // data-public-step-open: start countdown popup (5-second mobile-safe approach)
   document.querySelectorAll("[data-public-step-open]").forEach((el) => el.addEventListener("click", () => {
     const step = el.dataset.publicStepOpen;
     const s = publicTrainingState.steps?.[step] || {};
+    const alreadyStarted = Boolean(publicTrainingState.participant?.[`${step}StartedAt`]);
     clearTimeout(publicTrainingState.countdownTimer);
     publicTrainingState.countdownStep = step;
-    publicTrainingState.countdownSec = 3;
-    publicTrainingState.countdownReady = false;
+    publicTrainingState.countdownSec = alreadyStarted ? 1 : 5;
+    publicTrainingState.countdownReady = alreadyStarted; // skip countdown if already started
     publicTrainingState.countdownUrl = s.url || null;
     render();
-    function tick() {
-      if (publicTrainingState.countdownStep !== step) return;
-      if (publicTrainingState.countdownSec > 1) {
-        publicTrainingState.countdownSec--;
-        render();
-        publicTrainingState.countdownTimer = setTimeout(tick, 1000);
-      } else {
-        publicTrainingState.countdownReady = true;
-        render();
+    if (!alreadyStarted) {
+      function tick() {
+        if (publicTrainingState.countdownStep !== step) return;
+        if (publicTrainingState.countdownSec > 1) {
+          publicTrainingState.countdownSec--;
+          render();
+          publicTrainingState.countdownTimer = setTimeout(tick, 1000);
+        } else {
+          publicTrainingState.countdownReady = true;
+          render();
+        }
       }
+      publicTrainingState.countdownTimer = setTimeout(tick, 1000);
     }
-    publicTrainingState.countdownTimer = setTimeout(tick, 1000);
   }));
-  // data-public-anchor-step: user clicked the anchor after countdown — fire started request keepalive
+  // data-public-anchor-step: user clicked the anchor — fire started keepalive, keep popup open
   document.querySelectorAll("[data-public-anchor-step]").forEach((el) => el.addEventListener("click", () => {
     const step = el.dataset.publicAnchorStep;
-    // Fire-and-forget: don't await, don't block navigation
+    // Fire-and-forget: don't await, don't block navigation, don't close popup
     fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/steps/${step}/start`, { method: "POST", headers: publicTokenHeader(), keepalive: true }).then(async (res) => {
       if (res.ok) { const body = await res.json().catch(() => ({})); applyPublicTrainingPayload(body); render(); }
     }).catch(() => {});
-    publicTrainingState.countdownStep = null;
-    publicTrainingState.countdownReady = false;
+    // Do NOT close popup — user may need to click again if tab didn't open
   }));
-  // data-public-countdown-close: close countdown without navigating
+  // data-public-countdown-close: explicitly close countdown popup
   document.querySelectorAll("[data-public-countdown-close]").forEach((el) => el.addEventListener("click", () => {
     clearTimeout(publicTrainingState.countdownTimer);
     publicTrainingState.countdownStep = null;
