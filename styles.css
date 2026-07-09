@@ -10691,13 +10691,14 @@ body { overflow-x: clip; }
   max-width: 1280px;
 }
 .about-page .timeline-carousel__content {
+  display: block;
   min-height: 460px;
 }
 .about-page .timeline-carousel__content-inner {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 480px);
-  gap: clamp(32px, 4.5vw, 56px);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: clamp(28px, 3.5vw, 48px);
   align-items: center;
   min-height: 460px;
   opacity: 1;
@@ -10717,7 +10718,8 @@ body { overflow-x: clip; }
 .about-page .timeline-carousel__image {
   box-shadow: none;
   border: 1px solid #dfe7f0;
-  aspect-ratio: 3 / 2;
+  aspect-ratio: 16 / 10;
+  z-index: 2;
 }
 .about-page .timeline-carousel__image img {
   animation: none;
@@ -10765,6 +10767,9 @@ body { overflow-x: clip; }
   line-height: 1.4;
 }
 .public-footer-contact-role {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   color: rgba(255,255,255,0.56);
   font-size: 12px;
   line-height: 1.5;

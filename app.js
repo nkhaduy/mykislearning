@@ -2179,7 +2179,7 @@ function footer() {
           <span class="footer-v2__col-heading">${uiText("contactSupport")}</span>
           <div class="public-footer-contact-text">
             <span class="public-footer-contact-name">${hrContact}</span>
-            <span class="public-footer-contact-role">${t("about.footerContactRole")}</span>
+            <span class="public-footer-contact-role"><span>Assistant Manager</span><span>Human Resources Dept</span></span>
             <a class="public-footer-contact-email" href="mailto:thanh.ntc@kisvn.vn">thanh.ntc@kisvn.vn</a>
           </div>
         </div>
