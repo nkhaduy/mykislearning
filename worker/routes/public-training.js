@@ -60,6 +60,11 @@ function publicLink(request, accessToken) {
   return `${url.origin}/join/${accessToken}`;
 }
 
+function trainingLink(request) {
+  const url = new URL(request.url);
+  return `${url.origin}/training`;
+}
+
 function isExpired(flow) {
   return Boolean(flow?.expires_at && new Date(flow.expires_at).getTime() <= Date.now());
 }
@@ -118,6 +123,18 @@ function participantPublic(row) {
   };
 }
 
+function rosterPublic(row) {
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    givenName: row.given_name || null,
+    department: row.department,
+    location: row.location,
+    mode: row.mode,
+    source: row.source || "excel",
+  };
+}
+
 function completionEligible(flow, p) {
   return flow.completion_state === "open"
     && (!flow.pretest_required || p.pretest_completed_at)
@@ -131,9 +148,9 @@ function statePayload(flow, participant = null) {
   const payload = {
     flow: flowPublic(flow),
     steps: {
-      pretest: { state: flow.pretest_state, required: flow.pretest_required, url: flow.pretest_state === "open" ? flow.pretest_url : null, description: flow.pretest_description || null, showCopyLink: Boolean(flow.pretest_show_copy_link) },
-      posttest: { state: flow.posttest_state, required: flow.posttest_required, url: flow.posttest_state === "open" ? flow.posttest_url : null, description: flow.posttest_description || null, showCopyLink: Boolean(flow.posttest_show_copy_link) },
-      evaluation: { state: flow.evaluation_state, required: flow.evaluation_required, url: flow.evaluation_state === "open" ? flow.evaluation_url : null, description: flow.evaluation_description || null, showCopyLink: Boolean(flow.evaluation_show_copy_link) },
+      pretest: { state: flow.pretest_state, required: flow.pretest_required, url: flow.pretest_state === "open" ? flow.pretest_url : null, description: flow.pretest_description || null },
+      posttest: { state: flow.posttest_state, required: flow.posttest_required, url: flow.posttest_state === "open" ? flow.posttest_url : null, description: flow.posttest_description || null },
+      evaluation: { state: flow.evaluation_state, required: flow.evaluation_required, url: flow.evaluation_state === "open" ? flow.evaluation_url : null, description: flow.evaluation_description || null },
       completion: { state: flow.completion_state },
     },
     participant: participant ? participantPublic(participant) : null,
@@ -253,7 +270,7 @@ export async function handlePublicTraining(request, env) {
     if (rest === "roster" && method === "GET") {
       const { data, error } = await supabase.from("public_training_roster").select("id,full_name,given_name,department,location,mode,source").eq("flow_id", flow.id).order("given_name", { nullsFirst: false }).order("full_name");
       if (error) return json({ ok: false, error: error.message }, 500);
-      return json({ ok: true, roster: (data || []).map((r) => ({ id: r.id, fullName: r.full_name, givenName: r.given_name || null, department: r.department, location: r.location, mode: r.mode, source: r.source || "excel" })) });
+      return json({ ok: true, roster: (data || []).map(rosterPublic) });
     }
 
     if (!rest && method === "GET") return json(statePayload(flow));
@@ -357,8 +374,8 @@ export async function handlePublicTraining(request, env) {
       const rows = await adminSummaryRows(supabase);
       const activeFlowRow = await getActiveFlow(supabase).catch(() => null);
       const activeFlowId = activeFlowRow?.id || null;
-      const trainingUrl = `${new URL(request.url).origin}/training`;
-      return json({ ok: true, activeFlowId, trainingUrl, flows: rows.map((r) => ({ ...r, publicLink: publicLink(request, r.access_token), isActivePublicFlow: r.id === activeFlowId, trainingUrl })) });
+      const trainingUrl = trainingLink(request);
+      return json({ ok: true, activeFlowId, trainingUrl, flows: rows.map((r) => ({ ...r, publicLink: r.id === activeFlowId ? trainingUrl : null, isActivePublicFlow: r.id === activeFlowId, trainingUrl })) });
     }
     if (method === "POST") {
       const body = await readJson(request);
@@ -382,7 +399,7 @@ export async function handlePublicTraining(request, env) {
       const { data, error } = await supabase.from("public_training_flows").insert(row).select("*").single();
       if (error) return json({ ok: false, error: error.message }, 500);
       await audit(supabase, request, "public_training.created", actor, data.id, { flowId: data.id });
-      return json({ ok: true, flow: { ...data, publicLink: publicLink(request, data.access_token) } }, 201);
+      return json({ ok: true, flow: { ...data, publicLink: null, trainingUrl: trainingLink(request), isActivePublicFlow: false } }, 201);
     }
     return methodNotAllowed();
   }
@@ -398,8 +415,8 @@ export async function handlePublicTraining(request, env) {
     const rows = await adminSummaryRows(supabase);
     const activeFlowRow = await getActiveFlow(supabase).catch(() => null);
     const activeFlowId = activeFlowRow?.id || null;
-    const trainingUrl = `${new URL(request.url).origin}/training`;
-    return json({ ok: true, flow: { ...rows.find((r) => r.id === id), publicLink: publicLink(request, flow.access_token), isActivePublicFlow: id === activeFlowId, trainingUrl } });
+    const trainingUrl = trainingLink(request);
+    return json({ ok: true, flow: { ...rows.find((r) => r.id === id), publicLink: id === activeFlowId ? trainingUrl : null, isActivePublicFlow: id === activeFlowId, trainingUrl } });
   }
 
   if (!rest && method === "DELETE") {
@@ -436,13 +453,13 @@ export async function handlePublicTraining(request, env) {
     if ("pretestDescription" in body) patch.pretest_description = String(body.pretestDescription || "").trim() || null;
     if ("posttestDescription" in body) patch.posttest_description = String(body.posttestDescription || "").trim() || null;
     if ("evaluationDescription" in body) patch.evaluation_description = String(body.evaluationDescription || "").trim() || null;
-    if ("pretestShowCopyLink" in body) patch.pretest_show_copy_link = Boolean(body.pretestShowCopyLink);
-    if ("posttestShowCopyLink" in body) patch.posttest_show_copy_link = Boolean(body.posttestShowCopyLink);
-    if ("evaluationShowCopyLink" in body) patch.evaluation_show_copy_link = Boolean(body.evaluationShowCopyLink);
     const { data, error } = await supabase.from("public_training_flows").update(patch).eq("id", id).select("*").single();
     if (error) return json({ ok: false, error: error.message }, 500);
     await audit(supabase, request, "public_training.updated", actor, id, { flowId: id }, flow, patch);
-    return json({ ok: true, flow: { ...data, publicLink: publicLink(request, data.access_token) } });
+    const activeFlowRow = await getActiveFlow(supabase).catch(() => null);
+    const isActivePublicFlow = activeFlowRow?.id === id;
+    const trainingUrl = trainingLink(request);
+    return json({ ok: true, flow: { ...data, publicLink: isActivePublicFlow ? trainingUrl : null, isActivePublicFlow, trainingUrl } });
   }
 
   if (rest === "speaker-photo" && method === "POST") {
@@ -465,7 +482,7 @@ export async function handlePublicTraining(request, env) {
     const { data: updated, error: patchErr } = await supabase.from("public_training_flows").update({ speaker_photo_url: publicUrl, speaker_photo_position_y: positionY }).eq("id", id).select("*").single();
     if (patchErr) return json({ ok: false, error: patchErr.message }, 500);
     await audit(supabase, request, "public_training.speaker_photo_uploaded", actor, id, { flowId: id, storagePath });
-    return json({ ok: true, speakerPhotoUrl: publicUrl, flow: { ...updated, publicLink: publicLink(request, updated.access_token) } });
+    return json({ ok: true, speakerPhotoUrl: publicUrl, flow: { ...updated, trainingUrl: trainingLink(request) } });
   }
 
   if (rest === "close" && method === "POST") {
@@ -484,7 +501,7 @@ export async function handlePublicTraining(request, env) {
     const { data, error } = await supabase.from("public_training_flows").update({ access_token: randomToken(32) }).eq("id", id).select("*").single();
     if (error) return json({ ok: false, error: error.message }, 500);
     await audit(supabase, request, "public_training.link_rotated", actor, id, { flowId: id });
-    return json({ ok: true, flow: { ...data, publicLink: publicLink(request, data.access_token) } });
+    return json({ ok: true, flow: { ...data, trainingUrl: trainingLink(request) } });
   }
 
   const stepPatch = rest.match(/^steps\/([^/]+)$/);
@@ -571,7 +588,10 @@ export async function handlePublicTraining(request, env) {
     await audit(supabase, request, "public_training.roster_entry_added", actor, id, {
       flowId: id, rosterId: created.id, fullName, actor: actor?.accountId || actor?.id || null,
     });
-    return json({ ok: true, entry: created });
+    return json({
+      ok: true,
+      rosterEntry: rosterPublic(created),
+    }, 201);
   }
 
   if (rest === "roster" && method === "DELETE") {
@@ -589,8 +609,10 @@ export async function handlePublicTraining(request, env) {
     for (const rec of body.records) {
       const fullName = cleanName(rec.fullName || "");
       if (fullName.length < 2 || fullName.length > 120) { skipped++; continue; }
-      const normalizedName = fullName.normalize("NFKC").toLocaleLowerCase("vi-VN");
-      rows.push({ flow_id: id, full_name: fullName, normalized_name: normalizedName, department: rec.department || null, location: rec.location || null, mode: rec.mode || null, source_row: rec.sourceRow || null });
+      const normalizedName = normalizeName(fullName);
+      const rawGiven = cleanName(rec.givenName || "");
+      const givenName = rawGiven || fullName.trim().split(/\s+/).pop();
+      rows.push({ flow_id: id, full_name: fullName, normalized_name: normalizedName, given_name: givenName, department: rec.department || null, location: rec.location || null, mode: rec.mode || null, source: "excel", source_row: rec.sourceRow || null });
     }
     if (body.replace) {
       const { error: delErr } = await supabase.from("public_training_roster").delete().eq("flow_id", id);

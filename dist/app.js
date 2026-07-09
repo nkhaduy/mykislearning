@@ -1018,11 +1018,40 @@ function apiHeaders(extra = {}) {
   return headers;
 }
 
+function sortRosterRows(rows = []) {
+  const collator = new Intl.Collator("vi", { sensitivity: "base" });
+  return [...rows].sort((a, b) => {
+    const fullA = a.full_name || a.fullName || "";
+    const fullB = b.full_name || b.fullName || "";
+    const givenA = a.given_name || a.givenName || fullA.trim().split(/\s+/).pop() || fullA;
+    const givenB = b.given_name || b.givenName || fullB.trim().split(/\s+/).pop() || fullB;
+    const givenCmp = collator.compare(givenA, givenB);
+    return givenCmp || collator.compare(fullA, fullB);
+  });
+}
+
+function rosterEntryToAdminRow(entry = {}) {
+  return {
+    id: entry.id,
+    full_name: entry.full_name || entry.fullName || "",
+    given_name: entry.given_name || entry.givenName || null,
+    department: entry.department || null,
+    location: entry.location || null,
+    mode: entry.mode || null,
+    source: entry.source || "manual",
+  };
+}
+
 async function apiJson(url, options = {}) {
   const headers = apiHeaders({ ...(options.body ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}) });
-  const res = await fetch(url, { ...options, headers });
+  const res = await fetch(url, { credentials: "include", ...options, headers });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || body.message || "Không thể tải dữ liệu.");
+  if (!res.ok) {
+    const err = new Error(body.error || body.message || "Không thể tải dữ liệu.");
+    err.status = res.status;
+    err.body = body;
+    throw err;
+  }
   return body;
 }
 
@@ -1469,7 +1498,7 @@ async function loadRoster(id) {
   liveTrainingState.rosterLoading = true;
   try {
     const data = await apiJson(`/api/admin/live-training/${encodeURIComponent(id)}/roster`);
-    liveTrainingState.roster = data.roster || [];
+    liveTrainingState.roster = sortRosterRows(data.roster || []);
   } catch (_) { liveTrainingState.roster = []; }
   liveTrainingState.rosterLoading = false;
   if (route.startsWith("/admin/live-training/")) render();
@@ -6511,7 +6540,12 @@ function adminLiveTrainingPage() {
     <section class="ui-card"><div class="table-tools"><input data-live-search placeholder="${t("admin.search")}" value="${escapeHtmlAttribute(liveTrainingState.search)}"><button class="btn btn-outline" data-live-reload>${liveTrainingState.loading ? "Đang tải..." : "Làm mới"}</button></div>
     ${liveTrainingState.error ? `<div class="ui-error">${escapeHtml(liveTrainingState.error)}</div>` : ""}
     <div class="table-wrap"><table class="data-table"><thead><tr><th>${liveT("sessionTitle")}</th><th>Trạng thái</th><th>Ngày tạo</th><th>Hết hạn</th><th>Pre-test</th><th>Post-test</th><th>${liveT("evaluation")}</th><th>Người tham gia</th><th>${t("admin.action")}</th></tr></thead><tbody>
-      ${rows.map((f) => `<tr><td><strong>${escapeHtml(f.title)}</strong></td><td>${liveStatusBadge(f.status)}</td><td>${formatDateTime(f.created_at)}</td><td>${f.expires_at ? formatDateTime(f.expires_at) : "—"}</td><td>${liveStatusBadge(f.pretest_state)}</td><td>${liveStatusBadge(f.posttest_state)}</td><td>${liveStatusBadge(f.evaluation_state)}</td><td>${f.participant_count || 0} / ${f.completed_count || 0}</td><td><div class="row-actions"><a class="btn btn-outline mini-action" href="/admin/live-training/${f.id}" data-link>${liveT("manage")}</a><button class="btn btn-outline mini-action" data-copy-live-link="${escapeHtmlAttribute(f.publicLink || "")}">${liveT("copyLink")}</button><button class="btn btn-outline mini-action" data-live-close="${f.id}">Đóng phiên</button><button class="btn btn-danger mini-action" data-live-delete="${f.id}" data-live-delete-title="${escapeHtmlAttribute(f.title)}">Xóa</button></div></td></tr>`).join("") || `<tr><td colspan="9"><div class="ui-empty">${liveTrainingState.loading ? "Đang tải..." : "Chưa có hành trình."}</div></td></tr>`}
+      ${rows.map((f) => {
+        const officialLinkAction = f.isActivePublicFlow
+          ? `<button class="btn btn-outline mini-action" data-copy-live-link="${escapeHtmlAttribute(f.trainingUrl || "/training")}">${liveT("copyLink")} /training</button>`
+          : `<button class="btn btn-outline mini-action" data-live-set-active="${escapeHtmlAttribute(f.id)}" data-live-set-active-title="${escapeHtmlAttribute(f.title)}">${liveT("setActive")}</button>`;
+        return `<tr><td><strong>${escapeHtml(f.title)}</strong></td><td>${liveStatusBadge(f.status)}</td><td>${formatDateTime(f.created_at)}</td><td>${f.expires_at ? formatDateTime(f.expires_at) : "—"}</td><td>${liveStatusBadge(f.pretest_state)}</td><td>${liveStatusBadge(f.posttest_state)}</td><td>${liveStatusBadge(f.evaluation_state)}</td><td>${f.participant_count || 0} / ${f.completed_count || 0}</td><td><div class="row-actions"><a class="btn btn-outline mini-action" href="/admin/live-training/${f.id}" data-link>${liveT("manage")}</a>${officialLinkAction}<button class="btn btn-outline mini-action" data-live-close="${f.id}">Đóng phiên</button><button class="btn btn-danger mini-action" data-live-delete="${f.id}" data-live-delete-title="${escapeHtmlAttribute(f.title)}">Xóa</button></div></td></tr>`;
+      }).join("") || `<tr><td colspan="9"><div class="ui-empty">${liveTrainingState.loading ? "Đang tải..." : "Chưa có hành trình."}</div></td></tr>`}
     </tbody></table></div></section></div></main></div>${liveDeleteModal()}`;
 }
 
@@ -6568,7 +6602,6 @@ function adminLiveTrainingDetailPage() {
       <div class="ui-card" style="margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><strong style="font-size:13px">/training:</strong>${activeFlowHtml}</div>
       <form id="liveTrainingUpdateForm" class="ui-card form-grid">
         <div class="field"><label>${liveT("sessionTitle")}</label><input name="title" value="${escapeHtmlAttribute(f.title)}" required></div>
-        <div class="field"><label>Public link (legacy)</label><input value="${escapeHtmlAttribute(f.publicLink || "")}" readonly></div>
         <div class="field span-2"><label>${liveT("description")}</label><textarea name="description" rows="2">${escapeHtml(f.description || "")}</textarea></div>
         <div class="field"><label>${liveT("pretestUrl")}</label><input name="pretestUrl" value="${escapeHtmlAttribute(f.pretest_url || "")}"></div>
         <div class="field"><label>Mô tả Pre-test</label><textarea name="pretestDescription" rows="2" maxlength="500">${escapeHtml(f.pretest_description || "")}</textarea></div>
@@ -6577,11 +6610,8 @@ function adminLiveTrainingDetailPage() {
         <div class="field"><label>${liveT("evaluationUrl")}</label><input name="evaluationUrl" value="${escapeHtmlAttribute(f.evaluation_url || "")}"></div>
         <div class="field"><label>Mô tả Đánh giá</label><textarea name="evaluationDescription" rows="2" maxlength="500">${escapeHtml(f.evaluation_description || "")}</textarea></div>
         <label class="setting-row"><span>Pre-test ${liveT("required")}</span><input name="pretestRequired" type="checkbox" ${f.pretest_required ? "checked" : ""}></label>
-        <label class="setting-row"><span>Hiển thị link copy — Pre-test</span><input name="pretestShowCopyLink" type="checkbox" ${f.pretest_show_copy_link ? "checked" : ""}></label>
         <label class="setting-row"><span>Post-test ${liveT("required")}</span><input name="posttestRequired" type="checkbox" ${f.posttest_required ? "checked" : ""}></label>
-        <label class="setting-row"><span>Hiển thị link copy — Post-test</span><input name="posttestShowCopyLink" type="checkbox" ${f.posttest_show_copy_link ? "checked" : ""}></label>
         <label class="setting-row"><span>${liveT("evaluation")} ${liveT("required")}</span><input name="evaluationRequired" type="checkbox" ${f.evaluation_required ? "checked" : ""}></label>
-        <label class="setting-row"><span>Hiển thị link copy — Đánh giá</span><input name="evaluationShowCopyLink" type="checkbox" ${f.evaluation_show_copy_link ? "checked" : ""}></label>
         <div class="span-2"><button class="btn btn-primary" type="submit">Lưu</button></div><p class="field-error span-2" data-live-update-error></p>
       </form>`;
   } else if (activeTab === "controls") {
@@ -6668,7 +6698,7 @@ function adminLiveTrainingDetailPage() {
 
   return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D", f.title, "hr")}<div class="content route-content live-training-page">
     <a class="btn btn-ghost" href="/admin/live-training" data-link>← ${liveT("title")}</a>
-    <section class="page-header"><div><h1>${escapeHtml(f.title)}</h1><p>${escapeHtml(f.description || "")}</p></div><div class="row-actions"><button class="btn btn-outline" data-copy-live-link="${escapeHtmlAttribute(f.publicLink || "")}">${liveT("copyLink")}</button><button class="btn btn-outline" data-live-rotate="${f.id}">Rotate link</button><button class="btn btn-danger" data-live-delete="${f.id}" data-live-delete-title="${escapeHtmlAttribute(f.title)}">Xóa hành trình</button></div></section>
+    <section class="page-header"><div><h1>${escapeHtml(f.title)}</h1><p>${escapeHtml(f.description || "")}</p></div><div class="row-actions">${f.isActivePublicFlow ? `<button class="btn btn-outline" data-copy-live-link="${escapeHtmlAttribute(f.trainingUrl || "/training")}">${liveT("copyLink")} /training</button>` : `<button class="btn btn-outline" data-live-set-active="${escapeHtmlAttribute(f.id)}" data-live-set-active-title="${escapeHtmlAttribute(f.title)}">${liveT("setActive")}</button>`}<button class="btn btn-danger" data-live-delete="${f.id}" data-live-delete-title="${escapeHtmlAttribute(f.title)}">Xóa hành trình</button></div></section>
     ${tabBar}
     ${tabContent}
     </div></main></div>${liveDeleteModal()}`;
@@ -6773,7 +6803,7 @@ function publicTrainingPage(accessToken) {
         body = `<div class="pub-countdown-popup ${cdReady ? "is-ready" : ""}" data-countdown-popup="${step}"><h3 class="pub-cd-title">${liveT(`countdownTitle_${step}`)}</h3><p class="pub-cd-body">${liveT("countdownBody")}</p>${cdSecHtml}<p class="pub-cd-after">${liveT("countdownAfter")}</p>${openBtnHtml}${copyLinkHtml}<button class="btn btn-ghost" data-public-countdown-close style="margin-top:6px">${liveT("closeBtn")}</button>${confirmHtml}</div>`;
       } else {
         // Normal (not in countdown popup)
-        const copyHtml = s.showCopyLink ? `<div class="pub-copy-wrap"><input class="pub-copy-url" readonly value="${escapeHtmlAttribute(s.url)}" aria-label="URL"><button class="btn btn-outline pub-copy-btn" data-public-copy-link="${step}">${liveT("copyLinkBtn")}</button></div>` : "";
+        const copyHtml = `<div class="pub-copy-wrap"><input class="pub-copy-url" readonly value="${escapeHtmlAttribute(s.url)}" aria-label="URL"><button class="btn btn-outline pub-copy-btn" data-public-copy-link="${step}">${liveT("copyLinkBtn")}</button></div>`;
         const showConfirmNormal = started || activated;
         body = `<button class="btn btn-primary" data-public-step-open="${step}">${openLabel}</button>${copyHtml}${showConfirmNormal ? `<button class="btn btn-success pub-confirm-btn" data-public-step-complete="${step}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> ${doneLabel}</button>` : ""}`;
       }
@@ -7661,7 +7691,6 @@ function bindEvents() {
       pretestUrl: fd.get("pretestUrl"), posttestUrl: fd.get("posttestUrl"), evaluationUrl: fd.get("evaluationUrl"),
       pretestRequired: fd.get("pretestRequired") === "on", posttestRequired: fd.get("posttestRequired") === "on", evaluationRequired: fd.get("evaluationRequired") === "on",
       pretestDescription: fd.get("pretestDescription") || "", posttestDescription: fd.get("posttestDescription") || "", evaluationDescription: fd.get("evaluationDescription") || "",
-      pretestShowCopyLink: fd.get("pretestShowCopyLink") === "on", posttestShowCopyLink: fd.get("posttestShowCopyLink") === "on", evaluationShowCopyLink: fd.get("evaluationShowCopyLink") === "on",
       speakerName: fd.get("speakerName") || "", speakerTitle: fd.get("speakerTitle") || "",
       speakerOrg: fd.get("speakerOrg") || "", speakerBio: fd.get("speakerBio") || "",
       speakerPhotoUrl: fd.get("speakerPhotoUrl") || "",
@@ -7679,10 +7708,6 @@ function bindEvents() {
     if (!confirm("Đóng phiên này?")) return;
     try { await apiJson(`/api/admin/live-training/${el.dataset.liveClose}/close`, { method: "POST", body: "{}" }); await loadLiveTrainingList(); } catch { toast("error"); }
   }));
-  document.querySelector("[data-live-rotate]")?.addEventListener("click", async (e) => {
-    if (!confirm("Rotate public link? Link cũ sẽ không còn dùng được.")) return;
-    try { await apiJson(`/api/admin/live-training/${e.currentTarget.dataset.liveRotate}/rotate-link`, { method: "POST", body: "{}" }); await loadLiveTrainingDetail(e.currentTarget.dataset.liveRotate); } catch { toast("error"); }
-  });
   // Active flow (set /training)
   document.querySelectorAll("[data-live-set-active]").forEach((el) => el.addEventListener("click", async () => {
     const flowId = el.dataset.liveSetActive;
@@ -7888,31 +7913,26 @@ function bindEvents() {
     liveTrainingState.manualAddError = "";
     render();
     try {
-      const res = await fetch(`/api/admin/live-training/${encodeURIComponent(flowId)}/roster`, {
+      const body = await apiJson(`/api/admin/live-training/${encodeURIComponent(flowId)}/roster`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(session ? { Authorization: `Bearer ${session.token}` } : {}) },
-        body: JSON.stringify({ fullName: name, givenName: given, department: dept, location: loc, mode }),
+        body: JSON.stringify({ fullName: name, givenName: given, department: dept, location: loc, mode, note: "" }),
       });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (body.error === "DUPLICATE_ROSTER_ENTRY") {
-          liveTrainingState.manualAddError = "Tên này đã có trong danh sách.";
-          liveTrainingState.manualAddDupId = body.existingId || null;
-          liveTrainingState.manualAddOpen = false;
-          render();
-          if (body.existingId) setTimeout(() => document.getElementById(`dup-roster-${body.existingId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
-          return;
-        }
-        throw new Error(body.error || "ADD_FAILED");
-      }
-      if (body.entry) liveTrainingState.roster = [...(liveTrainingState.roster || []), body.entry].sort((a, b) => (a.full_name || "").localeCompare(b.full_name || "", "vi"));
+      const created = rosterEntryToAdminRow(body.rosterEntry || body.entry);
+      if (created.id) liveTrainingState.roster = sortRosterRows([...(liveTrainingState.roster || []), created]);
       liveTrainingState.manualAddOpen = false;
       liveTrainingState.manualAddError = "";
       liveTrainingState.manualAddDupId = null;
       render();
-      toast("Đã thêm vào danh sách");
+      toast("success", "Đã thêm học viên vào danh sách.");
     } catch (err) {
-      liveTrainingState.manualAddError = err.message || "Có lỗi xảy ra.";
+      if (err.message === "DUPLICATE_ROSTER_ENTRY") {
+        liveTrainingState.manualAddError = "Học viên này đã có trong danh sách.";
+        liveTrainingState.manualAddDupId = err.body?.existingId || null;
+      } else if (err.message === "HR only" || err.message === "HR_ONLY") {
+        liveTrainingState.manualAddError = "Phiên đăng nhập HR không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.";
+      } else {
+        liveTrainingState.manualAddError = err.message || "Không thể thêm học viên. Vui lòng thử lại.";
+      }
       render();
     } finally {
       liveTrainingState.manualAddSaving = false;
