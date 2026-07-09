@@ -826,7 +826,7 @@ let liveTrainingState = {
   speakerDraft: null,
   bulkCompleteState: { loading: null },
   manualAddOpen: false, manualAddSaving: false, manualAddError: "", manualAddDupId: null,
-  cropOpen: false, cropFile: null, cropDataUrl: null, cropAspect: "4:5",
+  cropOpen: false, cropFile: null, cropDataUrl: null, cropAspect: "4:5", cropError: "", cropSourceUrl: "",
 };
 let liveDeleteState = { flowId: null, flowTitle: "", loading: false, error: "" };
 let publicTrainingState = {
@@ -1135,6 +1135,8 @@ function initCropEditor() {
 
   const ASPECT = 4 / 5;
   const img = new Image();
+  if (liveTrainingState.cropSourceUrl) img.crossOrigin = "anonymous";
+  img.decoding = "async";
   img.onload = () => {
     const wrapW = wrap.clientWidth || 360;
     const wrapH = Math.round(wrapW / ASPECT);
@@ -1237,6 +1239,7 @@ function initCropEditor() {
         if (!blob) throw new Error("CANVAS_BLOB_FAILED");
         const fd = new FormData();
         fd.append("photo", blob, "speaker.webp");
+        fd.append("positionY", String(liveTrainingState.speakerDraft?.positionY ?? liveTrainingState.detail?.speaker_photo_position_y ?? 50));
         const resp = await fetch(`/api/admin/live-training/${encodeURIComponent(flowId)}/speaker-photo`, {
           method: "POST",
           headers: session ? { Authorization: `Bearer ${session.token}` } : {},
@@ -1250,12 +1253,16 @@ function initCropEditor() {
         liveTrainingState.cropOpen = false;
         liveTrainingState.cropDataUrl = null;
         liveTrainingState.cropFile = null;
+        liveTrainingState.cropError = "";
+        liveTrainingState.cropSourceUrl = "";
         _cropState = null;
         render();
         toast("Đã lưu ảnh diễn giả");
       } catch (err) {
         saveBtn.disabled = false; saveBtn.textContent = "Lưu ảnh";
-        toast("error", err.message || "Lỗi tải ảnh lên");
+        const msg = liveTrainingState.cropSourceUrl ? "Không thể chỉnh khung trực tiếp từ URL này. Vui lòng tải ảnh về và upload." : (err.message || "Lỗi tải ảnh lên");
+        liveTrainingState.cropError = msg;
+        toast("error", msg);
       }
     });
 
@@ -1275,6 +1282,36 @@ function applyPublicTrainingPayload(payload) {
   publicTrainingState.steps = payload.steps || publicTrainingState.steps;
   publicTrainingState.participant = payload.participant || publicTrainingState.participant;
   publicTrainingState.completionEligible = Boolean(payload.completionEligible);
+}
+
+function publicPayloadStableKey(body) {
+  const clone = JSON.parse(JSON.stringify(body || {}));
+  if (clone.participant) delete clone.participant.lastSeenAt;
+  return JSON.stringify(clone);
+}
+
+function updateOrientationCountdownDom() {
+  const cd = publicTrainingState.orientationCountdown;
+  const done = publicTrainingState.orientationCountdownDone;
+  const hint = document.querySelector("[data-orientation-countdown]");
+  const btn = document.querySelector("[data-orientation-ack]");
+  if (hint) hint.textContent = done ? "" : liveT("orientationCountdownHint").replace("{n}", cd);
+  if (btn) {
+    btn.textContent = publicTrainingState.orientationSaving ? "..." : done ? liveT("orientationAck") : liveT("orientationAckCountdown").replace("{n}", cd);
+    btn.disabled = Boolean(publicTrainingState.orientationSaving || !done);
+  }
+}
+
+function updateStepCountdownDom(step) {
+  const sec = publicTrainingState.countdownSec;
+  const ready = publicTrainingState.countdownReady;
+  const root = document.querySelector(`[data-countdown-popup="${step}"]`);
+  if (!root) return;
+  const secEl = root.querySelector("[data-countdown-sec]");
+  if (secEl) secEl.textContent = ready ? "" : liveT("countdownSec").replace("{n}", sec);
+  const waitBtn = root.querySelector("[data-countdown-wait]");
+  if (waitBtn) waitBtn.textContent = liveT("countdownWaiting").replace("{n}", sec);
+  root.classList.toggle("is-ready", ready);
 }
 
 async function fetchPublicTrainingInitial(accessToken) {
@@ -1326,7 +1363,7 @@ async function fetchPublicTrainingState(shouldRender = true) {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || "STATE_ERROR");
     if (seq !== publicTrainingState.requestSeq) return;
-    const nextJson = JSON.stringify(body);
+    const nextJson = publicPayloadStableKey(body);
     const changed = nextJson !== publicTrainingState.lastJson;
     if (changed) {
       publicTrainingState.lastJson = nextJson;
@@ -1367,11 +1404,11 @@ function startOrientationCountdown() {
     if (!publicTrainingState.showOrientation) return; // dismissed
     if (publicTrainingState.orientationCountdown > 1) {
       publicTrainingState.orientationCountdown--;
-      render();
+      updateOrientationCountdownDom();
       publicTrainingState.orientationCountdownTimer = setTimeout(tick, 1000);
     } else {
       publicTrainingState.orientationCountdownDone = true;
-      render();
+      updateOrientationCountdownDom();
     }
   }
   publicTrainingState.orientationCountdownTimer = setTimeout(tick, 1000);
@@ -2137,6 +2174,7 @@ function header() {
       <div class="container header-inner">
         ${brand()}
         <nav class="nav">
+          <span class="nav-ink" aria-hidden="true"></span>
           <a href="/" data-link ${route === "/" ? 'aria-current="page" class="is-active"' : ""}>${t("nav.home")}</a>
           <a href="/about-kis" data-link ${route === "/about-kis" ? 'aria-current="page" class="is-active"' : ""}>${t("nav.about")}</a>
           <button class="nav-button" data-scroll="featured-courses">${t("nav.courses")}</button>
@@ -2178,7 +2216,7 @@ function footer() {
           <span class="footer-v2__col-heading">${uiText("contactSupport")}</span>
           <div class="public-footer-contact-text">
             <span class="public-footer-contact-name">${hrContact}</span>
-            <span class="public-footer-contact-role">${t("about.footerContactRole")}</span>
+            <span class="public-footer-contact-role"><span>Assistant Manager</span><span>Human Resources Dept</span></span>
             <a class="public-footer-contact-email" href="mailto:thanh.ntc@kisvn.vn">thanh.ntc@kisvn.vn</a>
           </div>
         </div>
@@ -6498,11 +6536,12 @@ function adminLiveTrainingDetailPage() {
   const spOrg = sd.organization !== undefined ? sd.organization : (f.speaker_org || "");
   const spBio = sd.bio !== undefined ? sd.bio : (f.speaker_bio || "");
   const spImg = sd.imageUrl !== undefined ? sd.imageUrl : (f.speaker_photo_url || "");
+  const spPosY = Math.max(0, Math.min(100, Number(sd.positionY !== undefined ? sd.positionY : (f.speaker_photo_position_y ?? 50)) || 50));
 
   const speakerPreviewCard = spName ? (() => {
     const initials = spName.trim().split(/\s+/).map(w=>w[0]).slice(-2).join("").toUpperCase();
     const photoEl = spImg
-      ? `<img class="spk-preview-photo" src="${escapeHtmlAttribute(spImg)}" alt="${escapeHtmlAttribute(spName)}" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">`
+      ? `<img class="spk-preview-photo" src="${escapeHtmlAttribute(spImg)}" alt="${escapeHtmlAttribute(spName)}" style="--speaker-position-y:${spPosY}%" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">`
       : "";
     const initialsEl = `<div class="spk-preview-initials" ${spImg ? 'style="display:none"' : ""}>${escapeHtml(initials)}</div>`;
     return `<div class="spk-preview-card">${photoEl}${initialsEl}<div class="spk-preview-info"><strong class="spk-preview-name">${escapeHtml(spName)}</strong>${spTitle?`<span class="spk-preview-role">${escapeHtml(spTitle)}</span>`:""}${spOrg?`<span class="spk-preview-org">${escapeHtml(spOrg)}</span>`:""}${spBio?`<p class="spk-preview-bio">${escapeHtml(spBio)}</p>`:""}</div></div>`;
@@ -6589,7 +6628,7 @@ function adminLiveTrainingDetailPage() {
     </section>`;
   } else if (activeTab === "speaker") {
     const cropState = liveTrainingState;
-    const cropDialog = cropState.cropOpen && cropState.cropDataUrl ? `<div class="modal-backdrop open"><section class="modal crop-dialog"><header class="modal__header"><div><h2>Chỉnh khung ảnh</h2><p style="font-size:13px;color:var(--muted)">Kéo để đổi vị trí · Cuộn để zoom</p></div><button class="icon-btn" data-crop-cancel>×</button></header><div class="modal__body crop-dialog__body"><div class="crop-dialog__editor"><div class="crop-canvas-wrap" id="cropCanvasWrap"><canvas id="cropCanvas"></canvas><div class="crop-overlay" id="cropOverlay"></div></div><div class="crop-controls"><label style="font-size:13px;font-weight:600;color:var(--navy)">Zoom</label><input type="range" id="cropZoom" min="100" max="300" value="100" style="flex:1"><button class="btn btn-ghost" id="cropReset" style="min-height:36px;font-size:13px">Reset</button></div><div style="display:flex;gap:8px;margin-top:4px"><span style="font-size:12px;color:var(--muted)">Tỷ lệ: 4:5</span></div></div><div class="crop-dialog__preview"><p style="font-size:13px;font-weight:600;margin:0 0 12px;color:var(--navy)">Xem trước card</p><div id="cropPreviewCard" class="spk-preview-card"><div id="cropPreviewImgWrap" style="width:100%;aspect-ratio:4/5;overflow:hidden;border-radius:8px;background:#f1f5f9"><canvas id="cropPreviewCanvas" style="width:100%;height:100%;display:block"></canvas></div><div class="spk-preview-info"><span class="spk-preview-name">${escapeHtml(spName || "Tên diễn giả")}</span>${spTitle ? `<span class="spk-preview-role">${escapeHtml(spTitle)}</span>` : ""}</div></div></div></div><footer class="modal__footer" style="position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:12px 20px"><button class="btn btn-outline" data-crop-cancel>Hủy</button><button class="btn btn-ghost" id="cropResetBtn">Reset</button><button class="btn btn-primary" id="cropSaveBtn" style="min-width:120px">Lưu ảnh</button></footer></section></div>` : "";
+    const cropDialog = cropState.cropOpen && cropState.cropDataUrl ? `<div class="modal-backdrop open"><section class="modal crop-dialog"><header class="modal__header"><div><h2>Chỉnh khung ảnh</h2><p style="font-size:13px;color:var(--muted)">Kéo để đổi vị trí · Cuộn để zoom</p></div><button class="icon-btn" data-crop-cancel>×</button></header><div class="modal__body crop-dialog__body"><div class="crop-dialog__editor"><div class="crop-canvas-wrap" id="cropCanvasWrap"><canvas id="cropCanvas"></canvas><div class="crop-overlay" id="cropOverlay"></div></div><div class="crop-controls"><label style="font-size:13px;font-weight:600;color:var(--navy)">Zoom</label><input type="range" id="cropZoom" min="100" max="300" value="100" style="flex:1"><button class="btn btn-ghost" id="cropReset" style="min-height:36px;font-size:13px">Reset</button></div><div style="display:flex;gap:8px;margin-top:4px"><span style="font-size:12px;color:var(--muted)">Tỷ lệ: 4:5</span></div>${cropState.cropError ? `<p class="field-error">${escapeHtml(cropState.cropError)}</p>` : ""}</div><div class="crop-dialog__preview"><p style="font-size:13px;font-weight:600;margin:0 0 12px;color:var(--navy)">Xem trước card</p><div id="cropPreviewCard" class="spk-preview-card"><div id="cropPreviewImgWrap" style="width:100%;aspect-ratio:4/5;overflow:hidden;border-radius:8px;background:#f1f5f9"><canvas id="cropPreviewCanvas" style="width:100%;height:100%;display:block"></canvas></div><div class="spk-preview-info"><span class="spk-preview-name">${escapeHtml(spName || "Tên diễn giả")}</span>${spTitle ? `<span class="spk-preview-role">${escapeHtml(spTitle)}</span>` : ""}</div></div></div></div><footer class="modal__footer" style="position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:12px 20px"><button class="btn btn-outline" data-crop-cancel>Hủy</button><button class="btn btn-ghost" id="cropResetBtn">Reset</button><button class="btn btn-primary" id="cropSaveBtn" style="min-width:120px">Lưu ảnh</button></footer></section></div>` : "";
     tabContent = `${cropDialog}<div class="spk-tab-layout">
       <form id="liveTrainingSpeakerForm" class="ui-card spk-form">
         <h2 style="margin:0 0 20px;font-size:17px;font-weight:700">Thông tin diễn giả</h2>
@@ -6606,7 +6645,9 @@ function adminLiveTrainingDetailPage() {
           </div>
           <small>Upload: JPEG/PNG/WebP, tối đa 5 MB. Ảnh sẽ được crop trước khi lưu.</small>
           ${spImg ? `<div class="spk-img-preview-wrap"><img class="spk-img-preview" src="${escapeHtmlAttribute(spImg)}" alt="preview" onerror="this.closest('.spk-img-preview-wrap').style.display='none'"><button type="button" class="btn btn-ghost" style="font-size:12px;padding:0 8px;min-height:28px" data-speaker-clear-img>Xóa ảnh</button></div>` : ""}
+          ${spImg ? `<div class="spk-photo-actions"><button type="button" class="btn btn-outline" data-speaker-crop-url>Chỉnh khung ảnh</button></div>` : ""}
         </div>
+        <div class="field"><label>Vị trí dọc ảnh</label><input name="speakerPhotoPositionY" type="range" min="0" max="100" value="${spPosY}" data-speaker-position-y><small><span>Trên</span><span style="float:right">Dưới</span></small></div>
         <div class="field"><label>Họ và tên</label><input name="speakerName" value="${escapeHtmlAttribute(spName)}" placeholder="Nguyễn Văn A" data-speaker-preview="name" autocomplete="name"></div>
         <div class="field"><label>Vai trò / Chức danh</label><input name="speakerTitle" value="${escapeHtmlAttribute(spTitle)}" placeholder="Chuyên viên đào tạo" data-speaker-preview="role"></div>
         <div class="field"><label>Đơn vị / Phòng ban</label><input name="speakerOrg" value="${escapeHtmlAttribute(spOrg)}" placeholder="KIS Vietnam" data-speaker-preview="org"></div>
@@ -6689,7 +6730,8 @@ function publicTrainingPage(accessToken) {
     const speakerSide = (f?.speaker?.name) ? (() => {
       const sp = f.speaker;
       const inits = escapeHtml(sp.name.trim().split(/\s+/).map(w=>w[0]).slice(-2).join("").toUpperCase());
-      const photo = sp.imageUrl ? `<img class="pub-speaker-photo" src="${escapeHtmlAttribute(sp.imageUrl)}" alt="${escapeHtmlAttribute(sp.name)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">` : "";
+      const posY = Math.max(0, Math.min(100, Number(sp.positionY ?? 50) || 50));
+      const photo = sp.imageUrl ? `<img class="pub-speaker-photo" src="${escapeHtmlAttribute(sp.imageUrl)}" alt="${escapeHtmlAttribute(sp.name)}" style="--speaker-position-y:${posY}%" loading="eager" decoding="async" fetchpriority="high" onload="this.classList.add('is-ready')" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">` : "";
       return `<aside class="pub-card pub-speaker-aside">${photo}<div class="pub-speaker-initials" aria-hidden="true" ${sp.imageUrl?'style="display:none"':""}>${inits}</div><div class="pub-speaker-info"><strong class="pub-speaker-name">${escapeHtml(sp.name)}</strong>${sp.role?`<span class="pub-speaker-title">${escapeHtml(sp.role)}</span>`:""}${sp.organization?`<span class="pub-speaker-org">${escapeHtml(sp.organization)}</span>`:""}${sp.bio?`<p class="pub-speaker-bio">${escapeHtml(sp.bio)}</p>`:""}</div></aside>`;
     })() : "";
     const joinCard = `<div class="pub-card pub-join-card"><h1 class="pub-session-title">${escapeHtml(f?.title || "")}</h1>${f?.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}<form id="publicTrainingJoinForm">${namePickerHtml}${(!hasRoster || outsideRoster) && !selectedId ? `<button class="btn btn-primary" type="submit" style="width:100%;min-height:48px">${publicTrainingState.joining ? liveT("resuming").replace("…","") : liveT("start")}</button><p class="field-error" role="alert">${escapeHtml(publicTrainingState.error || "")}</p>` : ""}</form></div>`;
@@ -6720,17 +6762,15 @@ function publicTrainingPage(accessToken) {
         const cdSec = publicTrainingState.countdownSec;
         const cdReady = publicTrainingState.countdownReady;
         const copyLinkHtml = `<div class="pub-copy-wrap"><input class="pub-copy-url" readonly value="${escapeHtmlAttribute(s.url)}" aria-label="URL"><button class="btn btn-outline pub-copy-btn" data-public-copy-link="${step}">${liveT("copyLinkBtn")}</button></div>`;
-        const openBtnHtml = cdReady
-          ? `<a href="${escapeHtmlAttribute(s.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary pub-open-anchor" data-public-anchor-step="${step}" style="min-height:44px;display:flex;align-items:center;justify-content:center">${liveT(`countdownOpen_${step}`)}</a>`
-          : `<button class="btn btn-primary" disabled>${liveT("countdownWaiting").replace("{n}", cdSec)}</button>`;
-        const cdSecHtml = !cdReady ? `<p class="pub-cd-sec">${liveT("countdownSec").replace("{n}", cdSec)}</p>` : "";
-        const showConfirm = cdReady && (started || activated);
+        const openBtnHtml = `<button class="btn btn-primary pub-countdown-wait-btn" data-countdown-wait disabled>${liveT("countdownWaiting").replace("{n}", cdSec)}</button><a href="${escapeHtmlAttribute(s.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary pub-open-anchor" data-public-anchor-step="${step}" style="min-height:44px;align-items:center;justify-content:center">${liveT(`countdownOpen_${step}`)}</a>`;
+        const cdSecHtml = `<p class="pub-cd-sec" data-countdown-sec>${!cdReady ? liveT("countdownSec").replace("{n}", cdSec) : ""}</p>`;
+        const showConfirm = cdReady;
         const confirmHtml = showConfirm
           ? `<button class="btn btn-success pub-confirm-btn" data-public-step-complete="${step}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> ${doneLabel}</button>`
           : (cdReady
             ? `<p class="pub-cd-hint">Anh/Chị vui lòng hoàn thành nội dung tại liên kết, sau đó quay lại và xác nhận bên dưới.</p>`
             : `<p class="pub-cd-hint">Nút xác nhận sẽ hiển thị sau 5 giây…</p>`);
-        body = `<div class="pub-countdown-popup"><h3 class="pub-cd-title">${liveT(`countdownTitle_${step}`)}</h3><p class="pub-cd-body">${liveT("countdownBody")}</p>${cdSecHtml}<p class="pub-cd-after">${liveT("countdownAfter")}</p>${openBtnHtml}${copyLinkHtml}<button class="btn btn-ghost" data-public-countdown-close style="margin-top:6px">${liveT("closeBtn")}</button>${confirmHtml}</div>`;
+        body = `<div class="pub-countdown-popup ${cdReady ? "is-ready" : ""}" data-countdown-popup="${step}"><h3 class="pub-cd-title">${liveT(`countdownTitle_${step}`)}</h3><p class="pub-cd-body">${liveT("countdownBody")}</p>${cdSecHtml}<p class="pub-cd-after">${liveT("countdownAfter")}</p>${openBtnHtml}${copyLinkHtml}<button class="btn btn-ghost" data-public-countdown-close style="margin-top:6px">${liveT("closeBtn")}</button>${confirmHtml}</div>`;
       } else {
         // Normal (not in countdown popup)
         const copyHtml = s.showCopyLink ? `<div class="pub-copy-wrap"><input class="pub-copy-url" readonly value="${escapeHtmlAttribute(s.url)}" aria-label="URL"><button class="btn btn-outline pub-copy-btn" data-public-copy-link="${step}">${liveT("copyLinkBtn")}</button></div>` : "";
@@ -6743,8 +6783,9 @@ function publicTrainingPage(accessToken) {
     const _sp = f.speaker;
     const speakerCard = _sp?.name ? (() => {
       const initials = escapeHtml(_sp.name.trim().split(/\s+/).map(w=>w[0]).slice(-2).join("").toUpperCase());
+      const posY = Math.max(0, Math.min(100, Number(_sp.positionY ?? 50) || 50));
       const photoHtml = _sp.imageUrl
-        ? `<img class="pub-speaker-photo" src="${escapeHtmlAttribute(_sp.imageUrl)}" alt="${escapeHtmlAttribute(_sp.name)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">`
+        ? `<img class="pub-speaker-photo" src="${escapeHtmlAttribute(_sp.imageUrl)}" alt="${escapeHtmlAttribute(_sp.name)}" style="--speaker-position-y:${posY}%" loading="eager" decoding="async" fetchpriority="high" onload="this.classList.add('is-ready')" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">`
         : "";
       const initialsDiv = `<div class="pub-speaker-initials" aria-hidden="true" ${_sp.imageUrl ? 'style="display:none"' : ""}>${initials}</div>`;
       return `<div class="pub-card pub-speaker-card"><div class="pub-speaker-inner">${photoHtml}${initialsDiv}<div class="pub-speaker-info"><strong class="pub-speaker-name">${escapeHtml(_sp.name)}</strong>${_sp.role ? `<span class="pub-speaker-title">${escapeHtml(_sp.role)}</span>` : ""}${_sp.organization ? `<span class="pub-speaker-org">${escapeHtml(_sp.organization)}</span>` : ""}${_sp.bio ? `<p class="pub-speaker-bio">${escapeHtml(_sp.bio)}</p>` : ""}</div></div></div>`;
@@ -6759,11 +6800,9 @@ function publicTrainingPage(accessToken) {
       : oCdDone
         ? escapeHtml(liveT("orientationAck"))
         : escapeHtml(liveT("orientationAckCountdown").replace("{n}", oCd));
-    const oHintHtml = !oCdDone
-      ? `<p class="pub-orientation-countdown-hint">${escapeHtml(liveT("orientationCountdownHint").replace("{n}", oCd))}</p>`
-      : "";
+    const oHintHtml = `<p class="pub-orientation-countdown-hint orientation-countdown" data-orientation-countdown>${!oCdDone ? escapeHtml(liveT("orientationCountdownHint").replace("{n}", oCd)) : ""}</p>`;
     const orientationModal = publicTrainingState.showOrientation
-      ? `<div class="pub-orientation-backdrop" aria-modal="true" role="dialog" aria-labelledby="orientationTitle"><div class="pub-orientation-modal"><div class="pub-orientation-icon" aria-hidden="true"><svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><h2 id="orientationTitle" class="pub-orientation-title">${escapeHtml(liveT("orientationTitle"))}</h2><p class="pub-orientation-body">${escapeHtml(liveT("orientationBody"))}</p><p class="pub-orientation-note">${escapeHtml(liveT("orientationNote"))}</p>${oHintHtml}${publicTrainingState.orientationError ? `<p class="field-error" style="margin-top:8px">${escapeHtml(publicTrainingState.orientationError)}</p>` : ""}<button class="btn btn-primary pub-orientation-btn" data-orientation-ack ${(publicTrainingState.orientationSaving || !oCdDone) ? "disabled" : ""}>${oBtnLabel}</button></div></div>`
+      ? `<div class="pub-orientation-backdrop" aria-modal="true" role="dialog" aria-labelledby="orientationTitle"><div class="pub-orientation-modal"><div class="pub-orientation-icon" aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="pub-orientation-scroll"><h2 id="orientationTitle" class="pub-orientation-title">${escapeHtml(liveT("orientationTitle"))}</h2><p class="pub-orientation-body">${escapeHtml(liveT("orientationBody"))}</p><p class="pub-orientation-note">${escapeHtml(liveT("orientationNote"))}</p>${oHintHtml}${publicTrainingState.orientationError ? `<p class="field-error" style="margin-top:8px">${escapeHtml(publicTrainingState.orientationError)}</p>` : ""}</div><button class="btn btn-primary pub-orientation-btn" data-orientation-ack ${(publicTrainingState.orientationSaving || !oCdDone) ? "disabled" : ""}>${oBtnLabel}</button></div></div>`
       : "";
     content = `${orientationModal}<div class="pub-journey"><div class="pub-journey-header"><div class="pub-journey-meta"><h1 class="pub-session-title">${escapeHtml(f.title)}</h1>${greetingHtml}${f.description ? `<p class="pub-session-desc">${escapeHtml(f.description)}</p>` : ""}${speakerCard}</div><button class="btn btn-outline pub-switch-btn" data-public-switch aria-label="${liveT("switchParticipant")}">${liveT("switchParticipant")}</button></div>${p.completedAt ? `<div class="pub-card pub-done-card"><h2>${liveT("completed")}</h2><p class="pub-done-time">${formatDateTime(p.completedAt)}</p></div>` : `<section class="pub-stepper" aria-label="${liveT("title")}">${stepCard("pretest", liveT("pretest"), liveT("doPretest"), liveT("donePretest"))}${stepCard("posttest", liveT("posttest"), liveT("doPosttest"), liveT("donePosttest"))}${stepCard("evaluation", liveT("evaluation"), liveT("openEvaluation"), liveT("doneEvaluation"))}<article class="public-step ${completionOpen ? "is-open" : ""}"><div><h2>${liveT("completion")}</h2><span class="pub-step-badge">${completionOpen ? liveT("available") : liveT("waiting")}</span></div><div class="pub-step-actions">${completionOpen ? `<button class="btn btn-success" data-public-complete>${liveT("completion")}</button>` : `<span class="pub-step-wait">${liveT("waiting")}</span>`}</div></article></section>`}</div>`;
   }
@@ -6790,7 +6829,13 @@ function render() {
   } else if (robotsMeta?.content === "noindex, nofollow") {
     robotsMeta.remove();
   }
-  if (!route.startsWith("/join/") && route !== "/training") clearTimeout(publicTrainingState.pollTimer);
+  if (!route.startsWith("/join/") && route !== "/training") {
+    clearTimeout(publicTrainingState.pollTimer);
+    clearTimeout(publicTrainingState.orientationCountdownTimer);
+    clearTimeout(publicTrainingState.countdownTimer);
+    publicTrainingState.showOrientation = false;
+    publicTrainingState.countdownStep = null;
+  }
   session = sessionService.getValidSession();
   const routeParams = new URLSearchParams(location.search);
   selectedLoginRole = routeParams.get("role") || selectedLoginRole;
@@ -7059,6 +7104,21 @@ function render() {
       sw.style.setProperty("--lang-x", `${btnRect.left - swRect.left}px`);
       sw.style.setProperty("--lang-w", `${btnRect.width}px`);
     });
+    // Sliding nav indicator
+    const nav = document.querySelector("header.header .nav");
+    if (nav) {
+      const ink = nav.querySelector(".nav-ink");
+      const activeLink = nav.querySelector("a.is-active, a[aria-current='page']");
+      if (ink && activeLink) {
+        const navRect = nav.getBoundingClientRect();
+        const linkRect = activeLink.getBoundingClientRect();
+        nav.style.setProperty("--nav-x", `${linkRect.left - navRect.left}px`);
+        nav.style.setProperty("--nav-w", `${linkRect.width}px`);
+        nav.style.setProperty("--nav-ink-opacity", "1");
+      } else if (ink) {
+        nav.style.setProperty("--nav-ink-opacity", "0");
+      }
+    }
   });
   // Landing entrance animation — trigger once per navigation to "/"
   if (route === "/" && !dialogState) {
@@ -7473,6 +7533,18 @@ function bindShellEvents() {
   });
   window.addEventListener("resize", () => {
     if (window.innerWidth >= 901 && mobileNavOpen) { mobileNavOpen = false; document.body.classList.remove("nav-open"); render(); }
+    // Reposition nav ink on resize
+    const nav = document.querySelector("header.header .nav");
+    if (nav) {
+      const ink = nav.querySelector(".nav-ink");
+      const activeLink = nav.querySelector("a.is-active, a[aria-current='page']");
+      if (ink && activeLink) {
+        const navRect = nav.getBoundingClientRect();
+        const linkRect = activeLink.getBoundingClientRect();
+        nav.style.setProperty("--nav-x", `${linkRect.left - navRect.left}px`);
+        nav.style.setProperty("--nav-w", `${linkRect.width}px`);
+      }
+    }
   });
 }
 
@@ -7497,10 +7569,17 @@ function bindEvents() {
     const og = d.organization !== undefined ? d.organization : (f2?.speaker_org || "");
     const bi = d.bio !== undefined ? d.bio : (f2?.speaker_bio || "");
     const im = d.imageUrl !== undefined ? d.imageUrl : (f2?.speaker_photo_url || "");
+    const py = Math.max(0, Math.min(100, Number(d.positionY !== undefined ? d.positionY : (f2?.speaker_photo_position_y ?? 50)) || 50));
     if (!nm) { container.innerHTML = `<div class="spk-preview-empty"><svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg><p>Nhập thông tin diễn giả để xem trước</p></div>`; return; }
     const initials = nm.trim().split(/\s+/).map(w=>w[0]).slice(-2).join("").toUpperCase();
-    container.innerHTML = `<div class="spk-preview-card">${im?`<img class="spk-preview-photo" src="${escapeHtmlAttribute(im)}" alt="" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">`:""}${`<div class="spk-preview-initials" ${im?'style="display:none"':""}>${escapeHtml(initials)}</div>`}<div class="spk-preview-info"><strong class="spk-preview-name">${escapeHtml(nm)}</strong>${rl?`<span class="spk-preview-role">${escapeHtml(rl)}</span>`:""}${og?`<span class="spk-preview-org">${escapeHtml(og)}</span>`:""}${bi?`<p class="spk-preview-bio">${escapeHtml(bi)}</p>`:""}</div></div>`;
+    container.innerHTML = `<div class="spk-preview-card">${im?`<img class="spk-preview-photo" src="${escapeHtmlAttribute(im)}" alt="" style="--speaker-position-y:${py}%" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">`:""}${`<div class="spk-preview-initials" ${im?'style="display:none"':""}>${escapeHtml(initials)}</div>`}<div class="spk-preview-info"><strong class="spk-preview-name">${escapeHtml(nm)}</strong>${rl?`<span class="spk-preview-role">${escapeHtml(rl)}</span>`:""}${og?`<span class="spk-preview-org">${escapeHtml(og)}</span>`:""}${bi?`<p class="spk-preview-bio">${escapeHtml(bi)}</p>`:""}</div></div>`;
   }));
+  document.querySelector("[data-speaker-position-y]")?.addEventListener("input", (e) => {
+    if (!liveTrainingState.speakerDraft) liveTrainingState.speakerDraft = {};
+    const value = Math.max(0, Math.min(100, Number(e.target.value) || 50));
+    liveTrainingState.speakerDraft.positionY = value;
+    document.querySelectorAll(".spk-preview-photo,.spk-img-preview").forEach((img) => img.style.setProperty("--speaker-position-y", `${value}%`));
+  });
   document.querySelector("[data-speaker-preview-img]")?.addEventListener("input", (e) => {
     if (!liveTrainingState.speakerDraft) liveTrainingState.speakerDraft = {};
     const url = e.target.value.trim();
@@ -7508,7 +7587,17 @@ function bindEvents() {
     const container = document.getElementById("speakerPreviewContainer");
     const photo = container?.querySelector(".spk-preview-photo");
     const init = container?.querySelector(".spk-preview-initials");
-    if (photo) { photo.src = url; photo.style.display = url ? "" : "none"; if (init) init.style.display = url ? "none" : "flex"; }
+    if (photo && photo.getAttribute("src") !== url) { photo.src = url; photo.style.display = url ? "" : "none"; if (init) init.style.display = url ? "none" : "flex"; }
+  });
+  document.querySelector("[data-speaker-crop-url]")?.addEventListener("click", () => {
+    const url = document.querySelector("[data-speaker-preview-img]")?.value?.trim() || "";
+    if (!url || !url.startsWith("https://")) { toast("error", "URL ảnh phải bắt đầu bằng https://"); return; }
+    liveTrainingState.cropDataUrl = url;
+    liveTrainingState.cropSourceUrl = url;
+    liveTrainingState.cropError = "";
+    liveTrainingState.cropOpen = true;
+    render();
+    setTimeout(() => initCropEditor(), 80);
   });
   document.querySelector("[data-speaker-clear-img]")?.addEventListener("click", () => {
     if (!liveTrainingState.speakerDraft) liveTrainingState.speakerDraft = {};
@@ -7524,7 +7613,7 @@ function bindEvents() {
     const errEl = event.currentTarget.querySelector("[data-speaker-form-error]");
     const urlVal = (fd.get("speakerPhotoUrl") || "").trim();
     if (urlVal && !urlVal.startsWith("https://")) { if (errEl) errEl.textContent = "URL ảnh phải bắt đầu bằng https://"; return; }
-    const payload = { speakerName: fd.get("speakerName") || "", speakerTitle: fd.get("speakerTitle") || "", speakerOrg: fd.get("speakerOrg") || "", speakerBio: fd.get("speakerBio") || "", speakerPhotoUrl: urlVal };
+    const payload = { speakerName: fd.get("speakerName") || "", speakerTitle: fd.get("speakerTitle") || "", speakerOrg: fd.get("speakerOrg") || "", speakerBio: fd.get("speakerBio") || "", speakerPhotoUrl: urlVal, speakerPhotoPositionY: fd.get("speakerPhotoPositionY") || 50 };
     try {
       await apiJson(`/api/admin/live-training/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
       liveTrainingState.speakerDraft = null;
@@ -7536,7 +7625,7 @@ function bindEvents() {
     if (!confirm("Xóa toàn bộ thông tin diễn giả?")) return;
     const id = route.split("/")[3];
     try {
-      await apiJson(`/api/admin/live-training/${id}`, { method: "PATCH", body: JSON.stringify({ speakerName: "", speakerTitle: "", speakerOrg: "", speakerBio: "", speakerPhotoUrl: "" }) });
+      await apiJson(`/api/admin/live-training/${id}`, { method: "PATCH", body: JSON.stringify({ speakerName: "", speakerTitle: "", speakerOrg: "", speakerBio: "", speakerPhotoUrl: "", speakerPhotoPositionY: 50 }) });
       liveTrainingState.speakerDraft = null;
       await loadLiveTrainingDetail(id);
       toast("Đã xóa thông tin diễn giả");
@@ -7842,6 +7931,8 @@ function bindEvents() {
     reader.onload = (ev) => {
       liveTrainingState.cropDataUrl = ev.target.result;
       liveTrainingState.cropFile = file;
+      liveTrainingState.cropSourceUrl = "";
+      liveTrainingState.cropError = "";
       liveTrainingState.cropOpen = true;
       render();
       setTimeout(() => initCropEditor(), 80);
@@ -7853,6 +7944,8 @@ function bindEvents() {
     liveTrainingState.cropOpen = false;
     liveTrainingState.cropDataUrl = null;
     liveTrainingState.cropFile = null;
+    liveTrainingState.cropSourceUrl = "";
+    liveTrainingState.cropError = "";
     render();
   });
   if (liveTrainingState.cropOpen && liveTrainingState.cropDataUrl) {
@@ -7984,11 +8077,11 @@ function bindEvents() {
         if (publicTrainingState.countdownStep !== step) return;
         if (publicTrainingState.countdownSec > 1) {
           publicTrainingState.countdownSec--;
-          render();
+          updateStepCountdownDom(step);
           publicTrainingState.countdownTimer = setTimeout(tick, 1000);
         } else {
           publicTrainingState.countdownReady = true;
-          render();
+          updateStepCountdownDom(step);
         }
       }
       publicTrainingState.countdownTimer = setTimeout(tick, 1000);
@@ -7999,7 +8092,6 @@ function bindEvents() {
     const step = el.dataset.publicAnchorStep;
     // Mark as activated so confirm button shows
     publicTrainingState.stepActivated = { ...publicTrainingState.stepActivated, [step]: true };
-    render();
     // Fire-and-forget: don't await, don't block navigation, don't close popup
     fetch(`/api/public/live-training/${encodeURIComponent(publicTrainingState.token)}/steps/${step}/start`, { method: "POST", headers: publicTokenHeader(), keepalive: true }).then(async (res) => {
       if (res.ok) { const body = await res.json().catch(() => ({})); applyPublicTrainingPayload(body); render(); }

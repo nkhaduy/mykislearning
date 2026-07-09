@@ -89,6 +89,7 @@ function flowPublic(flow) {
       organization: flow.speaker_org || null,
       bio: flow.speaker_bio || null,
       imageUrl: flow.speaker_photo_url || null,
+      positionY: Number.isFinite(Number(flow.speaker_photo_position_y)) ? Number(flow.speaker_photo_position_y) : 50,
     } : null,
   };
 }
@@ -431,6 +432,7 @@ export async function handlePublicTraining(request, env) {
     if ("speakerOrg" in body) patch.speaker_org = cleanName(body.speakerOrg || "") || null;
     if ("speakerBio" in body) patch.speaker_bio = String(body.speakerBio || "").trim() || null;
     if ("speakerPhotoUrl" in body) patch.speaker_photo_url = assertUrl(body.speakerPhotoUrl, "speakerPhotoUrl");
+    if ("speakerPhotoPositionY" in body) patch.speaker_photo_position_y = Math.max(0, Math.min(100, Number(body.speakerPhotoPositionY) || 50));
     if ("pretestDescription" in body) patch.pretest_description = String(body.pretestDescription || "").trim() || null;
     if ("posttestDescription" in body) patch.posttest_description = String(body.posttestDescription || "").trim() || null;
     if ("evaluationDescription" in body) patch.evaluation_description = String(body.evaluationDescription || "").trim() || null;
@@ -459,7 +461,8 @@ export async function handlePublicTraining(request, env) {
     const { data: uploadData, error: uploadErr } = await supabase.storage.from("speaker-photos").upload(storagePath, arrayBuffer, { contentType: file.type, upsert: false });
     if (uploadErr) return json({ ok: false, error: uploadErr.message }, 500);
     const { data: { publicUrl } } = supabase.storage.from("speaker-photos").getPublicUrl(storagePath);
-    const { data: updated, error: patchErr } = await supabase.from("public_training_flows").update({ speaker_photo_url: publicUrl }).eq("id", id).select("*").single();
+    const positionY = Math.max(0, Math.min(100, Number(formData.get("positionY")) || 50));
+    const { data: updated, error: patchErr } = await supabase.from("public_training_flows").update({ speaker_photo_url: publicUrl, speaker_photo_position_y: positionY }).eq("id", id).select("*").single();
     if (patchErr) return json({ ok: false, error: patchErr.message }, 500);
     await audit(supabase, request, "public_training.speaker_photo_uploaded", actor, id, { flowId: id, storagePath });
     return json({ ok: true, speakerPhotoUrl: publicUrl, flow: { ...updated, publicLink: publicLink(request, updated.access_token) } });
