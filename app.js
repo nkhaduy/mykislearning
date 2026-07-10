@@ -2285,7 +2285,9 @@ function learningHoursNow() {
   const baseVN = new Date(new Date(BASE_DATE + "T00:00:00+07:00").toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
   const elapsedMs = nowVN - baseVN;
   const elapsedDays = Math.max(0, Math.floor(elapsedMs / 86400000));
-  return Math.max(BASE, BASE + elapsedDays * PER_DAY);
+  const totalActualHours = Math.max(BASE, BASE + elapsedDays * PER_DAY);
+  // Display 1 hour for every 2 actual hours learned (floor, no rounding up)
+  return Math.floor(totalActualHours / 2);
 }
 
 function formatLearningHours(hours) {
@@ -7546,6 +7548,16 @@ function setupActiveFocusTrap() {
   });
 }
 
+function _applyUserMenuState() {
+  // Targeted DOM update — avoids full render() which nukes and recreates header
+  document.querySelectorAll("[data-user-menu-trigger]").forEach(trigger => {
+    trigger.setAttribute("aria-expanded", userMenuOpen ? "true" : "false");
+  });
+  document.querySelectorAll("[data-user-menu]").forEach(menu => {
+    menu.classList.toggle("is-open", userMenuOpen);
+  });
+}
+
 function bindShellEvents() {
   if (window.__mykisShellBound) return;
   window.__mykisShellBound = true;
@@ -7569,18 +7581,18 @@ function bindShellEvents() {
     if (userTrigger) {
       event.preventDefault();
       userMenuOpen = !userMenuOpen;
-      render();
+      _applyUserMenuState();
       return;
     }
     if (userMenuOpen && !event.target.closest(".topbar-user-shell")) {
       userMenuOpen = false;
-      render();
+      _applyUserMenuState();
     }
   }, true);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       if (mobileNavOpen) { event.preventDefault(); closeMobileNav(); render(); return; }
-      if (userMenuOpen) { event.preventDefault(); userMenuOpen = false; render(); return; }
+      if (userMenuOpen) { event.preventDefault(); userMenuOpen = false; _applyUserMenuState(); return; }
       if (dialogState) { event.preventDefault(); closeDialog(); return; }
     }
     const drawer = mobileNavOpen ? document.querySelector("[data-mobile-drawer]") : null;

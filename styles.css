@@ -10785,21 +10785,21 @@ body { overflow-x: clip; }
   gap: 4px;
 }
 .public-footer-contact-name {
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.4;
+  color: rgba(255,255,255,0.9);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 .public-footer-contact-role {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  color: rgba(255,255,255,0.56);
-  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+  font-size: 13px;
   line-height: 1.5;
 }
 .public-footer-contact-email {
-  color: rgba(255,255,255,0.68);
+  color: rgba(255,255,255,0.6);
   font-size: 13px;
   line-height: 1.5;
   text-decoration: none;
