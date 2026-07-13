@@ -3047,6 +3047,12 @@ function employeeDirectoryResultsHtml() {
 }
 
 function renderEmployeeDirectoryResults() {
+  const summary = document.querySelector(".employee-directory-summary");
+  if (summary) {
+    const activeCount = _apiEmployees.filter((employee) => employee.accountStatus === "active").length;
+    const filteredCount = filteredEmployeeDirectory().length;
+    summary.innerHTML = `<span><strong>${_apiEmployees.length}</strong> tổng số</span><span><strong>${activeCount}</strong> đang hoạt động</span><span><strong>${filteredCount}</strong> trong kết quả hiện tại</span>`;
+  }
   const target = document.getElementById("employeeDirectoryResults");
   if (!target) return;
   target.innerHTML = employeeDirectoryResultsHtml();
