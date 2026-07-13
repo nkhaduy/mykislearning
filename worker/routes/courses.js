@@ -47,6 +47,29 @@ async function deleteCourseOperationalDependencies(supabase, courseId) {
   return { ok: true };
 }
 
+async function getCourseImpact(supabase, id) {
+  const [enrollments, sessions, content, versions, lpSteps, compliance] = await Promise.all([
+    supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("course_id", id),
+    supabase.from("training_sessions").select("id", { count: "exact", head: true }).eq("course_id", id),
+    supabase.from("course_content").select("id", { count: "exact", head: true }).eq("course_id", id),
+    supabase.from("course_versions").select("id", { count: "exact", head: true }).eq("course_id", id),
+    supabase.from("learning_path_steps").select("id", { count: "exact", head: true }).eq("resource_id", id).eq("resource_type", "course").catch(() => ({ count: 0 })),
+    supabase.from("compliance_requirements").select("id", { count: "exact", head: true }).eq("resource_id", id).catch(() => ({ count: 0 })),
+  ]);
+  return {
+    enrollments: enrollments.count || 0,
+    sessions: sessions.count || 0,
+    content: content.count || 0,
+    versions: versions.count || 0,
+    learningPaths: lpSteps.count || 0,
+    compliance: compliance.count || 0,
+  };
+}
+
+function hasCourseDependencies(impact) {
+  return ["enrollments", "sessions", "content", "versions", "learningPaths", "compliance"].some((key) => impact[key] > 0);
+}
+
 async function attachSignedUrls(supabase, items) {
   return Promise.all(
     items.map(async (item) => {
@@ -144,14 +167,7 @@ export async function handleCourses(request, env) {
     if (course.error) return json({ error: course.error.message }, 500);
     if (!course.data) return json({ error: "Course not found" }, 404);
 
-    const [enrollments, sessions, content, versions, lpSteps, compliance] = await Promise.all([
-      supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("course_id", id),
-      supabase.from("training_sessions").select("id", { count: "exact", head: true }).eq("course_id", id),
-      supabase.from("course_content").select("id", { count: "exact", head: true }).eq("course_id", id),
-      supabase.from("course_versions").select("id", { count: "exact", head: true }).eq("course_id", id),
-      supabase.from("learning_path_steps").select("id", { count: "exact", head: true }).eq("resource_id", id).eq("resource_type", "course").then(r => r).catch(() => ({ count: 0 })),
-      supabase.from("compliance_requirements").select("id", { count: "exact", head: true }).eq("resource_id", id).then(r => r).catch(() => ({ count: 0 })),
-    ]);
+    const impact = await getCourseImpact(supabase, id);
 
     const title = course.data?.data?.title || course.data?.data?.name || id;
     return json({
@@ -159,14 +175,8 @@ export async function handleCourses(request, env) {
       id,
       title,
       status: course.data.status,
-      impact: {
-        enrollments: enrollments.count || 0,
-        sessions: sessions.count || 0,
-        content: content.count || 0,
-        versions: versions.count || 0,
-        learningPaths: lpSteps.count || 0,
-        compliance: compliance.count || 0,
-      },
+      impact,
+      safeToDelete: !hasCourseDependencies(impact),
     });
   }
 
@@ -195,7 +205,7 @@ export async function handleCourses(request, env) {
     }
   }
 
-  if (method === "POST") {
+  if (path === "/api/courses" && method === "POST") {
     const acct = await requireHr(request, env);
     if (!acct) return json({ error: "HR only" }, 403);
     const course = await readJson(request);
@@ -240,6 +250,48 @@ export async function handleCourses(request, env) {
       afterData: { status: row.status, title: course.title || course.name || "" },
     });
     return json({ ok: true, id: course.id });
+  }
+
+  if (path === "/api/courses/bulk" && method === "POST") {
+    const acct = await requireHr(request, env);
+    if (!acct) return json({ error: "HR only" }, 403);
+    const body = await readJson(request);
+    const ids = [...new Set(Array.isArray(body.ids) ? body.ids.filter(Boolean) : [])];
+    const action = body.action || "delete";
+    if (!ids.length) return json({ error: "ids[] required" }, 400);
+    if (!["delete", "archive", "publish", "restore"].includes(action)) return json({ error: "Unsupported bulk action" }, 400);
+
+    const results = [];
+    for (const id of ids) {
+      const { data: row, error: findError } = await supabase.from("courses").select("id, status, data").eq("id", id).maybeSingle();
+      if (findError) { results.push({ id, status: "failed", reason: findError.message }); continue; }
+      if (!row) { results.push({ id, status: "failed", reason: "Course not found" }); continue; }
+      const title = row.data?.title || row.data?.name || id;
+      if (action === "delete") {
+        const impact = await getCourseImpact(supabase, id);
+        if (hasCourseDependencies(impact)) {
+          const archived = await supabase.from("courses").update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", id);
+          if (archived.error) results.push({ id, title, status: "failed", reason: archived.error.message, impact });
+          else {
+            auditLater(supabase, request, { actor: acct, action: "course.archived_by_bulk_delete", entityType: "course", entityId: id, entityDisplayName: title, metadata: { impact } });
+            results.push({ id, title, status: "archived", reason: "Course has dependent records", impact });
+          }
+          continue;
+        }
+        const deleted = await supabase.from("courses").delete().eq("id", id);
+        if (deleted.error) results.push({ id, title, status: "failed", reason: deleted.error.message });
+        else {
+          auditLater(supabase, request, { actor: acct, action: "course.hard_deleted_bulk", entityType: "course", entityId: id, entityDisplayName: title });
+          results.push({ id, title, status: "deleted" });
+        }
+        continue;
+      }
+      const nextStatus = action === "publish" ? "published" : action === "restore" ? "draft" : "archived";
+      const updated = await supabase.from("courses").update({ status: nextStatus, updated_at: new Date().toISOString() }).eq("id", id);
+      if (updated.error) results.push({ id, title, status: "failed", reason: updated.error.message });
+      else { auditLater(supabase, request, { actor: acct, action: `course.${nextStatus}_bulk`, entityType: "course", entityId: id, entityDisplayName: title }); results.push({ id, title, status: nextStatus }); }
+    }
+    return json({ ok: true, action, results });
   }
 
   // (impact path now handled above, before general GET)

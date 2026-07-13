@@ -105,6 +105,7 @@ let employeeDirectoryFilters = { department: "", position: "", accountStatus: ""
 let employeeDirectoryPage = 1;
 let employeeDirectorySortAsc = true;
 let employeeDirectoryReviewIssues = false;
+let _selectedEmployeeIds = new Set();
 // API-backed employee list (source of truth — no localStorage fallback)
 let _apiEmployees = [];
 let _apiEmployeesLoading = false;
@@ -146,6 +147,8 @@ let courseDrawerOpen = false;
 let selectedCourseId = "";
 let courseFormMode = "";
 let _courseDeletingIds = new Set();
+let _selectedCourseIds = new Set();
+let _courseBulkLoading = false;
 let contentBuilderMode = "";
 let selectedContentId = "";
 let contentBuilderType = "slide";
@@ -2009,7 +2012,7 @@ function sharedDialog() {
     : isUnsaved
     ? `<button class="btn btn-outline" data-dialog-close>Tiếp tục học</button><button class="btn btn-primary" data-dialog-leave>Rời khỏi</button>`
     : isConfirm
-    ? `<button class="btn btn-outline" data-dialog-close>Hủy</button><button class="btn btn-primary" data-dialog-confirm>Xác nhận</button>`
+    ? `<button class="btn btn-outline" data-dialog-close${String(config.title || "").startsWith("Xóa khóa học") ? " data-close-course-delete" : ""}>Hủy</button><button class="btn btn-primary" data-dialog-confirm>Xác nhận</button>`
     : isGradeInput
     ? `<button class="btn btn-outline" data-dialog-close>Hủy</button><button class="btn btn-primary" data-dialog-grade-submit>Lưu điểm</button>`
     : isSupport
@@ -2285,7 +2288,9 @@ function learningHoursNow() {
   const baseVN = new Date(new Date(BASE_DATE + "T00:00:00+07:00").toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
   const elapsedMs = nowVN - baseVN;
   const elapsedDays = Math.max(0, Math.floor(elapsedMs / 86400000));
-  return Math.max(BASE, BASE + elapsedDays * PER_DAY);
+  const totalActualHours = Math.max(BASE, BASE + elapsedDays * PER_DAY);
+  // Display 1 hour for every 2 actual hours learned (floor, no rounding up)
+  return Math.floor(totalActualHours / 2);
 }
 
 function formatLearningHours(hours) {
@@ -3043,6 +3048,9 @@ function renderEmployeeDirectoryResults() {
 }
 
 function bindEmployeeDirectoryResultEvents(root = document) {
+  const visibleEmployees = filteredEmployeeDirectory();
+  const selectAll = root.querySelector("[data-employee-select-all]");
+  if (selectAll) selectAll.indeterminate = visibleEmployees.some((employee) => _selectedEmployeeIds.has(employee.id)) && !visibleEmployees.every((employee) => _selectedEmployeeIds.has(employee.id));
   root.querySelectorAll("[data-page-kind='employees']").forEach((el) => el.addEventListener("click", () => { employeeDirectoryPage = Math.max(1, Number(el.dataset.page) || 1); renderEmployeeDirectoryResults(); }));
   root.querySelectorAll("[data-edit-employee]").forEach((el) => el.addEventListener("click", () => { employeeEditId = el.dataset.editEmployee; employeeEditOpen = true; render(); }));
   root.querySelectorAll("[data-open-certs]").forEach((el) => el.addEventListener("click", () => { certModalEmployeeId = el.dataset.openCerts; certModalOpen = true; render(); }));
@@ -3054,6 +3062,21 @@ function bindEmployeeDirectoryResultEvents(root = document) {
     _deleteEmployeeConfirming = false;
     render();
   }));
+  root.querySelectorAll("[data-employee-select]").forEach((el) => el.addEventListener("change", () => {
+    if (el.checked) _selectedEmployeeIds.add(el.dataset.employeeSelect); else _selectedEmployeeIds.delete(el.dataset.employeeSelect);
+    renderEmployeeDirectoryResults();
+  }));
+  root.querySelector("[data-employee-select-all]")?.addEventListener("change", (event) => {
+    filteredEmployeeDirectory().forEach((employee) => event.target.checked ? _selectedEmployeeIds.add(employee.id) : _selectedEmployeeIds.delete(employee.id));
+    renderEmployeeDirectoryResults();
+  });
+  root.querySelector("[data-employee-clear-selection]")?.addEventListener("click", () => { _selectedEmployeeIds.clear(); renderEmployeeDirectoryResults(); });
+  root.querySelector("[data-assign-selected-employees]")?.addEventListener("click", () => {
+    bulkSelectedAccountIds = [..._selectedEmployeeIds];
+    assignMethod = "individual";
+    assignModalOpen = true;
+    render();
+  });
   root.querySelector("[data-dismiss-pending-employee]")?.addEventListener("click", () => { _pendingEmployee = null; renderEmployeeDirectoryResults(); });
   root.querySelector("[data-retry-create-employee]")?.addEventListener("click", () => {
     if (!_pendingEmployee?.formData) return;
@@ -3094,9 +3117,12 @@ function pendingEmployeeRowHtml() {
 function employeeDirectoryTable(rows, offset = 0) {
   const pendingRow = pendingEmployeeRowHtml();
   if (!rows.length && !pendingRow) return `<div class="empty-state"><p>Không tìm thấy nhân viên nào.</p></div>`;
-  const thead = `<thead><tr><th>STT</th><th>${t("table.fullName")}</th><th>${t("table.department")}</th><th>${t("table.position")}</th><th>${t("table.email")}</th><th>${t("table.accountStatus")}</th><th>CCHN</th><th>${t("admin.action")}</th></tr></thead>`;
+  const filteredEmployees = filteredEmployeeDirectory();
+  const selectedCount = filteredEmployees.filter((employee) => _selectedEmployeeIds.has(employee.id)).length;
+  const allVisibleSelected = selectedCount > 0 && selectedCount === filteredEmployees.length;
+  const thead = `<thead><tr><th><input type="checkbox" data-employee-select-all aria-label="Chọn tất cả nhân viên trong kết quả hiện tại" ${allVisibleSelected ? "checked" : ""}></th><th>STT</th><th>${t("table.fullName")}</th><th>${t("table.department")}</th><th>${t("table.position")}</th><th>${t("table.email")}</th><th>${t("table.accountStatus")}</th><th>CCHN</th><th>${t("admin.action")}</th></tr></thead>`;
   const bodyRows = rows.map((emp, index) => `<tr>
-    <td>${offset + index + 1}</td>
+    <td><input type="checkbox" data-employee-select="${escapeHtmlAttribute(emp.id)}" aria-label="Chọn ${escapeHtmlAttribute(emp.fullName || "nhân viên")}" ${_selectedEmployeeIds.has(emp.id) ? "checked" : ""}></td><td>${offset + index + 1}</td>
     <td><strong>${escapeHtml(emp.fullName || "")}</strong></td>
     <td>${escapeHtml(emp.department || "")}</td>
     <td>${escapeHtml(emp.position || "")}</td>
@@ -3111,7 +3137,7 @@ function employeeDirectoryTable(rows, offset = 0) {
       <button type="button" class="btn btn-outline mini-action danger-action" data-delete-employee="${escapeHtmlAttribute(emp.id)}" data-delete-employee-name="${escapeHtmlAttribute(emp.fullName || "")}">Xóa</button>
     </div></td>
   </tr>`).join("");
-  return `<div class="table-wrap employee-directory-table"><table>${thead}<tbody>${pendingRow}${bodyRows}</tbody></table></div>`;
+  return `<div class="bulk-table-shell">${selectedCount ? `<div class="bulk-action-bar" role="status"><strong>Đã chọn ${selectedCount} nhân viên</strong><button type="button" class="btn btn-primary" data-assign-selected-employees>Gán khóa học</button><button type="button" class="btn btn-ghost" data-employee-clear-selection>Bỏ chọn</button></div>` : ""}<div class="table-wrap employee-directory-table"><table>${thead}<tbody>${pendingRow}${bodyRows}</tbody></table></div></div>`;
 }
 
 function loginPage() {
@@ -4966,13 +4992,15 @@ function courseDeliveryModeLabel(course) {
 
 function courseTable(courseItems) {
   if (!courseItems.length) return `<div class="empty-state"><h3>Chưa có khóa học phù hợp</h3><p>Thay đổi bộ lọc hoặc thêm khóa học mới.</p></div>`;
-  return `<div class="table-wrap"><table><thead><tr><th>STT</th><th>${t("course.title")}</th><th>${t("course.category")}</th><th>Hình thức</th><th>${t("course.duration")}</th><th>${t("course.status")}</th><th>${t("table.createdAt")}</th><th>${t("admin.action")}</th></tr></thead><tbody>${courseItems.map((course, index) => {
+  const selectedCount = courseItems.filter((course) => _selectedCourseIds.has(course.id)).length;
+  const allVisibleSelected = selectedCount > 0 && selectedCount === courseItems.length;
+  return `<div class="bulk-table-shell">${selectedCount ? `<div class="bulk-action-bar" role="status"><strong>Đã chọn ${selectedCount} khóa học</strong><button type="button" class="btn btn-outline danger-action" data-course-bulk-delete ${_courseBulkLoading ? "disabled" : ""}>${_courseBulkLoading ? "Đang xử lý..." : "Xóa khóa học đã chọn"}</button><button type="button" class="btn btn-ghost" data-course-clear-selection ${_courseBulkLoading ? "disabled" : ""}>Bỏ chọn</button></div>` : ""}<div class="table-wrap"><table><thead><tr><th><input type="checkbox" data-course-select-all aria-label="Chọn tất cả khóa học đang hiển thị" ${allVisibleSelected ? "checked" : ""} ${_courseBulkLoading ? "disabled" : ""}></th><th>STT</th><th>${t("course.title")}</th><th>${t("course.category")}</th><th>Hình thức</th><th>${t("course.duration")}</th><th>${t("course.status")}</th><th>${t("table.createdAt")}</th><th>${t("admin.action")}</th></tr></thead><tbody>${courseItems.map((course, index) => {
     const duration = Number(course.durationHours ?? course.duration_hours);
     const createdAt = course.createdAt || course.created_at || "";
     const deliveryLabel = courseDeliveryModeLabel(course);
     const deleting = _courseDeletingIds.has(course.id);
-    return `<tr data-course-row="${escapeHtmlAttribute(course.id)}"><td>${index + 1}</td><td><strong>${escapeHtml(course.title || course.name || "—")}</strong></td><td>${escapeHtml(course.category || "—")}</td><td>${escapeHtml(deliveryLabel)}</td><td>${Number.isFinite(duration) && duration > 0 ? `${duration}h` : "—"}</td><td>${courseStatusBadge(course.status)}</td><td>${escapeHtml(createdAt ? formatDate(createdAt) : "—")}</td><td><div class="row-actions"><a href="/admin/courses/${escapeHtmlAttribute(course.id)}" data-link class="btn btn-outline mini-action">${t("admin.detail")}</a><button type="button" class="btn btn-outline mini-action" data-course-edit="${escapeHtmlAttribute(course.id)}" ${deleting ? "disabled" : ""}>${t("course.edit")}</button><button type="button" class="btn btn-outline mini-action danger-action ${deleting ? "loading" : ""}" data-course-delete="${escapeHtmlAttribute(course.id)}" data-course-title="${escapeHtmlAttribute(course.title || course.name || course.id)}" aria-label="Xóa khóa học ${escapeHtmlAttribute(course.title || course.name || course.id)}" aria-busy="${deleting}" ${deleting ? "disabled" : ""}>${deleting ? "Đang xóa..." : "Xóa"}</button></div></td></tr>`;
-  }).join("")}</tbody></table></div>`;
+    return `<tr data-course-row="${escapeHtmlAttribute(course.id)}"><td><input type="checkbox" data-course-select="${escapeHtmlAttribute(course.id)}" aria-label="Chọn khóa học ${escapeHtmlAttribute(course.title || course.name || course.id)}" ${_selectedCourseIds.has(course.id) ? "checked" : ""} ${deleting || _courseBulkLoading ? "disabled" : ""}></td><td>${index + 1}</td><td><strong>${escapeHtml(course.title || course.name || "—")}</strong></td><td>${escapeHtml(course.category || "—")}</td><td>${escapeHtml(deliveryLabel)}</td><td>${Number.isFinite(duration) && duration > 0 ? `${duration}h` : "—"}</td><td>${courseStatusBadge(course.status)}</td><td>${escapeHtml(createdAt ? formatDate(createdAt) : "—")}</td><td><div class="row-actions"><a href="/admin/courses/${escapeHtmlAttribute(course.id)}" data-link class="btn btn-outline mini-action">${t("admin.detail")}</a><button type="button" class="btn btn-outline mini-action" data-course-edit="${escapeHtmlAttribute(course.id)}" ${deleting ? "disabled" : ""}>${t("course.edit")}</button><button type="button" class="btn btn-outline mini-action danger-action ${deleting ? "loading" : ""}" data-course-delete="${escapeHtmlAttribute(course.id)}" data-course-title="${escapeHtmlAttribute(course.title || course.name || course.id)}" aria-label="Xóa khóa học ${escapeHtmlAttribute(course.title || course.name || course.id)}" aria-busy="${deleting}" ${deleting ? "disabled" : ""}>${deleting ? "Đang xóa..." : "Xóa"}</button></div></td></tr>`;
+  }).join("")}</tbody></table></div></div>`;
 }
 
 function renderCourseResults() {
@@ -4983,12 +5011,49 @@ function renderCourseResults() {
 }
 
 function bindCourseResultEvents(root = document) {
+  const visibleCourses = filteredCourses();
+  const courseSelectAll = root.querySelector("[data-course-select-all]");
+  if (courseSelectAll) courseSelectAll.indeterminate = visibleCourses.some((course) => _selectedCourseIds.has(course.id)) && !visibleCourses.every((course) => _selectedCourseIds.has(course.id));
   root.querySelectorAll("[data-link]").forEach((el) => el.addEventListener("click", (event) => { event.preventDefault(); navigate(el.getAttribute("href")); }));
   root.querySelectorAll("[data-course-edit]").forEach((el) => el.addEventListener("click", () => { selectedCourseId = el.dataset.courseEdit; courseFormMode = "edit"; courseDrawerOpen = false; render(); }));
   root.querySelectorAll("[data-course-delete]").forEach((el) => el.addEventListener("click", (event) => {
     event.stopPropagation();
-    deleteCourseImmediately(el.dataset.courseDelete, el.dataset.courseTitle || "");
+    const id = el.dataset.courseDelete;
+    const title = el.dataset.courseTitle || id;
+    openDialog({ type: "confirm", title: "Xóa khóa học?", body: `“${title}” sẽ được xóa nếu không có dữ liệu phụ thuộc; nếu có người học, tiến trình hoặc nội dung, hệ thống sẽ lưu trữ khóa học.`, onConfirm: () => bulkDeleteCourses([id]) });
   }));
+  root.querySelectorAll("[data-course-select]").forEach((el) => el.addEventListener("change", () => {
+    if (el.checked) _selectedCourseIds.add(el.dataset.courseSelect); else _selectedCourseIds.delete(el.dataset.courseSelect);
+    renderCourseResults();
+  }));
+  root.querySelector("[data-course-select-all]")?.addEventListener("change", (event) => {
+    filteredCourses().forEach((course) => event.target.checked ? _selectedCourseIds.add(course.id) : _selectedCourseIds.delete(course.id));
+    renderCourseResults();
+  });
+  root.querySelector("[data-course-clear-selection]")?.addEventListener("click", () => { _selectedCourseIds.clear(); renderCourseResults(); });
+  root.querySelector("[data-course-bulk-delete]")?.addEventListener("click", () => {
+    const selected = filteredCourses().filter((course) => _selectedCourseIds.has(course.id));
+    const names = selected.slice(0, 3).map((course) => course.title || course.name || course.id).join(", ");
+    openDialog({ type: "confirm", title: `Xóa ${selected.length} khóa học đã chọn?`, body: `Hệ thống sẽ kiểm tra dependency. Khóa có người học, tiến trình hoặc nội dung sẽ được lưu trữ thay vì xóa. ${names}${selected.length > 3 ? " và các khóa khác" : ""}.`, onConfirm: () => bulkDeleteCourses(selected.map((course) => course.id)) });
+  });
+}
+
+async function bulkDeleteCourses(ids) {
+  if (!ids.length || _courseBulkLoading) return;
+  _courseBulkLoading = true; renderCourseResults();
+  try {
+    const res = await fetch("/api/courses/bulk", { method: "POST", headers: apiHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ ids, action: "delete" }) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.error || "bulk_delete_failed");
+    const deleted = (body.results || []).filter((item) => item.status === "deleted").map((item) => item.id);
+    const archived = (body.results || []).filter((item) => item.status === "archived").map((item) => item.id);
+    deleted.forEach((id) => { _selectedCourseIds.delete(id); deleteCourse(id); });
+    archived.forEach((id) => _selectedCourseIds.delete(id));
+    _courses = null; _coursesAccountId = "";
+    toast("bulkCourseResult", `Đã xóa ${deleted.length} khóa; lưu trữ ${archived.length} khóa có dữ liệu phụ thuộc.`);
+    if (session) await fetchCoursesFromApi(session.accountId, session.role);
+  } catch (err) { toast("error", err.message || "Không thể xử lý các khóa học đã chọn."); }
+  finally { _courseBulkLoading = false; renderCourseResults(); }
 }
 
 async function deleteCourseImmediately(courseId, title = "") {
@@ -7546,6 +7611,16 @@ function setupActiveFocusTrap() {
   });
 }
 
+function _applyUserMenuState() {
+  // Targeted DOM update — avoids full render() which nukes and recreates header
+  document.querySelectorAll("[data-user-menu-trigger]").forEach(trigger => {
+    trigger.setAttribute("aria-expanded", userMenuOpen ? "true" : "false");
+  });
+  document.querySelectorAll("[data-user-menu]").forEach(menu => {
+    menu.classList.toggle("is-open", userMenuOpen);
+  });
+}
+
 function bindShellEvents() {
   if (window.__mykisShellBound) return;
   window.__mykisShellBound = true;
@@ -7569,18 +7644,18 @@ function bindShellEvents() {
     if (userTrigger) {
       event.preventDefault();
       userMenuOpen = !userMenuOpen;
-      render();
+      _applyUserMenuState();
       return;
     }
     if (userMenuOpen && !event.target.closest(".topbar-user-shell")) {
       userMenuOpen = false;
-      render();
+      _applyUserMenuState();
     }
   }, true);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       if (mobileNavOpen) { event.preventDefault(); closeMobileNav(); render(); return; }
-      if (userMenuOpen) { event.preventDefault(); userMenuOpen = false; render(); return; }
+      if (userMenuOpen) { event.preventDefault(); userMenuOpen = false; _applyUserMenuState(); return; }
       if (dialogState) { event.preventDefault(); closeDialog(); return; }
     }
     const drawer = mobileNavOpen ? document.querySelector("[data-mobile-drawer]") : null;
@@ -9259,7 +9334,7 @@ function setupPageSpecificHandlers() {
     el?.addEventListener("compositionend", debounce((e) => { _esc = false; employeeDirectorySearch = e.target.value; employeeDirectoryPage = 1; renderEmployeeDirectoryResults(); }, 30));
     el?.addEventListener("input", debounce((e) => { if (_esc) return; employeeDirectorySearch = e.target.value; employeeDirectoryPage = 1; renderEmployeeDirectoryResults(); }, 180));
   }
-  document.querySelectorAll("[data-employee-filter]").forEach((el) => el.addEventListener("change", () => { employeeDirectoryFilters[el.dataset.employeeFilter] = el.value; employeeDirectoryReviewIssues = false; employeeDirectoryPage = 1; render(); }));
+  document.querySelectorAll("[data-employee-filter]").forEach((el) => el.addEventListener("change", () => { employeeDirectoryFilters[el.dataset.employeeFilter] = el.value; _selectedEmployeeIds.clear(); employeeDirectoryReviewIssues = false; employeeDirectoryPage = 1; render(); }));
   document.querySelector("[data-sort-employees]")?.addEventListener("click", () => { employeeDirectorySortAsc = !employeeDirectorySortAsc; render(); });
   document.querySelector("[data-review-issues]")?.addEventListener("click", () => { employeeDirectoryFilters = { department: "", position: "", accountStatus: "", cchn: "" }; employeeDirectorySearch = ""; employeeDirectoryReviewIssues = true; employeeDirectoryPage = 1; navigate("/admin/employees"); });
   document.querySelectorAll("[data-page-kind]").forEach((el) => el.addEventListener("click", () => { if (el.dataset.pageKind === "employees") employeeDirectoryPage = Number(el.dataset.page); if (el.dataset.pageKind === "cchn") cchnPage = Number(el.dataset.page); if (el.dataset.pageKind === "session-employees") sessionEmployeePage = Number(el.dataset.page); render(); }));

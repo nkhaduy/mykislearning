@@ -12345,3 +12345,13 @@ textarea { min-height: 110px; }
   .pub-orientation-note{font-size:14px}
   .pub-orientation-btn{min-height:48px;font-size:15px}
 }
+/* Bulk actions stay visible without changing table density. */
+.bulk-table-shell { min-width: 0; }
+.bulk-action-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 12px; margin-bottom:10px; border:1px solid var(--border,#d9e2ec); border-radius:8px; background:#f7faff; }
+.bulk-action-bar strong { margin-right:auto; }
+.bulk-action-bar .danger-action { color:var(--color-danger,#c53030); border-color:var(--color-danger,#c53030); }
+@media (max-width: 640px) {
+  .bulk-action-bar { align-items:stretch; }
+  .bulk-action-bar strong { flex-basis:100%; }
+  .bulk-action-bar .btn { min-height:44px; flex:1 1 auto; }
+}
