@@ -498,11 +498,12 @@ export async function handleHrAccountActions(request, env) {
 
   const { data: target, error: fetchErr } = await supabase
     .from("profiles")
-    .select("id, full_name, account_status, role")
+    .select("id, full_name, email, account_status, role, password_status, avatar_url")
     .eq("id", targetId)
     .single();
 
-  if (fetchErr || !target) return json({ error: "ACCOUNT_NOT_FOUND" }, 404);
+  if (fetchErr) return json({ error: "ACCOUNT_LOOKUP_FAILED", message: fetchErr.message }, 500);
+  if (!target) return json({ error: "ACCOUNT_NOT_FOUND", message: "Employee profile không tồn tại." }, 404);
   if (target.role === "superAdmin") return json({ error: "CANNOT_MODIFY_SYSTEM_ACCOUNT" }, 403);
 
   function auditAction(act, result, details = {}) {
@@ -564,28 +565,29 @@ export async function handleHrAccountActions(request, env) {
     if (newPassword.length < 6) return json({ error: "PASSWORD_TOO_SHORT" }, 400);
     const requireChange = body.requireChange !== false;
 
-    const { data: profile } = await supabase.from("profiles").select("id, password_status, avatar_url").eq("id", targetId).single();
-    if (!profile) return json({ error: "ACCOUNT_NOT_FOUND" }, 404);
-
     const rawHash = await hashPassword(newPassword);
     const storedHash = requireChange ? markMustChange(rawHash) : rawHash;
 
     const { error: pw1 } = await supabase.from("profiles").update({ password_status: storedHash }).eq("id", targetId);
     if (pw1) {
       const { error: pw2 } = await supabase.from("profiles").update({ avatar_url: HASH_PREFIX + storedHash }).eq("id", targetId);
-      if (pw2) return json({ error: "PASSWORD_RESET_FAILED" }, 500);
+      if (pw2) return json({ error: "PASSWORD_RESET_FAILED", message: `Không ghi được password_status hoặc avatar_url: ${pw2.message || pw1.message}` }, 500);
+    } else if (target.avatar_url?.startsWith(HASH_PREFIX)) {
+      // Avoid leaving an old fallback hash in a profile after the canonical column succeeds.
+      await supabase.from("profiles").update({ avatar_url: null }).eq("id", targetId);
     }
 
     // Unlock + reset counter on password reset
-    await supabase.from("profiles").update({
+    const { error: statusErr } = await supabase.from("profiles").update({
       account_status: "active",
       failed_login_count: 0,
       locked_until: null,
       updated_at: new Date().toISOString(),
     }).eq("id", targetId);
+    if (statusErr) return json({ error: "PASSWORD_RESET_FAILED", message: `Đã ghi mật khẩu nhưng không cập nhật được trạng thái tài khoản: ${statusErr.message}` }, 500);
 
     auditAction("password_reset_by_hr", "success", { requireChange });
-    return json({ ok: true, targetId });
+    return json({ ok: true, targetId, targetName: target.full_name, storage: pw1 ? "avatar_url" : "password_status" });
   }
 
   return json({ error: "INVALID_ACTION" }, 400);

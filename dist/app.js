@@ -100,6 +100,8 @@ let _certListLoading = false;
 let resetModalOpen = false;
 let resetTargetId = "";
 let temporaryPasswordResult = "";
+let resetPasswordError = "";
+let resetPasswordSubmitting = false;
 let employeeDirectorySearch = "";
 let employeeDirectoryFilters = { department: "", position: "", accountStatus: "", cchn: "" };
 let employeeDirectoryPage = 1;
@@ -3002,6 +3004,8 @@ function employeeSelect(name, label, values, selected) {
 function hrEmployeeDirectory() {
   const allEmployees = _apiEmployees;
   const filtered = filteredEmployeeDirectory();
+  const hasEmployeeFilters = Boolean(employeeDirectorySearch || Object.values(employeeDirectoryFilters).some(Boolean));
+  const activeCount = allEmployees.filter((employee) => employee.accountStatus === "active").length;
   const pageSize = 20;
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   employeeDirectoryPage = Math.min(employeeDirectoryPage, totalPages);
@@ -3017,13 +3021,15 @@ function hrEmployeeDirectory() {
   }
 
   return `<section class="card panel hr-employee-directory">
-    <div class="section-head"><div><h3>${t("admin.employeeList")}</h3><p class="section-lead">${t("admin.totalEmployees")}: ${allEmployees.length}</p></div><div class="security-actions"><button class="btn btn-primary" data-add-employee>+ Thêm nhân viên</button><button class="btn btn-outline" data-reload-employees>${_apiEmployeesLoading ? "Đang tải..." : "Làm mới"}</button><label class="btn btn-outline" for="employeePhotoFolder">Import ảnh</label><input id="employeePhotoFolder" type="file" accept="image/jpeg,image/png,image/webp" webkitdirectory multiple hidden><button class="btn btn-outline" data-sort-employees>${t("admin.sortAZ")}</button></div></div>
+    <div class="employee-directory-heading"><div><h1>${t("admin.employeeList")}</h1><p class="section-lead">Quản lý hồ sơ, tài khoản và phân công học tập cho nhân viên.</p></div><div class="employee-directory-actions"><button class="btn btn-primary" data-add-employee>+ Thêm nhân viên</button><button class="btn btn-outline" data-reload-employees>${_apiEmployeesLoading ? "Đang tải..." : "Làm mới"}</button><details class="employee-more-actions"><summary class="btn btn-outline">Thêm thao tác</summary><div class="employee-more-menu"><label class="btn btn-ghost" for="employeePhotoFolder">Import ảnh</label><input id="employeePhotoFolder" type="file" accept="image/jpeg,image/png,image/webp" webkitdirectory multiple hidden><button class="btn btn-ghost" data-sort-employees>${t("admin.sortAZ")}</button></div></details></div></div>
+    <div class="employee-directory-summary" aria-label="Tóm tắt danh sách nhân viên"><span><strong>${allEmployees.length}</strong> tổng số</span><span><strong>${activeCount}</strong> đang hoạt động</span><span><strong>${filtered.length}</strong> trong kết quả hiện tại</span></div>
     <div class="filter-bar employee-directory-filter">
-      <input id="employeeDirSearch" data-focus-key="employee-dir-search" data-employee-search placeholder="${t("admin.searchEmployee")}" value="${employeeDirectorySearch}">
+      <input id="employeeDirSearch" data-focus-key="employee-dir-search" data-employee-search type="search" placeholder="${t("admin.searchEmployee")}" aria-label="${t("admin.searchEmployee")}" value="${employeeDirectorySearch}">
       ${employeeSelect("department", t("table.department"), uniqueValues(allEmployees, "department"), employeeDirectoryFilters.department)}
       ${employeeSelect("position", t("table.position"), uniqueValues(allEmployees, "position"), employeeDirectoryFilters.position)}
       ${employeeSelect("accountStatus", t("table.accountStatus"), uniqueValues(allEmployees, "accountStatus"), employeeDirectoryFilters.accountStatus)}
       <select data-employee-filter="cchn"><option value="">CCHN</option><option value="yes" ${employeeDirectoryFilters.cchn === "yes" ? "selected" : ""}>${t("admin.hasCchn")}</option><option value="no" ${employeeDirectoryFilters.cchn === "no" ? "selected" : ""}>${t("admin.noCchn")}</option></select>
+      ${hasEmployeeFilters ? `<button type="button" class="btn btn-ghost" data-clear-employee-filters>Xóa bộ lọc</button>` : ""}
     </div>
     <div id="employeeDirectoryResults" aria-live="polite">${bodyContent}</div>
   </section>`;
@@ -4130,8 +4136,10 @@ function myLpDetailPage() {
       }
     }
 
-    return `<div class="lp-step-row ${isDone ? "lp-step-done" : isLocked ? "lp-step-locked" : ""}">
-      <div class="lp-step-status-icon" aria-hidden="true">${isDone ? "✓" : isLocked ? "🔒" : String(i + 1)}</div>
+    const isCurrent = !isDone && !isLocked && (cs === "in_progress" || (pct > 0 && i === (steps || []).findIndex((step) => step.computed_status === "available")));
+    return `<article class="lp-flow-step ${isDone ? "lp-step-done" : isLocked ? "lp-step-locked" : isCurrent ? "lp-step-current" : "lp-step-available"}" data-step-id="${escapeHtmlAttribute(s.id)}" data-step-index="${i}">
+      <div class="lp-flow-node" aria-hidden="true">${isDone ? "✓" : isLocked ? "🔒" : String(i + 1)}</div>
+      <div class="lp-step-row">
       <div class="lp-step-body">
         <strong>${escapeHtml(title)}</strong>
         <span class="lp-step-meta">${lpStepTypeBadge(s.step_type)} ${s.is_required ? "" : `<span class="badge muted">${lp.optional}</span>`} ${lpStatusBadge(cs)}</span>
@@ -4140,8 +4148,12 @@ function myLpDetailPage() {
         ${s.completed_at ? `<small>Hoàn thành: ${formatDateTime(s.completed_at)}</small>` : ""}
       </div>
       <div class="lp-step-actions">${cta}</div>
-    </div>`;
+      </div>
+    </article>`;
   }).join("");
+  const completedSteps = (steps || []).filter((step) => step.computed_status === "completed").length;
+  const flowComplete = steps.length ? Math.round((completedSteps / steps.length) * 100) : 0;
+  const flowCurrent = steps.length ? Math.min(100, Math.round(((completedSteps + 1) / steps.length) * 100)) : 0;
 
   return `<div class="app-layout">
     ${sideNav("employee")}
@@ -4166,7 +4178,7 @@ function myLpDetailPage() {
         </div>
         <div class="card" style="margin-top:16px">
           <h3>${lp.steps}</h3>
-          <div class="lp-steps-list">${stepsHtml || `<div class="empty-state"><p>${lp.noSteps}</p></div>`}</div>
+          <div class="lp-flow" style="--lp-step-count:${Math.max(1, steps.length)};--lp-complete:${flowComplete}%;--lp-current:${flowCurrent}%" aria-label="${escapeHtmlAttribute(lp.steps)}">${stepsHtml || `<div class="empty-state"><p>${lp.noSteps}</p></div>`}</div>
         </div>
       </div>
     </main>
@@ -4820,9 +4832,10 @@ function deleteEmployeeModal() {
 
 function resetPasswordModal() {
   if (!resetModalOpen || !resetTargetId) return "";
-  const a = getAccountById(resetTargetId);
+  const remoteEmployee = _apiEmployees.find((employee) => employee.id === resetTargetId);
+  const a = remoteEmployee ? { ...remoteEmployee, employeeCode: remoteEmployee.employeeCode || "—", fullName: remoteEmployee.fullName || "—", email: remoteEmployee.email || "—" } : getAccountById(resetTargetId);
   if (!a) return "";
-  return `<div class="modal-backdrop open"><form class="card modal" id="resetPasswordForm"><div class="modal-head"><div><h2>${t("modal.resetTitle")}</h2></div><button type="button" class="icon-btn" data-close-reset>x</button></div><div class="profile-grid"><div class="profile-item"><span>${t("table.fullName")}</span><strong>${a.fullName}</strong></div><div class="profile-item"><span>${t("table.code")}</span><strong>${a.employeeCode}</strong></div><div class="profile-item"><span>${t("table.email")}</span><strong>${a.email}</strong></div></div><div class="option-stack"><label><input type="radio" name="mode" value="auto" checked> ${t("modal.auto")}</label><label><input type="radio" name="mode" value="manual"> ${t("modal.manual")}</label><div class="field"><label>${t("admin.tempPassword")}</label><input name="manualPassword" placeholder="KIS@Temp2026"></div><label><input type="checkbox" name="notify" checked> ${t("modal.notify")}</label><label><input type="checkbox" name="require" checked> ${t("modal.require")}</label><label><input type="checkbox" name="unlock" checked> ${t("modal.unlock")}</label><div class="field"><label>${t("modal.note")}</label><textarea name="note" rows="3"></textarea></div></div>${temporaryPasswordResult ? `<div class="temp-password-box"><div><strong>${temporaryPasswordResult}</strong><p>${t("modal.oneTime")}</p></div><button class="btn btn-outline" type="button" data-copy-temp>${t("modal.copy")}</button></div>` : ""}<button class="btn btn-primary" type="submit" style="width:100%">${t("modal.confirm")}</button></form></div>`;
+  return `<div class="modal-backdrop open"><form class="card modal modal--structured" id="resetPasswordForm" role="dialog" aria-modal="true" aria-labelledby="reset-password-title"><div class="modal-head"><div><h2 id="reset-password-title">${t("modal.resetTitle")}</h2><p class="modal-subtitle">${escapeHtml(a.fullName)} · ${escapeHtml(a.email)}</p></div><button type="button" class="icon-btn" data-close-reset aria-label="Đóng">×</button></div><div class="profile-grid"><div class="profile-item"><span>${t("table.fullName")}</span><strong>${escapeHtml(a.fullName)}</strong></div><div class="profile-item"><span>${t("table.code")}</span><strong>${escapeHtml(a.employeeCode)}</strong></div><div class="profile-item"><span>${t("table.email")}</span><strong>${escapeHtml(a.email)}</strong></div></div><div class="option-stack"><label><input type="radio" name="mode" value="auto" checked ${resetPasswordSubmitting ? "disabled" : ""}> ${t("modal.auto")}</label><label><input type="radio" name="mode" value="manual" ${resetPasswordSubmitting ? "disabled" : ""}> ${t("modal.manual")}</label><div class="field"><label>${t("admin.tempPassword")}</label><input name="manualPassword" placeholder="KIS@Temp2026" ${resetPasswordSubmitting ? "disabled" : ""}></div><label><input type="checkbox" name="require" checked ${resetPasswordSubmitting ? "disabled" : ""}> ${t("modal.require")}</label><label><input type="checkbox" name="unlock" checked ${resetPasswordSubmitting ? "disabled" : ""}> ${t("modal.unlock")}</label></div>${resetPasswordError ? `<div class="field-error" role="alert">${escapeHtml(resetPasswordError)}</div>` : ""}${temporaryPasswordResult ? `<div class="temp-password-box"><div><strong>${escapeHtml(temporaryPasswordResult)}</strong><p>${t("modal.oneTime")}</p></div><button class="btn btn-outline" type="button" data-copy-temp>${t("modal.copy")}</button></div>` : ""}<div class="modal__footer"><button class="btn btn-outline" type="button" data-close-reset ${resetPasswordSubmitting ? "disabled" : ""}>Hủy</button><button class="btn btn-primary" type="submit" ${resetPasswordSubmitting ? "disabled" : ""}>${resetPasswordSubmitting ? "Đang đặt lại..." : t("modal.confirm")}</button></div></form></div>`;
 }
 
 function auditTable() {
@@ -4937,7 +4950,7 @@ async function loadCertsForEmployee(accountId) {
 
 function employeesPage() {
   if (!hasAdminAccess()) return restrictedPage();
-  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("Admin", t("admin.employees"), "hr")}<div class="content">${hrEmployeeDirectory()}</div></main>${accountDrawer()}${employeeFormModal()}${employeeEditModal()}${certModal()}${deleteEmployeeModal()}</div>`;
+  return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("Admin", t("admin.employees"), "hr")}<div class="content">${hrEmployeeDirectory()}</div></main>${accountDrawer()}${employeeFormModal()}${employeeEditModal()}${certModal()}${deleteEmployeeModal()}${resetPasswordModal()}</div>`;
 }
 function employeeFormModal(){if(!employeeFormOpen)return "";if(employeeCreateResult)return `<div class="modal-backdrop open"><section class="modal modal--large modal--structured" role="dialog" aria-modal="true"><header class="modal__header"><div><h2>Tài khoản đã được tạo</h2></div><button class="icon-btn" data-close-employee-form>×</button></header><div class="modal__body"><div class="creation-success"><p><strong>${escapeHtml(employeeCreateResult.account.fullName)}</strong></p><p>Email: ${escapeHtml(employeeCreateResult.account.email)}</p><div class="temp-password-box"><div><span>Mật khẩu tạm thời</span><strong>${escapeHtml(employeeCreateResult.temporaryPassword)}</strong></div><button class="btn btn-outline" data-copy-created-account>Sao chép thông tin</button></div><p>Nhân viên phải đổi mật khẩu trong lần đăng nhập đầu tiên. Hệ thống chưa gửi email tự động.</p></div></div><footer class="modal__footer"><button class="btn btn-primary" data-close-employee-form>Đóng</button><a class="btn btn-outline" href="/admin/assign?accountId=${employeeCreateResult.account.id}&open=1" data-link>Giao khóa onboarding</a></footer></section></div>`;return `<div class="modal-backdrop open"><form id="employeeCreateForm" class="modal modal--xlarge modal--structured" role="dialog" aria-modal="true" aria-labelledby="employee-form-title"><header class="modal__header"><div><h2 id="employee-form-title">Thêm nhân viên</h2></div><button type="button" class="icon-btn" data-close-employee-form>×</button></header><div class="modal__body"><div class="employee-form-grid"><section><h3>Thông tin bắt buộc</h3><div class="form-2col"><div class="field"><label>Mã nhân viên *</label><input name="employeeCode" required autocomplete="off"><span class="field-error" data-error-for="employeeCode"></span></div><div class="field"><label>Họ và tên *</label><input name="fullName" required></div><div class="field"><label>Email công ty *</label><input name="email" type="email" required></div><div class="field"><label>Ngày vào làm</label><input name="joinDate" type="date"></div><div class="field"><label>Phòng ban *</label><input name="department" list="departments" required><datalist id="departments">${uniqueValues(_apiEmployees,"department").map(x=>`<option value="${escapeHtmlAttribute(x)}">`).join("")}</datalist></div><div class="field"><label>Chức danh *</label><input name="position" list="positions" required><datalist id="positions">${uniqueValues(_apiEmployees,"position").map(x=>`<option value="${escapeHtmlAttribute(x)}">`).join("")}</datalist></div><div class="field"><label>Ngôn ngữ mặc định</label><select name="defaultLanguage"><option value="vi">VI</option><option value="en">EN</option><option value="kr">KR</option></select></div><div class="field"><label>Trạng thái</label><select name="accountStatus"><option value="active">Kích hoạt</option><option value="pendingActivation">Chờ kích hoạt</option></select></div></div></section><aside><h3>Ảnh đại diện</h3><label class="employee-photo-drop" for="newEmployeePhoto"><span class="employee-photo-preview">Ảnh</span><strong>Chọn hoặc thả ảnh vào đây</strong><small>JPG, PNG, WebP · tối đa 5 MB</small></label><input id="newEmployeePhoto" name="photo" type="file" accept="image/jpeg,image/png,image/webp" hidden><div class="field"><label>Quản lý trực tiếp</label><input name="managerName"></div><div class="field"><label>Địa điểm làm việc</label><input name="location"></div><div class="field"><label>Ghi chú</label><textarea name="notes" rows="3"></textarea></div></aside></div><p class="form-note">Role được cố định là Employee. Mật khẩu tạm thời chỉ hiển thị một lần sau khi tạo.</p><div class="field-error" data-employee-form-error role="alert"></div></div><footer class="modal__footer"><button type="button" class="btn btn-outline" data-close-employee-form>Hủy</button><button type="submit" class="btn btn-primary">Tạo hồ sơ & tài khoản</button></footer></form></div>`;}
 
@@ -5040,20 +5053,21 @@ function bindCourseResultEvents(root = document) {
 
 async function bulkDeleteCourses(ids) {
   if (!ids.length || _courseBulkLoading) return;
-  _courseBulkLoading = true; renderCourseResults();
+  _courseBulkLoading = true; render();
   try {
     const res = await fetch("/api/courses/bulk", { method: "POST", headers: apiHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ ids, action: "delete" }) });
     const body = await res.json().catch(() => ({}));
     if (!res.ok || !body.ok) throw new Error(body.error || "bulk_delete_failed");
     const deleted = (body.results || []).filter((item) => item.status === "deleted").map((item) => item.id);
     const archived = (body.results || []).filter((item) => item.status === "archived").map((item) => item.id);
+    const failed = (body.results || []).filter((item) => item.status === "failed");
     deleted.forEach((id) => { _selectedCourseIds.delete(id); deleteCourse(id); });
     archived.forEach((id) => _selectedCourseIds.delete(id));
     _courses = null; _coursesAccountId = "";
-    toast("bulkCourseResult", `Đã xóa ${deleted.length} khóa; lưu trữ ${archived.length} khóa có dữ liệu phụ thuộc.`);
+    toast("bulkCourseResult", `Đã xử lý ${body.results?.length || ids.length} khóa: xóa ${deleted.length}, lưu trữ ${archived.length}, lỗi ${failed.length}.`);
     if (session) await fetchCoursesFromApi(session.accountId, session.role);
   } catch (err) { toast("error", err.message || "Không thể xử lý các khóa học đã chọn."); }
-  finally { _courseBulkLoading = false; renderCourseResults(); }
+  finally { _courseBulkLoading = false; render(); }
 }
 
 async function deleteCourseImmediately(courseId, title = "") {
@@ -9335,6 +9349,7 @@ function setupPageSpecificHandlers() {
     el?.addEventListener("input", debounce((e) => { if (_esc) return; employeeDirectorySearch = e.target.value; employeeDirectoryPage = 1; renderEmployeeDirectoryResults(); }, 180));
   }
   document.querySelectorAll("[data-employee-filter]").forEach((el) => el.addEventListener("change", () => { employeeDirectoryFilters[el.dataset.employeeFilter] = el.value; _selectedEmployeeIds.clear(); employeeDirectoryReviewIssues = false; employeeDirectoryPage = 1; render(); }));
+  document.querySelector("[data-clear-employee-filters]")?.addEventListener("click", () => { employeeDirectorySearch = ""; employeeDirectoryFilters = { department: "", position: "", accountStatus: "", cchn: "" }; _selectedEmployeeIds.clear(); employeeDirectoryPage = 1; render(); });
   document.querySelector("[data-sort-employees]")?.addEventListener("click", () => { employeeDirectorySortAsc = !employeeDirectorySortAsc; render(); });
   document.querySelector("[data-review-issues]")?.addEventListener("click", () => { employeeDirectoryFilters = { department: "", position: "", accountStatus: "", cchn: "" }; employeeDirectorySearch = ""; employeeDirectoryReviewIssues = true; employeeDirectoryPage = 1; navigate("/admin/employees"); });
   document.querySelectorAll("[data-page-kind]").forEach((el) => el.addEventListener("click", () => { if (el.dataset.pageKind === "employees") employeeDirectoryPage = Number(el.dataset.page); if (el.dataset.pageKind === "cchn") cchnPage = Number(el.dataset.page); if (el.dataset.pageKind === "session-employees") sessionEmployeePage = Number(el.dataset.page); render(); }));
@@ -9521,7 +9536,7 @@ function setupPageSpecificHandlers() {
   // Reload employees
   document.querySelector("[data-reload-employees]")?.addEventListener("click", () => { _apiEmployeesLoaded = false; loadApiEmployees(); });
 
-  document.querySelectorAll("[data-reset-account]").forEach((el) => el.addEventListener("click", () => { resetTargetId = el.dataset.resetAccount; resetModalOpen = true; temporaryPasswordResult = ""; render(); }));
+  document.querySelectorAll("[data-reset-account]").forEach((el) => el.addEventListener("click", () => { resetTargetId = el.dataset.resetAccount; resetModalOpen = true; temporaryPasswordResult = ""; resetPasswordError = ""; resetPasswordSubmitting = false; render(); }));
   document.querySelectorAll("[data-force-account]").forEach((el) => el.addEventListener("click", () => { forcePasswordChange(el.dataset.forceAccount); toast("success"); render(); }));
   document.querySelectorAll("[data-activate-account]").forEach((el) => el.addEventListener("click", () => { updateAccount(el.dataset.activateAccount, { accountStatus: "active" }); toast("success"); render(); }));
   document.querySelectorAll("[data-edit-employee-email]").forEach((el) => el.addEventListener("click", () => {
@@ -9559,9 +9574,10 @@ function setupPageSpecificHandlers() {
     }});
   }));
   document.querySelectorAll("[data-resend-account]").forEach((el) => el.addEventListener("click", () => { resendActivationEmail(el.dataset.resendAccount); toast("success"); render(); }));
-  document.querySelector("[data-close-reset]")?.addEventListener("click", () => { resetModalOpen = false; temporaryPasswordResult = ""; render(); });
+  document.querySelector("[data-close-reset]")?.addEventListener("click", () => { resetModalOpen = false; temporaryPasswordResult = ""; resetPasswordError = ""; resetPasswordSubmitting = false; render(); });
   document.getElementById("resetPasswordForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
+    if (resetPasswordSubmitting) return;
     const form = event.currentTarget;
     const data = new FormData(form);
     const temp = data.get("mode") === "manual" && data.get("manualPassword")
@@ -9569,8 +9585,9 @@ function setupPageSpecificHandlers() {
       : generateTemporaryPassword();
     const requireChange = data.get("require") === "on";
     const unlock = data.get("unlock") === "on";
-    const submitBtn = form.querySelector("[type=submit]");
-    if (submitBtn) submitBtn.disabled = true;
+    resetPasswordError = "";
+    resetPasswordSubmitting = true;
+    render();
     (async () => {
       try {
         const res = await fetch("/api/admin/hr-account-actions", {
@@ -9579,13 +9596,21 @@ function setupPageSpecificHandlers() {
           body: JSON.stringify({ action: "reset-password", targetId: resetTargetId, newPassword: temp, requireChange }),
         });
         const body = await res.json().catch(() => ({}));
-        if (!res.ok) { toast("error"); if (submitBtn) submitBtn.disabled = false; return; }
+        if (!res.ok) {
+          const labels = { ACCOUNT_NOT_FOUND: "Không tìm thấy hồ sơ tài khoản.", ACCOUNT_INACTIVE: "Tài khoản đang bị vô hiệu hóa.", PASSWORD_TOO_SHORT: "Mật khẩu tạm thời phải có ít nhất 6 ký tự.", PASSWORD_RESET_FAILED: "Không thể ghi mật khẩu vào hồ sơ. Vui lòng thử lại hoặc kiểm tra liên kết tài khoản." };
+          resetPasswordError = labels[body.error] || body.message || body.error || `Reset thất bại (HTTP ${res.status}).`;
+          resetPasswordSubmitting = false;
+          render();
+          return;
+        }
         temporaryPasswordResult = temp;
+        resetPasswordSubmitting = false;
         toast("passwordReset");
         render();
-      } catch {
-        toast("error");
-        if (submitBtn) submitBtn.disabled = false;
+      } catch (error) {
+        resetPasswordError = error?.message || "Không thể kết nối tới dịch vụ reset mật khẩu.";
+        resetPasswordSubmitting = false;
+        render();
       }
     })();
   });
