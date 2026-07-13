@@ -3410,7 +3410,7 @@ async function loadApiEmployees({ silent = false } = {}) {
     _apiEmployees = [];
   } finally {
     _apiEmployeesLoading = false;
-    if (route === "/admin") render();
+    if (route === "/admin" || route === "/admin/employees") render();
   }
 }
 
