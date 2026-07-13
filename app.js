@@ -7109,7 +7109,10 @@ function render() {
     }
     app.innerHTML = hasAdminAccess() ? adminDashboard(false) : session ? restrictedPage() : loginPage();
   }
-  else if (route === "/admin/employees") app.innerHTML = employeesPage();
+  else if (route === "/admin/employees") {
+    if (hasAdminAccess() && !_apiEmployeesLoaded && !_apiEmployeesLoading) loadApiEmployees();
+    app.innerHTML = employeesPage();
+  }
   else if (route === "/admin/accounts") app.innerHTML = accountsPage();
   else if (route === "/admin/courses") {
     if (session && (!_courses || _coursesAccountId !== session.accountId) && !_coursesLoading) {
