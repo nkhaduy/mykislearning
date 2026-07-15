@@ -151,10 +151,10 @@ let courseFormMode = "";
 let _courseDeletingIds = new Set();
 let _selectedCourseIds = new Set();
 let _courseBulkLoading = false;
-// Landing uses a server aggregate of recorded activity. Never manufacture a
-// total from a date or a demo value: an unavailable aggregate stays unknown.
-let landingLearningHours = null;
-let landingLearningHoursRequested = false;
+// Public landing metric only. This fixed reference is deliberately independent
+// of learner activity, login state, local storage, and deploy time.
+const LANDING_MARKETING_HOURS_BASE = 1602;
+const LANDING_MARKETING_HOURS_TIMESTAMP = "2026-07-02T00:00:00+07:00";
 let contentBuilderMode = "";
 let selectedContentId = "";
 let contentBuilderType = "slide";
@@ -2296,20 +2296,11 @@ function formatCreditedLearningHours(actualSeconds) {
   return language === "kr" ? `${formatLearningHours(hours)}시간` : language === "en" ? `${formatLearningHours(hours)} hours` : `${formatLearningHours(hours)} giờ`;
 }
 
-function hydrateLandingLearningHours() {
-  if (landingLearningHoursRequested) return;
-  landingLearningHoursRequested = true;
-  fetch("/api/public/learning-hours")
-    .then((res) => res.ok ? res.json() : Promise.reject(new Error(`HTTP_${res.status}`)))
-    .then((body) => {
-      if (!body?.ok || !Number.isFinite(Number(body.creditedHours))) return;
-      landingLearningHours = Number(body.creditedHours);
-      if (route === "/") render();
-    })
-    .catch(() => {
-      // Keep an honest unknown state rather than replacing it with mock data.
-      landingLearningHours = null;
-    });
+function marketingLearningHoursAt(now = Date.now()) {
+  // 1 displayed marketing hour is added after each full 2-hour period. The
+  // shared timestamp keeps every device and every refresh on the same number.
+  const elapsedHours = Math.max(0, (now - Date.parse(LANDING_MARKETING_HOURS_TIMESTAMP)) / 3_600_000);
+  return LANDING_MARKETING_HOURS_BASE + Math.floor(elapsedHours / 2);
 }
 
 function formatLearningHours(hours) {
@@ -2322,38 +2313,33 @@ function formatLearningHours(hours) {
 }
 
 function landingPage() {
-  hydrateLandingLearningHours();
-  const featuredTitles = new Set(["Đào tạo hội nhập nhân viên mới", "AI for Beginners"]);
-  const publishedCourses = getCourses().filter((course) => course.status === "published" && featuredTitles.has(course.title));
-  const featuredFallback = [
-    { id:"featured-onboarding", title:"Đào tạo hội nhập nhân viên mới", description:"Nội dung hội nhập, văn hóa, quy trình và chính sách dành cho nhân viên mới.", category:"Onboarding", durationHours:8, status:"published", imageUrl:"/images/communication-training-course.png" },
-    { id:"featured-ai", title:"AI for Beginners", description:"Kiến thức nền tảng và cách ứng dụng AI an toàn, hiệu quả trong công việc.", category:"Công nghệ", durationHours:4, status:"published", imageUrl:"/images/leadership-training-course.png" },
-  ].filter((fallback) => !publishedCourses.some((course) => course.title === fallback.title));
-  const featuredCourses = [...publishedCourses, ...featuredFallback].slice(0, 2);
+  const featuredCourses = getCourses().filter((course) => course.status === "published").slice(0, 2);
+  const destinationRoute = session ? (session.role === "hr" ? "/admin" : "/dashboard") : "/login";
+  const destinationLabel = session ? (session.role === "hr" ? "Vào trang quản trị" : "Vào trang học tập") : t("landing.cta");
+  const courseDestination = session ? (hasAdminAccess() ? "/admin/courses" : "/dashboard/courses") : "/login";
 
-  const ctaAttr = session
-    ? `data-auth-target="${session.role === "hr" ? "/admin" : "/dashboard"}" data-auth-role="${session.role}"`
-    : `href="/login" data-link`;
-  const ctaTag = session ? "button" : "a";
-
-  // Live LMS stats
+  // Live counts are used only for courses and people. Marketing hours are a
+  // stable public signal and never fetch or reveal individual learning data.
   const allCourses = getCourses().filter(c => c.status === "published");
   const allEmployees = getEmployees();
-  const totalLearningHours = landingLearningHours;
+  const totalLearningHours = marketingLearningHoursAt();
 
   const statsHtml = `
     <div class="home-stats" data-countup-section>
       <div class="container home-stats__inner">
         <div class="home-stat-item">
-          <span class="home-stat-item__value gradient-text" data-countup="${allEmployees.length || 200}" data-countup-suffix="+">${allEmployees.length || "200"}+</span>
+          <span class="home-stat-item__icon" aria-hidden="true">${icon("users")}</span>
+          <span class="home-stat-item__value" data-countup="${allEmployees.length}" data-countup-suffix="+">${allEmployees.length}+</span>
           <span class="home-stat-item__label">${overviewText("learnersCount")}</span>
         </div>
         <div class="home-stat-item">
-          <span class="home-stat-item__value gradient-text" data-countup="${allCourses.length || 12}">${allCourses.length || "12"}</span>
+          <span class="home-stat-item__icon" aria-hidden="true">${icon("book")}</span>
+          <span class="home-stat-item__value" data-countup="${allCourses.length}">${allCourses.length}</span>
           <span class="home-stat-item__label">${overviewText("openCoursesCount")}</span>
         </div>
         <div class="home-stat-item">
-          <span class="home-stat-item__value" aria-live="polite">${totalLearningHours === null ? "—" : formatLearningHours(totalLearningHours)}</span>
+          <span class="home-stat-item__icon" aria-hidden="true">${icon("chart")}</span>
+          <span class="home-stat-item__value" data-countup="${totalLearningHours}" data-countup-locale="true" aria-live="polite">${formatLearningHours(totalLearningHours)}</span>
           <span class="home-stat-item__label">${overviewText("totalHoursCount")}</span>
         </div>
       </div>
@@ -2364,7 +2350,7 @@ function landingPage() {
     const img = course.imageUrl
       ? `<div class="course-card-v2__thumb"><img src="${escapeHtmlAttribute(course.imageUrl)}" alt="${escapeHtmlAttribute(course.title)}" loading="lazy"></div>`
       : `<div class="course-card-v2__thumb"><div class="course-card-v2__thumb-icon">${icon("book")}</div></div>`;
-    return `<article class="course-card-v2" data-auth-target="/dashboard/courses" data-auth-role="employee" tabindex="0" role="button" aria-label="${escapeHtmlAttribute(course.title)}">
+    return `<article class="course-card-v2">
       ${img}
       <div class="course-card-v2__body">
         <span class="course-card-v2__category">${escapeHtml(course.category || "")}</span>
@@ -2372,11 +2358,11 @@ function landingPage() {
         <p class="course-card-v2__desc">${escapeHtml(course.description || "")}</p>
         <div class="course-card-v2__footer">
           <span class="course-card-v2__meta">${Number(course.durationHours) || 0}h</span>
-          <button class="course-card-v2__cta">${language === "kr" ? "보기" : language === "en" ? "View course" : "Xem khóa học"} →</button>
+          <a class="course-card-v2__cta" href="${courseDestination}" data-link>${language === "kr" ? "보기" : language === "en" ? "View course" : "Xem khóa học"}<span aria-hidden="true">→</span></a>
         </div>
       </div>
     </article>`;
-  }).join("");
+  }).join("") || `<div class="landing-course-empty"><span aria-hidden="true">${icon("book")}</span><h3>${language === "en" ? "Courses are being prepared" : language === "kr" ? "과정을 준비하고 있습니다" : "Khóa học đang được cập nhật"}</h3><p>${language === "en" ? "Please return soon to explore available learning." : language === "kr" ? "공개된 과정을 곧 확인하실 수 있습니다." : "Vui lòng quay lại sau để khám phá các khóa học đang mở."}</p></div>`;
 
   return `
     <div class="page landing-page">
@@ -2389,7 +2375,7 @@ function landingPage() {
             <h1 class="hero-title--kis">${t("landing.title")}</h1>
             <p class="hero-subtitle--kis">${t("landing.subtitle")}</p>
             <div class="hero-actions hero-actions--kis">
-              <${ctaTag} class="btn btn-primary btn--hero" ${ctaAttr}>${t("landing.cta")}</${ctaTag}>
+              <a class="btn btn-primary btn--hero" href="${destinationRoute}" data-link>${destinationLabel}</a>
               <button class="btn btn-outline btn--hero-secondary" data-scroll="featured-courses">${language === "kr" ? "과정 둘러보기" : language === "en" ? "Explore courses" : "Khám phá khóa học"}</button>
             </div>
           </div>
@@ -2408,10 +2394,12 @@ function landingPage() {
           </div>
           <div class="course-grid-v2" data-stagger>${coursesHtml}</div>
           <div style="text-align:center;margin-top:36px">
-            <a class="btn btn-primary" href="${session ? (hasAdminAccess()?"/admin/courses":"/dashboard/courses") : "/login"}" data-link>${language === "kr" ? "모든 과정 보기" : language === "en" ? "View all courses" : "Xem tất cả khóa học"}</a>
+            <a class="btn btn-primary" href="${courseDestination}" data-link>${language === "kr" ? "모든 과정 보기" : language === "en" ? "View all courses" : "Xem tất cả khóa học"}</a>
           </div>
         </div>
       </section>
+
+      ${hrAnnouncementsSection()}
 
       <section class="section--kis-banner">
         <div class="container">
@@ -2432,7 +2420,7 @@ function landingPage() {
         <div class="container">
           <h2>${language === "kr" ? "MyKIS Learning과 함께 시작하세요" : language === "en" ? "Start your learning journey" : "Bắt đầu hành trình học tập"}</h2>
           <p>${language === "kr" ? "KIS Vietnam 직원 전용 학습 플랫폼에 접속하세요." : language === "en" ? "Access the internal learning platform built exclusively for KIS Vietnam employees." : "Truy cập nền tảng học tập nội bộ được xây dựng riêng cho nhân viên KIS Việt Nam."}</p>
-          <${ctaTag} class="btn btn-primary" ${ctaAttr}>${t("landing.cta")}</${ctaTag}>
+          <a class="btn btn-primary" href="${destinationRoute}" data-link>${destinationLabel}</a>
         </div>
       </div>
 
@@ -2483,7 +2471,7 @@ function upcomingCoursesSection() {
 }
 
 function hrAnnouncementsSection() {
-  return `<section class="section alt" id="hr-announcements"><div class="container"><div class="section-head"><div><h2 class="section-title">Thông báo từ HR</h2><p class="section-lead">Cập nhật các thông tin quan trọng về đào tạo, hội nhập và phát triển nhân sự.</p></div></div><div class="grid-4">${hrAnnouncements.map(([category, title, desc],index) => `<article class="card info-card hr-announcement-card" data-open-landing-announcement="${index}" tabindex="0" role="button">${icon("file")}<h3>${title}</h3><p>${desc}</p><button class="btn btn-outline mini-course-btn">Xem chi tiết</button></article>`).join("")}</div></div></section>`;
+  return `<section class="section--hr-v3" id="hr-announcements"><div class="container"><div class="section-head section-head--landing"><div><span class="section-kicker">HR UPDATE</span><h2 class="section-title">Thông báo từ HR</h2><p class="section-lead">Các cập nhật quan trọng về đào tạo, hội nhập và phát triển nhân sự.</p></div></div><div class="hr-announcements-v3">${hrAnnouncements.map(([category, title, desc],index) => `<article class="hr-card-v3"><div class="hr-card-v3__meta"><span>${escapeHtml(category)}</span><time datetime="2026-07-15">Cập nhật nội bộ</time></div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(desc)}</p><button class="hr-card-v3__action" type="button" data-open-landing-announcement="${index}">Xem chi tiết <span aria-hidden="true">→</span></button></article>`).join("")}</div></div></section>`;
 }
 
 function aboutPage() {
@@ -3315,10 +3303,10 @@ function employeeDashboard(compact = false) {
   return `
     <div class="app-layout">${sideNav("employee")}
       <main class="app-main">${topbar(uiText("learner"), displayName, "employee", initials(displayName))}<div class="content">
-        <header class="dashboard-welcome employee-greeting">${employeeAvatar(account,employee,"employee-greeting__avatar")}<div class="employee-greeting__identity"><h1>${escapeHtml(greeting(displayName))}</h1><div class="employee-meta-line">${jobTitle!==uiText("employeeFallback")?`<span class="employee-meta-line__title">${escapeHtml(jobTitle)}</span>`:""}${jobTitle!==uiText("employeeFallback")&&department?`<span class="employee-meta-line__divider" aria-hidden="true"></span>`:""}${department?`<span class="employee-meta-line__department">${escapeHtml(department)}</span>`:""}</div><p>${uiText("learningJourney")}</p></div></header>
-        <section class="dashboard-priority-heading"><div><h2>Cần tiếp tục học</h2><p>Khóa đang học được ưu tiên theo hạn hoàn thành và hoạt động gần nhất.</p></div></section>
+        <header class="dashboard-welcome employee-greeting">${employeeAvatar(account,employee,"employee-greeting__avatar")}<div class="employee-greeting__identity"><span class="dashboard-welcome__eyebrow">MY LEARNING</span><h1>${escapeHtml(greeting(displayName))}</h1><div class="employee-meta-line">${jobTitle!==uiText("employeeFallback")?`<span class="employee-meta-line__title">${escapeHtml(jobTitle)}</span>`:""}${jobTitle!==uiText("employeeFallback")&&department?`<span class="employee-meta-line__divider" aria-hidden="true"></span>`:""}${department?`<span class="employee-meta-line__department">${escapeHtml(department)}</span>`:""}</div><p>${overdue ? `Bạn có ${overdue} khóa học cần xử lý trước hạn.` : uiText("learningJourney")}</p></div><a class="btn btn-outline employee-greeting__link" href="/dashboard/courses" data-link>Xem tất cả khóa học</a></header>
+        <section class="dashboard-priority-heading"><div><span class="dashboard-section-kicker">ƯU TIÊN HÔM NAY</span><h2>${overdue ? "Cần làm ngay" : "Tiếp tục hành trình học tập"}</h2><p>${overdue ? "Các khóa quá hạn được đưa lên trước để bạn xử lý kịp thời." : "Khóa gần nhất và thời hạn quan trọng được ưu tiên hiển thị."}</p></div></section>
         ${primary ? continueLearningHero(primary) : `<section class="card continue-empty"><div>${icon("book")}<h2>${uiText("noRecentCourses")}</h2><p>${uiText("noRecentCoursesDesc")}</p></div><a class="btn btn-primary" href="/dashboard/courses" data-link>${uiText("myCourses")}</a></section>`}
-        <div class="progress-overview learner-private-stats"><a href="/dashboard/history" data-link class="training-hours-kpi"><span>Giờ học quy đổi<small>Thực tế: Online ${formatTrainingDuration(trainingTime.onlineSeconds,language,true)} · Offline ${formatTrainingDuration(trainingTime.offlineSeconds,language,true)}</small></span><strong>${formatCreditedLearningHours(trainingTime.totalSeconds)}</strong></a><a href="/dashboard/courses" data-link><span>Số khóa đang mở</span><strong>${enrollments.filter(item=>item.status!=="completed").length}</strong></a><a href="/dashboard/history" data-link><span>Thời gian học thực tế</span><strong>${formatTrainingDuration(trainingTime.totalSeconds,language,true)}</strong></a></div>
+        <section class="learner-summary" aria-label="Tổng quan học tập"><a href="/dashboard/courses" data-link class="learner-summary__item"><span class="learner-summary__icon" aria-hidden="true">${icon("book")}</span><span><small>Tổng khóa học</small><strong>${enrollments.length}</strong><em>${enrollments.length ? "Được giao cho bạn" : "Chưa có khóa được giao"}</em></span></a><a href="/dashboard/courses" data-link class="learner-summary__item learner-summary__item--active"><span class="learner-summary__icon" aria-hidden="true">${icon("target")}</span><span><small>Đang học</small><strong>${inProgress}</strong><em>${overdue ? `${overdue} khóa cần xử lý` : "Tiếp tục theo tiến độ"}</em></span></a><a href="/dashboard/history" data-link class="learner-summary__item learner-summary__item--done"><span class="learner-summary__icon" aria-hidden="true">${icon("check")}</span><span><small>Hoàn thành</small><strong>${completed}</strong><em>Khóa học đã kết thúc</em></span></a><a href="/dashboard/history" data-link class="learner-summary__item learner-summary__item--hours"><span class="learner-summary__icon" aria-hidden="true">${icon("chart")}</span><span><small>Giờ học quy đổi</small><strong>${formatCreditedLearningHours(trainingTime.totalSeconds)}</strong><em>Thực tế: ${formatTrainingDuration(trainingTime.totalSeconds,language,true)}</em></span></a></section>
         <div class="dashboard-grid"><section class="card panel dashboard-learning-priorities"><div class="panel-head"><div><h3>Hành trình học tập</h3><p class="muted-cell">Việc cần làm được sắp theo mức ưu tiên.</p></div><a class="btn btn-outline mini-action" href="/dashboard/courses" data-link>${uiText("viewAllCourses")}</a></div><section class="dashboard-priority-group dashboard-priority-group--urgent"><h4>Cần làm ngay</h4>${urgent.length ? urgent.slice(0,2).map(recentCourseRow).join("") : `<p class="dashboard-priority-empty">Không có khóa quá hạn.</p>`}</section><section class="dashboard-priority-group"><h4>Tiếp tục học</h4>${inProgressCourses.length ? inProgressCourses.slice(0,3).map(recentCourseRow).join("") : `<p class="dashboard-priority-empty">Chưa có khóa đang học.</p>`}</section><section class="dashboard-priority-group"><h4>Sắp tới</h4>${upcoming.length ? upcoming.slice(0,2).map(recentCourseRow).join("") : `<p class="dashboard-priority-empty">Chưa có khóa được giao sắp tới.</p>`}</section><section class="dashboard-priority-group"><h4>Đã hoàn thành</h4>${completedCourses.length ? completedCourses.slice(0,2).map(recentCourseRow).join("") : `<p class="dashboard-priority-empty">Các khóa hoàn thành sẽ xuất hiện ở đây.</p>`}</section></section><aside class="card panel" id="employee-notifications"><div class="panel-head"><div><h3>${uiText("recentNotifications")}</h3></div><button class="btn btn-outline mini-action" type="button" data-open-notifications>${uiText("viewNotifications")}</button></div>${notifications.slice(0,3).map(notificationRow).join("") || `<div class="empty-state"><p>${uiText("noNotifications")}</p></div>`}</aside></div>
       </div></main>${notificationModal()}
     </div>
@@ -3329,10 +3317,12 @@ function continueLearningHero(enrollment){
   const course=enrollment.course||getCourseById(enrollment.courseId)||{};
   const outline=getCourseContent(enrollment.courseId); const states=getContentProgress(session.accountId,enrollment.courseId);
   const current=outline.find(x=>!states.some(s=>s.contentId===x.id&&s.completed))||outline.at(-1);
-  const activeSeconds=states.reduce((sum,x)=>sum+Number(x.activeSeconds||0),0);
   const estimated=Math.max(5,Math.round((Number(course.durationHours||1)*3600*(100-enrollment.progressPercent)/100)/60));
   const image=course.imageUrl?`<img src="${escapeHtmlAttribute(course.imageUrl)}" alt="${escapeHtmlAttribute(course.imageAlt||course.title||"")}">`:`<span class="continue-hero__placeholder">${icon("book")}</span>`;
-  return `<section class="card continue-hero"><div class="continue-hero__media">${image}</div><div class="continue-hero__body"><h2>${escapeHtml(course.title||"—")}</h2><p class="continue-hero__lesson">${current?escapeHtml(current.title):uiText("courseIntro")}</p><div class="continue-hero__progress"><span>${uiText("progressLabel")}</span><strong>${enrollment.progressPercent}%</strong>${progress(enrollment.progressPercent)}</div><p class="continue-hero__meta">Còn khoảng ${estimated} phút${enrollment.deadline?` · ${uiText("deadline")} ${escapeHtml(enrollment.deadline)}`:""}</p><div class="continue-hero__actions"><a class="btn btn-primary" href="/dashboard/courses/${escapeHtmlAttribute(enrollment.courseId)}${current?`?content=${encodeURIComponent(current.id)}`:""}" data-link>${uiText("continueLearning")} →</a><a class="btn btn-outline" href="/dashboard/courses/${escapeHtmlAttribute(enrollment.courseId)}" data-link>Xem nội dung</a></div></div></section>`;
+  const isNew = enrollment.status === "notStarted";
+  const primaryLabel = isNew ? uiText("startCourse") : uiText("continueLearning");
+  const deadlineText = enrollment.deadline ? `${uiText("deadline")}: ${escapeHtml(enrollment.deadline)}` : "Không có hạn hoàn thành";
+  return `<section class="card continue-hero"><div class="continue-hero__media">${image}</div><div class="continue-hero__body"><div class="continue-hero__status">${badge(enrollment.status)}<span>${isNew ? "Sẵn sàng bắt đầu" : enrollment.status === "overdue" ? "Ưu tiên xử lý" : "Đang theo học"}</span></div><h2>${escapeHtml(course.title||"—")}</h2><p class="continue-hero__lesson">${current?escapeHtml(current.title):uiText("courseIntro")}</p><div class="continue-hero__progress"><span>${uiText("progressLabel")}</span><strong>${enrollment.progressPercent}%</strong>${progress(enrollment.progressPercent)}</div><p class="continue-hero__meta">${isNew ? "Thời lượng dự kiến" : `Còn khoảng ${estimated} phút`} <span aria-hidden="true">·</span> ${deadlineText}</p><div class="continue-hero__actions"><a class="btn btn-primary" href="/dashboard/courses/${escapeHtmlAttribute(enrollment.courseId)}${current?`?content=${encodeURIComponent(current.id)}`:""}" data-link>${primaryLabel}<span aria-hidden="true"> →</span></a><a class="btn btn-outline" href="/dashboard/courses/${escapeHtmlAttribute(enrollment.courseId)}" data-link>${isNew ? "Xem nội dung" : "Xem lộ trình"}</a></div></div></section>`;
 }
 
 function employeeEnrollments(){
