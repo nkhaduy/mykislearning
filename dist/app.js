@@ -2328,18 +2328,15 @@ function landingPage() {
     <div class="home-stats" data-countup-section>
       <div class="container home-stats__inner">
         <div class="home-stat-item">
-          <span class="home-stat-item__icon" aria-hidden="true">${icon("users")}</span>
-          <span class="home-stat-item__value" data-countup="${allEmployees.length}" data-countup-suffix="+">${allEmployees.length}+</span>
+          <span class="home-stat-item__value gradient-text" data-countup="${allEmployees.length}" data-countup-suffix="+">${allEmployees.length}+</span>
           <span class="home-stat-item__label">${overviewText("learnersCount")}</span>
         </div>
         <div class="home-stat-item">
-          <span class="home-stat-item__icon" aria-hidden="true">${icon("book")}</span>
-          <span class="home-stat-item__value" data-countup="${allCourses.length}">${allCourses.length}</span>
+          <span class="home-stat-item__value gradient-text" data-countup="${allCourses.length}">${allCourses.length}</span>
           <span class="home-stat-item__label">${overviewText("openCoursesCount")}</span>
         </div>
         <div class="home-stat-item">
-          <span class="home-stat-item__icon" aria-hidden="true">${icon("chart")}</span>
-          <span class="home-stat-item__value" data-countup="${totalLearningHours}" data-countup-locale="true" aria-live="polite">${formatLearningHours(totalLearningHours)}</span>
+          <span class="home-stat-item__value gradient-text" data-countup="${totalLearningHours}" data-countup-locale="true" aria-live="polite">${formatLearningHours(totalLearningHours)}</span>
           <span class="home-stat-item__label">${overviewText("totalHoursCount")}</span>
         </div>
       </div>
@@ -2362,7 +2359,7 @@ function landingPage() {
         </div>
       </div>
     </article>`;
-  }).join("") || `<div class="landing-course-empty"><span aria-hidden="true">${icon("book")}</span><h3>${language === "en" ? "Courses are being prepared" : language === "kr" ? "과정을 준비하고 있습니다" : "Khóa học đang được cập nhật"}</h3><p>${language === "en" ? "Please return soon to explore available learning." : language === "kr" ? "공개된 과정을 곧 확인하실 수 있습니다." : "Vui lòng quay lại sau để khám phá các khóa học đang mở."}</p></div>`;
+  }).join("") || `<div class="card empty-state"><span aria-hidden="true">${icon("book")}</span><h3>${language === "en" ? "Courses are being prepared" : language === "kr" ? "과정을 준비하고 있습니다" : "Khóa học đang được cập nhật"}</h3><p>${language === "en" ? "Please return soon to explore available learning." : language === "kr" ? "공개된 과정을 곧 확인하실 수 있습니다." : "Vui lòng quay lại sau để khám phá các khóa học đang mở."}</p></div>`;
 
   return `
     <div class="page landing-page">
@@ -2398,8 +2395,6 @@ function landingPage() {
           </div>
         </div>
       </section>
-
-      ${hrAnnouncementsSection()}
 
       <section class="section--kis-banner">
         <div class="container">
