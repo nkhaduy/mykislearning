@@ -4085,7 +4085,7 @@ function myLearningPathsPage() {
   const content = _myLpLoading && !list.length
     ? `<div class="hr-overview-skeleton">${Array(4).fill("<span></span>").join("")}</div>`
     : !list.length
-      ? `<div class="card empty-state"><h3>${lp.noMyPaths}</h3></div>`
+      ? `<div class="lp-journey-empty" role="status"><span class="lp-journey-empty__icon" aria-hidden="true">${icon("book")}</span><h2>Chưa có lộ trình học tập</h2><p>Các khóa học được phân công sẽ xuất hiện tại đây.</p></div>`
       : [
           renderGroup(lp.overdue, grouped.overdue),
           renderGroup(lp.inProgress, grouped.in_progress),
@@ -4115,12 +4115,19 @@ function myLpDetailPage() {
 
   const { assignment, path, steps } = _myLpDetail;
   const pct = assignment.progress_percent || 0;
+  const allSteps = steps || [];
+  const firstAvailableId = allSteps.find((step) => step.computed_status === "available")?.id || "";
+  const completedSteps = allSteps.filter((step) => step.computed_status === "completed").length;
+  const journeyPercent = allSteps.length ? Math.round((completedSteps / allSteps.length) * 100) : 0;
 
-  const stepsHtml = (steps || []).map((s, i) => {
+  const stepsHtml = allSteps.map((s, i) => {
     const cs = s.computed_status;
     const isLocked = cs === "locked";
     const isDone = cs === "completed";
+    const isCurrent = !isDone && !isLocked && (cs === "in_progress" || (pct > 0 && s.id === firstAvailableId));
     const title = s.title_override || s.resource_id || `Bước ${i + 1}`;
+    const stateLabel = isDone ? "Đã hoàn thành" : isLocked ? "Chưa mở" : isCurrent ? "Đang học" : "Chưa bắt đầu";
+    const stepProgress = isDone ? 100 : isCurrent ? Math.max(0, Math.min(99, Math.round(Number(s.progress_percent ?? pct) || 0))) : 0;
 
     // Find prerequisite step title
     let lockedMsg = "";
@@ -4132,68 +4139,56 @@ function myLpDetailPage() {
       lockedMsg = "Hoàn thành các bước bắt buộc trước đó để mở nội dung này.";
     }
 
-    // CTA button based on step type
-    let cta = "";
-    if (!isLocked) {
-      const targetUrl = s.step_type === "course" && s.resource_id
-        ? `/dashboard/courses/${s.resource_id}`
-        : s.step_type === "quiz" && s.resource_id
-          ? `/dashboard/quizzes`
-          : s.step_type === "training_session"
-            ? `/dashboard/calendar`
-            : null;
-      if (targetUrl) {
-        cta = `<a class="btn btn-outline mini-action" href="${escapeHtmlAttribute(targetUrl)}" data-link>${isDone ? "Xem lại" : "Bắt đầu"}</a>`;
-      }
-      if (!isDone && s.step_type === "course" && s.resource_id) {
-        cta += ` <button class="btn btn-primary mini-action" data-lp-complete-step="${escapeHtmlAttribute(s.id)}" data-assignment-id="${escapeHtmlAttribute(assignmentId)}">Đánh dấu hoàn thành</button>`;
-      }
-    }
+    const targetUrl = s.step_type === "course" && s.resource_id
+      ? `/dashboard/courses/${s.resource_id}`
+      : s.step_type === "quiz" && s.resource_id
+        ? "/dashboard/quizzes"
+        : s.step_type === "training_session"
+          ? "/dashboard/calendar"
+          : "";
+    const actionLabel = isDone ? "Xem lại" : isCurrent ? "Tiếp tục học" : "Bắt đầu";
+    const mainAction = isLocked
+      ? `<button class="btn btn-outline lp-journey-card__action" type="button" disabled aria-disabled="true">Chưa mở</button>`
+      : targetUrl
+        ? `<a class="btn ${isCurrent ? "btn-primary" : "btn-outline"} lp-journey-card__action" href="${escapeHtmlAttribute(targetUrl)}" data-link>${actionLabel}</a>`
+        : "";
+    const completionAction = !isDone && !isLocked && s.step_type === "course" && s.resource_id
+      ? `<button class="btn btn-ghost lp-journey-card__secondary" data-lp-complete-step="${escapeHtmlAttribute(s.id)}" data-assignment-id="${escapeHtmlAttribute(assignmentId)}">Đánh dấu hoàn thành</button>`
+      : "";
+    const dueAt = s.due_at || (isCurrent ? assignment.due_at : "");
+    const cardState = isDone ? "completed" : isLocked ? "locked" : isCurrent ? "current" : "available";
 
-    const isCurrent = !isDone && !isLocked && (cs === "in_progress" || (pct > 0 && i === (steps || []).findIndex((step) => step.computed_status === "available")));
-    return `<article class="lp-flow-step ${isDone ? "lp-step-done" : isLocked ? "lp-step-locked" : isCurrent ? "lp-step-current" : "lp-step-available"}" data-step-id="${escapeHtmlAttribute(s.id)}" data-step-index="${i}">
-      <div class="lp-flow-node" aria-hidden="true">${isDone ? "✓" : isLocked ? "🔒" : String(i + 1)}</div>
-      <div class="lp-step-row">
-      <div class="lp-step-body">
-        <strong>${escapeHtml(title)}</strong>
-        <span class="lp-step-meta">${lpStepTypeBadge(s.step_type)} ${s.is_required ? "" : `<span class="badge muted">${lp.optional}</span>`} ${lpStatusBadge(cs)}</span>
-        ${s.estimated_duration_minutes ? `<small>${s.estimated_duration_minutes} phút</small>` : ""}
-        ${lockedMsg ? `<p class="lp-lock-reason" role="status">${escapeHtml(lockedMsg)}</p>` : ""}
-        ${s.completed_at ? `<small>Hoàn thành: ${formatDateTime(s.completed_at)}</small>` : ""}
-      </div>
-      <div class="lp-step-actions">${cta}</div>
+    return `<article class="lp-journey-step lp-journey-step--${cardState}" data-step-id="${escapeHtmlAttribute(s.id)}" data-step-index="${i}">
+      <div class="lp-journey-step__axis" aria-hidden="true"><span class="lp-journey-step__node">${isDone ? icon("check") : isLocked ? icon("lock") : String(i + 1)}</span></div>
+      <div class="lp-journey-card">
+        <div class="lp-journey-card__topline"><span class="lp-journey-card__stage">Chặng ${i + 1}</span><span class="lp-journey-card__status">${isDone ? icon("check") : isLocked ? icon("lock") : ""}${stateLabel}</span></div>
+        <div class="lp-journey-card__body">
+          <h2>${escapeHtml(title)}</h2>
+          <div class="lp-journey-card__meta">${lpStepTypeBadge(s.step_type)} ${s.is_required ? `<span>Yêu cầu</span>` : `<span>${lp.optional}</span>`}</div>
+          ${s.estimated_duration_minutes ? `<p class="lp-journey-card__detail">${icon("file")} ${s.estimated_duration_minutes} phút</p>` : ""}
+          ${dueAt ? `<p class="lp-journey-card__detail">${icon("file")} Hạn: ${new Date(dueAt).toLocaleDateString("vi-VN")}</p>` : ""}
+          ${lockedMsg ? `<p class="lp-journey-card__locked" role="status">${escapeHtml(lockedMsg)}</p>` : ""}
+          ${s.completed_at ? `<p class="lp-journey-card__detail">${icon("check")} Hoàn thành: ${formatDateTime(s.completed_at)}</p>` : ""}
+        </div>
+        <div class="lp-journey-card__progress"><div class="lp-journey-card__progress-label"><span>Tiến độ</span><strong>${stepProgress}%</strong></div><div class="lp-journey-card__progress-track" role="progressbar" aria-valuenow="${stepProgress}" aria-valuemin="0" aria-valuemax="100"><span style="width:${stepProgress}%"></span></div></div>
+        <div class="lp-journey-card__actions">${mainAction}${completionAction}</div>
       </div>
     </article>`;
   }).join("");
-  const completedSteps = (steps || []).filter((step) => step.computed_status === "completed").length;
-  const flowComplete = steps.length ? Math.round((completedSteps / steps.length) * 100) : 0;
-  const flowCurrent = steps.length ? Math.min(100, Math.round(((completedSteps + 1) / steps.length) * 100)) : 0;
 
   return `<div class="app-layout">
     ${sideNav("employee")}
     <main class="app-main">
       <div class="content">
         <a href="/dashboard/learning-paths" data-link class="btn btn-ghost">← ${lp.myTitle}</a>
-        <div class="card" style="margin-top:16px">
-          <div class="panel-head">
-            <div>
-              <h1>${escapeHtml(path?.title || "—")}</h1>
-              ${path?.description ? `<p>${escapeHtml(path.description)}</p>` : ""}
-            </div>
-            <div style="text-align:right">
-              ${lpStatusBadge(assignment.status)}
-              ${assignment.due_at ? `<br><small>Hạn: ${new Date(assignment.due_at).toLocaleDateString("vi-VN")}</small>` : ""}
-            </div>
-          </div>
-          <div style="margin:16px 0">
-            <p>${lp.overallProgress}: <strong>${pct}%</strong></p>
-            ${lpProgressBar(pct)}
-          </div>
-        </div>
-        <div class="card" style="margin-top:16px">
-          <h3>${lp.steps}</h3>
-          <div class="lp-flow-scroll"><div class="lp-flow" style="--lp-step-count:${Math.max(1, steps.length)};--lp-complete:${flowComplete}%;--lp-current:${flowCurrent}%" aria-label="${escapeHtmlAttribute(lp.steps)}">${stepsHtml || `<div class="empty-state"><p>${lp.noSteps}</p></div>`}</div></div>
-        </div>
+        <section class="lp-journey-shell" aria-labelledby="lp-journey-title">
+          <header class="lp-journey-head">
+            <div><span class="lp-journey-head__eyebrow">LỘ TRÌNH HỌC TẬP</span><h1 id="lp-journey-title">Hành trình phát triển của bạn</h1><p>${escapeHtml(path?.title || "—")}${path?.description ? ` · ${escapeHtml(path.description)}` : ""}</p></div>
+            <div class="lp-journey-head__summary"><strong>${completedSteps}/${allSteps.length}</strong><span>khóa học đã hoàn thành</span></div>
+          </header>
+          <div class="lp-journey-overview"><div><span>${lp.overallProgress}</span><strong>${pct}%</strong></div><div class="lp-journey-overview__track" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${Math.max(0, Math.min(100, pct))}%"></span></div>${assignment.due_at ? `<small>Hạn hoàn thành: ${new Date(assignment.due_at).toLocaleDateString("vi-VN")}</small>` : ""}</div>
+          ${stepsHtml ? `<div class="lp-journey" style="--lp-journey-progress:${journeyPercent}%" aria-label="${escapeHtmlAttribute(lp.steps)}">${stepsHtml}</div>` : `<div class="lp-journey-empty" role="status"><span class="lp-journey-empty__icon" aria-hidden="true">${icon("book")}</span><h2>Chưa có lộ trình học tập</h2><p>Các khóa học được phân công sẽ xuất hiện tại đây.</p></div>`}
+        </section>
       </div>
     </main>
   </div>`;
