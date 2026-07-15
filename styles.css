@@ -8673,6 +8673,7 @@ body { overflow-x: clip; }
 
 /* Learner learning flow: semantic timeline on desktop, readable vertical path on mobile. */
 .lp-flow { position: relative; display: grid; grid-template-columns: repeat(var(--lp-step-count, 1), minmax(190px, 1fr)); gap: 28px; margin: 22px 0 6px; padding: 86px 10px 24px; }
+.lp-flow-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-gutter: stable; }
 .lp-flow::before { content: ""; position: absolute; left: 34px; right: 34px; top: 50%; height: 4px; border-radius: 4px; background: linear-gradient(90deg, var(--color-success,#2f855a) var(--lp-complete,0%), var(--color-primary,#2457a6) var(--lp-complete,0%), var(--color-primary,#2457a6) var(--lp-current,0%), #cbd5e1 var(--lp-current,0%)); transform: translateY(-2px); z-index: 0; }
 .lp-flow-step { position: relative; z-index: 1; display: flex; flex-direction: column; min-width: 0; }
 .lp-flow-step:nth-child(even) { transform: translateY(118px); }
@@ -8693,12 +8694,25 @@ body { overflow-x: clip; }
 .modal-subtitle { margin: 4px 0 0; color: var(--color-muted,#64748b); font-size: .86rem; }
 
 @media (max-width: 900px) {
+  .lp-flow-scroll { overflow: visible; }
   .lp-flow { grid-template-columns: 1fr; gap: 0; margin-left: 4px; padding: 8px 0 8px 44px; }
   .lp-flow::before { left: 18px; right: auto; top: 18px; bottom: 18px; width: 4px; height: auto; transform: none; background: linear-gradient(180deg, var(--color-success,#2f855a) var(--lp-complete,0%), var(--color-primary,#2457a6) var(--lp-complete,0%), var(--color-primary,#2457a6) var(--lp-current,0%), #cbd5e1 var(--lp-current,0%)); }
   .lp-flow-step, .lp-flow-step:nth-child(even) { transform: none; display: grid; grid-template-columns: 38px minmax(0,1fr); gap: 12px; margin-bottom: 18px; }
   .lp-flow-step .lp-flow-node, .lp-flow-step:nth-child(even) .lp-flow-node, .lp-flow-step:nth-child(odd) .lp-flow-node { grid-column: 1; grid-row: 1; margin: 12px 0 0; align-self: start; }
   .lp-flow-step .lp-step-row, .lp-flow-step:nth-child(even) .lp-step-row { grid-column: 2; grid-row: 1; order: 0; min-height: 0; }
 }
+
+/* Learner dashboard: priority is a task model, not an undifferentiated feed. */
+.dashboard-priority-heading { display:flex; align-items:end; justify-content:space-between; gap:16px; }
+.dashboard-priority-heading h2 { margin:0; color:var(--color-text); font-size:20px; }
+.dashboard-priority-heading p { margin:4px 0 0; color:var(--color-text-secondary); font-size:14px; }
+.dashboard-learning-priorities { display:grid; gap:18px; }
+.dashboard-priority-group { display:grid; gap:8px; padding-top:18px; border-top:1px solid var(--color-border); }
+.dashboard-priority-group:first-of-type { padding-top:0; border-top:0; }
+.dashboard-priority-group h4 { margin:0; color:var(--color-text); font-size:14px; }
+.dashboard-priority-group--urgent h4 { color:var(--color-danger); }
+.dashboard-priority-empty { margin:0; color:var(--color-text-secondary); font-size:13px; }
+@media (max-width:640px) { .dashboard-priority-heading { align-items:flex-start; flex-direction:column; } }
 
 @media (max-width: 600px) {
   .lp-flow { padding-left: 34px; }

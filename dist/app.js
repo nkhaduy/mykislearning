@@ -151,6 +151,10 @@ let courseFormMode = "";
 let _courseDeletingIds = new Set();
 let _selectedCourseIds = new Set();
 let _courseBulkLoading = false;
+// Landing uses a server aggregate of recorded activity. Never manufacture a
+// total from a date or a demo value: an unavailable aggregate stays unknown.
+let landingLearningHours = null;
+let landingLearningHoursRequested = false;
 let contentBuilderMode = "";
 let selectedContentId = "";
 let contentBuilderType = "slide";
@@ -2281,18 +2285,31 @@ function progress(value) {
   return `<div class="progress"><span style="--value:${value}%"></span></div>`;
 }
 
-function learningHoursNow() {
-  const BASE = 3204;
-  const BASE_DATE = "2026-07-02";
-  const PER_DAY = 8;
-  // Compute elapsed full days in Asia/Ho_Chi_Minh timezone
-  const nowVN = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
-  const baseVN = new Date(new Date(BASE_DATE + "T00:00:00+07:00").toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
-  const elapsedMs = nowVN - baseVN;
-  const elapsedDays = Math.max(0, Math.floor(elapsedMs / 86400000));
-  const totalActualHours = Math.max(BASE, BASE + elapsedDays * PER_DAY);
-  // Display 1 hour for every 2 actual hours learned (floor, no rounding up)
-  return Math.floor(totalActualHours / 2);
+function creditedLearningHours(actualSeconds) {
+  // A displayed hour is earned only after two complete hours of recorded study.
+  // This intentionally floors: 0–119 minutes = 0, 120–239 = 1, etc.
+  return Math.floor(Math.max(0, Number(actualSeconds) || 0) / 7200);
+}
+
+function formatCreditedLearningHours(actualSeconds) {
+  const hours = creditedLearningHours(actualSeconds);
+  return language === "kr" ? `${formatLearningHours(hours)}시간` : language === "en" ? `${formatLearningHours(hours)} hours` : `${formatLearningHours(hours)} giờ`;
+}
+
+function hydrateLandingLearningHours() {
+  if (landingLearningHoursRequested) return;
+  landingLearningHoursRequested = true;
+  fetch("/api/public/learning-hours")
+    .then((res) => res.ok ? res.json() : Promise.reject(new Error(`HTTP_${res.status}`)))
+    .then((body) => {
+      if (!body?.ok || !Number.isFinite(Number(body.creditedHours))) return;
+      landingLearningHours = Number(body.creditedHours);
+      if (route === "/") render();
+    })
+    .catch(() => {
+      // Keep an honest unknown state rather than replacing it with mock data.
+      landingLearningHours = null;
+    });
 }
 
 function formatLearningHours(hours) {
@@ -2305,6 +2322,7 @@ function formatLearningHours(hours) {
 }
 
 function landingPage() {
+  hydrateLandingLearningHours();
   const featuredTitles = new Set(["Đào tạo hội nhập nhân viên mới", "AI for Beginners"]);
   const publishedCourses = getCourses().filter((course) => course.status === "published" && featuredTitles.has(course.title));
   const featuredFallback = [
@@ -2321,7 +2339,7 @@ function landingPage() {
   // Live LMS stats
   const allCourses = getCourses().filter(c => c.status === "published");
   const allEmployees = getEmployees();
-  const totalLearningHours = learningHoursNow();
+  const totalLearningHours = landingLearningHours;
 
   const statsHtml = `
     <div class="home-stats" data-countup-section>
@@ -2335,7 +2353,7 @@ function landingPage() {
           <span class="home-stat-item__label">${overviewText("openCoursesCount")}</span>
         </div>
         <div class="home-stat-item">
-          <span class="home-stat-item__value gradient-text" data-countup="${totalLearningHours}" data-countup-locale="true">${formatLearningHours(totalLearningHours)}</span>
+          <span class="home-stat-item__value" aria-live="polite">${totalLearningHours === null ? "—" : formatLearningHours(totalLearningHours)}</span>
           <span class="home-stat-item__label">${overviewText("totalHoursCount")}</span>
         </div>
       </div>
@@ -3280,7 +3298,11 @@ function employeeDashboard(compact = false) {
   const completed = enrollments.filter((item) => item.status === "completed").length;
   const inProgress = enrollments.filter((item) => item.status === "inProgress").length;
   const overdue = enrollments.filter((item) => item.status === "overdue").length;
-  const recent = [...enrollments].filter((item) => item.status !== "completed").sort(compareEnrollmentPriority).slice(0, 3);
+  const urgent = [...enrollments].filter((item) => item.status === "overdue").sort(compareEnrollmentPriority);
+  const inProgressCourses = [...enrollments].filter((item) => item.status === "inProgress").sort(compareEnrollmentPriority);
+  const upcoming = [...enrollments].filter((item) => item.status === "notStarted").sort(compareEnrollmentPriority);
+  const completedCourses = [...enrollments].filter((item) => item.status === "completed").sort((a, b) => String(b.completedAt || "").localeCompare(String(a.completedAt || "")));
+  const recent = [...urgent, ...inProgressCourses, ...upcoming].slice(0, 3);
   const activities=getLearningActivity({accountId:session.accountId});
   const primary = [...recent].sort((a,b)=>{
     const aa=activities.find(x=>x.courseId===a.courseId)?.occurredAt||"";
@@ -3294,9 +3316,10 @@ function employeeDashboard(compact = false) {
     <div class="app-layout">${sideNav("employee")}
       <main class="app-main">${topbar(uiText("learner"), displayName, "employee", initials(displayName))}<div class="content">
         <header class="dashboard-welcome employee-greeting">${employeeAvatar(account,employee,"employee-greeting__avatar")}<div class="employee-greeting__identity"><h1>${escapeHtml(greeting(displayName))}</h1><div class="employee-meta-line">${jobTitle!==uiText("employeeFallback")?`<span class="employee-meta-line__title">${escapeHtml(jobTitle)}</span>`:""}${jobTitle!==uiText("employeeFallback")&&department?`<span class="employee-meta-line__divider" aria-hidden="true"></span>`:""}${department?`<span class="employee-meta-line__department">${escapeHtml(department)}</span>`:""}</div><p>${uiText("learningJourney")}</p></div></header>
+        <section class="dashboard-priority-heading"><div><h2>Cần tiếp tục học</h2><p>Khóa đang học được ưu tiên theo hạn hoàn thành và hoạt động gần nhất.</p></div></section>
         ${primary ? continueLearningHero(primary) : `<section class="card continue-empty"><div>${icon("book")}<h2>${uiText("noRecentCourses")}</h2><p>${uiText("noRecentCoursesDesc")}</p></div><a class="btn btn-primary" href="/dashboard/courses" data-link>${uiText("myCourses")}</a></section>`}
-        <div class="progress-overview learner-private-stats"><a href="/dashboard/history" data-link class="training-hours-kpi"><span>Số giờ đào tạo<small>Online ${formatTrainingDuration(trainingTime.onlineSeconds,language,true)} · Offline ${formatTrainingDuration(trainingTime.offlineSeconds,language,true)}</small></span><strong>${formatTrainingDuration(trainingTime.totalSeconds,language,true)}</strong></a><a href="/dashboard/courses" data-link><span>Số khóa đang mở</span><strong>${enrollments.filter(item=>item.status!=="completed").length}</strong></a><a href="/dashboard/history" data-link><span>Tổng thời gian học</span><strong>${formatTrainingDuration(trainingTime.totalSeconds,language,true)}</strong></a></div>
-        <div class="dashboard-grid"><section class="card panel"><div class="panel-head"><div><h3>${uiText("recentCourses")}</h3></div><a class="btn btn-outline mini-action" href="/dashboard/courses" data-link>${uiText("viewAllCourses")}</a></div>${recent.length ? recent.map(recentCourseRow).join("") : `<div class="empty-state">${icon("book")}<h3>${uiText("noRecentCourses")}</h3><p>${uiText("noRecentCoursesDesc")}</p></div>`}</section><aside class="card panel" id="employee-notifications"><div class="panel-head"><div><h3>${uiText("recentNotifications")}</h3></div><button class="btn btn-outline mini-action" type="button" data-open-notifications>${uiText("viewNotifications")}</button></div>${notifications.slice(0,3).map(notificationRow).join("") || `<div class="empty-state"><p>${uiText("noNotifications")}</p></div>`}</aside></div>
+        <div class="progress-overview learner-private-stats"><a href="/dashboard/history" data-link class="training-hours-kpi"><span>Giờ học quy đổi<small>Thực tế: Online ${formatTrainingDuration(trainingTime.onlineSeconds,language,true)} · Offline ${formatTrainingDuration(trainingTime.offlineSeconds,language,true)}</small></span><strong>${formatCreditedLearningHours(trainingTime.totalSeconds)}</strong></a><a href="/dashboard/courses" data-link><span>Số khóa đang mở</span><strong>${enrollments.filter(item=>item.status!=="completed").length}</strong></a><a href="/dashboard/history" data-link><span>Thời gian học thực tế</span><strong>${formatTrainingDuration(trainingTime.totalSeconds,language,true)}</strong></a></div>
+        <div class="dashboard-grid"><section class="card panel dashboard-learning-priorities"><div class="panel-head"><div><h3>Hành trình học tập</h3><p class="muted-cell">Việc cần làm được sắp theo mức ưu tiên.</p></div><a class="btn btn-outline mini-action" href="/dashboard/courses" data-link>${uiText("viewAllCourses")}</a></div><section class="dashboard-priority-group dashboard-priority-group--urgent"><h4>Cần làm ngay</h4>${urgent.length ? urgent.slice(0,2).map(recentCourseRow).join("") : `<p class="dashboard-priority-empty">Không có khóa quá hạn.</p>`}</section><section class="dashboard-priority-group"><h4>Tiếp tục học</h4>${inProgressCourses.length ? inProgressCourses.slice(0,3).map(recentCourseRow).join("") : `<p class="dashboard-priority-empty">Chưa có khóa đang học.</p>`}</section><section class="dashboard-priority-group"><h4>Sắp tới</h4>${upcoming.length ? upcoming.slice(0,2).map(recentCourseRow).join("") : `<p class="dashboard-priority-empty">Chưa có khóa được giao sắp tới.</p>`}</section><section class="dashboard-priority-group"><h4>Đã hoàn thành</h4>${completedCourses.length ? completedCourses.slice(0,2).map(recentCourseRow).join("") : `<p class="dashboard-priority-empty">Các khóa hoàn thành sẽ xuất hiện ở đây.</p>`}</section></section><aside class="card panel" id="employee-notifications"><div class="panel-head"><div><h3>${uiText("recentNotifications")}</h3></div><button class="btn btn-outline mini-action" type="button" data-open-notifications>${uiText("viewNotifications")}</button></div>${notifications.slice(0,3).map(notificationRow).join("") || `<div class="empty-state"><p>${uiText("noNotifications")}</p></div>`}</aside></div>
       </div></main>${notificationModal()}
     </div>
   `;
@@ -4184,7 +4207,7 @@ function myLpDetailPage() {
         </div>
         <div class="card" style="margin-top:16px">
           <h3>${lp.steps}</h3>
-          <div class="lp-flow" style="--lp-step-count:${Math.max(1, steps.length)};--lp-complete:${flowComplete}%;--lp-current:${flowCurrent}%" aria-label="${escapeHtmlAttribute(lp.steps)}">${stepsHtml || `<div class="empty-state"><p>${lp.noSteps}</p></div>`}</div>
+          <div class="lp-flow-scroll"><div class="lp-flow" style="--lp-step-count:${Math.max(1, steps.length)};--lp-complete:${flowComplete}%;--lp-current:${flowCurrent}%" aria-label="${escapeHtmlAttribute(lp.steps)}">${stepsHtml || `<div class="empty-state"><p>${lp.noSteps}</p></div>`}</div></div>
         </div>
       </div>
     </main>
@@ -9354,8 +9377,8 @@ function setupPageSpecificHandlers() {
   { let _esc = false;
     const el = document.getElementById("employeeDirSearch");
     el?.addEventListener("compositionstart", () => { _esc = true; });
-    el?.addEventListener("compositionend", debounce((e) => { _esc = false; employeeDirectorySearch = e.target.value; employeeDirectoryPage = 1; renderEmployeeDirectoryResults(); }, 30));
-    el?.addEventListener("input", debounce((e) => { if (_esc) return; employeeDirectorySearch = e.target.value; employeeDirectoryPage = 1; renderEmployeeDirectoryResults(); }, 180));
+    el?.addEventListener("compositionend", debounce((e) => { _esc = false; employeeDirectorySearch = e.target.value; _selectedEmployeeIds.clear(); employeeDirectoryPage = 1; renderEmployeeDirectoryResults(); }, 30));
+    el?.addEventListener("input", debounce((e) => { if (_esc) return; employeeDirectorySearch = e.target.value; _selectedEmployeeIds.clear(); employeeDirectoryPage = 1; renderEmployeeDirectoryResults(); }, 180));
   }
   document.querySelectorAll("[data-employee-filter]").forEach((el) => el.addEventListener("change", () => { employeeDirectoryFilters[el.dataset.employeeFilter] = el.value; _selectedEmployeeIds.clear(); employeeDirectoryReviewIssues = false; employeeDirectoryPage = 1; render(); }));
   document.querySelector("[data-clear-employee-filters]")?.addEventListener("click", () => { employeeDirectorySearch = ""; employeeDirectoryFilters = { department: "", position: "", accountStatus: "", cchn: "" }; _selectedEmployeeIds.clear(); employeeDirectoryPage = 1; render(); });
@@ -9631,11 +9654,11 @@ function setupPageSpecificHandlers() {
   { let _csc = false;
     const el = document.getElementById("courseSearchInput");
     el?.addEventListener("compositionstart", () => { _csc = true; });
-    el?.addEventListener("compositionend", debounce((e) => { _csc = false; courseSearch = e.target.value; renderCourseResults(); }, 30));
-    el?.addEventListener("input", debounce((e) => { if (_csc) return; courseSearch = e.target.value; renderCourseResults(); }, 180));
+    el?.addEventListener("compositionend", debounce((e) => { _csc = false; courseSearch = e.target.value; _selectedCourseIds.clear(); renderCourseResults(); }, 30));
+    el?.addEventListener("input", debounce((e) => { if (_csc) return; courseSearch = e.target.value; _selectedCourseIds.clear(); renderCourseResults(); }, 180));
   }
-  document.querySelector("[data-course-filter-category]")?.addEventListener("change", (event) => { courseFilterCategory = event.target.value; render(); });
-  document.querySelector("[data-course-filter-status]")?.addEventListener("change", (event) => { courseFilterStatus = event.target.value; render(); });
+  document.querySelector("[data-course-filter-category]")?.addEventListener("change", (event) => { courseFilterCategory = event.target.value; _selectedCourseIds.clear(); render(); });
+  document.querySelector("[data-course-filter-status]")?.addEventListener("change", (event) => { courseFilterStatus = event.target.value; _selectedCourseIds.clear(); render(); });
   document.querySelector("[data-course-create]")?.addEventListener("click", () => { courseFormMode = "create"; selectedCourseId = ""; courseDrawerOpen = false; render(); });
   document.querySelectorAll("[data-course-detail]").forEach((el) => el.addEventListener("click", () => { selectedCourseId = el.dataset.courseDetail; courseDrawerOpen = true; courseFormMode = ""; render(); }));
   document.querySelectorAll("[data-course-detail-tab]").forEach(el => el.addEventListener("click", () => { courseDetailTab = el.dataset.courseDetailTab; render(); }));

@@ -26,6 +26,7 @@ import { handleDevelopmentPlans } from "./routes/development-plans.js";
 import { handleTrainingTracking } from "./routes/training-tracking.js";
 import { handleCchnCatalog, handleCchnRegistrations } from "./routes/cchn.js";
 import { handlePublicTraining } from "./routes/public-training.js";
+import { handlePublicStats } from "./routes/public-stats.js";
 import { withRequestContext, getRequestContext } from "./middleware/request-context.js";
 
 export async function handleApiRequest(request, env) {
@@ -38,6 +39,8 @@ export async function handleApiRequest(request, env) {
 
     try {
     if (path === "/api/config") return await handleConfig(request, env);
+
+    if (path === "/api/public/learning-hours") return await handlePublicStats(request, env);
 
     if (path === "/api/auth" || path.startsWith("/api/auth/")) return await handleAuth(request, env);
 
