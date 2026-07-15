@@ -2328,15 +2328,15 @@ function landingPage() {
     <div class="home-stats" data-countup-section>
       <div class="container home-stats__inner">
         <div class="home-stat-item">
-          <span class="home-stat-item__value gradient-text" data-countup="${allEmployees.length}" data-countup-suffix="+">${allEmployees.length}+</span>
+          <span class="home-stat-item__value" data-countup="${allEmployees.length}" data-countup-suffix="+">${allEmployees.length}+</span>
           <span class="home-stat-item__label">${overviewText("learnersCount")}</span>
         </div>
         <div class="home-stat-item">
-          <span class="home-stat-item__value gradient-text" data-countup="${allCourses.length}">${allCourses.length}</span>
+          <span class="home-stat-item__value" data-countup="${allCourses.length}">${allCourses.length}</span>
           <span class="home-stat-item__label">${overviewText("openCoursesCount")}</span>
         </div>
         <div class="home-stat-item">
-          <span class="home-stat-item__value gradient-text" data-countup="${totalLearningHours}" data-countup-locale="true" aria-live="polite">${formatLearningHours(totalLearningHours)}</span>
+          <span class="home-stat-item__value" data-countup="${totalLearningHours}" data-countup-locale="true" aria-live="polite">${formatLearningHours(totalLearningHours)}</span>
           <span class="home-stat-item__label">${overviewText("totalHoursCount")}</span>
         </div>
       </div>
@@ -4738,7 +4738,7 @@ function adminTopbar() {
   return topbar(meta.label, meta.title, "hr");
 }
 
-function sidebarBrand() { return `<div class="sidebar-brand"><a href="/" data-link class="sidebar-brand__link" aria-label="MyKIS Learning"><img src="/assets/kis-logo-white.png" alt="KIS Vietnam" class="sidebar-brand__logo"><span class="sidebar-brand__name">MyKIS Learning</span></a></div>`; }
+function sidebarBrand() { return `<div class="sidebar-brand"><a href="/" data-link class="sidebar-brand__link" aria-label="MyKIS Learning"><img src="/assets/kis-logo-horizontal.png" alt="KIS Vietnam" class="sidebar-brand__logo"><span class="sidebar-brand__name">MyKIS Learning</span></a></div>`; }
 
 function employeeAvatar(account, employee, className="avatar") { const name=employee?.fullName||account?.fullName||account?.email?.split("@")[0]||uiText("employeeFallback"); return `<span class="${className} employee-avatar" data-photo-blob-id="${escapeHtmlAttribute(employee?.photoBlobId||"")}" data-photo-url="${escapeHtmlAttribute(employee?.photoUrl||"")}" data-photo-key="${escapeHtmlAttribute(account?.employeeCode||account?.email?.split("@")[0]||"")}" aria-label="${escapeHtmlAttribute(name)}"><span>${initials(name)}</span></span>`; }
 function greeting(name){return uiText("greeting").replace("{name}",name);}
