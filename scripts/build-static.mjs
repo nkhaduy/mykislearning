@@ -19,6 +19,7 @@ const copy = (src, dest) => {
 copy("index.html");
 copy("app.js");
 copy("styles.css");
+copy("clean-system.css");
 
 // Static directories
 copy("public");
