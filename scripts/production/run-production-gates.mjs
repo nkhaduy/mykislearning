@@ -8,6 +8,19 @@ const root = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const { contract } = loadSecureRuntime();
 const evidencePath = resolve(contract.KIS_PRODUCTION_GATE_EVIDENCE || DEFAULT_GATE_EVIDENCE_FILE);
 const releaseCommitSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+const volatileEvidence = [
+  "docs/audit-remediation/evidence/employee-search-performance.json",
+  "docs/audit-remediation/evidence/report-100k-performance.json",
+  "docs/audit-remediation/evidence/route-bundles.json",
+];
+const committedEvidence = new Map(volatileEvidence.map((path) => [
+  path,
+  execFileSync("git", ["show", `HEAD:${path}`], { cwd: root }),
+]));
+const restoreVolatileEvidence = () => {
+  for (const [path, contents] of committedEvidence) writeFileSync(resolve(root, path), contents);
+};
+restoreVolatileEvidence();
 const commands = [
   ["npm", ["run", "lint"]],
   ["npm", ["run", "typecheck"]],
@@ -53,6 +66,7 @@ for (const [command, args] of commands) {
     completedAt: new Date().toISOString(),
     exitCode: result.status ?? 1,
   });
+  restoreVolatileEvidence();
   if (result.error || result.status !== 0) {
     status = "fail";
     break;
