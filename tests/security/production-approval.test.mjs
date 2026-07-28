@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, relative } from "node:path";
+import { dirname, join } from "node:path";
 import { loadSecureRuntime, sha256 } from "../../scripts/production/runtime-contract.mjs";
 import { ProductionApprovalError, verifyProductionApproval } from "../../scripts/production/verify-production-approval.mjs";
 

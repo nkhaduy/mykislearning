@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { chmodSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {

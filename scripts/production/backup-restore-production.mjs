@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 
 const root = new URL("../..", import.meta.url).pathname;
 const projectRef = "mooqdtiedfamnlpitqtq";
-const container = execFileSync("sh", ["-c", "docker ps --format '{{.Names}}' | sed -n '/^supabase_db_kis-lms-worker-supabase\./{p;q;}'"], { encoding: "utf8" }).trim();
+const container = execFileSync("sh", ["-c", "docker ps --format '{{.Names}}' | sed -n '/^supabase_db_kis-lms-worker-supabase\\./{p;q;}'"], { encoding: "utf8" }).trim();
 if (!container) throw new Error("disposable local Supabase database container is unavailable");
 const suffix = `${Date.now()}-${randomBytes(3).toString("hex")}`;
 const database = `kis_production_restore_${process.pid}_${randomBytes(3).toString("hex")}`;
