@@ -116,10 +116,10 @@ Approved maintenance window: `2026-07-29T00:00:00+07:00/2026-07-29T02:00:00+07:0
 
 ## 19. Remaining follow-ups
 
-- Run the final release gates and require `npm run production:plan` to print the literal success line before generating the release manifest and invoking the guarded final command.
+- Generate the release manifest only after the literal plan success, rerun the plan with the manifest present, and invoke the guarded final command only while the approved window is active.
 
 ## 20. Final decision
 
-**PENDING FINAL PRODUCTION PLAN**
+**GO FOR PRODUCTION DEPLOYMENT (PLAN ONLY)**
 
-The maintenance-window, Cloudflare credential, live Worker secret-name, rollback-version, notification destination, critical-policy, and synthetic-delivery-test blockers are complete. No production migration, application deploy, traffic cutover, DNS change, secret rotation, or feature-flag change was performed.
+`npm run production:plan` emitted the required literal GO result after the maintenance-window, Cloudflare credential, live Worker secret-name, rollback-version, notification destination, critical-policy, synthetic-delivery-test, and quality-gate checks passed. No production migration, application deploy, traffic cutover, DNS change, production-secret rotation, or feature-flag change was performed.
