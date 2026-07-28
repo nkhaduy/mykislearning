@@ -1,13 +1,91 @@
 {
   "schemaVersion": 1,
-  "checkedAt": "2026-07-28T10:08:00Z",
+  "checkedAt": "2026-07-28T15:27:31Z",
+  "accountId": "b9ae472cee29c5729ee90ccbb3533f33",
   "verifiedDestination": "Cloudflare account email nkhaduy@gmail.com",
+  "destination": {
+    "type": "email",
+    "id": "nkhaduy@gmail.com",
+    "eligible": true,
+    "ready": true,
+    "accountMemberStatus": "accepted",
+    "accountMemberRole": "Super Administrator - All Privileges"
+  },
   "wranglerIdentityVerified": true,
-  "apiAlertingAccess": false,
-  "apiResult": "HTTP 403 for alerting destination and policy discovery",
-  "wranglerAlertingScopeAvailable": false,
-  "requiredHumanAction": "Grant an API token Alerting read/edit permission or configure and verify the critical policies in the Cloudflare dashboard",
-  "deliveryTested": false,
-  "criticalPoliciesConfigured": false,
-  "status": "blocked-permission"
+  "apiAlertingAccess": true,
+  "credentialVerification": {
+    "tokenStatus": "active",
+    "notificationsEdit": {
+      "verified": true,
+      "evidence": "Four notification policies created with HTTP 201"
+    },
+    "workersScriptsEdit": {
+      "verified": true,
+      "evidence": "Authorized upload-version request reached multipart validation (HTTP 415); no version was created"
+    },
+    "queuesEdit": {
+      "verified": true,
+      "evidence": "Authorized create request reached queue-name validation (HTTP 400); no queue was created"
+    },
+    "workersR2StorageEdit": {
+      "verified": true,
+      "evidence": "Authorized create request reached JSON validation (HTTP 400); no bucket was created"
+    },
+    "workersRoutesEdit": {
+      "verified": true,
+      "evidence": "Authorized create request reached route-pattern validation (HTTP 400); no route was created"
+    },
+    "readAccessVerified": [
+      "account",
+      "account members",
+      "zones",
+      "Workers services",
+      "Worker secret metadata",
+      "Worker deployments",
+      "Worker custom domains",
+      "Queues",
+      "R2 buckets",
+      "notification destinations",
+      "notification alert types",
+      "notification policies",
+      "notification history"
+    ]
+  },
+  "policies": [
+    {
+      "id": "e7b5c5d718364bd498c78d45f2580a25",
+      "name": "KIS LMS Production - Critical Cloudflare Incidents",
+      "alertType": "incident_alert",
+      "enabled": true
+    },
+    {
+      "id": "4e1174a3722c46af8c22cbfdfc766cbf",
+      "name": "KIS LMS Production - HTTP DDoS Attacks",
+      "alertType": "dos_attack_l7",
+      "enabled": true
+    },
+    {
+      "id": "62b89e0961184c51ba9f04cef1b5f60e",
+      "name": "KIS LMS Production - Universal SSL Events",
+      "alertType": "universal_ssl_event_type",
+      "enabled": true
+    },
+    {
+      "id": "ca4e194f7173454886d695a006b28f8b",
+      "name": "KIS LMS Production - Worker Observability Failures",
+      "alertType": "workers_observability_alert",
+      "enabled": true
+    }
+  ],
+  "deliveryTest": {
+    "policyId": "ca4e194f7173454886d695a006b28f8b",
+    "syntheticDataOnly": true,
+    "apiSuccess": true,
+    "apiResult": true,
+    "sensitiveDataIncluded": false
+  },
+  "apiResult": "Alerting discovery succeeded; four policies were created and the synthetic policy test returned success=true/result=true",
+  "deliveryTested": true,
+  "criticalPoliciesConfigured": true,
+  "status": "verified"
 }

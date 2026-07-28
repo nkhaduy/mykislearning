@@ -196,7 +196,9 @@ export function verifyProductionApproval(input, options = {}) {
 
   const manifestPath = input.KIS_PRODUCTION_RELEASE_MANIFEST || DEFAULT_MANIFEST_FILE;
   let manifest = null;
-  try { manifest = JSON.parse(readFileSync(manifestPath, "utf8")); } catch { blockers.push("release manifest is missing or invalid"); }
+  try { manifest = JSON.parse(readFileSync(manifestPath, "utf8")); } catch {
+    if (!options.allowMissingManifest) blockers.push("release manifest is missing or invalid");
+  }
   const gatePath = input.KIS_PRODUCTION_GATE_EVIDENCE || DEFAULT_GATE_EVIDENCE_FILE;
   let gates = null;
   try { gates = JSON.parse(readFileSync(gatePath, "utf8")); } catch { blockers.push("production quality-gate evidence is missing or invalid"); }
@@ -262,14 +264,14 @@ export function verifyProductionApproval(input, options = {}) {
     canonicalStagingVersion: input.KIS_CANONICAL_STAGING_VERSION,
     maintenanceWindow,
     previousProductionVersionId: deployment.versionId,
-    releaseManifest: basename(manifestPath),
+    releaseManifest: manifest ? basename(manifestPath) : null,
   };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     const loaded = loadSecureRuntime();
-    const target = verifyProductionApproval(loaded.contract, { runtimeFile: loaded.path });
+    const target = verifyProductionApproval(loaded.contract, { runtimeFile: loaded.path, allowMissingManifest: true });
     console.log(JSON.stringify({ mode: "plan-only", productionMutation: false, target }, null, 2));
     console.log("GO FOR PRODUCTION DEPLOYMENT");
   } catch (error) {

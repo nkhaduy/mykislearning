@@ -3,6 +3,8 @@
 Date: 2026-07-28
 Scope: production bootstrap and release preparation only; final cutover was not run.
 
+Approved maintenance window: `2026-07-29T00:00:00+07:00/2026-07-29T02:00:00+07:00` (`Asia/Ho_Chi_Minh`). Change owner and rollback owner: Nguyễn Khả Duy.
+
 ## 1. Approval and No-MFA acceptance
 
 - No-MFA status: **Accepted** by Nguyễn Khả Duy, Chủ dự án KIS LMS.
@@ -41,10 +43,11 @@ Scope: production bootstrap and release preparation only; final cutover was not 
 
 ## 6. Secret inventory
 
-- Required production Worker secret names are verified without reading values.
+- Live production Worker `mykis-learning` secret names are verified without reading values: `AUDIT_IP_HASH_SALT`, `CURSOR_SIGNING_SECRET`, `DEPLOYMENT_TEST_ACCOUNT_ENABLED`, `DEPLOYMENT_TEST_ACCOUNTS`, `JWT_SECRET`, `MFA_ENCRYPTION_KEY`, `MFA_RECOVERY_HASH_SECRET`, `RATE_LIMIT_KEY_SECRET`, `REFRESH_TOKEN_HASH_SECRET`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_URL`.
+- All eight verifier-required names are present; no secret value was requested or written to evidence.
 - Independent replacement signing/hashing secrets and Supabase production credentials are held only in `/tmp/kisvn-production-runtime.json`, mode `0600`.
 - Existing live signing secrets are not rotated during bootstrap; the approved deploy script uploads the replacement secret set atomically with the release version.
-- Fingerprints and names only are recorded in `evidence/PRODUCTION_SECRET_INVENTORY.json`.
+- Live names and required-name coverage only are recorded in `evidence/PRODUCTION_SECRET_INVENTORY.json`.
 
 ## 7. Migration preparation
 
@@ -91,9 +94,10 @@ Scope: production bootstrap and release preparation only; final cutover was not 
 
 ## 15. Alert validation
 
-- Cloudflare account email `nkhaduy@gmail.com` is verified as an account destination.
-- The current Wrangler OAuth surface does not expose Alerting scopes, and Alerting API discovery returns HTTP 403.
-- Critical policies and delivery testing are therefore not complete. This is a hard `NO-GO` blocker.
+- Cloudflare account member email `nkhaduy@gmail.com` is accepted, eligible, and ready as the verified email destination.
+- API token permissions were verified for Notifications Edit, Workers Scripts Edit, Queues Edit, Workers R2 Storage Edit, Workers Routes Edit, and the reads used by production discovery. Non-alert edit permissions were checked with invalid requests that reached provider validation and could not mutate resources.
+- Enabled critical policy IDs: Cloudflare incidents `e7b5c5d718364bd498c78d45f2580a25`, HTTP DDoS `4e1174a3722c46af8c22cbfdfc766cbf`, Universal SSL `62b89e0961184c51ba9f04cef1b5f60e`, and Worker observability failures `ca4e194f7173454886d695a006b28f8b`.
+- The Cloudflare synthetic test for policy `ca4e194f7173454886d695a006b28f8b` returned `success=true` and `result=true`; the test contained no production payload or sensitive data.
 
 ## 16. Monitoring evidence
 
@@ -112,12 +116,10 @@ Scope: production bootstrap and release preparation only; final cutover was not 
 
 ## 19. Remaining follow-ups
 
-- Obtain Cloudflare Alerting permission, configure all critical policies, and pass a real delivery test.
-- Record a real Asia/Ho_Chi_Minh maintenance window approved for the existing production user population.
-- Run the final release gates/manifest and require `npm run production:plan` to print the literal success line before invoking the final command.
+- Run the final release gates and require `npm run production:plan` to print the literal success line before generating the release manifest and invoking the guarded final command.
 
 ## 20. Final decision
 
-**PRODUCTION NO-GO**
+**PENDING FINAL PRODUCTION PLAN**
 
-Bootstrap preparation is complete up to the human-controlled alerting and maintenance-window gates. No production migration, application deploy, traffic cutover, DNS change, or feature-flag change was performed.
+The maintenance-window, Cloudflare credential, live Worker secret-name, rollback-version, notification destination, critical-policy, and synthetic-delivery-test blockers are complete. No production migration, application deploy, traffic cutover, DNS change, secret rotation, or feature-flag change was performed.

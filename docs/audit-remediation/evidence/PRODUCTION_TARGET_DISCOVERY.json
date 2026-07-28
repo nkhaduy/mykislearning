@@ -1,15 +1,17 @@
 {
   "schemaVersion": 1,
   "discoveredAt": "2026-07-28T10:07:00Z",
-  "refreshedAt": "2026-07-28T14:14:17.252Z",
+  "refreshedAt": "2026-07-28T15:27:31Z",
   "cloudflare": {
     "accountId": "b9ae472cee29c5729ee90ccbb3533f33",
     "workerName": "mykis-learning",
+    "environment": "production",
     "hostname": "kislms.site",
     "redirectHostname": "www.kislms.site",
     "workersDevHostname": "mykis-learning.nkhaduy.workers.dev",
     "currentDeploymentId": "c81496f8-dbb4-462c-bb75-28e5f7baae30",
     "currentVersionId": "49c5cb16-2ca1-49ac-9b8c-ecaf117e59ca",
+    "rollbackVersionVerifiedAt": "2026-07-28T15:27:31Z",
     "previousVersionId": "47ec00e8-561e-444e-aa29-0e1596aa8420",
     "customDomainVerified": true,
     "cron": "0 * * * *",

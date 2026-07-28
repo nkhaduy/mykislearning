@@ -116,6 +116,21 @@ test("production verifier reports only the real alert blocker when alert deliver
   } finally { rmSync(state.root, { recursive: true, force: true }); }
 });
 
+test("plan verification can precede manifest generation while apply verification cannot", () => {
+  const state = fixture();
+  try {
+    rmSync(state.contract.KIS_PRODUCTION_RELEASE_MANIFEST);
+    const options = {
+      root: state.root, now: "2026-07-28T14:30:00.000Z", consumptionFile: state.consumptionFile,
+      providerSecretNames: ["AUDIT_IP_HASH_SALT", "CURSOR_SIGNING_SECRET", "JWT_SECRET", "RATE_LIMIT_KEY_SECRET", "REFRESH_TOKEN_HASH_SECRET", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"],
+      providerDeployment: { deploymentId: "deployment-current", versionId: "version-current" },
+    };
+    const plan = verifyProductionApproval(state.contract, { ...options, allowMissingManifest: true });
+    assert.equal(plan.releaseManifest, null);
+    assert.throws(() => verifyProductionApproval(state.contract, options), /release manifest is missing or invalid/);
+  } finally { rmSync(state.root, { recursive: true, force: true }); }
+});
+
 test("secure runtime loader refuses permissive files", () => {
   const directory = mkdtempSync(join(tmpdir(), "kis-runtime-mode-test-"));
   const path = join(directory, "runtime.json");

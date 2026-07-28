@@ -11,7 +11,11 @@ const apply = process.argv.includes("--apply");
 const loaded = loadSecureRuntime();
 let target;
 try {
-  target = verifyProductionApproval(loaded.contract, { runtimeFile: loaded.path, requireActiveWindow: apply });
+  target = verifyProductionApproval(loaded.contract, {
+    runtimeFile: loaded.path,
+    requireActiveWindow: apply,
+    allowMissingManifest: !apply,
+  });
 } catch (error) {
   const blockers = Array.isArray(error.blockers) ? error.blockers : [error.message];
   console.error("PRODUCTION PLAN BLOCKED");
