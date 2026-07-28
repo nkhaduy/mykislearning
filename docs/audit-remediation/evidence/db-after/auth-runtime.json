@@ -1,0 +1,69 @@
+{
+  "login": {
+    "employeeA": 200,
+    "employeeB": 200
+  },
+  "cookie": {
+    "normalMaxAge": 28800,
+    "rememberMeMaxAge": 604800,
+    "secureOnHttps": true
+  },
+  "identityScope": {
+    "conflictingHeadersIgnored": true,
+    "employeeA": {
+      "ownDataOnly": true,
+      "crossNotificationDenied": true,
+      "identity": "synthetic-employee-a"
+    },
+    "employeeB": {
+      "ownDataOnly": true,
+      "crossNotificationDenied": true,
+      "identity": "synthetic-employee-b"
+    },
+    "symmetricCrossUserDenial": true,
+    "trainer": {
+      "employeePiiDenied": true,
+      "instructorRoleImplemented": false
+    },
+    "hr": {
+      "employeeListAllowed": true,
+      "credentialsAbsent": true
+    },
+    "admin": {
+      "auditLogAllowed": true,
+      "credentialsAbsent": true
+    }
+  },
+  "lifecycle": {
+    "sessionProbeMinimal": true,
+    "invalidAndExpiredRejected": true,
+    "sessionFixationBlocked": true,
+    "legacyProfileFallbackDisabled": true,
+    "passwordChange": {
+      "oldRejected": true,
+      "newAccepted": true
+    },
+    "hrReset": {
+      "oldRejected": true,
+      "newAccepted": true,
+      "mustChange": true
+    },
+    "logout": {
+      "cookieCleared": true,
+      "oldSessionRejected": true,
+      "revocationPersisted": true
+    }
+  },
+  "bootstrap": {
+    "concurrency": 8,
+    "success": 1,
+    "alreadyConsumed": 7,
+    "subsequentStatus": 410,
+    "profileCount": 1,
+    "auditCount": 1,
+    "secretIndependentFromServiceRole": true
+  },
+  "limitations": [
+    "Refresh token rotation/reuse is not implemented; SEC-005 cannot be marked VERIFIED."
+  ]
+}

@@ -1,4 +1,4 @@
-const SENSITIVE_KEY_RE = /(password|password_hash|token|access_token|refresh_token|authorization|cookie|secret|api_key|service_role|signed_url|private_url)/i;
+const SENSITIVE_KEY_RE = /(password|password_hash|token|access_token|refresh_token|authorization|cookie|secret|totp|otpauth|recovery_code|mfa_code|api_key|service_role|signed_url|private_url)/i;
 const MAX_TEXT = 4000;
 const MAX_JSON = 12000;
 

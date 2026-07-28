@@ -1,6 +1,6 @@
 import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
-import { requireAuth, requireHr } from "../middleware/auth.js";
+import { hasAdministrativeAccess, requireAuth, requireHr } from "../middleware/auth.js";
 import { auditLater } from "../services/audit-service.js";
 
 const STORAGE_BUCKET = "course-content";
@@ -185,7 +185,7 @@ export async function handleCourses(request, env) {
     const acct = await requireAuth(request, env);
     if (!acct) return json({ error: "Unauthorized" }, 401);
 
-    if (acct.role === "hr") {
+    if (hasAdministrativeAccess(acct)) {
       const { data, error } = await supabase
         .from("courses").select("id, status, delivery_mode, data, updated_at")
         .order("updated_at", { ascending: false });

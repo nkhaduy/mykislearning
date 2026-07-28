@@ -2,16 +2,115 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "mykis-learning",
   "main": "./worker/index.js",
-  "compatibility_date": "2026-06-22",
+  "compatibility_date": "2026-07-28",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
+  "vars": {
+    "APP_ENV": "production"
+  },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/rest/v1/*"]
+    "run_worker_first": true
   },
   "triggers": {
     "crons": ["0 * * * *"]
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "RATE_LIMITER_DO",
+        "class_name": "RateLimiterDurableObject"
+      }
+    ]
+  },
+  "queues": {
+    "producers": [
+      { "binding": "REPORT_EXPORT_QUEUE", "queue": "mykis-report-exports" }
+    ],
+    "consumers": [
+      { "queue": "mykis-report-exports", "max_batch_size": 10, "max_batch_timeout": 30, "max_retries": 5, "dead_letter_queue": "mykis-report-exports-dlq" }
+    ]
+  },
+  "r2_buckets": [
+    { "binding": "REPORT_EXPORT_BUCKET", "bucket_name": "mykis-report-exports" }
+  ],
+  "migrations": [
+    {
+      "tag": "v1-rate-limiter",
+      "new_sqlite_classes": ["RateLimiterDurableObject"]
+    }
+  ],
+  "env": {
+    "staging": {
+      "name": "mykis-learning-staging",
+      "workers_dev": true,
+      "vars": {
+        "APP_ENV": "staging",
+        "SEARCH_ROLLOUT_ENABLED": "false",
+        "EXPORT_FEATURE_ENABLED": "false",
+        "ALLOW_LEGACY_IDENTITY_HEADERS": "false",
+        "SETUP_ADMIN_ENABLED": "false",
+        "DEPLOYMENT_TEST_ACCOUNT_ENABLED": "false",
+        "LOCAL_DEV_ADMIN_ENABLED": "false"
+      },
+      "triggers": {
+        "crons": ["0 * * * *"]
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "RATE_LIMITER_DO",
+            "class_name": "RateLimiterDurableObject"
+          }
+        ]
+      },
+      "queues": {
+        "producers": [
+          { "binding": "REPORT_EXPORT_QUEUE", "queue": "kis-lms-export-staging" }
+        ],
+        "consumers": [
+          {
+            "queue": "kis-lms-export-staging",
+            "max_batch_size": 3,
+            "max_batch_timeout": 30,
+            "max_retries": 5,
+            "dead_letter_queue": "kis-lms-export-dlq-staging",
+            "max_concurrency": 3,
+            "visibility_timeout_ms": 300000,
+            "retry_delay": 30
+          }
+        ]
+      },
+      "r2_buckets": [
+        { "binding": "REPORT_EXPORT_BUCKET", "bucket_name": "kis-lms-exports-staging" }
+      ]
+    },
+    "local": {
+      "name": "mykis-learning-local",
+      "vars": {
+        "APP_ENV": "development"
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "RATE_LIMITER_DO",
+            "class_name": "RateLimiterDurableObject"
+          }
+        ]
+      },
+      "queues": {
+        "producers": [
+          { "binding": "REPORT_EXPORT_QUEUE", "queue": "mykis-report-exports-local" }
+        ],
+        "consumers": [
+          { "queue": "mykis-report-exports-local", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 3, "dead_letter_queue": "mykis-report-exports-local-dlq" }
+        ]
+      },
+      "r2_buckets": [
+        { "binding": "REPORT_EXPORT_BUCKET", "bucket_name": "mykis-report-exports-local" }
+      ]
+    }
   }
 }

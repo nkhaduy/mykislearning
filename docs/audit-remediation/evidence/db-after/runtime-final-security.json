@@ -1,0 +1,41 @@
+{
+    "role_attributes": {
+        "anon": {
+            "can_login": false,
+            "bypass_rls": false
+        },
+        "service_role": {
+            "can_login": false,
+            "bypass_rls": true
+        },
+        "authenticated": {
+            "can_login": false,
+            "bypass_rls": false
+        }
+    },
+    "credential_state": {
+        "private_rows": 6,
+        "must_change_rows": 2,
+        "legacy_avatar_markers": 0,
+        "legacy_password_status_markers": 0
+    },
+    "public_table_count": 66,
+    "bootstrap_state_rows": 1,
+    "revoked_session_rows": 1,
+    "public_rls_enabled_count": 66,
+    "public_tables_without_rls": [
+    ],
+    "anon_public_table_dml_count": 0,
+    "private_schema_browser_usage": {
+        "anon": false,
+        "service_role": true,
+        "authenticated": false
+    },
+    "anon_public_table_privilege_rows": 0,
+    "anon_public_function_execute_count": 0,
+    "authenticated_public_table_dml_count": 0,
+    "service_role_public_table_select_count": 66,
+    "authenticated_public_table_privilege_rows": 0,
+    "service_role_public_function_execute_count": 11,
+    "authenticated_public_function_execute_count": 0
+}

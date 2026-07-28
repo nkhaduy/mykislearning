@@ -1,6 +1,7 @@
 import { getRequestContext } from "../middleware/request-context.js";
 import { changedFields, sanitizeAuditPayload } from "./audit-redaction.js";
 
+/** @type {Array<[RegExp, string]>} */
 const ACTION_CATEGORY = [
   [/^auth\./, "authentication"],
   [/^account\./, "account"],

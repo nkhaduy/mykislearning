@@ -7,9 +7,10 @@
 import { json, readJson, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
 import { requireHr } from "../middleware/auth.js";
-import { hashPassword, markMustChange } from "../services/crypto.js";
-
-const HASH_PREFIX = "__pwd__:";
+import { requirePrivilegedSession } from "./auth.js";
+import { trustedClientIp } from "../services/client-ip.js";
+import { hashPassword } from "../services/crypto.js";
+import { writeCredential } from "../services/credentials.js";
 
 const SUPPORT_TYPES = ["forgot_password", "unlock_account", "reactivate_account", "login_issue", "account_access"];
 
@@ -160,7 +161,7 @@ export async function handleAccountSupport(request, env) {
       if (profile) matchedProfileId = profile.id;
     }
 
-    const ip = (request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "").slice(0, 50);
+    const ip = trustedClientIp(request, env).slice(0, 50);
     const userAgent = (request.headers.get("user-agent") || "").slice(0, 200);
 
     const meta = {
@@ -344,6 +345,8 @@ export async function handleAccountSupport(request, env) {
 
     // POST /api/admin/account-support/requests/:id/reset-password
     if (action === "reset-password" && method === "POST") {
+      const privileged = await requirePrivilegedSession(request, env);
+      if (privileged.error) return privileged.error;
       if (!task.requester_account_id) return json({ error: "ACCOUNT_NOT_FOUND" }, 404);
       if (task.status === "done") return json({ error: "REQUEST_ALREADY_RESOLVED" }, 409);
 
@@ -354,21 +357,17 @@ export async function handleAccountSupport(request, env) {
 
       const { data: profile, error: profileErr } = await supabase
         .from("profiles")
-        .select("id, full_name, account_status, password_status, avatar_url")
+        .select("id, full_name, account_status")
         .eq("id", task.requester_account_id)
         .single();
 
       if (profileErr || !profile) return json({ error: "ACCOUNT_NOT_FOUND" }, 404);
 
       const rawHash = await hashPassword(newPassword);
-      const storedHash = requireChange ? markMustChange(rawHash) : rawHash;
-
-      // Try password_status first
-      const { error: pw1 } = await supabase.from("profiles").update({ password_status: storedHash }).eq("id", profile.id);
-      if (pw1) {
-        const { error: pw2 } = await supabase.from("profiles").update({ avatar_url: HASH_PREFIX + storedHash }).eq("id", profile.id);
-        if (pw2) return json({ error: "PASSWORD_RESET_FAILED" }, 500);
-      }
+      await writeCredential(supabase, profile.id, rawHash, { mustChange: requireChange });
+      await supabase.rpc("service_revoke_all_auth_sessions", {
+        p_profile_id: profile.id, p_reason: "password_reset", p_except_session_id: null,
+      });
 
       // Unlock + reset counter
       await supabase.from("profiles").update({
@@ -403,6 +402,8 @@ export async function handleAccountSupport(request, env) {
 
     // POST /api/admin/account-support/requests/:id/unlock
     if (action === "unlock" && method === "POST") {
+      const privileged = await requirePrivilegedSession(request, env);
+      if (privileged.error) return privileged.error;
       if (!task.requester_account_id) return json({ error: "ACCOUNT_NOT_FOUND" }, 404);
 
       const { error: unlockErr } = await supabase.from("profiles").update({
@@ -437,6 +438,8 @@ export async function handleAccountSupport(request, env) {
 
     // POST /api/admin/account-support/requests/:id/reactivate
     if (action === "reactivate" && method === "POST") {
+      const privileged = await requirePrivilegedSession(request, env);
+      if (privileged.error) return privileged.error;
       if (!task.requester_account_id) return json({ error: "ACCOUNT_NOT_FOUND" }, 404);
 
       const { error: reactivateErr } = await supabase.from("profiles").update({
@@ -483,8 +486,8 @@ export async function handleHrAccountActions(request, env) {
   const method = request.method.toUpperCase();
   if (method === "OPTIONS") return corsPreflight();
 
-  const acct = await requireHr(request, env);
-  if (!acct) return json({ error: "HR_ONLY" }, 403);
+  const { caller: acct, error: authError } = await requirePrivilegedSession(request, env);
+  if (authError) return authError;
 
   const url = new URL(request.url);
   const body = await readJson(request);
@@ -498,7 +501,7 @@ export async function handleHrAccountActions(request, env) {
 
   const { data: target, error: fetchErr } = await supabase
     .from("profiles")
-    .select("id, full_name, email, account_status, role, password_status, avatar_url")
+    .select("id, full_name, email, account_status, role")
     .eq("id", targetId)
     .single();
 
@@ -544,6 +547,9 @@ export async function handleHrAccountActions(request, env) {
       updated_at: new Date().toISOString(),
     }).eq("id", targetId);
     if (error) return json({ error: "ACCOUNT_DISABLE_FAILED", message: error.message }, 500);
+    await supabase.rpc("service_revoke_all_auth_sessions", {
+      p_profile_id: targetId, p_reason: "account_disabled", p_except_session_id: null,
+    });
     auditAction("account_disabled", "success", { reason });
     return json({ ok: true });
   }
@@ -566,16 +572,10 @@ export async function handleHrAccountActions(request, env) {
     const requireChange = body.requireChange !== false;
 
     const rawHash = await hashPassword(newPassword);
-    const storedHash = requireChange ? markMustChange(rawHash) : rawHash;
-
-    const { error: pw1 } = await supabase.from("profiles").update({ password_status: storedHash }).eq("id", targetId);
-    if (pw1) {
-      const { error: pw2 } = await supabase.from("profiles").update({ avatar_url: HASH_PREFIX + storedHash }).eq("id", targetId);
-      if (pw2) return json({ error: "PASSWORD_RESET_FAILED", message: `Không ghi được password_status hoặc avatar_url: ${pw2.message || pw1.message}` }, 500);
-    } else if (target.avatar_url?.startsWith(HASH_PREFIX)) {
-      // Avoid leaving an old fallback hash in a profile after the canonical column succeeds.
-      await supabase.from("profiles").update({ avatar_url: null }).eq("id", targetId);
-    }
+    await writeCredential(supabase, targetId, rawHash, { mustChange: requireChange });
+    await supabase.rpc("service_revoke_all_auth_sessions", {
+      p_profile_id: targetId, p_reason: "password_reset", p_except_session_id: null,
+    });
 
     // Unlock + reset counter on password reset
     const { error: statusErr } = await supabase.from("profiles").update({
@@ -587,7 +587,7 @@ export async function handleHrAccountActions(request, env) {
     if (statusErr) return json({ error: "PASSWORD_RESET_FAILED", message: `Đã ghi mật khẩu nhưng không cập nhật được trạng thái tài khoản: ${statusErr.message}` }, 500);
 
     auditAction("password_reset_by_hr", "success", { requireChange });
-    return json({ ok: true, targetId, targetName: target.full_name, storage: pw1 ? "avatar_url" : "password_status" });
+    return json({ ok: true, targetId, targetName: target.full_name });
   }
 
   return json({ error: "INVALID_ACTION" }, 400);

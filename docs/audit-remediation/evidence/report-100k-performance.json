@@ -1,0 +1,303 @@
+{
+  "generatedAt": "2026-07-28T09:18:31.804Z",
+  "environment": {
+    "image": "public.ecr.aws/supabase/postgres:17.6.1.136",
+    "profiles": 100000,
+    "assignments": 100000,
+    "remoteAccess": false
+  },
+  "overview": {
+    "result": {
+      "trend": [
+        {
+          "date": "2026-07-01",
+          "completions": 25000
+        }
+      ],
+      "metrics": {
+        "openCourses": 100,
+        "learningHours": 0,
+        "activeLearners": 100000,
+        "completionRate": 25,
+        "totalEmployees": 100000,
+        "activeEmployees": 90910,
+        "overdueLearners": 0,
+        "averageQuizScore": null,
+        "totalAssignments": 100000,
+        "totalCompletions": 25000,
+        "certificatesValid": 0,
+        "complianceOverdue": 0,
+        "inactiveEmployees": 9090,
+        "overdueAssignments": 0,
+        "trainingAttendance": 0,
+        "certificatesExpired": 0,
+        "complianceCompleted": 0,
+        "onTimeCompletionRate": 25
+      },
+      "departmentComparison": [
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 5000,
+          "department": "D0",
+          "completion_rate": 100,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 0,
+          "department": "D1",
+          "completion_rate": 0,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 0,
+          "department": "D10",
+          "completion_rate": 0,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 0,
+          "department": "D11",
+          "completion_rate": 0,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 5000,
+          "department": "D12",
+          "completion_rate": 100,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 0,
+          "department": "D13",
+          "completion_rate": 0,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 0,
+          "department": "D14",
+          "completion_rate": 0,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 0,
+          "department": "D15",
+          "completion_rate": 0,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 5000,
+          "department": "D16",
+          "completion_rate": 100,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 0,
+          "department": "D17",
+          "completion_rate": 0,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 0,
+          "department": "D18",
+          "completion_rate": 0,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 0,
+          "department": "D19",
+          "completion_rate": 0,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 0,
+          "department": "D2",
+          "completion_rate": 0,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 0,
+          "department": "D3",
+          "completion_rate": 0,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 5000,
+          "department": "D4",
+          "completion_rate": 100,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 0,
+          "department": "D5",
+          "completion_rate": 0,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 0,
+          "department": "D6",
+          "completion_rate": 0,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 0,
+          "department": "D7",
+          "completion_rate": 0,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 5000,
+          "department": "D8",
+          "completion_rate": 100,
+          "total_employees": 5000
+        },
+        {
+          "overdue": 0,
+          "assigned": 5000,
+          "completed": 0,
+          "department": "D9",
+          "completion_rate": 0,
+          "total_employees": 5000
+        }
+      ]
+    },
+    "plan": {
+      "note": "EXPLAIN wraps the stable RPC call; inner SQL plans require staging auto_explain/catalog capture",
+      "outer": {
+        "planningMs": 0.055,
+        "executionMs": 1194.493,
+        "rowsReturned": 1,
+        "rowsScanned": 0,
+        "sharedHit": 9221,
+        "sharedRead": 0,
+        "nodes": [
+          "Result"
+        ]
+      }
+    },
+    "timing": {
+      "p50": 685.572,
+      "p95": 1187.26,
+      "p99": 1187.26,
+      "samples": [
+        1187.26,
+        789.347,
+        601.891,
+        698.52,
+        767.927,
+        685.572,
+        656.93,
+        847.188,
+        743.272,
+        632.919,
+        566.177,
+        615.398
+      ]
+    }
+  },
+  "detailFirstPage": {
+    "result": {
+      "rowCount": 100,
+      "hasMore": true,
+      "nextPosition": {
+        "id": "employee-000100",
+        "sort": "employee 000100"
+      },
+      "firstEmployeeId": "employee-000001",
+      "lastEmployeeId": "employee-000100"
+    },
+    "plan": {
+      "note": "EXPLAIN wraps the stable RPC call; inner SQL plans require staging auto_explain/catalog capture",
+      "outer": {
+        "planningMs": 0.026,
+        "executionMs": 286.814,
+        "rowsReturned": 1,
+        "rowsScanned": 0,
+        "sharedHit": 46416,
+        "sharedRead": 0,
+        "nodes": [
+          "Result"
+        ]
+      }
+    },
+    "timing": {
+      "p50": 238.003,
+      "p95": 283.99,
+      "p99": 283.99,
+      "samples": [
+        235.522,
+        281.154,
+        283.99,
+        261.829,
+        238.703,
+        229.661,
+        227.598,
+        243.212,
+        234.752,
+        233.706,
+        238.003,
+        247.299
+      ]
+    }
+  },
+  "detailNextPage": {
+    "rowCount": 100,
+    "firstEmployeeId": "employee-000101",
+    "hasMore": true
+  },
+  "timeout": {
+    "elapsedMs": 175.81629199999952,
+    "cancelled": true,
+    "sameConnectionReusable": true
+  },
+  "concurrency": {
+    "overview8Ms": 2299.5138329999972,
+    "overview20Ms": 8116.0272079999995
+  },
+  "assertions": {
+    "aggregateRowsHydrated": 0,
+    "overviewMetricsExact": true,
+    "detailPageRowsBounded": true,
+    "detailHasMoreForDataset": true,
+    "nextPageStable": true,
+    "databaseTimeoutCancelled": true,
+    "connectionReusableAfterCancel": true,
+    "aggregateExceedsHistoricalCap": true
+  }
+}

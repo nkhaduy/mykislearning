@@ -1,0 +1,29 @@
+{
+    "captured_at": "2026-07-27T02:03:29.112536+00:00",
+    "required_models": {
+        "user_roles": false,
+        "file_uploads": false,
+        "lesson_progress": false,
+        "content_versions": false,
+        "course_assignments": false
+    },
+    "synthetic_counts": {
+        "courses": 1,
+        "profiles": 5,
+        "attendance": 2,
+        "audit_logs": 1,
+        "enrollments": 2,
+        "notifications": 2,
+        "course_content": 1,
+        "content_progress": 2,
+        "learning_records": 2,
+        "development_plans": 2,
+        "training_sessions": 1,
+        "compliance_assignments": 2,
+        "employee_certifications": 2,
+        "external_training_requests": 2,
+        "learning_record_attachments": 2
+    },
+    "legacy_marker_rows": 0,
+    "legacy_status_hash_rows": 0
+}

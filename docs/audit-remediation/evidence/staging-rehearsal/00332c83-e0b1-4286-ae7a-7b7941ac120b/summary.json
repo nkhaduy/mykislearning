@@ -1,0 +1,79 @@
+{
+  "capturedAt": "2026-07-28T08:47:39.408Z",
+  "target": {
+    "environment": "staging",
+    "approvalId": "OWNER-STAGING-20260728T074103Z-e0ff4f9b",
+    "approvedBy": "khaduy (source local-system-owner)",
+    "changeOwner": "khaduy (source local-system-owner)",
+    "rollbackOwner": "khaduy (source local-system-owner)",
+    "cloudflareAccountId": "b9ae...3f33",
+    "workerName": "mykis-learning-staging",
+    "stagingHostname": "mykis-learning-staging.nkhaduy.workers.dev",
+    "queueName": "kis-lms-export-staging",
+    "dlqName": "kis-lms-export-dlq-staging",
+    "r2BucketName": "kis-lms-exports-staging",
+    "supabaseProjectRef": "vwaw...kewm",
+    "databaseHostname": "aws-1-ap-northeast-2.pooler.supabase.com",
+    "backupOrCloneId": "SUPABASE-FRESH-vwawtqbkchmdnqetkewm"
+  },
+  "evidenceDir": "/Users/khaduy/Documents/KISVN/docs/audit-remediation/evidence/staging-rehearsal/00332c83-e0b1-4286-ae7a-7b7941ac120b",
+  "captures": [
+    {
+      "name": "migration-history",
+      "status": 0,
+      "captured": true
+    },
+    {
+      "name": "inspect-db-stats",
+      "status": 0,
+      "captured": true
+    },
+    {
+      "name": "inspect-table-stats",
+      "status": 0,
+      "captured": true
+    },
+    {
+      "name": "inspect-index-stats",
+      "status": 0,
+      "captured": true
+    },
+    {
+      "name": "inspect-locks",
+      "status": 0,
+      "captured": true
+    },
+    {
+      "name": "inspect-long-running-queries",
+      "status": 0,
+      "captured": true
+    },
+    {
+      "name": "inspect-role-stats",
+      "status": 0,
+      "captured": true
+    },
+    {
+      "name": "database-advisors",
+      "status": 0,
+      "captured": true
+    },
+    {
+      "name": "catalog-snapshot",
+      "status": 0,
+      "captured": true
+    },
+    {
+      "name": "inventory-summary",
+      "status": 0,
+      "captured": true
+    }
+  ],
+  "postgrestTimeout": {
+    "probeStatus": 500,
+    "probeDurationMs": 994,
+    "databaseCancelled": true,
+    "connectionReuseStatus": 200,
+    "connectionReusable": true
+  }
+}

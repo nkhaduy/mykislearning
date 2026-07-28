@@ -1,0 +1,31 @@
+{
+  "completedAt": "2026-07-28T09:34:38.564Z",
+  "source": "fresh disposable Supabase staging project",
+  "destination": "ephemeral local Supabase-compatible database",
+  "rowCountsMatch": true,
+  "remoteCounts": {
+    "auth_sessions": 35,
+    "courses": 0,
+    "departments": 0,
+    "enrollments": 0,
+    "export_jobs": 124,
+    "profiles": 3,
+    "refresh_tokens": 59
+  },
+  "restoredCounts": {
+    "courses": 0,
+    "profiles": 3,
+    "departments": 0,
+    "enrollments": 0,
+    "export_jobs": 124,
+    "auth_sessions": 35,
+    "refresh_tokens": 59
+  },
+  "integrity": {
+    "invalid_indexes": 0,
+    "profile_auth_orphans": 0,
+    "unvalidated_foreign_keys": 0,
+    "public_tables_without_rls": 0
+  },
+  "status": "pass"
+}

@@ -1,12 +1,12 @@
 import { json, readJson, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
-import { requireHr } from "../middleware/auth.js";
+import { requirePrivilegedSession } from "./auth.js";
 
 export async function handleBackfill(request, env) {
   if (request.method.toUpperCase() === "OPTIONS") return corsPreflight();
   if (request.method.toUpperCase() !== "POST") return json({ error: "POST only" }, 405);
-  const acct = await requireHr(request, env);
-  if (!acct) return json({ error: "HR only" }, 403);
+  const { caller: acct, error: authError } = await requirePrivilegedSession(request, env);
+  if (authError) return authError;
 
   const supabase = getSupabase(env);
   const body = await readJson(request);

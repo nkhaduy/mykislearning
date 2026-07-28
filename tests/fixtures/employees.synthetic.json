@@ -1,0 +1,11 @@
+[
+  {
+    "id": "employee-synthetic-001",
+    "employeeCode": "SYN-001",
+    "fullName": "Synthetic Employee One",
+    "email": "employee-one@example.invalid",
+    "department": "Synthetic Department",
+    "position": "Test Role",
+    "role": "employee"
+  }
+]

@@ -1,17 +1,29 @@
 /**
  * Auth middleware for Worker routes.
  *
- * Priority:
- * 1. Bearer token (HMAC-signed JWT issued by /api/auth?action=login)
- * 2. X-Account-Id + X-Account-Role headers (legacy localStorage sessions, backward compat)
- *
- * Auth-critical endpoints (reset-password, change-password, create-user) always
- * require a valid Bearer token via requireHrSession() in routes/auth.js.
+ * Production and staging accept only a verified Bearer token. Legacy identity
+ * headers are available solely for explicitly enabled local development.
  */
 
 import { verifySession } from "../routes/auth.js";
 
 const KNOWN_HR_IDS = new Set(["acc-hr-demo", "acc-hr-001"]);
+
+export function hasAdministrativeAccess(accountOrRole) {
+  const role = typeof accountOrRole === "string" ? accountOrRole : accountOrRole?.role;
+  return role === "hr" || role === "admin";
+}
+
+function runtimeName(env = {}) {
+  return String(env.APP_ENV || env.RUNTIME_ENV || env.NODE_ENV || "").trim().toLowerCase();
+}
+
+function legacyHeaderAuthEnabled(env = {}) {
+  const runtime = runtimeName(env);
+  return env.ALLOW_LEGACY_IDENTITY_HEADERS === "true"
+    && ["local", "development", "dev", "test"].includes(runtime)
+    && !["production", "prod", "staging", "stage"].includes(runtime);
+}
 
 function resolveFromHeader(request) {
   const accountId = request.headers.get("x-account-id");
@@ -26,21 +38,32 @@ function resolveFromHeader(request) {
 }
 
 export async function resolveAccount(request, env) {
-  if (env) {
-    try {
-      const jwt = await verifySession(request, env);
-      if (jwt) return jwt;
-    } catch { /* fall through to header auth */ }
+  const authorization = request.headers.get("authorization") || "";
+  if (authorization) {
+    if (!authorization.startsWith("Bearer ")) return null;
+    return verifySession(request, env);
   }
-  return resolveFromHeader(request);
+
+  const cookieSession = await verifySession(request, env);
+  if (cookieSession) return cookieSession;
+  return legacyHeaderAuthEnabled(env) ? resolveFromHeader(request) : null;
+}
+
+function unauthorized() {
+  return Object.assign(new Error("Authentication required"), {
+    status: 401,
+    code: "UNAUTHORIZED",
+  });
 }
 
 export async function requireAuth(request, env) {
-  return resolveAccount(request, env);
+  const account = await resolveAccount(request, env);
+  if (!account) throw unauthorized();
+  return account;
 }
 
 export async function requireHr(request, env) {
-  const acct = await resolveAccount(request, env);
-  if (!acct || !["hr", "admin"].includes(acct.role)) return null;
+  const acct = await requireAuth(request, env);
+  if (!hasAdministrativeAccess(acct)) return null;
   return acct;
 }

@@ -194,12 +194,15 @@ create policy "reminder_rules_manage_hr" on public.reminder_rules for all using 
 drop policy if exists "reminder_runs_select_hr" on public.reminder_runs;
 create policy "reminder_runs_select_hr" on public.reminder_runs for select using (public.is_hr_or_admin());
 
-grant select, insert, update on public.notification_templates to authenticated;
-grant select, insert on public.notification_events to authenticated;
-grant select on public.notification_deliveries to authenticated;
-grant select, insert, update on public.notification_preferences to authenticated;
-grant select, insert, update on public.reminder_rules to authenticated;
-grant select on public.reminder_runs to authenticated;
+revoke all on public.notification_templates, public.notification_events,
+  public.notification_deliveries, public.notification_preferences,
+  public.reminder_rules, public.reminder_runs from anon, authenticated;
+grant select, insert, update on public.notification_templates to service_role;
+grant select, insert on public.notification_events to service_role;
+grant select on public.notification_deliveries to service_role;
+grant select, insert, update on public.notification_preferences to service_role;
+grant select, insert, update on public.reminder_rules to service_role;
+grant select on public.reminder_runs to service_role;
 
 insert into public.notification_templates
   (id, event_type, channel, locale, title_template, body_template, action_label_template, action_url_template, status, version)

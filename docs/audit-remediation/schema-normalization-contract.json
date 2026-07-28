@@ -1,0 +1,63 @@
+{
+  "findingIds": ["ARCH-007"],
+  "destructiveChangesAllowed": false,
+  "groups": [
+    {
+      "name": "course-content",
+      "models": ["course_content", "course_contents"],
+      "canonicalTarget": "course_content",
+      "currentWriter": ["worker/routes/courses.js", "api/courses/content.js"],
+      "currentReader": ["worker/routes/courses.js", "api/courses/content.js", "supabase/migrations/20260702021718_content_versioning.sql"],
+      "legacyOnly": ["course_contents"],
+      "decision": "preserve-and-reconcile",
+      "risk": "high"
+    },
+    {
+      "name": "quiz-questions",
+      "models": ["questions", "quiz_questions", "quiz_question_versions"],
+      "canonicalTarget": "quiz_questions",
+      "versionTarget": "quiz_question_versions",
+      "currentWriter": ["worker/routes/quizzes.js"],
+      "currentReader": ["worker/routes/quizzes.js", "supabase/migrations/20260702021718_content_versioning.sql"],
+      "legacyOnly": ["questions"],
+      "decision": "preserve-versioned-pair",
+      "risk": "high"
+    },
+    {
+      "name": "assignments",
+      "models": ["enrollments", "course_assignments"],
+      "canonicalTarget": "enrollments",
+      "currentWriter": ["worker/routes/enrollments.js", "worker/routes/backfill.js", "worker/routes/content-versions.js"],
+      "currentReader": ["worker/routes/enrollments.js", "worker/services/reporting.js", "worker/routes/courses.js"],
+      "legacyOnly": ["course_assignments"],
+      "decision": "preserve-and-reconcile",
+      "risk": "critical"
+    },
+    {
+      "name": "progress",
+      "models": ["lesson_progress", "content_progress"],
+      "canonicalTarget": "content_progress",
+      "currentWriter": ["worker/routes/content-progress.js", "api/content-progress/index.js"],
+      "currentReader": ["worker/routes/content-progress.js", "worker/routes/public-stats.js"],
+      "legacyOnly": ["lesson_progress"],
+      "decision": "preserve-and-reconcile",
+      "risk": "critical"
+    },
+    {
+      "name": "learning-history",
+      "models": ["learning_history", "learning_records"],
+      "canonicalTarget": "learning_records",
+      "currentWriter": ["worker/routes/learning-records.js"],
+      "currentReader": ["worker/routes/learning-records.js"],
+      "legacyOnly": ["learning_history"],
+      "decision": "preserve-and-reconcile",
+      "risk": "high"
+    }
+  ],
+  "roles": {
+    "runtime": ["employee", "hr", "admin"],
+    "databaseLegacy": ["trainer"],
+    "clientLegacy": ["manager", "superAdmin"],
+    "decision": "Do not add policies for legacy roles until ownership and product semantics are approved."
+  }
+}

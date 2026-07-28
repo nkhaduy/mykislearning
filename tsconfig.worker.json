@@ -1,0 +1,29 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "strict": false,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "WebWorker"],
+    "types": ["node"],
+    "skipLibCheck": true
+  },
+  "include": [
+    "worker/middleware/auth.js",
+    "worker/routes/auth.js",
+    "worker/services/audit-service.js",
+    "worker/services/audit-redaction.js",
+    "worker/services/credentials.js",
+    "worker/services/crypto.js",
+    "worker/services/auth-sessions.js",
+    "worker/services/client-ip.js",
+    "worker/services/local-development.js",
+    "worker/services/rate-limit.js",
+    "worker/services/responses.js",
+    "worker/services/route-policy.js",
+    "worker/rate-limiter-do.js"
+  ],
+  "exclude": ["dist", "node_modules"]
+}

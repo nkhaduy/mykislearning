@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /$
+Allow: /about-kis$
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /login
+Disallow: /change-password
+Disallow: /attendance/
+Disallow: /join/
+Sitemap: https://mykis-learning.nkhaduy.workers.dev/sitemap.xml

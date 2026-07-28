@@ -60,11 +60,14 @@ CREATE INDEX IF NOT EXISTS idx_content_progress_acct ON content_progress(account
 CREATE INDEX IF NOT EXISTS idx_content_progress_cont ON content_progress(content_id);
 CREATE INDEX IF NOT EXISTS idx_content_progress_crs  ON content_progress(course_id);
 
--- ── Disable RLS (service_role key via Vercel API only) ─────────
-ALTER TABLE courses         DISABLE ROW LEVEL SECURITY;
-ALTER TABLE enrollments     DISABLE ROW LEVEL SECURITY;
-ALTER TABLE course_content  DISABLE ROW LEVEL SECURITY;
-ALTER TABLE content_progress DISABLE ROW LEVEL SECURITY;
+-- ── Private Worker access ─────────────────────────────────────
+-- RLS stays enabled; browser roles are revoked. The Worker uses service_role.
+ALTER TABLE courses         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE enrollments     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE course_content  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE content_progress ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON courses, enrollments, course_content, content_progress FROM anon, authenticated;
 
 -- ── Supabase Storage bucket for uploaded course files ──────────
 -- Run this separately if bucket doesn't exist:

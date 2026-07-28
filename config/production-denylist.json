@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "entries": {
+    "hostnames": [
+      { "value": "kislms.site", "source": "worker/index.js canonical origin" },
+      { "value": "www.kislms.site", "source": "previous staging guard default" },
+      { "value": "mykis-learning.nkhaduy.workers.dev", "source": "worker/index.js legacy worker hostname" }
+    ],
+    "projects": [
+      { "value": "mooqdtiedfamnlpitqtq", "source": "supabase projects list 2026-07-28; linked unknown project" },
+      { "value": "xnlnmnibjxbmhmrgevjs", "source": "supabase projects list 2026-07-28; inactive unknown project" }
+    ],
+    "resources": [
+      { "value": "mykis-learning", "source": "wrangler production deployment discovery" },
+      { "value": "mykis-report-exports", "source": "wrangler.jsonc production queue" },
+      { "value": "mykis-report-exports-dlq", "source": "wrangler.jsonc production DLQ" },
+      { "value": "mykis-report-exports", "source": "wrangler.jsonc production R2 bucket" }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "environment": "local Supabase REST via isolated PostgREST, synthetic-only database",
+  "identity": "anon key",
+  "expected": "401 for private tables; service-role RPC denied; private schema not exposed",
+  "tables": {
+    "profiles": 401,
+    "learning_records": 401,
+    "learning_record_attachments": 401,
+    "external_training_requests": 401,
+    "notifications": 401,
+    "training_sessions": 401,
+    "attendance": 401,
+    "employee_certifications": 401,
+    "compliance_assignments": 401,
+    "development_plans": 401,
+    "audit_logs": 401,
+    "courses": 401,
+    "enrollments": 401,
+    "content_progress": 401
+  },
+  "service_role_profiles": 200,
+  "service_only_credential_rpc": 200,
+  "anon_credential_rpc": 401,
+  "private_schema_rest": 406,
+  "result": "PASS",
+  "finding_ids": ["SEC-002", "SEC-004", "SEC-005", "SEC-011"]
+}

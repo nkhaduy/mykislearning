@@ -1,0 +1,4 @@
+-- Rollback is feature-flag first. Do not drop columns during incident response.
+-- If catalog verification shows an invalid concurrent index, remove only that index:
+-- drop index concurrently if exists public.profiles_search_document_trgm_idx;
+-- Re-enable legacy search and keep the additive fields for later investigation.

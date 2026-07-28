@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "strict": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "skipLibCheck": false
+  },
+  "include": [
+    "scripts/assert-safe-e2e-target.mjs",
+    "scripts/check-bundle-budget.mjs",
+    "scripts/check-wrangler-dry-run.mjs",
+    "scripts/measure-route-bundles.mjs",
+    "scripts/scan-static-artifact.mjs",
+    "scripts/start-local-development.mjs",
+    "scripts/test-migrations.mjs"
+  ],
+  "exclude": ["dist", "node_modules"]
+}

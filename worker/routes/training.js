@@ -1,6 +1,6 @@
 import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
-import { requireAuth, requireHr } from "../middleware/auth.js";
+import { hasAdministrativeAccess, requireAuth, requireHr } from "../middleware/auth.js";
 
 export async function handleTraining(request, env) {
   const method = request.method.toUpperCase();
@@ -17,7 +17,7 @@ export async function handleTraining(request, env) {
       if (!acct) return json({ error: "Unauthorized" }, 401);
 
       let query = supabase.from("training_sessions").select("*").order("start_at", { ascending: true });
-      if (acct.role !== "hr") {
+      if (!hasAdministrativeAccess(acct)) {
         const { data: parts } = await supabase.from("training_participants")
           .select("session_id").eq("account_id", acct.accountId);
         const ids = (parts || []).map((p) => p.session_id);

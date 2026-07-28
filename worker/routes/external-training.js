@@ -1,6 +1,6 @@
 import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
-import { requireAuth, requireHr } from "../middleware/auth.js";
+import { hasAdministrativeAccess, requireAuth, requireHr } from "../middleware/auth.js";
 
 export async function handleExternalTraining(request, env) {
   const method = request.method.toUpperCase();
@@ -12,7 +12,7 @@ export async function handleExternalTraining(request, env) {
     const acct = await requireAuth(request, env);
     if (!acct) return json({ error: "Unauthorized" }, 401);
     let query = supabase.from("external_training_requests").select("*").order("created_at", { ascending: false });
-    if (acct.role !== "hr") query = query.eq("account_id", acct.accountId);
+    if (!hasAdministrativeAccess(acct)) query = query.eq("account_id", acct.accountId);
     const { data, error } = await query;
     if (error) return json({ error: error.message }, 500);
     return json({ requests: data || [] });

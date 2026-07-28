@@ -1,0 +1,87 @@
+name: Quality gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Performance and export unit gates
+        run: |
+          npm run test:routes:all
+          npm run test:reports
+          npm run test:reports:100k
+          npm run test:reports:concurrency
+          npm run test:reports:timeout
+          npm run test:export-jobs
+          npm run test:exports:all
+          npm run test:queue-dlq
+          npm run test:r2-authorization
+          npm run test:employee-search
+          npm run check:search-rollout
+          npm run check:legacy-monolith
+
+      - name: Security tests
+        run: npm run test:security
+
+      - name: Authentication rotation, MFA removal, rate-limit, and session gates
+        run: |
+          npm run test:auth-rotation
+          npm run test:mfa
+          npm run test:rate-limit
+          npm run test:session-security
+
+      - name: Build and embedded artifact checks
+        run: npm run build
+
+      - name: Static privacy scan
+        run: npm run scan:artifact
+
+      - name: Bundle budget
+        run: npm run check:bundle-budget
+
+      - name: Route bundle measurement and budgets
+        run: |
+          npm run measure:route-bundles
+          npm run check:route-bundle-budget
+
+      - name: Fresh, upgrade, and partial migration scenarios
+        run: npm run test:migrations
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+
+      - name: Cloudflare Worker dry run
+        run: npm run check:wrangler
+
+      - name: Local staging rehearsal preflight plan
+        run: npm run staging:rehearsal:preflight

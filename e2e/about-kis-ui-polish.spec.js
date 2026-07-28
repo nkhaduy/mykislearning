@@ -1,6 +1,6 @@
 import { test, expect } from "playwright/test";
 
-const BASE_URL = process.env.ABOUT_BASE_URL || "https://mykis-learning.nkhaduy.workers.dev";
+const BASE_URL = process.env.ABOUT_BASE_URL || "http://127.0.0.1:4173";
 const OUT = "test-results/about-kis-ui-polish";
 const YEARS = ["2015", "2016", "2018", "2019", "2020", "2021", "2025"];
 
@@ -56,6 +56,14 @@ test("hero metrics, timeline interaction, footer, and i18n", async ({ page }) =>
   const timeline = page.locator("#kis-history");
   await timeline.scrollIntoViewIfNeeded();
   await expect(timeline).toBeVisible();
+  const timelineLayout = await page.locator(".timeline-carousel__content-inner").evaluate((element) => {
+    const image = element.querySelector(".timeline-carousel__image").getBoundingClientRect();
+    const panel = element.getBoundingClientRect();
+    return { imageWidth: image.width, imageHeight: image.height, panelWidth: panel.width };
+  });
+  expect(timelineLayout.imageWidth).toBeGreaterThan(420);
+  expect(timelineLayout.imageHeight).toBeGreaterThan(320);
+  expect(timelineLayout.imageWidth / timelineLayout.panelWidth).toBeGreaterThan(0.48);
   const shellHandle = await timeline.elementHandle();
   await page.locator("#kis-history").screenshot({ path: `${OUT}/timeline-desktop-2025.png` });
 
@@ -65,6 +73,8 @@ test("hero metrics, timeline interaction, footer, and i18n", async ({ page }) =>
     await expect(page.locator(".timeline-carousel__year-big")).toHaveText(year);
     await expect(page.locator(".timeline-carousel__content-inner")).toHaveAttribute("data-active-year", year);
     await expect(page.locator(`#timeline-year-${year}`)).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator(`#timeline-year-${year}`)).toHaveAttribute("aria-controls", "timeline-panel");
+    await expect(page.locator("#timeline-panel")).toHaveAttribute("aria-labelledby", `timeline-year-${year}`);
     const sameShell = await timeline.evaluate((node, original) => node === original, shellHandle);
     expect(sameShell).toBe(true);
     const textBlank = await page.locator(".timeline-carousel__content").evaluate((node) => node.textContent.trim().length === 0);
@@ -97,6 +107,7 @@ test("hero metrics, timeline interaction, footer, and i18n", async ({ page }) =>
   await expect(footer.locator(".footer-v2__support-box")).toHaveCount(0);
   await expect(footer.locator(".footer-v2__support-avatar")).toHaveCount(0);
   await expect(footer).toContainText("Nguyễn Thị Cẩm Thanh");
+  await expect(footer).toContainText("Phòng Nhân sự");
   await expect(footer.locator('a[href="mailto:thanh.ntc@kisvn.vn"]')).toHaveText("thanh.ntc@kisvn.vn");
   await page.locator(".footer-v2").screenshot({ path: `${OUT}/footer-mobile.png` });
 
@@ -104,13 +115,13 @@ test("hero metrics, timeline interaction, footer, and i18n", async ({ page }) =>
   await gotoAbout(page);
   await page.locator(".footer-v2").scrollIntoViewIfNeeded();
   await expect(page.locator(".footer-v2")).toContainText("Nguyễn Thị Cẩm Thanh");
-  await expect(page.locator(".footer-v2")).toContainText("Phó phòng, Phòng Nhân sự");
+  await expect(page.locator(".footer-v2")).toContainText("Phòng Nhân sự");
   await page.locator(".footer-v2").screenshot({ path: `${OUT}/footer-desktop.png` });
 
   await page.locator(".footer-v2").getByRole("button", { name: "EN" }).click();
-  await expect(page.locator(".footer-v2")).toContainText("Assistant Manager, Human Resources Dept.");
+  await expect(page.locator(".footer-v2")).toContainText("Human Resources Department");
   await page.locator(".footer-v2").getByRole("button", { name: "KR" }).click();
-  await expect(page.locator(".footer-v2")).toContainText("인사부 부팀장");
+  await expect(page.locator(".footer-v2")).toContainText("인사부");
   await expect(page.locator("body")).not.toContainText(/about\.footerContactRole|undefined/);
 
   expect(errors).toEqual([]);

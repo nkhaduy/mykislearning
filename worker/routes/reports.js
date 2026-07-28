@@ -1,9 +1,17 @@
 import { json, corsHeaders, corsPreflight, methodNotAllowed } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
 import { requireHr } from "../middleware/auth.js";
+import { requirePrivilegedSession } from "./auth.js";
 import { createNotificationEvent } from "../services/notificationEngine.js";
 import { exportReport, getOverviewReport, getTableReport, isReportType, parseReportFilters } from "../services/reporting.js";
 import { writeAuditLog } from "../services/audit-service.js";
+import { createPaginationCursor, readPaginationCursor } from "../services/pagination-cursor.js";
+
+function cursorFilters(filters) {
+  const bound = { ...filters };
+  delete bound.cursor;
+  return bound;
+}
 
 export async function handleReports(request, env) {
   const method = request.method.toUpperCase();
@@ -19,6 +27,8 @@ export async function handleReports(request, env) {
   try {
     if (path === "/api/admin/reports/export") {
       if (method !== "GET") return methodNotAllowed();
+      const privileged = await requirePrivilegedSession(request, env);
+      if (privileged.error) return privileged.error;
       const reportType = url.searchParams.get("report_type") || "overview";
       const format = url.searchParams.get("format") || "csv";
       if (!isReportType(reportType)) return json({ error: "INVALID_REPORT_TYPE" }, 400);
@@ -93,8 +103,25 @@ export async function handleReports(request, env) {
     if (!isReportType(reportType)) return json({ error: "INVALID_REPORT_TYPE" }, 400);
     const filters = parseReportFilters(url, reportType);
     if (reportType === "overview") return json(await getOverviewReport(supabase, filters));
-    return json(await getTableReport(supabase, reportType, filters));
+    const boundFilters = cursorFilters(filters);
+    const position = await readPaginationCursor(env, filters.cursor, {
+      requesterId: acct.accountId,
+      scope: `report:${reportType}`,
+      filters: boundFilters,
+    });
+    const result = await getTableReport(supabase, reportType, filters, { position });
+    const nextCursor = result.hasMore && result.nextPosition
+      ? await createPaginationCursor(env, {
+          requesterId: acct.accountId,
+          scope: `report:${reportType}`,
+          filters: boundFilters,
+          position: result.nextPosition,
+          ttlSeconds: 900,
+        })
+      : null;
+    return json({ ...result, nextPosition: undefined, nextCursor });
   } catch (error) {
-    return json({ error: error.message || "REPORT_QUERY_FAILED" }, error.status || 500);
+    const code = /^[A-Z0-9_]{3,80}$/.test(String(error.message || "")) ? error.message : "REPORT_QUERY_FAILED";
+    return json({ error: code }, error.status || 500);
   }
 }

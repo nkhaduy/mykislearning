@@ -1,6 +1,6 @@
 import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
-import { requireAuth } from "../middleware/auth.js";
+import { hasAdministrativeAccess, requireAuth } from "../middleware/auth.js";
 
 export async function handleContentProgress(request, env) {
   const method = request.method.toUpperCase();
@@ -15,7 +15,7 @@ export async function handleContentProgress(request, env) {
     const accountId = url.searchParams.get("accountId");
     const courseId = url.searchParams.get("courseId");
     const contentId = url.searchParams.get("contentId");
-    const targetAccount = acct.role === "hr" ? (accountId || acct.accountId) : acct.accountId;
+    const targetAccount = hasAdministrativeAccess(acct) ? (accountId || acct.accountId) : acct.accountId;
 
     let query = supabase.from("content_progress")
       .select("id, content_id, account_id, course_id, data")
@@ -33,7 +33,7 @@ export async function handleContentProgress(request, env) {
   if (method === "POST") {
     const progress = await readJson(request);
     if (!progress?.contentId || !progress?.courseId) return json({ error: "contentId and courseId required" }, 400);
-    const accountId = acct.role === "hr" ? (progress.accountId || acct.accountId) : acct.accountId;
+    const accountId = hasAdministrativeAccess(acct) ? (progress.accountId || acct.accountId) : acct.accountId;
 
     const id = progress.id || `cp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const row = {

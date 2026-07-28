@@ -1,0 +1,92 @@
+{
+  "login": {
+    "limit": 5,
+    "requests": 6,
+    "firstStatuses": [
+      401,
+      401,
+      401
+    ],
+    "throttledStatus": 429,
+    "retryAfterPresent": true
+  },
+  "passwordReset": {
+    "limit": 3,
+    "requests": 4,
+    "firstStatuses": [
+      200,
+      200,
+      200
+    ],
+    "throttledStatus": 429,
+    "retryAfterPresent": true
+  },
+  "setup": {
+    "limit": 3,
+    "requests": 4,
+    "firstStatuses": [
+      410,
+      410,
+      410
+    ],
+    "throttledStatus": 429,
+    "retryAfterPresent": true
+  },
+  "employeeSearch": {
+    "limit": 120,
+    "requests": 121,
+    "firstStatuses": [
+      200,
+      200,
+      200
+    ],
+    "throttledStatus": 429,
+    "retryAfterPresent": true
+  },
+  "reports": {
+    "limit": 20,
+    "requests": 21,
+    "firstStatuses": [
+      400,
+      400,
+      400
+    ],
+    "throttledStatus": 429,
+    "retryAfterPresent": true
+  },
+  "upload": {
+    "limit": 10,
+    "requests": 11,
+    "firstStatuses": [
+      500,
+      500,
+      500
+    ],
+    "throttledStatus": 429,
+    "retryAfterPresent": true
+  },
+  "attendance": {
+    "limit": 60,
+    "requests": 61,
+    "firstStatuses": [
+      405,
+      405,
+      405
+    ],
+    "throttledStatus": 429,
+    "retryAfterPresent": true
+  },
+  "publicJoin": {
+    "limit": 60,
+    "requests": 61,
+    "firstStatuses": [
+      404,
+      404,
+      404
+    ],
+    "throttledStatus": 429,
+    "retryAfterPresent": true
+  },
+  "distinctPlatformAddressBuckets": true,
+  "limitation": "The local runtime uses in-memory buckets; distributed Durable Object/Cloudflare binding behavior remains staging-only evidence."
+}

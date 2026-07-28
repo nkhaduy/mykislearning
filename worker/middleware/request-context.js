@@ -1,4 +1,6 @@
 const contexts = new WeakMap();
+import { addSecurityHeaders } from "../services/responses.js";
+import { trustedClientIp } from "../services/client-ip.js";
 
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
 
@@ -27,16 +29,17 @@ export async function withRequestContext(request, env, handler) {
   const correlationId = validId(request.headers.get("x-correlation-id")) || requestId;
   const userAgent = trim(request.headers.get("user-agent") || "", 512);
   const countryCode = /^[A-Z]{2}$/.test(request.headers.get("cf-ipcountry") || "") ? request.headers.get("cf-ipcountry") : null;
-  const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "";
+  const ip = trustedClientIp(request, env);
   const salt = env?.AUDIT_IP_HASH_SALT || env?.JWT_SECRET || "";
   const ipAddressHash = ip && salt ? await sha256Hex(`${salt}:${ip}`) : null;
   const context = { requestId, correlationId, userAgent, countryCode, ipAddressHash, source: "api" };
   contexts.set(request, context);
   const response = await handler(request, context);
-  const headers = new Headers(response.headers);
+  const securedResponse = addSecurityHeaders(response, request, env);
+  const headers = new Headers(securedResponse.headers);
   headers.set("X-Request-ID", requestId);
   headers.set("X-Correlation-ID", correlationId);
-  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  return new Response(securedResponse.body, { status: securedResponse.status, statusText: securedResponse.statusText, headers });
 }
 
 export function getRequestContext(request) {

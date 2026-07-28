@@ -367,3 +367,112 @@ do $$ begin
     create trigger quizzes_updated_at before update on public.quizzes for each row execute function public.set_updated_at();
   end if;
 end $$;
+
+-- Backfill the Worker tables from the UUID schema created by migrations 001-004.
+-- Each insert is deterministic and idempotent; the original legacy tables and
+-- rows remain available for audit/recovery.
+do $$
+begin
+  if to_regclass('public.course_contents') is not null then
+    insert into public.course_content(id, course_id, type, sort_order, data, created_at, updated_at)
+    select
+      content.id::text,
+      content.course_id::text,
+      content.type,
+      content.sort_order,
+      jsonb_strip_nulls(jsonb_build_object(
+        'title', content.title,
+        'isRequired', content.is_required,
+        'weight', content.weight,
+        'sourceType', content.source_type,
+        'sourceUrl', content.source_url,
+        'youtubeVideoId', content.youtube_video_id,
+        'transcript', content.transcript,
+        'transcriptAllowed', content.transcript_allowed,
+        'minimumDurationSecs', content.minimum_duration_secs,
+        'requiredPercent', content.required_percent,
+        'quizId', content.quiz_id,
+        'requirePass', content.require_pass,
+        'slides', content.slides
+      )),
+      content.created_at,
+      content.updated_at
+    from public.course_contents content
+    on conflict (id) do nothing;
+  end if;
+
+  if to_regclass('public.course_assignments') is not null then
+    insert into public.enrollments(id, course_id, account_id, status, data, created_at, updated_at)
+    select
+      assignment.id::text,
+      assignment.course_id::text,
+      assignment.account_id::text,
+      assignment.status,
+      jsonb_strip_nulls(jsonb_build_object(
+        'assignedBy', assignment.assigned_by,
+        'deadline', assignment.deadline
+      )),
+      assignment.created_at,
+      assignment.updated_at
+    from public.course_assignments assignment
+    on conflict (id) do nothing;
+  end if;
+
+  if to_regclass('public.lesson_progress') is not null then
+    insert into public.content_progress(id, content_id, account_id, course_id, data, created_at, updated_at)
+    select
+      progress.id::text,
+      progress.content_id::text,
+      progress.account_id::text,
+      progress.course_id::text,
+      jsonb_strip_nulls(jsonb_build_object(
+        'completed', progress.completed,
+        'completionPercent', progress.completion_percent,
+        'viewedSeconds', progress.viewed_seconds,
+        'metadata', progress.metadata
+      )),
+      progress.updated_at,
+      progress.updated_at
+    from public.lesson_progress progress
+    on conflict (id) do nothing;
+  end if;
+
+  if to_regclass('public.session_participants') is not null then
+    insert into public.training_participants(id, session_id, account_id, data, created_at)
+    select
+      participant.id::text,
+      participant.session_id::text,
+      participant.account_id::text,
+      jsonb_strip_nulls(jsonb_build_object('invitedBy', participant.invited_by)),
+      participant.created_at
+    from public.session_participants participant
+    on conflict (id) do nothing;
+  end if;
+
+  if to_regclass('public.questions') is not null then
+    insert into public.quiz_questions(id, quiz_id, sort_order, data, created_at)
+    select
+      question.id::text,
+      question.quiz_id::text,
+      question.sort_order,
+      jsonb_strip_nulls(jsonb_build_object(
+        'text', question.text,
+        'type', question.type,
+        'points', question.points,
+        'explanation', question.explanation,
+        'options', coalesce((
+          select jsonb_agg(jsonb_build_object(
+            'id', option.id::text,
+            'text', option.text,
+            'isCorrect', option.is_correct,
+            'order', option.sort_order
+          ) order by option.sort_order)
+          from public.question_options option
+          where option.question_id = question.id
+        ), '[]'::jsonb)
+      )),
+      question.created_at
+    from public.questions question
+    on conflict (id) do nothing;
+  end if;
+end $$;

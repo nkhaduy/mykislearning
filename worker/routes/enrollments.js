@@ -1,6 +1,6 @@
 import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
-import { requireAuth, requireHr } from "../middleware/auth.js";
+import { hasAdministrativeAccess, requireAuth, requireHr } from "../middleware/auth.js";
 import { createNotificationEvent } from "../services/notificationEngine.js";
 
 export async function handleEnrollments(request, env) {
@@ -16,12 +16,12 @@ export async function handleEnrollments(request, env) {
 
     const accountId = url.searchParams.get("accountId");
     const courseId = url.searchParams.get("courseId");
-    const targetAccount = acct.role === "hr" ? (accountId || null) : acct.accountId;
+    const targetAccount = hasAdministrativeAccess(acct) ? (accountId || null) : acct.accountId;
 
     let query = supabase.from("enrollments").select("id, course_id, course_version_id, account_id, status, data, updated_at, version:course_versions(version_number,status)");
     if (targetAccount) query = query.eq("account_id", targetAccount);
     if (courseId) query = query.eq("course_id", courseId);
-    if (!accountId && !courseId && acct.role !== "hr") query = query.eq("account_id", acct.accountId);
+    if (!accountId && !courseId && !hasAdministrativeAccess(acct)) query = query.eq("account_id", acct.accountId);
 
     const { data, error } = await query.order("updated_at", { ascending: false });
     if (error) return json({ error: error.message }, 500);
@@ -84,7 +84,7 @@ export async function handleEnrollments(request, env) {
     const body = await readJson(request);
     const { id, courseId, accountId, patch } = body;
     if ((!id && (!courseId || !accountId)) || !patch) return json({ error: "id (or courseId+accountId) and patch required" }, 400);
-    if (acct.role !== "hr" && accountId && accountId !== acct.accountId) return json({ error: "Forbidden" }, 403);
+    if (!hasAdministrativeAccess(acct) && accountId && accountId !== acct.accountId) return json({ error: "Forbidden" }, 403);
 
     let query = supabase.from("enrollments").select("id, data").limit(1);
     if (id) query = query.eq("id", id);

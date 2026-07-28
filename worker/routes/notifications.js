@@ -1,6 +1,6 @@
 import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
-import { requireAuth, requireHr } from "../middleware/auth.js";
+import { hasAdministrativeAccess, requireAuth, requireHr } from "../middleware/auth.js";
 import { createNotificationEvent, nid, runReminderScheduler } from "../services/notificationEngine.js";
 import { writeAuditLog } from "../services/audit-service.js";
 
@@ -53,7 +53,7 @@ export async function handleNotifications(request, env) {
   if (method === "GET") {
     const accountId = url.searchParams.get("accountId") || acct.accountId;
     // Non-HR can only read their own
-    if (acct.role !== "hr" && accountId !== acct.accountId) {
+    if (!["hr", "admin"].includes(acct.role) && accountId !== acct.accountId) {
       return json({ error: "Forbidden" }, 403);
     }
 
@@ -150,7 +150,7 @@ export async function handleNotifications(request, env) {
     if (archived === true) patch.archived_at = new Date().toISOString();
 
     if (markAllRead) {
-      const targetId = (acct.role === "hr" && targetAccountId) ? targetAccountId : acct.accountId;
+      const targetId = (hasAdministrativeAccess(acct) && targetAccountId) ? targetAccountId : acct.accountId;
       const { error } = await supabase.from("notifications")
         .update({ is_read: true, read_at: new Date().toISOString() })
         .or(`account_id.eq.${targetId},recipient_id.eq.${targetId}`)
@@ -165,7 +165,7 @@ export async function handleNotifications(request, env) {
     const { data: existing } = await supabase.from("notifications")
       .select("account_id, recipient_id").eq("id", id).single();
     if (!existing) return json({ error: "Not found" }, 404);
-    if (acct.role !== "hr" && existing.account_id !== acct.accountId && existing.recipient_id !== acct.accountId) {
+    if (!hasAdministrativeAccess(acct) && existing.account_id !== acct.accountId && existing.recipient_id !== acct.accountId) {
       return json({ error: "Forbidden" }, 403);
     }
 
@@ -184,7 +184,7 @@ export async function handleNotifications(request, env) {
     const { data: existing } = await supabase.from("notifications")
       .select("account_id").eq("id", id).single();
     if (!existing) return json({ error: "Not found" }, 404);
-    if (acct.role !== "hr" && existing.account_id !== acct.accountId) {
+    if (!hasAdministrativeAccess(acct) && existing.account_id !== acct.accountId) {
       return json({ error: "Forbidden" }, 403);
     }
 

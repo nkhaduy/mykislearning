@@ -1,0 +1,155 @@
+# KIS LMS Audit Remediation Progress
+
+## Checkpoint 2026-07-28 — Authentication And Edge Hardening Complete Locally
+
+- Added opaque refresh-token families with HMAC-only storage, atomic PostgreSQL rotation, replay family revocation, current/all-device logout, session listing/revocation, credential-version invalidation, bounded session count, and cleanup indexes/job RPC.
+- Added RFC 6238 TOTP for HR/Admin, AES-GCM protected factors, one-time recovery-code hashes, timestep replay rejection, fail-closed enrollment states, stale-enrollment downgrade prevention, and server-side AAL/step-up timestamps.
+- Step-up now protects session/MFA administration, password reset and privileged password change, account lock/disable/delete/recovery actions, backfill and broad report export. Database role/assurance wins over any client/JWT role field.
+- Added the `RATE_LIMITER_DO` SQLite Durable Object binding, atomic shared buckets, alarm cleanup, bounded hashed keys, Cloudflare-only production client-IP trust, endpoint/account/session dimensions, `Retry-After`, and critical fail-closed behavior. In-memory buckets remain local/test only.
+- Added migration execution tests for fresh, legacy upgrade and partial states, including a real two-connection concurrent refresh race that proves one `rotated`, one `reuse_detected`, and whole-family revocation.
+- Added MFA/session UI for enrollment, QR/manual key, one-time recovery display/download/print, login challenge, focus-trapped step-up, active sessions and logout-all. Secrets are not stored in localStorage or emitted to the static artifact.
+- Added staging rehearsal runbook/preflight, CI auth/MFA/rate-limit/binding/migration gates, production/local Wrangler dry-runs, and plan-only checksum capture. No staging/production connection, deploy, or remote data mutation occurred.
+- Final local gates: lint `0 errors / 137 warnings` (ceiling `139`), typecheck pass, unit `48/48`, security `36/36`, public E2E `8/8`, authenticated E2E `4/4`, fresh/upgrade/partial migrations pass, build/privacy/bundle/route measurements pass, audit `0 vulnerabilities`, Wrangler dry-runs pass, and `git diff --check` passes.
+- Readiness is conditional: the repository implementation is complete, but production remains blocked on an approved disposable staging restore rehearsal, backup/rollback evidence, and validation against an actual Cloudflare Durable Object binding without deploying from this session.
+
+## Checkpoint 2026-07-27 — Local Development Admin And Final Gate
+
+- Added an idempotent server-side local Super Admin bootstrap for `1 / 1`. It requires an explicit development runtime flag plus localhost application and Supabase hosts; production/staging and remote database/host combinations fail closed.
+- Reserved local identity is rejected outside the guarded local login branch. Frontend artifacts contain neither the local credential controls nor reserved identity.
+- Unified `admin` and `hr` administrative authorization in Worker routes and legacy client guards, removing the prior case where Super Admin could be treated as an employee by route-local checks.
+- Fixed final Lighthouse findings: admin card-label contrast, mobile drawer focusability through `inert`, the language selector accessible name/form metadata, and login-note contrast.
+- Local browser proof: `1 / 1` reaches the full admin shell and the admin overview/employees/courses APIs; repeated login remains one profile/credential row; production-mode simulation returns 401.
+- Final gates: unit `42/42`, security `20/20`, public E2E `8/8`, authenticated E2E `4/4`, Lighthouse accessibility `100` on Login/Admin desktop/mobile, build/privacy/bundle gates, Worker dry-run, dependency audit, syntax and diff checks pass.
+- Open limitations remain unchanged: migration `005` full-history drift, no refresh-token rotation or privileged MFA, distributed rate-limit behavior unverified, legacy monolith routes, and no formal lint/typecheck pipeline.
+
+## Checkpoint 2026-07-27 — Public Presentation Restore
+
+- Source references: commit `e0ff4f9` (`fix: restore complete pre-frappe application interface`), commit `efd6355` (`fix: restore previous landing page presentation`), and About UI commit `009f4cdc` plus its local screenshots in `/Users/khaduy/Documents/KISVN-about-ui-current/test-results/about-kis-ui-polish/`.
+- `NEW-UX-RESTORE-001`: Landing follows the pre-remediation shell, sharp original-composition hero, centered metrics, About banner, final CTA and patterned footer. Hero/copy reveal, intersection-based count-up values, gradient metrics and CTA light sweep are restored with a reduced-motion fallback.
+- `NEW-UX-RESTORE-002`: About restores the old hero, overview, vertical desktop timeline/horizontal mobile rail, leadership, values, philosophy, global network, CEO message and patterned footer. Timeline photography now occupies the larger left column without overlapping the year/events, while tab/tabpanel ARIA, keyboard Enter/Space/arrows/Home/End, reduced motion and VI/EN/KR remain intact.
+- `NEW-UX-RESTORE-003`: Landing course discovery is removed from the split module and legacy landing renderer, including public navigation, CTA, featured cards/section/anchor and course-data reads. Authenticated course routes remain untouched.
+- Landing is now the typography source for every route: shared self-hosted Be Vietnam Pro is applied to public, auth, split learner/admin/reporting and legacy monolith pages, including form controls and the former admin Manrope token. Decorative quote serif and technical password/debug monospace remain intentionally scoped.
+- Login presentation is restored from the supplied live Worker screenshot: the office image covers the full desktop viewport, navy overlays blend across both columns, the contextual headline sits at mid-left, and the white login card floats in the translucent right rail. Height-aware desktop modes now keep the card vertically centered with equal top/bottom space even in short or display-scaled viewports; the split form keeps localized support copy instead of restoring the screenshot's raw `cannotLogin` key, and mobile remains image-free for performance.
+- Public footer contact is the explicitly approved `Nguyễn Thị Cẩm Thanh` / `thanh.ntc@kisvn.vn` / `Phòng Nhân sự`. The static privacy scanner allows only that exact public HR address and continues to reject other personal `@kisvn.vn` addresses.
+- Hero WebP files retain the original `941×1672` mobile and `1672×941` desktop dimensions at quality 97; PNG originals remain as fallback. About hero/network WebPs retain `3840×2463` and `3840×2160`. The unchanged `2560×1642` About-banner image is intersection-loaded below the fold rather than requested during initial Landing load.
+- Refreshed visual evidence at `390/1024/1440` has no horizontal overflow, timeline collision or missing lazy images. Current route measurement: Home `19,004 B JS / 15,501 B CSS`; Login `25,078 B / 16,410 B`; About `39,255 B / 34,703 B`; no public monolith, XLSX, QR or admin chunk.
+- Final three-run Lighthouse mobile medians: Home score `98`, LCP `2.410 s`, CLS `0`, TBT `0`, transfer `221,649 B`; Login score `99`, LCP `1.955 s`, CLS/TBT `0`, transfer `125,204 B`. Both remain inside the requested gates; security/database finding states are unchanged.
+- Regression gates pass: unit `39/39`, security `20/20`, public E2E `8/8`, authenticated E2E `4/4`, targeted About E2E `1/1`, 96-file build/privacy/budgets, npm audit with 0 vulnerabilities, and `git diff --check`.
+
+## Checkpoint 2026-07-27 — Route, Navigation, Load And Schema Preparation
+
+- Route splitting now covers `/`, `/login`, `/about-kis`, `/dashboard`, `/dashboard/courses`, `/admin`, and `/admin/reports` with independent entries and route CSS. Course player, admin employees/courses/live-training, quizzes and scanner remain legacy-monolith routes, so `PERF-005` stays `IN_PROGRESS`.
+- `UX-001` is `VERIFIED`: the shared route registry classifies every implemented route, defines detail/hidden/redirect parents, drives role-aware navigation, and passes unit plus mobile drawer/focus E2E coverage.
+- Synthetic isolated-Postgres load evidence now covers 100k profiles and related course/learning/audit data. It exposes search/index, offset stability, synchronous export and concurrent-report bottlenecks; `PERF-007` and `OPS-004` remain `IN_PROGRESS` rather than being overclaimed.
+- `ARCH-007` now has a machine-readable ownership contract, unit gates and a non-destructive normalization/rollback plan. No schema normalization migration or production data change was performed.
+- Final gates after these slices: unit `38/38`, security `20/20`, public E2E `8/8`, authenticated split E2E `4/4`, authenticated repeat `20/20`, targeted About E2E `1/1`, 82-file privacy-scanned build, route bundle measurement, audit 0 vulnerabilities, and diff check pass.
+- Three-run Lighthouse medians preserve the public baseline within normal local variation: Home score 99, LCP 1.851 s, CLS 0, transfer 203,763 B; Login score 100, LCP 1.634 s, CLS/TBT 0, transfer 83,209 B. One Home run was a documented local CPU/TBT outlier; medians are reported.
+
+## Checkpoint 2026-07-27 — Phase 1 Started
+
+- Finding IDs in scope: `SEC-002`, `SEC-004`, `SEC-005`, `SEC-007`, `SEC-008`, `SEC-011`, `PERF-005`, `UX-001`, `PERF-007`, `OPS-004`, `ARCH-007`.
+- Protected baseline confirmed on branch `main`: Node `v26.4.0`, npm `11.17.0`, 97 tracked changes and 38 untracked path groups. No reset, clean, force checkout, deploy, production mutation, or production migration apply is authorized.
+- Required audit source was read from the handoff-recorded immutable evidence path because `KIS_LMS_COMPREHENSIVE_AUDIT.md` is not present at repository root.
+- Phase 1 regression gates are running before any implementation or database apply. Supabase CLI `2.107.0` is available; Docker and `psql` are not yet available.
+
+## Checkpoint 2026-07-27 — Phase 1 Complete / Phase 2 Started
+
+- Baseline gates passed unchanged: unit `30/30`, security `19/19`, public E2E `7/7`, build/privacy/bundle budget, `npm audit` with 0 vulnerabilities, and `git diff --check`.
+- Local tooling was provisioned without touching the linked Supabase project: Colima `0.10.3`, Docker CLI `29.6.2` (engine `29.5.2`), profile `kis-lms-ephemeral`, 4 CPU, 6 GiB RAM, 20 GiB disk.
+- The first isolated full-history replay stopped before containment at `005_cloudflare_missing_tables_patch.sql`: migration `001` creates `profiles.department_id`/UUID IDs, while migration `005` indexes `profiles.department` and assumes text IDs. No database remained running and `20260726090000_security_containment.sql` was not applied.
+- This is new runtime evidence for `SEC-011` and `ARCH-007`. Phase 2 continues with a documented Worker-compatible ephemeral baseline rather than silently ignoring the incompatible legacy chain.
+
+## Checkpoint 2026-07-27 — Phase 2 Complete / Phase 3 Started
+
+- A Worker-compatible ephemeral baseline was started from migrations `005` through `20260709024500` (the incompatible `001`-`004` chain and pending containment migration were excluded). PostgreSQL `17.6.1.136` is healthy.
+- Pre-migration catalog is stored at `docs/audit-remediation/evidence/db-before/catalog.json`; synthetic row counts/model inventory are at `docs/audit-remediation/evidence/db-before/seed-row-counts.json`.
+- Synthetic seed contains 5 profiles (employee A/B, trainer, HR, admin), 1 private course/version/content item, paired enrollments/progress/records/attachments/notifications/attendance/compliance/development data, and no production data. Three profiles carry legacy credential markers for backfill verification.
+- Migration preflight is documented at `docs/audit-remediation/evidence/MIGRATION_PREFLIGHT.md`. The containment migration is atomic/fail-fast and has not yet been applied.
+
+## Checkpoint 2026-07-27 — Security Runtime Complete / Regression Gate Passed
+
+- `20260726090000_security_containment.sql` was applied once only to the isolated Worker-compatible runtime at `/tmp/kis-lms-worker-supabase.tzteKG`; staging and production were not contacted.
+- At this historical checkpoint, catalog/runtime evidence verified `SEC-002`, `SEC-004`, and `SEC-008`; refresh/MFA, distributed rate-limit and full-history migration work was still pending and is superseded by the 2026-07-28 checkpoint above.
+- Final regression gates pass: unit `30/30`, security `20/20`, public E2E `7/7`, 68-file privacy-scanned build and bundle budget, `npm audit` with 0 vulnerabilities, and `git diff --check`.
+- The public E2E harness now starts its local SPA server automatically for local targets; remote public read-only targets do not start a local server, and mutation-production guards remain enforced.
+- Current worktree capture is 99 tracked status entries and 45 untracked path entries. This includes protected user changes plus remediation/evidence; no reset, clean, force checkout, history rewrite, deploy, or remote mutation occurred.
+
+Source of truth: `KIS_LMS_COMPREHENSIVE_AUDIT.md` dated 2026-07-26.
+
+## Baseline
+
+- Branch: `main`
+- Node/npm: `v26.4.0` / `11.17.0`
+- Package manager: npm (`package-lock.json`, lockfile v3)
+- Canonical deployed runtime indicated by repository config: Cloudflare Worker (`worker/index.js`, `wrangler.jsonc`); Vercel functions remain as legacy code.
+- Protected pre-existing changes at initial baseline: 8 tracked/submodule changes and 198 untracked files. Remediation does not overwrite `.DS_Store`, `.claude/worktrees/agent-a265abb8920927875`, `admin/.DS_Store`, `dist/lib/services/employeeService.js`, or pre-existing `test-results/**` artifacts.
+- Current checkpoint: 99 tracked status entries and 45 untracked path entries. This includes generated `dist/`/test evidence, remediation work, and the protected pre-existing changes above; no attempt has been made to normalize unrelated files.
+- Safe baseline syntax check: passed for repository JavaScript/MJS outside `dist`, `node_modules`, and `test-results`.
+- Safe temporary build: passed in `/tmp/kis-lms-baseline.hjkrPn`; output size 20 MB.
+- Dependency audit: 4 high, 0 critical vulnerabilities.
+- Existing automated unit/contract scripts: none in `package.json`.
+- E2E safety: baseline Playwright config points at production and is therefore not safe for mutation tests.
+
+## Finding Ledger
+
+| Finding ID | Mức độ | Trạng thái | File đã sửa | Test | Bằng chứng | Ghi chú |
+| ---------- | ------ | ---------- | ----------- | ---- | ---------- | ------- |
+| SEC-001 | Critical | VERIFIED | `worker/middleware/auth.js`, `worker/routes/admin-overview.js`, `tests/security/auth-middleware.test.mjs` | `npm run test:security` | 31-endpoint anonymous matrix 401; employee HR matrix 403; forged/invalid/expired/conflicting header tests pass | Production/staging header fallback is off; local compatibility requires explicit flag. Production deployment/session rotation remains an operational action. |
+| SEC-002 | Critical | VERIFIED | containment migration, private-store RPC bridge, catalog/policy/runtime scripts | Ephemeral catalog, SQL role tests, PostgREST matrix, Worker identity matrix | 66/66 public tables have RLS; anon/authenticated have zero public table/function privileges; sampled anon REST reads return 401; Employee A/B own-data checks are symmetric | Verified only in the isolated Worker-compatible runtime. Staging/production apply is not performed. |
+| SEC-003 | Critical | VERIFIED | `scripts/build-static.mjs`, `scripts/scan-static-artifact.mjs`, `src/features/public/home.js`, root and `dist/` private artifacts, `lib/runtimeFixtures.js` | `npm run test:unit`; `npm run build`; artifact scan | Build copies explicit assets/modules only; scanner rejects private paths, office files, credential markers and personal `*.@kisvn.vn` addresses except the approved public HR contact `thanh.ntc@kisvn.vn`; 95-file artifact scan passes | CDN purge/Git-history review are not performed. Protected nested `.claude/worktrees/agent-a265abb8920927875` still contains old copies and is excluded from build. |
+| SEC-004 | Critical | VERIFIED | `worker/services/credentials.js`, `worker/routes/auth.js`, `worker/services/crypto.js`, containment migration and service-role RPCs | PBKDF2 unit tests; migration/backfill; login/reset/change-password/legacy-fallback runtime | Three legacy markers backfilled then cleared; profile APIs expose no hash; password change and HR reset reject old passwords and accept new ones; legacy-only profile fails reset-closed | Verified in isolated runtime; staging/production account recovery drill remains operational. |
+| SEC-005 | High | VERIFIED_LOCALLY | `worker/routes/auth.js`, `worker/services/auth-sessions.js`, private auth migration/RPCs, `tests/security`, `scripts/test-migrations.mjs` | Rotation/reuse, concurrent PostgreSQL race, logout/all-device/session revoke, password/MFA reset and credential-version tests | HttpOnly/Secure-on-HTTPS/SameSite=Strict cookies, 15m access TTL, 8h/30d session policy, HMAC-only refresh hashes, family replay revoke and cleanup pass | Approved staging rehearsal and production rollout/session migration remain operational gates. |
+| SEC-006 | High | VERIFIED | `worker/services/responses.js`, `worker/router.js` | CORS negative/allowlist tests | Untrusted origin 403; approved origin echoed; identity headers excluded | Deployment origin inventory still needs final environment values. |
+| SEC-007 | High | VERIFIED_LOCALLY | `worker/services/rate-limit.js`, `worker/rate-limiter-do.js`, `worker/routes/auth.js`, `wrangler.jsonc`, `tests/security/rate-limit-hardening.test.mjs` | Shared DO adapter, cleanup alarm, normalization, spoofed-header, fail-closed binding and endpoint threshold tests | Login/refresh/MFA/reset/export/public abuse buckets return `429` with `Retry-After`; production missing binding fails closed and memory fallback is local/test only | Actual Cloudflare staging binding validation remains pending by design. |
+| SEC-008 | High | VERIFIED | `worker/routes/auth.js`, containment RPCs/private bootstrap store | Default-disabled test; constant-time source test; 8-way runtime concurrency | One bootstrap request succeeded, seven returned 410, later request stayed 410, exactly one profile/credential/audit record exists, and key is independent from service role | Verified in isolated runtime; production endpoint remains disabled and no production bootstrap ran. |
+| SEC-009 | High | VERIFIED | `worker/routes/employees.js`, `tests/unit/mass-assignment.test.mjs` | 3 negative payload tests | Owner/status/role/audit/unknown fields cannot be assigned through audited certificate route | Continue allowlist review as other feature modules are refactored. |
+| SEC-010 | High | VERIFIED | `worker/services/responses.js`, `worker/middleware/request-context.js`, `worker/index.js` | Automated header test; Worker dry-run bundle | HSTS, CSP, nosniff, referrer, permissions, frame and private noindex headers present | CSP violation monitoring is not deployed; `img-src https:` remains a compatibility concession. |
+| SEC-011 | High | VERIFIED_LOCALLY | canonical migrations, `scripts/test-migrations.mjs`, auth hardening migration and rehearsal package | Fresh, legacy upgrade and partial recoverable/conflict replay; RLS/grant/private RPC assertions; concurrent auth race | Full local replay is clean and auth schema is transaction-wrapped with private service-role-only tables/RPCs | Staging catalog parity, backup restore and approved rehearsal evidence remain pending. |
+| NEW-SEC-001 | High | VERIFIED | `package.json`, `package-lock.json`, `vendor/xlsx.full.min.js`, `tests/unit/xlsx-runtime.test.mjs` | `npm audit --audit-level=high`; XLSX round-trip unit tests; Worker dry-run; build | Vulnerable npm/vendor SheetJS `0.18.5` is replaced by the official pinned `0.20.3` tarball; audit reports 0 vulnerabilities; server/browser runtimes share the same version and formula-protected text round-trips | Tarball source and lockfile integrity are pinned; continue normal dependency provenance review during upgrades. |
+| PROD-001 | High | NOT_STARTED | — | — | Audit source evidence | Instructor/SME role foundation follows containment. |
+| PROD-002 | High | NOT_STARTED | — | — | Audit source evidence | Assignment foundation follows containment. |
+| PROD-003 | Medium | NOT_STARTED | — | — | Audit source evidence | — |
+| PROD-004 | High | NOT_STARTED | — | — | Audit inventory evidence | — |
+| PROD-005 | High | NOT_STARTED | — | — | Audit source evidence | — |
+| PROD-006 | Medium | NOT_STARTED | — | — | Audit schema evidence | — |
+| PROD-007 | High | NOT_STARTED | — | — | Audit source evidence | — |
+| PROD-008 | Medium | NOT_STARTED | — | — | Audit reporting evidence | — |
+| PROD-009 | Medium | NOT_STARTED | — | — | Audit source evidence | — |
+| PROD-010 | Low | NOT_STARTED | — | — | Audit scope evidence | Internal-only decision remains open. |
+| UX-001 | High | VERIFIED | `src/app/route-registry.js`, `worker/services/route-policy.js`, `src/shared/ui/route-shell.js`, legacy navigation integration, `tests/unit/route-registry.test.mjs`, authenticated E2E | Unit route inventory; role visibility; mobile drawer/Escape/focus E2E | Every implemented route is `nav`, `detail`, `hidden`, or `redirect`; no orphan route remains outside intentional lists; employee/admin navigation is role-separated | Server authorization remains independent and is covered by security tests. |
+| UX-002 | Medium | VERIFIED | `app.js`, `src/features/auth/login.js`, `src/features/auth/auth.css`, `tests/unit/login-contract.test.mjs`, `tests/unit/auth-route-split.test.mjs`, `e2e/public-readonly.spec.js` | 28 unit tests; Chrome 390 px runtime; 5 public E2E | No raw `cannotLogin`; VI/EN/KR copy, native form semantics and safe non-JSON error handling remain available after the auth route split | Full real API failed-login regression needs an ephemeral Worker; production credentials were not used. |
+| UX-003 | High | VERIFIED | `app.js`, `worker/index.js`, `scripts/spa-fallback-server.mjs`, `worker/services/route-policy.js` | Worker unit + public Playwright | Unknown route renders explicit recovery page with 404/noindex semantics | Production deployment verification remains. |
+| UX-004 | Medium | VERIFIED | `src/app/bootstrap.js`, `src/features/auth/login.js`, `lib/services/sessionService.js`, `worker/routes/auth.js`, `tests/unit/auth-route-split.test.mjs`, `e2e/public-readonly.spec.js` | 20 security tests; redirect unit contract; synthetic browser success/negative E2E | Private deep links use a read-only signed-session probe, fail closed to `/login?returnTo=...`, display the requested destination, reject external/protocol-relative redirects, and return a synthetic successful login to the allowed route | Real cookie-backed staging navigation remains part of `SEC-005` runtime verification, but the browser redirect contract is locally verified. |
+| UX-005 | Medium | VERIFIED | `src/features/auth/login.js`, `e2e/public-readonly.spec.js`, `tests/unit/auth-route-split.test.mjs` | Browser native-validation and intercepted non-JSON response E2E | Empty required form is browser-blocked; email/password semantics are native; HTML fallback becomes a localized alert with no console exception | Actual Worker login error regression remains part of the ephemeral auth environment, but the browser failure contract is runtime-verified. |
+| UX-006 | Low/Medium | VERIFIED | `src/features/public/about.js`, `src/features/public/about.css`, `e2e/about-kis-ui-polish.spec.js`, public E2E | Targeted local Chrome timeline/i18n/viewport E2E | Standalone About entry preserves year-tab controls, stable tabpanel labelling, click/Enter/Space, VI/EN/KR footer, reduced motion and no-overflow behavior | Broader authenticated legacy tab/modal audit remains incomplete. |
+| UX-007 | High | NOT_STARTED | — | — | Audit architecture evidence | — |
+| PERF-001 | Critical | VERIFIED | `index.html`, `src/app/bootstrap.js`, `src/app/style-loader.js`, `src/features/public/home.js`, `src/features/public/home.css` | Chrome DevTools trace; Lighthouse mobile/desktop | Local 390 px/Fast 4G trace: LCP 1.446 s; final Lighthouse mobile LCP 1.732 s and score 100 (before: 11.999 s / score 56); desktop LCP 0.468 s and score 100 | Lab evidence is local only; production redeploy and field data are still required. |
+| PERF-002 | High | VERIFIED | `index.html`, `src/features/public/home.js`, `src/features/public/home.css`, `app.js`, `styles.css` | Chrome DevTools trace; Lighthouse CLS audit | Local mobile trace CLS 0.00; Lighthouse mobile CLS 0.00 (before Lighthouse run: 0.00 but audit production baseline was 0.747); responsive hero/card dimensions and optional fonts remove the measured shift | Authenticated/legacy routes still need their own CLS sweep. |
+| PERF-003 | High | VERIFIED | `scripts/build-static.mjs`, `scripts/check-bundle-budget.mjs`, `src/features/public/home.css`, responsive image assets | Lighthouse network audit; bundle budget; artifact scan | Final public Home median transfer 221,649 B; image transfer 128,527 B; mobile LCP WebP remains full `941×1672` dimensions at 93,710 B; below-fold About-banner image is intersection-loaded; no public data/XLS artifacts | Full authenticated route payload and CDN compression/cache headers remain to be measured. |
+| PERF-004 | High | VERIFIED | `src/app/bootstrap.js`, `src/app/style-loader.js`, `src/features/public/home.js`, `src/features/public/home.css`, `scripts/check-bundle-budget.mjs`, `package.json` | Public route network trace; build budget; E2E | `/` transfers 14,475 B JS and 10,757 B CSS; `app.js`, XLSX, QR and admin services are absent; CI budget is JS <=250 KB/CSS <=100 KB | Learner/admin chunks still use the legacy monolith. |
+| PERF-005 | High | IN_PROGRESS | `src/app/bootstrap.js`, `src/app/style-loader.js`, public/auth/learner/admin/reporting feature entries, route CSS, bundle measurement | Unit boundaries; public/authenticated E2E; `measure:route-bundles` | About 26.6 KB JS; learner dashboard 132.9 KB; learner courses 129.4 KB; admin dashboard 133.5 KB; reports 143.0 KB. No split route initially loads `app.js`, global CSS, XLSX or QR | Course player, admin employee/course authoring, live training, quizzes, scanner and other legacy routes remain monolithic. |
+| PERF-006 | Medium | VERIFIED | `app.js`, `src/features/public/home.js`, `src/features/public/home.css`, `styles.css` | Lighthouse `unsized-images`; Chrome trace; unit contract | Home route has zero unsized-image audit items, explicit hero/card/logo dimensions, responsive mobile source and no overflow at 390 px | Remaining authenticated image templates need a route sweep. |
+| PERF-007 | High | IN_PROGRESS | `worker/routes/employees.js`, `scripts/run-ephemeral-load-tests.mjs`, load evidence | 100k profile SQL distributions and plans | Explicit fields, DB-side filters and bounded pages; first page p95 20.94 ms, department filter p95 5.28 ms | Search p95 298.83 ms uses seq scan; offset is not concurrent-insert stable; 100k export is ~21.17 MB. Keyset/index/export work remains. |
+| ARCH-001 | High | NOT_STARTED | — | — | Audit source inventory | — |
+| ARCH-002 | Medium | NOT_STARTED | — | — | Audit source inventory | — |
+| ARCH-003 | High | NOT_STARTED | — | — | Audit deployment inventory | — |
+| ARCH-004 | High | IN_PROGRESS | `scripts/build-static.mjs`, `lib/runtimeFixtures.js`, `src/app/bootstrap.js`, `src/features/public/home.js`, `src/features/auth/login.js` | Artifact scan; home/login network traces; unit route-split contracts | Home and initial login delivery contain no mock database code; test-only `lib/auth/mockAuth.*` stays excluded | Successful login still imports `mockDatabase.js` for legacy hydration and the authenticated shell remains localStorage-coupled. |
+| ARCH-005 | High | VERIFIED | `playwright.config.js`, `e2e/global-setup.mjs`, `scripts/assert-safe-e2e-target.mjs`, `e2e/public-readonly.spec.js` | 4 guard unit tests; 7 public Playwright tests | Mutation guard rejects production even with explicit mutation flag; auth responses are intercepted with synthetic payloads and public suite sends no backend mutation | Mutation suite still needs local/ephemeral Worker+DB before it can be run safely. |
+| ARCH-006 | Medium/High | NOT_STARTED | — | — | Audit source scan | — |
+| ARCH-007 | Medium | IN_PROGRESS | catalog evidence, `SCHEMA_NORMALIZATION_PLAN.md`, machine-readable ownership contract, unit contract | Full-history replay; runtime model inventory; schema contract tests | Canonical writers/readers and legacy-only duplicates are classified; role drift is explicit; destructive changes are prohibited | Reconciliation queries and staging traffic/catalog parity must pass before any dual-read or migration. |
+| ARCH-008 | High | NOT_STARTED | — | — | Audit ops inventory | — |
+| SEO-001 | High | VERIFIED | `worker/index.js`, `robots.txt`, `sitemap.xml` | Worker contract test; public Playwright | Correct text/XML contracts served; unused sitemap index/llms return 404 | Production edge verification remains after deployment. |
+| SEO-002 | High | NOT_STARTED | — | — | Audit DOM/source evidence | — |
+| SEO-003 | High | VERIFIED | `worker/index.js`, `scripts/spa-fallback-server.mjs`, `app.js`, `worker/services/route-policy.js` | Worker unit + public Playwright 404 | Unknown route returns 404/noindex and renders recovery UI | Production edge verification remains after deployment. |
+| SEO-004 | High | IMPLEMENTED_NOT_VERIFIED | `worker/services/responses.js`, `worker/index.js`, `app.js` | Header unit test | API/private route noindex header and SPA private metadata handling implemented | Full authenticated route sweep is blocked without local/staging auth runtime. |
+| SEO-005 | Medium | NOT_STARTED | — | — | Audit DOM/source evidence | — |
+| SEO-006 | Low/Medium | NOT_STARTED | — | — | Audit scope evidence | — |
+| GROW-001 | High | NOT_STARTED | — | — | Audit analytics scan | — |
+| GROW-002 | Medium | NOT_STARTED | — | — | Audit source evidence | — |
+| GROW-003 | High | NOT_STARTED | — | — | Audit architecture evidence | — |
+| GROW-004 | Medium | NOT_STARTED | — | — | Audit source evidence | — |
+| OPS-001 | Medium/High | NOT_STARTED | — | — | Audit source evidence | — |
+| OPS-002 | Medium | NOT_STARTED | — | — | Audit source evidence | — |
+| OPS-003 | High | IN_PROGRESS | `scripts/build-static.mjs`, `scripts/scan-static-artifact.mjs`, `scripts/check-bundle-budget.mjs`, `package.json` | Build, privacy scan and delivery budget pass | Build is deterministic, allowlisted, privacy-scanned and budget-gated | No full CI workflow file or preview deployment evidence yet. |
+| OPS-004 | Medium/High | IN_PROGRESS | `scripts/run-ephemeral-load-tests.mjs`, `LOAD_TEST_RESULTS.md`, JSON evidence | 8 concurrent large reports on isolated PostgreSQL | 0% error rate; p95 about 1.99 s; observed container memory 228.1 MiB | HTTP/Worker overhead, async job design, timeout/retry and larger concurrency remain. |
+| OPS-005 | Medium | NOT_STARTED | — | — | Audit docs/migration evidence | — |

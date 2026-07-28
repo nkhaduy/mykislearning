@@ -159,12 +159,16 @@ do $$ begin
   end if;
 end $$;
 
--- ── RLS (disabled, consistent with existing tables) ──────────
--- Auth is enforced at Worker level via requireAuth / requireHr.
-alter table public.learning_paths            disable row level security;
-alter table public.learning_path_steps       disable row level security;
-alter table public.learning_path_assignments disable row level security;
-alter table public.learning_path_step_progress disable row level security;
+-- ── RLS / Worker-only access ─────────────────────────────────
+-- The custom Worker JWT is not a Supabase Auth JWT. Keep browser roles
+-- revoked and route private data through the Worker/service layer.
+alter table public.learning_paths            enable row level security;
+alter table public.learning_path_steps       enable row level security;
+alter table public.learning_path_assignments enable row level security;
+alter table public.learning_path_step_progress enable row level security;
+revoke all on public.learning_paths, public.learning_path_steps,
+  public.learning_path_assignments, public.learning_path_step_progress
+  from anon, authenticated;
 
 -- ============================================================
 -- ROLLBACK NOTES (run manually if needed):

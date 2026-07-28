@@ -63,9 +63,10 @@ end $$;
 alter table public.user_activity enable row level security;
 alter table public.hr_tasks enable row level security;
 
-grant select, insert, update on public.user_activity to authenticated, service_role;
-grant select, insert, update, delete on public.hr_tasks to authenticated, service_role;
-grant usage, select on all sequences in schema public to authenticated, service_role;
+revoke all on public.user_activity, public.hr_tasks from anon, authenticated;
+grant select, insert, update on public.user_activity to service_role;
+grant select, insert, update, delete on public.hr_tasks to service_role;
+grant usage, select on all sequences in schema public to service_role;
 
 drop policy if exists "user_activity_own_insert" on public.user_activity;
 create policy "user_activity_own_insert"

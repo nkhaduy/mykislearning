@@ -2,11 +2,14 @@
  * Crypto helpers for password hashing (PBKDF2) and HMAC-signed session tokens.
  * Uses the Web Crypto API available in Cloudflare Workers.
  *
- * Password storage format: "pbkdf2$<saltHex>$<hashHex>"
- * Must-change prefix:      "reset:pbkdf2$<saltHex>$<hashHex>"
+ * Password storage format: "pbkdf2-sha256$<iterations>$<saltHex>$<hashHex>"
+ * Must-change prefix:      "reset:pbkdf2-sha256$<iterations>$<saltHex>$<hashHex>"
  * Session token format:    "<base64url(payload)>.<hexSig>"
  */
 
+const LEGACY_ITERATIONS = 100_000;
+// Cloudflare Workers currently rejects PBKDF2 requests above 100,000 rounds.
+// Keep the versioned format so a future runtime can raise the cost safely.
 const ITERATIONS = 100_000;
 const HASH = "SHA-256";
 const KEY_LEN_BITS = 256;
@@ -25,34 +28,51 @@ function fromB64(b64) {
   return atob(b64.replace(/-/g, "+").replace(/_/g, "/"));
 }
 
+function bytesToBase64Url(bytes) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
 /** Hash a plaintext password. Returns a storable string. */
 export async function hashPassword(password) {
   const enc = new TextEncoder();
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: ITERATIONS, hash: HASH }, key, KEY_LEN_BITS);
-  return `pbkdf2$${bufToHex(salt.buffer)}$${bufToHex(bits)}`;
+  return `pbkdf2-sha256$${ITERATIONS}$${bufToHex(salt.buffer)}$${bufToHex(bits)}`;
 }
 
 /** Verify plaintext password against a stored hash string. */
 export async function verifyPassword(password, stored) {
   if (!stored) return false;
   const canonical = stored.startsWith("reset:") ? stored.slice(6) : stored;
-  if (!canonical.startsWith("pbkdf2$")) return false;
-  const [, saltHex, expectedHex] = canonical.split("$");
+  const parts = canonical.split("$");
+  const legacy = parts[0] === "pbkdf2" && parts.length === 3;
+  const current = parts[0] === "pbkdf2-sha256" && parts.length === 4;
+  if (!legacy && !current) return false;
+  const iterations = legacy ? LEGACY_ITERATIONS : Number(parts[1]);
+  const saltHex = legacy ? parts[1] : parts[2];
+  const expectedHex = legacy ? parts[2] : parts[3];
+  if (!Number.isSafeInteger(iterations) || iterations < LEGACY_ITERATIONS || iterations > 1_000_000) return false;
   if (!saltHex || !expectedHex) return false;
   const enc = new TextEncoder();
   const salt = hexToBuf(saltHex);
   const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: ITERATIONS, hash: HASH }, key, KEY_LEN_BITS);
-  return bufToHex(bits) === expectedHex;
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations, hash: HASH }, key, KEY_LEN_BITS);
+  const actual = new Uint8Array(bits);
+  const expected = hexToBuf(expectedHex);
+  if (actual.length !== expected.length) return false;
+  let difference = 0;
+  for (let i = 0; i < actual.length; i += 1) difference |= actual[i] ^ expected[i];
+  return difference === 0;
 }
 
 /** True when the stored value is a PBKDF2 hash (normal or reset). */
 export function isHashFormat(value) {
   if (!value) return false;
   const canon = value.startsWith("reset:") ? value.slice(6) : value;
-  return canon.startsWith("pbkdf2$");
+  return canon.startsWith("pbkdf2$") || canon.startsWith("pbkdf2-sha256$");
 }
 
 /** True when the stored hash has the must-change prefix. */
@@ -80,9 +100,23 @@ async function getHmacKey(secret) {
   return crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: HASH }, false, ["sign", "verify"]);
 }
 
+export function randomOpaqueToken(byteLength = 32) {
+  if (!Number.isSafeInteger(byteLength) || byteLength < 16 || byteLength > 128) {
+    throw new TypeError("Invalid random token length");
+  }
+  return bytesToBase64Url(crypto.getRandomValues(new Uint8Array(byteLength)));
+}
+
+export async function hmacHash(value, secret) {
+  if (String(secret || "").length < 32) throw new Error("HMAC secret is not configured");
+  const key = await getHmacKey(secret);
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(String(value || "")));
+  return bytesToBase64Url(new Uint8Array(signature));
+}
+
 /**
  * Sign a payload object and return a compact token.
- * @param {{ sub: string, role: string, exp: number }} payload
+ * @param {Record<string, unknown> & { sub: string, role: string, exp: number, jti?: string, amr?: string[] }} payload
  */
 export async function signToken(payload, secret) {
   const enc = new TextEncoder();

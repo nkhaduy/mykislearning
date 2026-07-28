@@ -1,4 +1,4 @@
-import { json, corsPreflight } from "./services/responses.js";
+import { json, corsPreflight, isAllowedOrigin } from "./services/responses.js";
 import { handleConfig } from "./routes/config.js";
 import { handleAuth } from "./routes/auth.js";
 import { handleCourses } from "./routes/courses.js";
@@ -19,6 +19,7 @@ import { handleLearningPaths } from "./routes/learning-paths.js";
 import { handleCompliance } from "./routes/compliance.js";
 import { handleCertificates } from "./routes/certificates.js";
 import { handleReports } from "./routes/reports.js";
+import { handleReportExports } from "./routes/report-exports.js";
 import { handleAuditLogs } from "./routes/audit-logs.js";
 import { handleContentVersions } from "./routes/content-versions.js";
 import { handleCompetencies } from "./routes/competencies.js";
@@ -28,6 +29,7 @@ import { handleCchnCatalog, handleCchnRegistrations } from "./routes/cchn.js";
 import { handlePublicTraining } from "./routes/public-training.js";
 import { handlePublicStats } from "./routes/public-stats.js";
 import { withRequestContext, getRequestContext } from "./middleware/request-context.js";
+import { enforceApiRateLimit, validateRateLimitBinding } from "./services/rate-limit.js";
 
 export async function handleApiRequest(request, env) {
   return withRequestContext(request, env, async () => {
@@ -35,9 +37,13 @@ export async function handleApiRequest(request, env) {
     const path = url.pathname;
     const method = request.method.toUpperCase();
 
-    if (method === "OPTIONS") return corsPreflight();
+    if (!isAllowedOrigin(request, env)) return json({ ok: false, error: "CORS_ORIGIN_DENIED" }, 403);
+    if (method === "OPTIONS") return corsPreflight(request, env);
 
     try {
+    validateRateLimitBinding(env);
+    const rateLimitResponse = await enforceApiRateLimit(request, env, path);
+    if (rateLimitResponse) return rateLimitResponse;
     if (path === "/api/config") return await handleConfig(request, env);
 
     if (path === "/api/public/learning-hours") return await handlePublicStats(request, env);
@@ -132,6 +138,11 @@ export async function handleApiRequest(request, env) {
     ) return await handleLearningPaths(request, env);
 
     if (
+      path === "/api/admin/report-exports" ||
+      path.startsWith("/api/admin/report-exports/")
+    ) return await handleReportExports(request, env);
+
+    if (
       path === "/api/admin/reports" ||
       path.startsWith("/api/admin/reports/")
     ) return await handleReports(request, env);
@@ -183,7 +194,7 @@ export async function handleApiRequest(request, env) {
 
       return json({ ok: false, error: "NOT_FOUND" }, 404);
     } catch (error) {
-      console.error("[WORKER]", error);
+      if (![401, 403].includes(error?.status)) console.error("[WORKER]", error?.code || "INTERNAL_ERROR");
       const ctx = getRequestContext(request);
       return json({
         ok: false,

@@ -40,9 +40,10 @@ CREATE INDEX IF NOT EXISTS idx_training_sessions_status ON training_sessions (st
 CREATE INDEX IF NOT EXISTS idx_training_participants_account ON training_participants (account_id);
 CREATE INDEX IF NOT EXISTS idx_training_registrations_account ON training_registrations (account_id);
 
--- Disable RLS so service_role key can read/write freely.
--- These tables are accessed only through our Vercel API endpoints
--- which enforce their own accountId-based authorization.
-ALTER TABLE training_sessions DISABLE ROW LEVEL SECURITY;
-ALTER TABLE training_participants DISABLE ROW LEVEL SECURITY;
-ALTER TABLE training_registrations DISABLE ROW LEVEL SECURITY;
+-- Keep RLS enabled and revoke browser roles. These tables are accessed only
+-- through the canonical Worker API, which enforces account-level authorization.
+ALTER TABLE training_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE training_participants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE training_registrations ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON training_sessions, training_participants, training_registrations FROM anon, authenticated;

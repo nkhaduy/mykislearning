@@ -1,0 +1,318 @@
+{
+  "generatedAt": "2026-07-28T02:20:30.334Z",
+  "environment": {
+    "runtime": "isolated local Supabase",
+    "postgres": "17.6",
+    "container": "supabase_db_kis-lms-worker-supabase.tzteKG",
+    "productionMutation": false
+  },
+  "findingIds": [
+    "PERF-007",
+    "OPS-004"
+  ],
+  "dataset": {
+    "profiles": 100000,
+    "courses": 100,
+    "enrollments": 30000,
+    "learningRecords": 20000,
+    "notifications": 30000,
+    "auditLogs": 50000
+  },
+  "distributions": {
+    "employeeFirstPage": {
+      "iterations": 30,
+      "p50": 18.8085,
+      "p95": 23.18225,
+      "p99": 26.91704,
+      "max": 27.62
+    },
+    "employeeDeepPage": {
+      "iterations": 30,
+      "p50": 55.085,
+      "p95": 125.76475,
+      "p99": 344.97368,
+      "max": 433.02
+    },
+    "employeeSearch": {
+      "iterations": 30,
+      "p50": 248.1825,
+      "p95": 277.81225,
+      "p99": 300.56113,
+      "max": 308.479
+    },
+    "employeeFilter": {
+      "iterations": 30,
+      "p50": 4.7035,
+      "p95": 7.0688,
+      "p99": 11.29364,
+      "max": 12.623
+    },
+    "employeeRoleFilter": {
+      "iterations": 30,
+      "p50": 17.546,
+      "p95": 23.70955,
+      "p99": 33.41366,
+      "max": 36.936
+    },
+    "reportSmall": {
+      "iterations": 30,
+      "p50": 4.0205,
+      "p95": 18.77,
+      "p99": 30.43324,
+      "max": 34.245
+    },
+    "reportLarge": {
+      "iterations": 30,
+      "p50": 281.9845,
+      "p95": 468.58045,
+      "p99": 494.15558,
+      "max": 502.536
+    }
+  },
+  "plans": [
+    {
+      "name": "employeeFirstPage",
+      "planningMs": 1.541,
+      "executionMs": 30.246,
+      "nodes": [
+        {
+          "nodeType": "Limit",
+          "relation": null,
+          "index": null,
+          "actualRows": 50
+        },
+        {
+          "nodeType": "Gather Merge",
+          "relation": null,
+          "index": null,
+          "actualRows": 50
+        },
+        {
+          "nodeType": "Sort",
+          "relation": null,
+          "index": null,
+          "actualRows": 50
+        },
+        {
+          "nodeType": "Seq Scan",
+          "relation": "profiles",
+          "index": null,
+          "actualRows": 50000
+        }
+      ],
+      "sharedHitBlocks": 2816,
+      "sharedReadBlocks": 0
+    },
+    {
+      "name": "employeeDeepPage",
+      "planningMs": 0.965,
+      "executionMs": 127.002,
+      "nodes": [
+        {
+          "nodeType": "Limit",
+          "relation": null,
+          "index": null,
+          "actualRows": 50
+        },
+        {
+          "nodeType": "Sort",
+          "relation": null,
+          "index": null,
+          "actualRows": 100000
+        },
+        {
+          "nodeType": "Seq Scan",
+          "relation": "profiles",
+          "index": null,
+          "actualRows": 100000
+        }
+      ],
+      "sharedHitBlocks": 2781,
+      "sharedReadBlocks": 0
+    },
+    {
+      "name": "employeeSearch",
+      "planningMs": 0.687,
+      "executionMs": 307.133,
+      "nodes": [
+        {
+          "nodeType": "Limit",
+          "relation": null,
+          "index": null,
+          "actualRows": 1
+        },
+        {
+          "nodeType": "Sort",
+          "relation": null,
+          "index": null,
+          "actualRows": 1
+        },
+        {
+          "nodeType": "Seq Scan",
+          "relation": "profiles",
+          "index": null,
+          "actualRows": 1
+        }
+      ],
+      "sharedHitBlocks": 2781,
+      "sharedReadBlocks": 0
+    },
+    {
+      "name": "employeeFilter",
+      "planningMs": 0.677,
+      "executionMs": 10.105,
+      "nodes": [
+        {
+          "nodeType": "Limit",
+          "relation": null,
+          "index": null,
+          "actualRows": 50
+        },
+        {
+          "nodeType": "Sort",
+          "relation": null,
+          "index": null,
+          "actualRows": 50
+        },
+        {
+          "nodeType": "Bitmap Heap Scan",
+          "relation": "profiles",
+          "index": null,
+          "actualRows": 10000
+        },
+        {
+          "nodeType": "Bitmap Index Scan",
+          "relation": null,
+          "index": "profiles_department_idx",
+          "actualRows": 12500
+        }
+      ],
+      "sharedHitBlocks": 2792,
+      "sharedReadBlocks": 0
+    },
+    {
+      "name": "employeeRoleFilter",
+      "planningMs": 0.34,
+      "executionMs": 22.042,
+      "nodes": [
+        {
+          "nodeType": "Limit",
+          "relation": null,
+          "index": null,
+          "actualRows": 50
+        },
+        {
+          "nodeType": "Gather Merge",
+          "relation": null,
+          "index": null,
+          "actualRows": 50
+        },
+        {
+          "nodeType": "Sort",
+          "relation": null,
+          "index": null,
+          "actualRows": 50
+        },
+        {
+          "nodeType": "Seq Scan",
+          "relation": "profiles",
+          "index": null,
+          "actualRows": 50000
+        }
+      ],
+      "sharedHitBlocks": 2816,
+      "sharedReadBlocks": 0
+    },
+    {
+      "name": "reportSmall",
+      "planningMs": 0.448,
+      "executionMs": 7.883,
+      "nodes": [
+        {
+          "nodeType": "Aggregate",
+          "relation": null,
+          "index": null,
+          "actualRows": 1
+        },
+        {
+          "nodeType": "Bitmap Heap Scan",
+          "relation": "profiles",
+          "index": null,
+          "actualRows": 12500
+        },
+        {
+          "nodeType": "Bitmap Index Scan",
+          "relation": null,
+          "index": "profiles_department_idx",
+          "actualRows": 12500
+        }
+      ],
+      "sharedHitBlocks": 2789,
+      "sharedReadBlocks": 0
+    },
+    {
+      "name": "reportLarge",
+      "planningMs": 1.739,
+      "executionMs": 329.479,
+      "nodes": [
+        {
+          "nodeType": "Aggregate",
+          "relation": null,
+          "index": null,
+          "actualRows": 8
+        },
+        {
+          "nodeType": "Sort",
+          "relation": null,
+          "index": null,
+          "actualRows": 120000
+        },
+        {
+          "nodeType": "Hash Join",
+          "relation": null,
+          "index": null,
+          "actualRows": 120000
+        },
+        {
+          "nodeType": "Seq Scan",
+          "relation": "profiles",
+          "index": null,
+          "actualRows": 100000
+        },
+        {
+          "nodeType": "Hash",
+          "relation": null,
+          "index": null,
+          "actualRows": 30002
+        },
+        {
+          "nodeType": "Seq Scan",
+          "relation": "enrollments",
+          "index": null,
+          "actualRows": 30002
+        }
+      ],
+      "sharedHitBlocks": 3448,
+      "sharedReadBlocks": 0
+    }
+  ],
+  "concurrency": {
+    "concurrency": 8,
+    "wallMs": 6345.593041999997,
+    "p50": 4307.5173339999965,
+    "p95": 4310.735374999997,
+    "p99": 4310.735374999997,
+    "errorRate": 0,
+    "baselineMemoryMiB": 259.9,
+    "peakMemoryMiB": 331.5
+  },
+  "payloadBytes": {
+    "employeeFirstPage": 11338,
+    "employeeExport100k": 21173895
+  },
+  "limitations": [
+    "Worker/HTTP serialization is not included in SQL timing.",
+    "The current employee endpoint uses offset pagination; concurrent-insert stability remains unverified and keyset pagination is recommended.",
+    "Leading-wildcard search cannot use the current btree indexes."
+  ]
+}

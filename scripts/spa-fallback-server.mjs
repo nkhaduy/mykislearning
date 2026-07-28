@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isKnownAppRoute } from "../worker/services/route-policy.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const indexPath = path.join(root, "index.html");
@@ -46,7 +47,11 @@ createServer(async (req, res) => {
     return;
   }
 
-  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+  const status = isKnownAppRoute(new URL(req.url || "/", "http://localhost").pathname) ? 200 : 404;
+  res.writeHead(status, {
+    "Content-Type": "text/html; charset=utf-8",
+    ...(status === 404 ? { "X-Robots-Tag": "noindex, nofollow, noarchive" } : {}),
+  });
   res.end(await readFile(indexPath));
 }).listen(port, "127.0.0.1", () => {
   console.log(`SPA fallback server listening at http://127.0.0.1:${port}/`);

@@ -1,6 +1,6 @@
 import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
-import { requireAuth, requireHr } from "../middleware/auth.js";
+import { hasAdministrativeAccess, requireAuth, requireHr } from "../middleware/auth.js";
 
 export async function handleQuizzes(request, env) {
   const method = request.method.toUpperCase();
@@ -17,7 +17,7 @@ export async function handleQuizzes(request, env) {
     if (method === "GET") {
       const quizId = url.searchParams.get("quizId");
       const accountId = url.searchParams.get("accountId") || acct.accountId;
-      if (acct.role !== "hr" && accountId !== acct.accountId) return json({ error: "Forbidden" }, 403);
+      if (!hasAdministrativeAccess(acct) && accountId !== acct.accountId) return json({ error: "Forbidden" }, 403);
 
       let query = supabase.from("quiz_attempts")
         .select("id, quiz_id, quiz_version_id, account_id, course_id, score_percent, passed, submitted_at, data, created_at, updated_at, version:quiz_versions(version_number,status)")
@@ -51,7 +51,7 @@ export async function handleQuizzes(request, env) {
       };
 
       // Non-HR can only submit for themselves
-      if (acct.role !== "hr" && row.account_id !== acct.accountId) {
+      if (!hasAdministrativeAccess(acct) && row.account_id !== acct.accountId) {
         return json({ error: "Forbidden" }, 403);
       }
 
@@ -106,7 +106,7 @@ export async function handleQuizzes(request, env) {
     let query = supabase.from("quizzes")
       .select("id, course_id, status, data, created_by, created_at, updated_at");
 
-    if (acct.role !== "hr") {
+    if (!hasAdministrativeAccess(acct)) {
       query = query.eq("status", "published");
     }
     if (courseId) query = query.eq("course_id", courseId);

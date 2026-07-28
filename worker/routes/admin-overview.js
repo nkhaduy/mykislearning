@@ -1,6 +1,6 @@
 import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
-import { verifySession } from "./auth.js";
+import { requireHr } from "../middleware/auth.js";
 
 const ACTIVE_EMPLOYEE_STATUSES = ["active"];
 const OPEN_TASK_STATUSES = ["new", "in_progress"];
@@ -99,9 +99,8 @@ export async function handleAdminOverview(request, env) {
   const method = request.method.toUpperCase();
   if (method === "OPTIONS") return corsPreflight();
 
-  const acct = await verifySession(request, env);
+  const acct = await requireHr(request, env);
   if (!acct) return json({ error: "HR_ONLY" }, 403);
-  if (!["hr", "admin"].includes(acct.role)) return json({ error: "HR_ONLY" }, 403);
 
   const supabase = getSupabase(env);
   const url = new URL(request.url);

@@ -12,12 +12,10 @@ export async function handleAttendance(request, env) {
   if (path === "/api/attendance/check-in") {
     if (method !== "POST") return methodNotAllowed();
 
-    const token = request.headers.get("authorization")?.replace("Bearer ", "");
-    if (!token) return json({ error: "Unauthorized" }, 401);
+    const acct = await requireAuth(request, env);
+    if (!acct) return json({ error: "Unauthorized" }, 401);
 
     const supabase = getSupabase(env);
-    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-    if (authErr || !user) return json({ error: "Invalid session" }, 401);
 
     const body = await readJson(request);
     const { tokenHash, action, latitude, longitude, accuracyMeters } = body;
@@ -42,7 +40,7 @@ export async function handleAttendance(request, env) {
 
     // Accept participant from both table names (training_participants is the real table name)
     const { data: participant } = await supabase.from("training_participants")
-      .select("id").eq("session_id", slot.session_id).eq("account_id", user.id).single();
+      .select("id").eq("session_id", slot.session_id).eq("account_id", acct.accountId).single();
     if (!participant) return json({ error: "not_invited" }, 403);
 
     // Resolve geofence config: prefer dedicated columns, fallback to data JSON
@@ -92,7 +90,7 @@ export async function handleAttendance(request, env) {
     };
 
     const { error: upsertErr } = await supabase.from("attendance").upsert({
-      slot_id: slot.id, account_id: user.id,
+      slot_id: slot.id, account_id: acct.accountId,
       inside_geofence: insideGeofence, distance_meters: distanceMeters,
       status: "present", ...updateField,
     }, { onConflict: "slot_id,account_id" });

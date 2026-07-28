@@ -1,6 +1,6 @@
 import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
-import { requireAuth, requireHr } from "../middleware/auth.js";
+import { hasAdministrativeAccess, requireAuth, requireHr } from "../middleware/auth.js";
 import { createNotificationEvent } from "../services/notificationEngine.js";
 
 const WORKFLOW = ["draft", "submitted", "in_review", "needs_revision", "approved", "rejected", "archived"];
@@ -156,7 +156,7 @@ function learningPayload(body, accountId, role = "employee", approved = false) {
   return {
     account_id: accountId,
     record_type: clean(body.record_type) || "external_course",
-    source_type: role === "hr" ? "hr_entry" : "employee_submission",
+    source_type: hasAdministrativeAccess(role) ? "hr_entry" : "employee_submission",
     title: clean(body.title),
     category: clean(body.category) || null,
     provider: clean(body.provider) || null,
@@ -193,7 +193,7 @@ function certPayload(body, accountId, role = "employee", approved = false) {
     submitted_at: approved ? now() : (clean(body.verification_status) === "submitted" ? now() : null),
     approved_at: approved ? now() : null,
     created_by: accountId,
-    source_type: role === "hr" ? "hr_entry" : "employee_submission",
+    source_type: hasAdministrativeAccess(role) ? "hr_entry" : "employee_submission",
     notes: clean(body.note_to_hr || body.notes) || null,
     data: { noteToHr: clean(body.note_to_hr) },
   };

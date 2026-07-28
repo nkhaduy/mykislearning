@@ -167,11 +167,14 @@ end $$;
 
 -- Worker-only model: requests go through Cloudflare Worker with service-role key.
 -- Direct browser access to these tables is not used by the frontend bundle.
-alter table public.compliance_programs disable row level security;
-alter table public.compliance_target_rules disable row level security;
-alter table public.compliance_cycles disable row level security;
-alter table public.compliance_assignments disable row level security;
-alter table public.compliance_completion_records disable row level security;
+alter table public.compliance_programs enable row level security;
+alter table public.compliance_target_rules enable row level security;
+alter table public.compliance_cycles enable row level security;
+alter table public.compliance_assignments enable row level security;
+alter table public.compliance_completion_records enable row level security;
+revoke all on public.compliance_programs, public.compliance_target_rules,
+  public.compliance_cycles, public.compliance_assignments,
+  public.compliance_completion_records from anon, authenticated;
 
 -- ============================================================
 -- ROLLBACK NOTES (manual only; never run while production

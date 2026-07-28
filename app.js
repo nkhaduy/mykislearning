@@ -68,6 +68,7 @@ import {calendarService} from "./lib/services/calendarService.js";
 import {courseApiService} from "./lib/services/courseApiService.js";
 import {excelImportService} from "./lib/services/excelImportService.js";
 import {auditService} from "./lib/services/auditService.js";
+import { getNavigationGroups, matchRoute } from "./src/app/route-registry.js";
 
 const app = document.getElementById("app");
 const SHOW_DEMO_CREDENTIALS = false;
@@ -83,6 +84,7 @@ let selectedLoginRole = new URLSearchParams(location.search).get("role") || "emp
 let dialogState = null;
 let pendingNavigation = "";
 let bypassNavigationGuard = false;
+let canonicalSplitMountKey = "";
 let accountSearch = "";
 let accountFilters = { department: "", role: "", accountStatus: "", passwordStatus: "" };
 let selectedAccountId = "";
@@ -656,7 +658,7 @@ async function initQrCameraScanner() {
       _qrDB("play()", "ok");
     } catch (playErr) {
       _qrDB("play() err", playErr.name);
-      if (playErr.name === "NotAllowedError") throw new Error("PLAY_REJECTED");
+      if (playErr.name === "NotAllowedError") throw new Error("PLAY_REJECTED", { cause: playErr });
     }
 
     // First frame
@@ -1021,11 +1023,7 @@ const readLocalRows = (key) => { try { const value=JSON.parse(localStorage.getIt
 const writeLocalRows = (key, rows) => localStorage.setItem(key, JSON.stringify(rows));
 
 function apiHeaders(extra = {}) {
-  const headers = { ...extra };
-  if (session?.supabaseAccessToken) headers.Authorization = `Bearer ${session.supabaseAccessToken}`;
-  if (session?.accountId) headers["X-Account-Id"] = session.accountId;
-  if (session?.role) headers["X-Account-Role"] = session.role;
-  return headers;
+  return { ...extra };
 }
 
 function sortRosterRows(rows = []) {
@@ -1281,7 +1279,8 @@ function initCropEditor() {
         fd.append("positionY", String(liveTrainingState.speakerDraft?.positionY ?? liveTrainingState.detail?.speaker_photo_position_y ?? 50));
         const resp = await fetch(`/api/admin/live-training/${encodeURIComponent(flowId)}/speaker-photo`, {
           method: "POST",
-          headers: session ? { Authorization: `Bearer ${session.token}` } : {},
+          // Auth is carried by the same-origin HttpOnly session cookie.
+          headers: {},
           body: fd,
         });
         const rbody = await resp.json().catch(() => ({}));
@@ -1546,8 +1545,6 @@ async function loadLiveTrainingDetail(id) {
 
 initMockDatabase();
 
-const hrContact = "Nguyễn Thị Cẩm Thanh";
-
 const courses = [
   ["users", "Leadership Training Course", "Chương trình phát triển năng lực lãnh đạo, quản lý đội ngũ, ra quyết định và thúc đẩy hiệu suất làm việc.", 1, ["Khóa đào tạo Kỹ năng Lãnh đạo", "리더십 교육 과정", "Đã diễn ra"], "/images/leadership-training-course.png"],
   ["message", "Communication Training Course", "Chương trình thực hành kỹ năng giao tiếp, lắng nghe, phản hồi, phối hợp nội bộ và trao đổi với khách hàng.", 1, ["Khóa đào tạo Kỹ năng Giao tiếp", "커뮤니케이션 교육 과정", "Đã diễn ra"], "/images/communication-training-course.png"],
@@ -1617,6 +1614,9 @@ function uiText(key) {
     support: { vi: "Hỗ trợ", en: "Support", kr: "지원" },
     contactSupport: { vi: "Liên hệ hỗ trợ", en: "Contact Support", kr: "지원 문의" },
     contactPerson: { vi: "Liên hệ phụ trách", en: "Contact Person", kr: "담당자 연락처" },
+    supportName: { vi: "Nguyễn Thị Cẩm Thanh", en: "Nguyễn Thị Cẩm Thanh", kr: "Nguyễn Thị Cẩm Thanh" },
+    supportRole: { vi: "Phòng Nhân sự", en: "Human Resources Department", kr: "인사부" },
+    supportEmail: { vi: "thanh.ntc@kisvn.vn", en: "thanh.ntc@kisvn.vn", kr: "thanh.ntc@kisvn.vn" },
     employeeOnly: { vi: "Dành riêng cho nhân viên KIS Việt Nam", en: "Exclusively for KIS Vietnam employees", kr: "KIS 베트남 임직원 전용" },
     internalOnly: { vi: "Chỉ sử dụng nội bộ", en: "Internal Use Only", kr: "내부 전용" },
     cchnTitle: { vi: "Danh sách nhân viên sở hữu Chứng chỉ hành nghề", en: "Employees Holding Professional Certificates", kr: "전문 자격증 보유 임직원 명단" },
@@ -1632,11 +1632,11 @@ function uiText(key) {
     noRecentCourses: { vi: "Bạn chưa được giao khóa học nào.", en: "You have not been assigned any courses.", kr: "배정된 교육 과정이 없습니다." }, noRecentCoursesDesc: { vi: "Các khóa học được HR giao sẽ xuất hiện tại đây.", en: "Courses assigned by HR will appear here.", kr: "HR이 배정한 교육 과정이 여기에 표시됩니다." }, noNotifications: { vi: "Bạn chưa có thông báo mới.", en: "You have no new notifications.", kr: "새 알림이 없습니다." }, completedOn: { vi: "Hoàn thành ngày", en: "Completed on", kr: "완료일" }, completedText: { vi: "Đã hoàn thành", en: "Completed", kr: "완료" }, viewNotifications: { vi: "Xem tất cả thông báo", en: "View All Notifications", kr: "전체 알림 보기" },
     navComplianceShort: { vi: "Tuân thủ", en: "Compliance", kr: "준법" },
     retraining: { vi: "Tái đào tạo", en: "Retraining", kr: "재교육" },
-    logout: { vi: "Đăng xuất", en: "Sign out", kr: "로그아웃" }, logoutSuccess: { vi: "Đăng xuất thành công.", en: "Signed out successfully.", kr: "로그아웃되었습니다." }, rememberMe: { vi: "Ghi nhớ đăng nhập trên thiết bị này", en: "Remember me on this device", kr: "이 기기에서 로그인 유지" }, rememberMeNote: { vi: "Không nên bật trên máy dùng chung.", en: "Do not enable on shared devices.", kr: "공용 기기에서는 사용하지 마세요." }, loginHeading: { vi: "Đăng nhập", en: "Sign in", kr: "로그인" },
-    forgotPassword: { vi: "Quên mật khẩu", en: "Forgot password", kr: "비밀번호를 잊으셨나요?" }, forgotEmailRequired: { vi: "Vui lòng nhập email trước.", en: "Please enter your email first.", kr: "먼저 이메일을 입력해 주세요." }, forgotNeutral: { vi: "Nếu tài khoản hợp lệ, vui lòng liên hệ HR để được hỗ trợ đặt lại mật khẩu: thanh.ntc@kisvn.vn", en: "If the account is valid, please contact HR for password reset support: thanh.ntc@kisvn.vn", kr: "유효한 계정인 경우 비밀번호 재설정을 위해 HR에 문의해 주세요: thanh.ntc@kisvn.vn" },
+    logout: { vi: "Đăng xuất", en: "Sign out", kr: "로그아웃" }, logoutSuccess: { vi: "Đăng xuất thành công.", en: "Signed out successfully.", kr: "로그아웃되었습니다." }, rememberMe: { vi: "Ghi nhớ đăng nhập trên thiết bị này", en: "Remember me on this device", kr: "이 기기에서 로그인 유지" }, rememberMeNote: { vi: "Không nên bật trên máy dùng chung.", en: "Do not enable on shared devices.", kr: "공용 기기에서는 사용하지 마세요." }, cannotLogin: { vi: "Bạn không thể đăng nhập?", en: "Can't sign in?", kr: "로그인에 문제가 있나요?" }, loginHeading: { vi: "Đăng nhập", en: "Sign in", kr: "로그인" },
+    forgotPassword: { vi: "Quên mật khẩu", en: "Forgot password", kr: "비밀번호를 잊으셨나요?" }, forgotEmailRequired: { vi: "Vui lòng nhập email trước.", en: "Please enter your email first.", kr: "먼저 이메일을 입력해 주세요." }, forgotNeutral: { vi: "Nếu tài khoản hợp lệ, vui lòng liên hệ bộ phận Nhân sự qua kênh hỗ trợ nội bộ.", en: "If the account is valid, please contact HR through the internal support channel.", kr: "유효한 계정인 경우 내부 지원 채널을 통해 HR에 문의해 주세요." },
     demoEmployeeAccount: { vi: "Tài khoản nhân viên demo", en: "Demo Employee Account", kr: "직원 데모 계정" }, emailLabel: { vi: "Email", en: "Email", kr: "이메일" }, passwordLabel: { vi: "Mật khẩu", en: "Password", kr: "비밀번호" }, useAccount: { vi: "Dùng tài khoản này", en: "Use This Account", kr: "이 계정 사용" },
     greeting: { vi: "Xin chào, {name}", en: "Hello, {name}", kr: "{name}님, 안녕하세요" }, learningJourney: { vi: "Tiếp tục hành trình học tập của bạn hôm nay.", en: "Continue your learning journey today.", kr: "오늘도 학습 여정을 이어가세요." }, employeeFallback: { vi: "Nhân viên", en: "Employee", kr: "직원" },
-    totalTrainingHours: { vi: "Tổng giờ đào tạo", en: "Total training time", kr: "총 교육 시간" }, exploreCourses: { vi: "Khám phá khóa học", en: "Explore courses", kr: "교육 과정 보기" }, goToLearning: { vi: "Vào trang học tập", en: "Go to Learning", kr: "학습 공간으로" }, calendar: { vi: "Lịch học", en: "Calendar", kr: "학습 일정" }, qrAttendance: { vi: "Điểm danh QR", en: "QR attendance", kr: "QR 출석" },
+    totalTrainingHours: { vi: "Tổng giờ đào tạo", en: "Total training time", kr: "총 교육 시간" }, goToLearning: { vi: "Vào trang học tập", en: "Go to Learning", kr: "학습 공간으로" }, calendar: { vi: "Lịch học", en: "Calendar", kr: "학습 일정" }, qrAttendance: { vi: "Điểm danh QR", en: "QR attendance", kr: "QR 출석" },
     checkIn: { vi: "Check-in", en: "Check-in", kr: "체크인" }, checkOut: { vi: "Check-out", en: "Check-out", kr: "체크아웃" }, morning: { vi: "Buổi sáng", en: "Morning", kr: "오전" }, afternoon: { vi: "Buổi chiều", en: "Afternoon", kr: "오후" },
     manualAttendance: { vi: "Điểm danh thủ công", en: "Manual attendance", kr: "수동 출석" }, qrExpired: { vi: "QR đã hết hạn", en: "QR has expired", kr: "QR이 만료되었습니다" }, qrNotOpen: { vi: "QR chưa mở", en: "QR is not open yet", kr: "QR이 아직 열리지 않았습니다" },
     attendanceSuccess: { vi: "Điểm danh thành công", en: "Attendance recorded", kr: "출석이 기록되었습니다" }, alreadyScanned: { vi: "Bạn đã điểm danh rồi", en: "You already scanned this code", kr: "이미 출석 처리되었습니다" }, notInvited: { vi: "Bạn không thuộc danh sách tham dự", en: "You are not on the attendee list", kr: "참석 대상이 아닙니다" },
@@ -1837,7 +1837,7 @@ async function runBackfill() {
     const enrollments = localStorageAdapter.read("mykis.enrollments.v1", []);
     const res = await fetch("/api/admin/backfill", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Account-Id": session.accountId, "X-Account-Role": "hr" },
+      headers: apiHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ profiles, courses, sessions, participants, enrollments }),
     });
     const body = await res.json().catch(() => ({}));
@@ -1871,12 +1871,50 @@ function navigate(path) {
     return;
   }
   bypassNavigationGuard = false;
+
+  // Split routes own their shell and data lifecycle. A full document load
+  // prevents the legacy monolith from rendering a second UI at the same URL.
+  const targetUrl = new URL(path, location.origin);
+  const targetPath = targetUrl.pathname.replace(/\/+$/, "") || "/";
+  if (matchRoute(targetPath)?.splitEntry) {
+    location.assign(`${targetPath}${targetUrl.search}${targetUrl.hash}`);
+    return;
+  }
+
   history.pushState({}, "", path);
   route = location.pathname;
   session = sessionService.getValidSession();
   render();
   document.querySelector(".app-main .content")?.classList.add("route-enter");
   window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+}
+
+function mountCanonicalSplitRoute(path, activeSession) {
+  const entry = path === "/dashboard" ? "learner" : path === "/admin" ? "admin" : "";
+  if (!entry || !activeSession?.accountId) return false;
+  const mountKey = `${path}:${activeSession.accountId}:${activeSession.role}`;
+  if (canonicalSplitMountKey === mountKey) return true;
+  canonicalSplitMountKey = mountKey;
+
+  const modulePath = entry === "learner"
+    ? "./src/features/learner/dashboard.js"
+    : "./src/features/admin/dashboard.js";
+  import(modulePath).then(async (feature) => {
+    await feature.mount({
+      account: {
+        id: activeSession.accountId,
+        role: activeSession.role,
+        fullName: activeSession.fullName || "",
+        accountStatus: activeSession.accountStatus || "active",
+      },
+      expiresAt: activeSession.expiresAt || "",
+    });
+  }).catch((error) => {
+    canonicalSplitMountKey = "";
+    console.error("[route] canonical split mount failed", error);
+    app.innerHTML = `<main class="not-found-page"><section class="card not-found-card"><h1>Không thể tải giao diện</h1><p>Vui lòng tải lại trang.</p><button class="btn btn-primary" type="button" onclick="location.reload()">Tải lại</button></section></main>`;
+  });
+  return true;
 }
 
 function currentActivityPayload(activityTypeOverride = "") {
@@ -1939,7 +1977,7 @@ function ensureActivityHeartbeat() {
 function ensureHrOverviewPolling() {
   clearInterval(_hrOverviewPollId);
   _hrOverviewPollId = 0;
-  if (route !== "/admin" || session?.role !== "hr") return;
+  if (route !== "/admin" || !hasAdminAccess()) return;
   if (!_hrOverview || Date.now() - _hrOverviewLoadedAt > 30_000) fetchHrOverview({ silent: Boolean(_hrOverview) });
   _hrOverviewPollId = setInterval(() => fetchHrOverview({ silent: true }), 35_000);
   // Load employee list from API if not loaded yet
@@ -2051,7 +2089,7 @@ function navigateWithAuth(targetRoute, requiredRole = "employee") {
     navigate(requiredRole === "hr" ? "/login?role=hr" : "/login");
     return false;
   }
-  if (requiredRole === "hr" && activeSession.role !== "hr") {
+  if (requiredRole === "hr" && !["hr", "admin"].includes(activeSession.role)) {
     navigate("/dashboard");
     return false;
   }
@@ -2194,7 +2232,7 @@ function icon(name) {
 }
 
 function brand() {
-  return `<a class="brand" href="/" data-link><img class="brand-logo" src="/assets/kis-logo-horizontal.png" alt="KIS"><span>${t("brand")}</span></a>`;
+  return `<a class="brand" href="/" data-link><img class="brand-logo" src="/assets/kis-logo-horizontal.png" alt="KIS" width="700" height="92" decoding="async"><span>${t("brand")}</span></a>`;
 }
 
 function languageSwitcher() {
@@ -2205,8 +2243,8 @@ function header() {
   const activeSession = sessionService.getValidSession();
   const activeAccount = activeSession?.accountId ? getAccountById(activeSession.accountId) : null;
   const activeEmployee = activeAccount?.role === "employee" ? getEmployeeByAccountId(activeAccount.id) : null;
-  const destinationLabel = activeAccount?.role === "hr" ? "Vào trang quản trị" : "Vào trang học tập";
-  const destinationRoute = activeAccount?.role === "hr" ? "/admin" : "/dashboard";
+  const destinationLabel = ["hr", "admin"].includes(activeAccount?.role) ? "Vào trang quản trị" : "Vào trang học tập";
+  const destinationRoute = ["hr", "admin"].includes(activeAccount?.role) ? "/admin" : "/dashboard";
   const displayName = activeAccount?.fullName || activeAccount?.name || activeAccount?.email || "";
   return `
     <header class="header">
@@ -2216,7 +2254,6 @@ function header() {
           <span class="nav-ink" aria-hidden="true"></span>
           <a href="/" data-link ${route === "/" ? 'aria-current="page" class="is-active"' : ""}>${t("nav.home")}</a>
           <a href="/about-kis" data-link ${route === "/about-kis" ? 'aria-current="page" class="is-active"' : ""}>${t("nav.about")}</a>
-          <button class="nav-button" data-scroll="featured-courses">${t("nav.courses")}</button>
         </nav>
         <div class="header-actions">
           ${languageSwitcher()}
@@ -2247,16 +2284,15 @@ function footer() {
           <div class="footer-v2__links">
             <a href="/" data-link>${t("nav.home")}</a>
             <a href="/about-kis" data-link>${t("nav.about")}</a>
-            <a href="/#featured-courses" data-link>${t("nav.courses")}</a>
             <a href="/login" data-link>${loginLabel}</a>
           </div>
         </nav>
         <div class="public-footer-contact-col">
           <span class="footer-v2__col-heading">${uiText("contactSupport")}</span>
           <div class="public-footer-contact-text">
-            <span class="public-footer-contact-name">${hrContact}</span>
-            <span class="public-footer-contact-role"><span>Assistant Manager</span><span>Human Resources Dept</span></span>
-            <a class="public-footer-contact-email" href="mailto:thanh.ntc@kisvn.vn">thanh.ntc@kisvn.vn</a>
+            <span class="public-footer-contact-name">${uiText("supportName")}</span>
+            <span class="public-footer-contact-role">${uiText("supportRole")}</span>
+            <a class="public-footer-contact-email" href="mailto:${uiText("supportEmail")}">${uiText("supportEmail")}</a>
           </div>
         </div>
       </div>
@@ -2313,26 +2349,21 @@ function formatLearningHours(hours) {
 }
 
 function landingPage() {
-  const featuredCourses = getCourses().filter((course) => course.status === "published").slice(0, 2);
-  const destinationRoute = session ? (session.role === "hr" ? "/admin" : "/dashboard") : "/login";
-  const destinationLabel = session ? (session.role === "hr" ? "Vào trang quản trị" : "Vào trang học tập") : t("landing.cta");
-  const courseDestination = session ? (hasAdminAccess() ? "/admin/courses" : "/dashboard/courses") : "/login";
+  const destinationRoute = session ? (hasAdminAccess() ? "/admin" : "/dashboard") : "/login";
+  const destinationLabel = session ? (hasAdminAccess() ? "Vào trang quản trị" : "Vào trang học tập") : t("landing.cta");
 
-  // Live counts are used only for courses and people. Marketing hours are a
-  // stable public signal and never fetch or reveal individual learning data.
-  const allCourses = getCourses().filter(c => c.status === "published");
-  const allEmployees = getEmployees();
+  // Public marketing metrics stay independent from course and employee data.
   const totalLearningHours = marketingLearningHoursAt();
 
   const statsHtml = `
     <div class="home-stats" data-countup-section>
       <div class="container home-stats__inner">
         <div class="home-stat-item">
-          <span class="home-stat-item__value gradient-text" data-countup="${allEmployees.length}" data-countup-suffix="+">${allEmployees.length}+</span>
+          <span class="home-stat-item__value gradient-text" data-countup="0" data-countup-suffix="+">0+</span>
           <span class="home-stat-item__label">${overviewText("learnersCount")}</span>
         </div>
         <div class="home-stat-item">
-          <span class="home-stat-item__value gradient-text" data-countup="${allCourses.length}">${allCourses.length}</span>
+          <span class="home-stat-item__value gradient-text" data-countup="4">4</span>
           <span class="home-stat-item__label">${overviewText("openCoursesCount")}</span>
         </div>
         <div class="home-stat-item">
@@ -2342,24 +2373,6 @@ function landingPage() {
       </div>
     </div>
   `;
-
-  const coursesHtml = featuredCourses.map(course => {
-    const img = course.imageUrl
-      ? `<div class="course-card-v2__thumb"><img src="${escapeHtmlAttribute(course.imageUrl)}" alt="${escapeHtmlAttribute(course.title)}" loading="lazy"></div>`
-      : `<div class="course-card-v2__thumb"><div class="course-card-v2__thumb-icon">${icon("book")}</div></div>`;
-    return `<article class="course-card-v2">
-      ${img}
-      <div class="course-card-v2__body">
-        <span class="course-card-v2__category">${escapeHtml(course.category || "")}</span>
-        <h3 class="course-card-v2__title">${escapeHtml(course.title)}</h3>
-        <p class="course-card-v2__desc">${escapeHtml(course.description || "")}</p>
-        <div class="course-card-v2__footer">
-          <span class="course-card-v2__meta">${Number(course.durationHours) || 0}h</span>
-          <a class="course-card-v2__cta" href="${courseDestination}" data-link>${language === "kr" ? "보기" : language === "en" ? "View course" : "Xem khóa học"}<span aria-hidden="true">→</span></a>
-        </div>
-      </div>
-    </article>`;
-  }).join("") || `<div class="card empty-state"><span aria-hidden="true">${icon("book")}</span><h3>${language === "en" ? "Courses are being prepared" : language === "kr" ? "과정을 준비하고 있습니다" : "Khóa học đang được cập nhật"}</h3><p>${language === "en" ? "Please return soon to explore available learning." : language === "kr" ? "공개된 과정을 곧 확인하실 수 있습니다." : "Vui lòng quay lại sau để khám phá các khóa học đang mở."}</p></div>`;
 
   return `
     <div class="page landing-page">
@@ -2373,7 +2386,6 @@ function landingPage() {
             <p class="hero-subtitle--kis">${t("landing.subtitle")}</p>
             <div class="hero-actions hero-actions--kis">
               <a class="btn btn-primary btn--hero" href="${destinationRoute}" data-link>${destinationLabel}</a>
-              <button class="btn btn-outline btn--hero-secondary" data-scroll="featured-courses">${language === "kr" ? "과정 둘러보기" : language === "en" ? "Explore courses" : "Khám phá khóa học"}</button>
             </div>
           </div>
         </div>
@@ -2381,24 +2393,10 @@ function landingPage() {
 
       ${statsHtml}
 
-      <section class="section--featured-v2" id="featured-courses">
-        <div class="container">
-          <div class="section-head" data-reveal>
-            <div>
-              <h2 class="section-title">${language === "kr" ? "주요 교육 과정" : language === "en" ? "Featured Courses" : "Khóa học nổi bật"}</h2>
-              <p class="section-lead">${language === "kr" ? "KIS Vietnam 직원을 위해 엄선된 핵심 과정." : language === "en" ? "Carefully curated courses for KIS Vietnam employees." : "Các khóa học được chọn lọc dành riêng cho nhân viên KIS Việt Nam."}</p>
-            </div>
-          </div>
-          <div class="course-grid-v2" data-stagger>${coursesHtml}</div>
-          <div style="text-align:center;margin-top:36px">
-            <a class="btn btn-primary" href="${courseDestination}" data-link>${language === "kr" ? "모든 과정 보기" : language === "en" ? "View all courses" : "Xem tất cả khóa học"}</a>
-          </div>
-        </div>
-      </section>
-
       <section class="section--kis-banner">
         <div class="container">
           <a class="kis-about-banner-v2" href="/about-kis" data-link data-reveal="scale">
+            <img class="kis-about-banner-v2__image" src="/public/images/hoiso.webp" alt="" width="2560" height="1642" loading="lazy" decoding="async">
             <div class="kis-about-banner-v2__text">
               <span class="kis-about-banner-v2__eyebrow">${language === "kr" ? "회사 소개" : language === "en" ? "About KIS" : "Về KIS Việt Nam"}</span>
               <h2 class="kis-about-banner-v2__title">${language === "kr" ? "KIS Vietnam의 여정을 탐색하세요" : language === "en" ? "Discover the KIS Vietnam journey" : "Khám phá hành trình và giá trị của KIS Việt Nam"}</h2>
@@ -2441,7 +2439,7 @@ function overviewText(key) {
 }
 
 function realCourseCard(course) {
-  const image = course.imageUrl ? `<img class="course-card-image" src="${escapeHtmlAttribute(course.imageUrl)}" alt="${escapeHtmlAttribute(course.title)}" loading="lazy">` : icon("book");
+  const image = course.imageUrl ? `<img class="course-card-image" src="${escapeHtmlAttribute(course.imageUrl)}" alt="${escapeHtmlAttribute(course.title)}" width="640" height="401" loading="lazy" decoding="async">` : icon("book");
   return `<article class="card info-card course-category" data-auth-target="/dashboard/courses" data-auth-role="employee" tabindex="0" role="button" aria-label="${escapeHtmlAttribute(course.title)}">${image}<div class="course-card-body"><h3>${escapeHtml(course.title)}</h3><p>${escapeHtml(course.description || "")}</p><span class="card-meta">${Number(course.durationHours) || 0}h</span><span class="btn btn-outline mini-action">Xem khóa học</span></div></article>`;
 }
 
@@ -2449,8 +2447,10 @@ function heroMockup() {
   return `
     <div class="hero-banner-wrap">
       <picture>
-        <source media="(max-width:767px)" srcset="/public/images/mykis-learning-banner-mobile.png">
-        <img class="hero-banner-img" src="/public/images/mykis-learning-banner-desktop.png" alt="MyKIS Learning" loading="eager">
+        <source media="(max-width:767px)" srcset="/public/images/mykis-learning-banner-mobile.webp" type="image/webp" width="941" height="1672">
+        <source media="(max-width:767px)" srcset="/public/images/mykis-learning-banner-mobile.png" width="941" height="1672">
+        <source srcset="/public/images/mykis-learning-banner-desktop.webp" type="image/webp" width="1672" height="941">
+        <img class="hero-banner-img" src="/public/images/mykis-learning-banner-desktop.png" alt="MyKIS Learning" width="1672" height="941" loading="eager" fetchpriority="high" decoding="sync">
       </picture>
     </div>
   `;
@@ -2458,7 +2458,7 @@ function heroMockup() {
 
 function courseCard(c) {
   const image = c[5];
-  return `<article class="card info-card course-category ${c[1].includes("Chứng chỉ") ? "featured-course" : ""}">${image ? `<img class="course-card-image" src="${image}" alt="${c[1]}">` : icon(c[0])}<h3>${c[1]}</h3><p>${c[2]}</p><span class="card-meta">${c[3]} ${t("nav.courses").toLowerCase()}</span></article>`;
+  return `<article class="card info-card course-category ${c[1].includes("Chứng chỉ") ? "featured-course" : ""}">${image ? `<img class="course-card-image" src="${image}" alt="${c[1]}" width="640" height="401" loading="lazy" decoding="async">` : icon(c[0])}<h3>${c[1]}</h3><p>${c[2]}</p><span class="card-meta">${c[3]} ${t("nav.courses").toLowerCase()}</span></article>`;
 }
 
 function upcomingCoursesSection() {
@@ -2684,7 +2684,7 @@ function globalNetworkSectionV2() {
           ${cards.map(c => `<article class="network-card-v2"><h3 class="network-card-v2__title">${escapeHtml(c.title)}</h3><p class="network-card-v2__meta">${escapeHtml(c.meta)}</p></article>`).join("")}
         </div>
         <div class="network-reference-map">
-          <img src="/assets/about/global-network.png" alt="${language === "kr" ? "KIS 글로벌 네트워크 지도" : language === "en" ? "KIS Global Network Map" : "Mạng lưới KIS toàn cầu"}">
+          <img src="/assets/about/global-network.png" alt="${language === "kr" ? "KIS 글로벌 네트워크 지도" : language === "en" ? "KIS Global Network Map" : "Mạng lưới KIS toàn cầu"}" width="3840" height="2160" loading="lazy" decoding="async">
         </div>
       </div>
     </section>
@@ -2731,7 +2731,7 @@ function globalNetworkSection() {
     ["Korea Investment Partners (KIP)", "1 công ty con", "2 văn phòng đại diện"],
     ["KIARA Advisors", "Global advisory network", ""],
   ];
-  return `<section class="section alt global-network-section"><div class="container"><div class="section-head"><div><h2 class="section-title">${t("about.network")}</h2><p class="section-lead">KIS kết nối năng lực tài chính, đầu tư và quản trị quốc tế nhằm hỗ trợ sự phát triển bền vững tại thị trường Việt Nam.</p></div></div><div class="network-summary-grid">${cards.map(([title, left, right]) => `<article class="card network-summary-card"><h3>${title}</h3><p>${right ? `${left} <span>|</span> ${right}` : left}</p></article>`).join("")}</div><div class="network-reference-map"><img src="/assets/about/global-network.png" alt="Mạng lưới KIS toàn cầu với bản đồ dotted map và các văn phòng quốc tế"></div></div></section>`;
+  return `<section class="section alt global-network-section"><div class="container"><div class="section-head"><div><h2 class="section-title">${t("about.network")}</h2><p class="section-lead">KIS kết nối năng lực tài chính, đầu tư và quản trị quốc tế nhằm hỗ trợ sự phát triển bền vững tại thị trường Việt Nam.</p></div></div><div class="network-summary-grid">${cards.map(([title, left, right]) => `<article class="card network-summary-card"><h3>${title}</h3><p>${right ? `${left} <span>|</span> ${right}` : left}</p></article>`).join("")}</div><div class="network-reference-map"><img src="/assets/about/global-network.png" alt="Mạng lưới KIS toàn cầu với bản đồ dotted map và các văn phòng quốc tế" width="3840" height="2160" loading="lazy" decoding="async"></div></div></section>`;
 }
 
 function leadershipSection() {
@@ -2785,7 +2785,7 @@ function renderTimelineContent(year) {
     <div class="timeline-carousel__image"${year === "2020" ? ' data-year="2020"' : ""}>
       <img src="${item.image}" alt="KIS Vietnam ${year}" loading="lazy" decoding="async">
     </div>
-    <div class="timeline-carousel__info" role="tabpanel" aria-labelledby="timeline-year-${year}" tabindex="0">
+    <div class="timeline-carousel__info">
       <h3 class="timeline-carousel__year-big">${year}</h3>
       <ul class="timeline-carousel__events">
         ${item.events.map((ev, i) => `<li style="--i:${i}">${ev}</li>`).join("")}
@@ -2816,13 +2816,13 @@ function kisTimelineSection() {
         <div class="timeline-carousel__years-line" aria-hidden="true"></div>
         <div class="timeline-carousel__years-progress" aria-hidden="true"></div>
         ${years.map(y => `
-          <button id="timeline-year-${y}" class="timeline-carousel__year${y === year ? " is-active" : ""}" role="tab" aria-selected="${y === year}" tabindex="${y === year ? "0" : "-1"}"${y === year ? ' aria-current="true"' : ""} data-timeline-year="${y}">
+          <button id="timeline-year-${y}" class="timeline-carousel__year${y === year ? " is-active" : ""}" role="tab" aria-controls="timeline-panel" aria-selected="${y === year}" tabindex="${y === year ? "0" : "-1"}"${y === year ? ' aria-current="true"' : ""} data-timeline-year="${y}">
             <span class="timeline-carousel__year-label">${y}</span>
             <span class="timeline-carousel__year-dot"></span>
           </button>
         `).join("")}
       </div>
-      <div class="timeline-carousel__content" aria-live="polite">
+      <div id="timeline-panel" class="timeline-carousel__content" role="tabpanel" tabindex="0" aria-labelledby="timeline-year-${year}" aria-live="polite">
         ${renderTimelineContent(year)}
       </div>
     </div>
@@ -3172,11 +3172,11 @@ function loginPage() {
         </div>
       </section>
       <section class="auth-visual">
-        <form class="card login-card" id="loginForm" novalidate autocomplete="on">
+        <form class="card login-card" id="loginForm" method="post" action="/api/auth/login" autocomplete="on">
           <div class="login-card-head">
             <div class="login-brand-group">
               <a href="/" data-link class="login-logo-link" aria-label="Quay về trang chủ">
-                <img src="/assets/kis-logo-horizontal.png" alt="KIS Vietnam" class="login-brand-logo">
+                <img src="/assets/kis-logo-horizontal.png" alt="KIS Vietnam" class="login-brand-logo" width="700" height="92" decoding="async">
               </a>
               <div class="login-language-switcher">${languageSwitcher()}</div>
             </div>
@@ -3195,6 +3195,7 @@ function loginPage() {
               placeholder="${t("login.emailPlaceholder") || "Nhập email công ty"}"
               aria-describedby="loginEmailError"
               aria-required="true"
+              required
               value="${escapeHtmlAttribute(_loginEmailRetain)}"
             >
             <span class="field-error" id="loginEmailError" data-login-email-error aria-live="polite"></span>
@@ -3209,12 +3210,15 @@ function loginPage() {
                 autocomplete="current-password"
                 placeholder="${t("login.passwordPlaceholder") || "Nhập mật khẩu"}"
                 aria-required="true"
+                aria-describedby="loginPasswordError"
+                required
               >
               <button type="button" class="password-toggle" data-toggle-password aria-label="Hiện mật khẩu" aria-pressed="false">
                 <svg class="eye-icon eye-icon--show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 <svg class="eye-icon eye-icon--hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
               </button>
             </div>
+            <span class="field-error" id="loginPasswordError" data-login-password-error aria-live="polite"></span>
           </div>
           <div class="login-options">
             <label class="remember-me-row">
@@ -3409,7 +3413,7 @@ function lessonRequirement(item,state,attempts){if(isContentComplete(item,getCon
 function lt(key){return (d().learning||{})[key]||key;}
 
 async function loadApiEmployees({ silent = false } = {}) {
-  if (!session || session.role !== "hr" || _apiEmployeesLoading) return;
+  if (!hasAdminAccess() || _apiEmployeesLoading) return;
   _apiEmployeesLoading = true;
   if (!silent) _apiEmployeesError = "";
   try {
@@ -3429,7 +3433,7 @@ async function loadApiEmployees({ silent = false } = {}) {
 }
 
 async function deleteEmployee(employeeId) {
-  if (!session || session.role !== "hr") return { ok: false, error: "forbidden" };
+  if (!hasAdminAccess()) return { ok: false, error: "forbidden" };
   const res = await fetch(`/api/employees/${employeeId}`, {
     method: "DELETE",
     headers: apiHeaders(),
@@ -3440,7 +3444,7 @@ async function deleteEmployee(employeeId) {
 }
 
 async function fetchHrOverview({ silent = false } = {}) {
-  if (!session || session.role !== "hr" || _hrOverviewLoading) return;
+  if (!hasAdminAccess() || _hrOverviewLoading) return;
   _hrOverviewLoading = true;
   if (!silent) _hrOverviewError = "";
   try {
@@ -4294,7 +4298,7 @@ function loginSupportModal() {
       <div class="card modal support-modal">
         <div class="modal-head"><h2>${escapeHtml(typeInfo.label || "Gửi yêu cầu hỗ trợ")}</h2><button class="icon-btn" data-close-support>×</button></div>
         <form id="supportRequestForm" class="support-form">
-          <div class="field"><label>Email hoặc tên đăng nhập *</label><input name="identifier" type="email" placeholder="ten.nv@kisvn.vn" value="${escapeHtmlAttribute(_supportFormIdentifier)}" autocomplete="email" required></div>
+          <div class="field"><label>Email hoặc tên đăng nhập *</label><input name="identifier" type="email" placeholder="name@company.example" value="${escapeHtmlAttribute(_supportFormIdentifier)}" autocomplete="email" required></div>
           <div class="field"><label>Họ và tên</label><input name="fullName" type="text" placeholder="Nguyễn Văn A" value="${escapeHtmlAttribute(_supportFormName)}"></div>
           <div class="field"><label>Mã nhân viên (nếu có)</label><input name="employeeCode" type="text" placeholder="KIS-042" value="${escapeHtmlAttribute(_supportFormCode)}"></div>
           <div class="field"><label>Mô tả thêm</label><textarea name="message" rows="3" placeholder="Mô tả vấn đề bạn gặp phải...">${escapeHtml(_supportFormMessage)}</textarea></div>
@@ -4697,21 +4701,9 @@ function focusableElements(root) {
 }
 
 function sideNav(role) {
-  const groups = role === "hr"
-    ? [
-        [shellLabel("navOverview"), [["/admin", t("admin.overview")]]],
-        [shellLabel("navTraining"), [["/admin/courses", t("course.manage")], ["/admin/assign", t("enrollment.assign")], ["/admin/quizzes", t("quiz.quizzes")], ["/admin/learning-paths", t("lp.title")], ["/admin/live-training", shellLabel("liveTrainingJourney")], ["/admin/sessions", shellLabel("offlineClassManagement")], ["/admin/training-tracking", shellLabel("trainingTracking")], ["/admin/cchn-registrations", shellLabel("cchnRegistration")]]],
-        [shellLabel("navPersonnel"), [["/admin/employees", t("admin.employees")], ["/admin/accounts", t("admin.accountTitle")]]],
-        [shellLabel("navComplianceShort"), [["/admin/certificates", t("certificates.certificate")]]],
-        [shellLabel("navReportsSystem"), [["/admin/reports", t("reports.title")], ["/admin/notifications", shellLabel("notifications")], ["/admin/audit-log", t("admin.auditLog")]]],
-      ]
-    : [
-        [shellLabel("navOverview"), [["/dashboard", uiText("overview")]]],
-        [shellLabel("navLearning"), [["/dashboard/courses", uiText("myCourses")], ["/dashboard/quizzes", t("quiz.title")], ["/dashboard/learning-paths", t("lp.myTitle")]]],
-        [shellLabel("navCompliance"), [["/dashboard/compliance", t("compliance.title")], ["/dashboard/certificates", t("certificates.certificate")]]],
-        [shellLabel("navPersonal"), [["/dashboard/skills", c9("mySkills")], ["/dashboard/development-plan", c9("myDevelopmentPlan")]]],
-        [shellLabel("navSystem"), [["/dashboard/notifications", shellLabel("notifications")]]],
-      ];
+  const navigationRole = ["hr", "admin"].includes(role) ? "hr" : "employee";
+  const groups = getNavigationGroups(navigationRole, language)
+    .map((group) => [group.label, group.items.map((item) => [item.path, item.labelText])]);
   const items = groups.flatMap(x => x[1]);
   const activeHref = items.reduce((best, [href]) => {
     const isActive = route === href || (href !== "/" && route.startsWith(`${href}/`));
@@ -4949,7 +4941,7 @@ async function loadCertsForEmployee(accountId) {
   if (certInitialLoad) render();
   try {
     const res = await fetch(`/api/employees/${encodeURIComponent(accountId)}/certifications`, {
-      headers: {"X-Account-Id": session?.accountId||"", "X-Account-Role":"hr"}
+      headers: apiHeaders()
     });
     const body = await res.json().catch(()=>({}));
     _certList = body.certifications || [];
@@ -5389,7 +5381,7 @@ async function renderPdfThumbs(file) {
       window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
     }
     const buf = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
     if (slideDraft) { slideDraft.pageCount = pdf.numPages; slideDraft.thumbs = []; }
     const maxThumbs = Math.min(pdf.numPages, 12);
     for (let i = 1; i <= maxThumbs; i++) {
@@ -5866,9 +5858,9 @@ function employeeGalleryPage(){
   if(!hasEmployeeAccess())return restrictedPage(); const ctx=getCurrentEmployeeContext(); const courseIds=new Set(employeeEnrollments().map(e=>e.courseId));
   const rows=readLocalRows(GALLERY_KEY).filter(a=>a.status==="published"&&(a.visibility==="all_employees"||(a.courseId&&courseIds.has(a.courseId))||(a.visibility==="departments"&&(a.departmentNames||[]).includes(ctx.employee?.department))));
   const filtered=rows.filter(a=>(!gallerySearch||`${a.title} ${a.description}`.toLowerCase().includes(gallerySearch.toLowerCase()))&&(!galleryYear||String(a.eventDate||"").startsWith(galleryYear)));
-  return `<div class="app-layout">${sideNav("employee")}<main class="app-main">${topbar("Thư viện","Ảnh","employee")}<div class="content"><section class="library-head"><div><h1>Thư viện ảnh</h1><p>Album được HR chia sẻ theo khóa học và phòng ban của bạn.</p></div><div class="filter-bar"><input type="search" data-gallery-search value="${escapeHtmlAttribute(gallerySearch)}" placeholder="Tìm album"><select data-gallery-year><option value="">Tất cả năm</option>${[...new Set(rows.map(x=>String(x.eventDate||"").slice(0,4)).filter(Boolean))].map(y=>`<option ${galleryYear===y?"selected":""}>${y}</option>`).join("")}</select></div></section>${filtered.length?`<div class="gallery-grid">${filtered.map(a=>`<article class="card album-card"><img src="${escapeHtmlAttribute(a.coverUrl||"/images/communication-training-course.png")}" alt="${escapeHtmlAttribute(a.coverAlt||a.title)}" loading="lazy"><div><time>${escapeHtml(a.eventDate||"")}</time><h2>${escapeHtml(a.title)}</h2><p>${escapeHtml(a.description||"")}</p><span>${Number(a.imageCount||a.images?.length||1)} ảnh${a.courseId?` · ${escapeHtml(getCourseById(a.courseId)?.title||"")}`:""}</span></div></article>`).join("")}</div>`:`<div class="empty-state"><h2>Chưa có album phù hợp</h2><p>Album được xuất bản và cấp quyền sẽ xuất hiện tại đây.</p></div>`}</div></main></div>`;
+  return `<div class="app-layout">${sideNav("employee")}<main class="app-main">${topbar("Thư viện","Ảnh","employee")}<div class="content"><section class="library-head"><div><h1>Thư viện ảnh</h1><p>Album được HR chia sẻ theo khóa học và phòng ban của bạn.</p></div><div class="filter-bar"><input type="search" data-gallery-search value="${escapeHtmlAttribute(gallerySearch)}" placeholder="Tìm album"><select data-gallery-year><option value="">Tất cả năm</option>${[...new Set(rows.map(x=>String(x.eventDate||"").slice(0,4)).filter(Boolean))].map(y=>`<option ${galleryYear===y?"selected":""}>${y}</option>`).join("")}</select></div></section>${filtered.length?`<div class="gallery-grid">${filtered.map(a=>`<article class="card album-card"><img src="${escapeHtmlAttribute(a.coverUrl||"/images/communication-training-course.png")}" alt="${escapeHtmlAttribute(a.coverAlt||a.title)}" width="1586" height="992" loading="lazy" decoding="async"><div><time>${escapeHtml(a.eventDate||"")}</time><h2>${escapeHtml(a.title)}</h2><p>${escapeHtml(a.description||"")}</p><span>${Number(a.imageCount||a.images?.length||1)} ảnh${a.courseId?` · ${escapeHtml(getCourseById(a.courseId)?.title||"")}`:""}</span></div></article>`).join("")}</div>`:`<div class="empty-state"><h2>Chưa có album phù hợp</h2><p>Album được xuất bản và cấp quyền sẽ xuất hiện tại đây.</p></div>`}</div></main></div>`;
 }
-function adminGalleryPage(){if(!hasAdminAccess())return restrictedPage();const rows=readLocalRows(GALLERY_KEY);return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D","Quản lý ảnh","hr")}<div class="content"><section class="card panel"><div class="panel-head"><div><h1>Album đào tạo</h1><p>Chỉ album Published mới hiển thị cho nhân viên đúng quyền.</p></div></div><form id="galleryForm" class="form-2col"><div class="field"><label>Tên album</label><input name="title" required></div><div class="field"><label>Ngày sự kiện</label><input name="eventDate" type="date" required></div><div class="field"><label>Quyền xem</label><select name="visibility"><option value="all_employees">Tất cả nhân viên</option><option value="course_assignees">Người được giao khóa học</option><option value="departments">Theo phòng ban</option></select></div><div class="field"><label>Khóa học liên quan</label><select name="courseId"><option value="">Không liên kết</option>${getCourses().map(c=>`<option value="${c.id}">${escapeHtml(c.title)}</option>`).join("")}</select></div><div class="field"><label>URL ảnh bìa</label><input name="coverUrl" type="url" placeholder="https://..."></div><div class="field"><label>Mô tả / alt text</label><input name="description"></div><button class="btn btn-primary" type="submit">Tạo và xuất bản album</button></form></section><section class="gallery-grid">${rows.map(a=>`<article class="card album-card"><img src="${escapeHtmlAttribute(a.coverUrl||"/images/leadership-training-course.png")}" alt="${escapeHtmlAttribute(a.title)}"><div><span class="badge ${a.status}">${a.status}</span><h2>${escapeHtml(a.title)}</h2><p>${escapeHtml(a.visibility)}</p><button class="btn btn-outline" data-gallery-toggle="${a.id}">${a.status==="published"?"Archive":"Publish"}</button></div></article>`).join("")||`<div class="empty-state">Chưa có album.</div>`}</section></div></main></div>`;}
+function adminGalleryPage(){if(!hasAdminAccess())return restrictedPage();const rows=readLocalRows(GALLERY_KEY);return `<div class="app-layout">${sideNav("hr")}<main class="app-main">${topbar("HR / L&D","Quản lý ảnh","hr")}<div class="content"><section class="card panel"><div class="panel-head"><div><h1>Album đào tạo</h1><p>Chỉ album Published mới hiển thị cho nhân viên đúng quyền.</p></div></div><form id="galleryForm" class="form-2col"><div class="field"><label>Tên album</label><input name="title" required></div><div class="field"><label>Ngày sự kiện</label><input name="eventDate" type="date" required></div><div class="field"><label>Quyền xem</label><select name="visibility"><option value="all_employees">Tất cả nhân viên</option><option value="course_assignees">Người được giao khóa học</option><option value="departments">Theo phòng ban</option></select></div><div class="field"><label>Khóa học liên quan</label><select name="courseId"><option value="">Không liên kết</option>${getCourses().map(c=>`<option value="${c.id}">${escapeHtml(c.title)}</option>`).join("")}</select></div><div class="field"><label>URL ảnh bìa</label><input name="coverUrl" type="url" placeholder="https://..."></div><div class="field"><label>Mô tả / alt text</label><input name="description"></div><button class="btn btn-primary" type="submit">Tạo và xuất bản album</button></form></section><section class="gallery-grid">${rows.map(a=>`<article class="card album-card"><img src="${escapeHtmlAttribute(a.coverUrl||"/images/leadership-training-course.png")}" alt="${escapeHtmlAttribute(a.title)}" width="1586" height="992"><div><span class="badge ${a.status}">${a.status}</span><h2>${escapeHtml(a.title)}</h2><p>${escapeHtml(a.visibility)}</p><button class="btn btn-outline" data-gallery-toggle="${a.id}">${a.status==="published"?"Archive":"Publish"}</button></div></article>`).join("")||`<div class="empty-state">Chưa có album.</div>`}</section></div></main></div>`;}
 function galleryContext(){const {account,employee}=getCurrentEmployeeContext();return {account,employee,enrollments:employeeEnrollments()};}
 function galleryPageV2(albumId=""){if(!hasEmployeeAccess())return restrictedPage();if(albumId)return albumDetailPage(albumId);const rows=galleryService.visibleFor(galleryContext()).filter(a=>(!gallerySearch||`${a.title} ${a.description}`.toLowerCase().includes(gallerySearch.toLowerCase()))&&(!galleryYear||String(a.eventDate).startsWith(galleryYear)));return `<div class="app-layout">${sideNav("employee")}<main class="app-main">${topbar("Thư viện","Album đào tạo","employee")}<div class="content route-content"><section class="library-head"><div><h1>Thư viện album đào tạo</h1><p>Xem lại các hoạt động đào tạo được chia sẻ với bạn.</p></div><div class="filter-bar"><input data-gallery-search type="search" value="${escapeHtmlAttribute(gallerySearch)}" placeholder="Tìm album"><select data-gallery-year><option value="">Tất cả năm</option>${[...new Set(rows.map(a=>a.eventDate?.slice(0,4)).filter(Boolean))].map(y=>`<option ${galleryYear===y?"selected":""}>${y}</option>`).join("")}</select></div></section><div class="gallery-grid">${rows.map(albumCard).join("")||`<div class="empty-state"><h2>Chưa có album phù hợp</h2><p>Album được xuất bản đúng quyền sẽ xuất hiện tại đây.</p></div>`}</div></div></main></div>`;}
 function albumCard(a){const images=a.mediaItems.filter(x=>x.type==="image").length,videos=a.mediaItems.length-images,cover=a.mediaItems.find(x=>x.id===a.coverMediaId)||a.mediaItems[0];const coverHtml=cover?.type==="youtube"?`<img src="https://i.ytimg.com/vi/${cover.youtubeVideoId}/hqdefault.jpg" alt="${escapeHtmlAttribute(a.title)}" loading="lazy">`:cover?.blobId?`<div class="album-blob-cover" data-media-blob="${cover.blobId}" data-media-kind="${cover.type}"><span>MyKIS Learning</span></div>`:`<div class="album-fallback">MyKIS Learning</div>`;return `<article class="card album-card">${coverHtml}<div><time>${escapeHtml(a.eventDate||"")}</time><h2>${escapeHtml(a.title)}</h2><p>${images} ảnh · ${videos} video</p><span>${escapeHtml(getCourseById(a.courseId)?.title||"")}</span><a class="btn btn-primary" href="/dashboard/gallery/${a.id}" data-link>Xem album</a></div></article>`;}
@@ -6270,10 +6262,7 @@ let _ttRequestSeq = 0;
 const TT = (k) => t("trainingTracking." + k);
 
 function ttApiHeaders() {
-  const h = { "Content-Type": "application/json" };
-  if (session?.accountId) h["X-Account-Id"] = session.accountId;
-  if (session?.role) h["X-Account-Role"] = session.role;
-  return h;
+  return apiHeaders({ "Content-Type": "application/json" });
 }
 
 async function loadTrainingTracking({ renderMode = "full" } = {}) {
@@ -6299,11 +6288,12 @@ async function loadTrainingTracking({ renderMode = "full" } = {}) {
     if (requestSeq !== _ttRequestSeq) return;
     _ttState.error = e.message || "Không thể tải dữ liệu.";
   } finally {
-    if (requestSeq !== _ttRequestSeq) return;
-    _ttState.loading = false;
-    if (route === "/admin/training-tracking") {
-      if (renderMode === "section") renderTrainingTrackingResults();
-      else render();
+    if (requestSeq === _ttRequestSeq) {
+      _ttState.loading = false;
+      if (route === "/admin/training-tracking") {
+        if (renderMode === "section") renderTrainingTrackingResults();
+        else render();
+      }
     }
   }
 }
@@ -6456,11 +6446,12 @@ async function loadCchnRegistrations({ renderMode = "full" } = {}) {
     if (requestSeq !== _cchnRequestSeq) return;
     _cchnState.error = e.message || "Không thể tải dữ liệu.";
   } finally {
-    if (requestSeq !== _cchnRequestSeq) return;
-    _cchnState.loading = false;
-    if (route === "/admin/cchn-registrations") {
-      if (renderMode === "section") renderCchnRegistrationResults();
-      else render();
+    if (requestSeq === _cchnRequestSeq) {
+      _cchnState.loading = false;
+      if (route === "/admin/cchn-registrations") {
+        if (renderMode === "section") renderCchnRegistrationResults();
+        else render();
+      }
     }
   }
 }
@@ -6961,6 +6952,58 @@ function publicTrainingPage(accessToken) {
   return `<div class="public-outer"><div class="pub-bg" aria-hidden="true"></div><div class="pub-ov" aria-hidden="true"></div>${header}<main class="pub-main" ${bs === "checkingParticipant" ? 'aria-busy="true"' : ""}>${content}</main></div>`;
 }
 
+const PUBLIC_ROUTE_METADATA = {
+  "/": {
+    title: "MyKIS Learning | Trung tâm học tập nội bộ KIS",
+    description: "MyKIS Learning là trung tâm đào tạo, tuân thủ và phát triển năng lực dành cho nhân viên KIS.",
+  },
+  "/about-kis": {
+    title: "Về KIS | MyKIS Learning",
+    description: "Tìm hiểu về KIS Việt Nam, hành trình phát triển và định hướng đào tạo nhân sự.",
+  },
+};
+
+function upsertMeta(selector, attributes) {
+  let element = document.head.querySelector(selector);
+  if (!element) {
+    element = document.createElement(attributes.tag || "meta");
+    document.head.appendChild(element);
+  }
+  for (const [key, value] of Object.entries(attributes)) if (key !== "tag") element.setAttribute(key, value);
+  return element;
+}
+
+function applyRouteMetadata(path) {
+  const metadata = PUBLIC_ROUTE_METADATA[path];
+  const privateRoute = /^(\/dashboard|\/admin|\/login(?:\/|$)|\/change-password|\/attendance|\/join)(?:\/|$)/.test(path);
+  const unknown = !metadata && !privateRoute && path !== "/training";
+  const title = metadata?.title || (unknown ? "Không tìm thấy trang | MyKIS Learning" : "MyKIS Learning");
+  const description = metadata?.description || "Khu vực học tập nội bộ dành cho nhân viên KIS.";
+  document.title = title;
+  upsertMeta('meta[name="description"]', { name: "description", content: description });
+  upsertMeta('meta[name="robots"]', { name: "robots", content: privateRoute || unknown ? "noindex, nofollow" : "index, follow" });
+  const canonical = upsertMeta('link[rel="canonical"]', { tag: "link", rel: "canonical", href: `${location.origin}${metadata ? path : "/"}` });
+  canonical.href = `${location.origin}${metadata ? path : "/"}`;
+  upsertMeta('meta[property="og:title"]', { property: "og:title", content: title });
+  upsertMeta('meta[property="og:description"]', { property: "og:description", content: description });
+  upsertMeta('meta[property="og:url"]', { property: "og:url", content: canonical.href });
+  upsertMeta('meta[name="twitter:title"]', { name: "twitter:title", content: title });
+  upsertMeta('meta[name="twitter:description"]', { name: "twitter:description", content: description });
+  const schema = document.getElementById("route-schema");
+  if (schema) {
+    schema.textContent = JSON.stringify(path === "/about-kis"
+      ? { "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [
+        { "@type": "ListItem", position: 1, name: "MyKIS Learning", item: `${location.origin}/` },
+        { "@type": "ListItem", position: 2, name: "Về KIS", item: `${location.origin}/about-kis` },
+      ] }
+      : { "@context": "https://schema.org", "@type": "Organization", name: "KIS Vietnam", url: `${location.origin}/` });
+  }
+}
+
+function notFoundPage() {
+  return `<main class="not-found-page"><section class="card not-found-card"><p class="not-found-code">404</p><h1>Không tìm thấy trang</h1><p>Đường dẫn không tồn tại hoặc đã được thay đổi.</p><div class="learning-actions"><a class="btn btn-primary" href="/">Về trang chủ</a><a class="btn btn-outline" href="/login">Đăng nhập</a><a class="btn btn-outline" href="/about-kis">Tìm hỗ trợ</a></div></section></main>`;
+}
+
 function render() {
   const _af = document.activeElement;
   const _afId = _af?.id || "";
@@ -6969,17 +7012,7 @@ function render() {
 
   route = location.pathname.replace(/\/$/, "") || "/";
   document.body.dataset.route = route;
-  let robotsMeta = document.querySelector('meta[name="robots"]');
-  if (route.startsWith("/join/")) {
-    if (!robotsMeta) {
-      robotsMeta = document.createElement("meta");
-      robotsMeta.name = "robots";
-      document.head.appendChild(robotsMeta);
-    }
-    robotsMeta.content = "noindex, nofollow";
-  } else if (robotsMeta?.content === "noindex, nofollow") {
-    robotsMeta.remove();
-  }
+  applyRouteMetadata(route);
   if (!route.startsWith("/join/") && route !== "/training") {
     clearTimeout(publicTrainingState.pollTimer);
     clearTimeout(publicTrainingState.orientationCountdownTimer);
@@ -6988,6 +7021,12 @@ function render() {
     publicTrainingState.countdownStep = null;
   }
   session = sessionService.getValidSession();
+  if (session
+    && ((route === "/dashboard" && session.role === "employee")
+      || (route === "/admin" && ["hr", "admin"].includes(session.role)))
+    && mountCanonicalSplitRoute(route, session)) {
+    return;
+  }
   const routeParams = new URLSearchParams(location.search);
   selectedLoginRole = routeParams.get("role") || selectedLoginRole;
   const returnTo = routeParams.get("returnTo") || "";
@@ -7000,7 +7039,7 @@ function render() {
   if (route.startsWith("/admin") && !session) {
     sessionService.setPostLoginRedirect(currentPathWithQuery());
   }
-  if (route === "/change-password" && (!session || !session.supabaseAccessToken)) {
+  if (route === "/change-password" && !session) {
     sessionService.setPostLoginRedirect("/change-password");
     sessionService.endSession();
     route = "/login";
@@ -7221,7 +7260,7 @@ function render() {
     app.innerHTML = adminSessionsPage();
   }
   else if (route === "/change-password") app.innerHTML = changePasswordPage();
-  else app.innerHTML = landingPage();
+  else app.innerHTML = notFoundPage();
   app.insertAdjacentHTML("beforeend", sharedDialog());
   bindEvents();
   enhanceCourseImageForm();
@@ -7245,34 +7284,6 @@ function render() {
     if (!el) return;
     el.focus({ preventScroll: true });
     if (_afSel[0] != null && el.setSelectionRange) try { el.setSelectionRange(_afSel[0], _afSel[1]); } catch {}
-  });
-  // Sliding language indicator — position after layout paint
-  requestAnimationFrame(() => {
-    document.querySelectorAll(".language-switch").forEach(sw => {
-      const active = sw.querySelector("button.active");
-      const ink = sw.querySelector(".lang-ink");
-      if (!active || !ink) return;
-      const swRect = sw.getBoundingClientRect();
-      const btnRect = active.getBoundingClientRect();
-      sw.dataset.activeLang = active.dataset.language || "";
-      sw.style.setProperty("--lang-x", `${btnRect.left - swRect.left}px`);
-      sw.style.setProperty("--lang-w", `${btnRect.width}px`);
-    });
-    // Sliding nav indicator
-    const nav = document.querySelector("header.header .nav");
-    if (nav) {
-      const ink = nav.querySelector(".nav-ink");
-      const activeLink = nav.querySelector("a.is-active, a[aria-current='page']");
-      if (ink && activeLink) {
-        const navRect = nav.getBoundingClientRect();
-        const linkRect = activeLink.getBoundingClientRect();
-        nav.style.setProperty("--nav-x", `${linkRect.left - navRect.left}px`);
-        nav.style.setProperty("--nav-w", `${linkRect.width}px`);
-        nav.style.setProperty("--nav-ink-opacity", "1");
-      } else if (ink) {
-        nav.style.setProperty("--nav-ink-opacity", "0");
-      }
-    }
   });
   // Landing entrance animation — trigger once per navigation to "/"
   if (route === "/" && !dialogState) {
@@ -7403,7 +7414,6 @@ function initScrollReveal() {
     }, { threshold: 0.5 });
     heroCountObs.observe(heroStats);
   }
-  if (typeof setupPageSpecificHandlers === "function") setupPageSpecificHandlers();
 }
 
 async function enhanceCourseImageForm(){const form=document.getElementById("courseForm");if(!form||form.querySelector(".course-image-upload"))return;const course=courseFormMode==="edit"?getCourseById(selectedCourseId):null;const body=form.querySelector(".modal__body");if(!body)return;const section=document.createElement("section");section.className="course-image-upload";section.innerHTML=`<img data-course-image-preview alt="${escapeHtmlAttribute(course?.imageAlt||course?.title||"")}"><div><label class="btn btn-outline" for="courseCoverInput">Cover image</label><input id="courseCoverInput" name="coverImage" type="file" accept="image/jpeg,image/png,image/webp" hidden><input name="coverImageId" type="hidden" value="${escapeHtmlAttribute(course?.coverImageId||"")}"><div class="field"><label>Alt text</label><input name="imageAlt" value="${escapeHtmlAttribute(course?.imageAlt||course?.title||"")}"></div><small>JPG, PNG, WebP · max 5 MB · 1200×675 recommended</small></div>`;body.prepend(section);if(course?.coverImageId){try{const blob=await getCourseImage(course.coverImageId);if(blob){const image=section.querySelector("img"),url=URL.createObjectURL(blob);image.src=url;image.dataset.objectUrl=url;}}catch{}}
@@ -7511,6 +7521,7 @@ function initTimelineCarousel() {
     const idx = years.indexOf(year);
     const yearNav = section.querySelector(".timeline-carousel__years");
     if (yearNav) yearNav.style.setProperty("--active-index", idx);
+    section.querySelector("#timeline-panel")?.setAttribute("aria-labelledby", `timeline-year-${year}`);
     prevBtn?.toggleAttribute("disabled", idx === 0);
     nextBtn?.toggleAttribute("disabled", idx === years.length - 1);
   };
@@ -7886,7 +7897,7 @@ function bindEvents() {
       if (window.XLSX) return Promise.resolve(window.XLSX);
       return new Promise((resolve, reject) => {
         const s = document.createElement("script");
-        s.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+        s.src = "/vendor/xlsx.full.min.js";
         s.onload = () => resolve(window.XLSX);
         s.onerror = () => reject(new Error("Failed to load xlsx library"));
         document.head.appendChild(s);
@@ -8348,7 +8359,7 @@ function bindEvents() {
     }
   });
   // Delete session handler — soft delete (cancelled) if has participants, hard delete if not
-  document.querySelectorAll("[data-delete-session]").forEach(el=>el.addEventListener("click",()=>{const sessionId=el.dataset.deleteSession;const s=offlineTrainingService.getSession(sessionId)||(_sessions||[]).find(x=>x.id===sessionId);openDialog({type:"confirm",title:"Xóa lớp đào tạo",body:`Bạn có chắc muốn xóa lớp đào tạo này?\nDanh sách người tham gia và điểm danh liên quan sẽ được xử lý theo chính sách hệ thống.`,onConfirm:async()=>{try{const res=await fetch("/api/training/sessions?id="+encodeURIComponent(sessionId),{method:"DELETE",headers:{"Content-Type":"application/json","X-Account-Id":session.accountId,"X-Account-Role":"hr"}});const body=await res.json().catch(()=>({}));if(!body.ok)throw new Error(body.error||"delete_failed");// Update localStorage
+  document.querySelectorAll("[data-delete-session]").forEach(el=>el.addEventListener("click",()=>{const sessionId=el.dataset.deleteSession;const s=offlineTrainingService.getSession(sessionId)||(_sessions||[]).find(x=>x.id===sessionId);openDialog({type:"confirm",title:"Xóa lớp đào tạo",body:`Bạn có chắc muốn xóa lớp đào tạo này?\nDanh sách người tham gia và điểm danh liên quan sẽ được xử lý theo chính sách hệ thống.`,onConfirm:async()=>{try{const res=await fetch("/api/training/sessions?id="+encodeURIComponent(sessionId),{method:"DELETE",headers:apiHeaders({"Content-Type":"application/json"})});const body=await res.json().catch(()=>({}));if(!body.ok)throw new Error(body.error||"delete_failed");// Update localStorage
 const {localStorageAdapter:lsa}=await import("./lib/storage/localStorageAdapter.js");const rows=lsa.read("mykis.offlineSessions.v1",[]);if(body.method==="soft"){const idx=rows.findIndex(x=>x.id===sessionId);if(idx>=0){rows[idx]={...rows[idx],status:"cancelled"};lsa.write("mykis.offlineSessions.v1",rows);}}else{lsa.write("mykis.offlineSessions.v1",rows.filter(x=>x.id!==sessionId));}if(selectedOfflineSessionId===sessionId)selectedOfflineSessionId="";_sessions=null;toast("success");await fetchSessionsFromApi(session.accountId,"hr");}catch(e){console.error("[delete-session]",e?.message);toast("error");}}})}));
 
   // GPS button in session form
@@ -8767,6 +8778,7 @@ function setupPageSpecificHandlers() {
   bindCchnRegistrationResultEvents(document);
   }
 }
+  setupPageSpecificHandlers();
 
   document.querySelector("[data-logout]")?.addEventListener("click", () => {
     sendActivityHeartbeat("logout");
@@ -8830,7 +8842,7 @@ function setupPageSpecificHandlers() {
   }));
   document.querySelectorAll("[data-scroll]").forEach((el) => el.addEventListener("click", () => scrollToId(el.dataset.scroll)));
   document.querySelector("[data-announcements-link]")?.addEventListener("click", goAnnouncements);
-  document.querySelector("[data-hr-link]")?.addEventListener("click", () => navigate(session?.role === "hr" ? "/admin" : "/login?role=hr"));
+  document.querySelector("[data-hr-link]")?.addEventListener("click", () => navigate(hasAdminAccess() ? "/admin" : "/login?role=hr"));
   // Password show/hide toggle
   document.querySelector("[data-toggle-password]")?.addEventListener("click", (e) => {
     const btn = e.currentTarget;
@@ -8932,7 +8944,9 @@ function setupPageSpecificHandlers() {
 
     const data = new FormData(form);
     const email = String(data.get("identifier") || "").trim().toLowerCase();
+    const password = String(data.get("password") || "");
     const emailError = form.querySelector("[data-login-email-error]");
+    const passwordError = form.querySelector("[data-login-password-error]");
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       if (emailError) emailError.textContent = "Vui lòng nhập email công ty hợp lệ.";
@@ -8943,12 +8957,23 @@ function setupPageSpecificHandlers() {
     if (emailError) emailError.textContent = "";
     form.elements.identifier?.removeAttribute("aria-invalid");
 
+    if (!password) {
+      if (passwordError) passwordError.textContent = "Vui lòng nhập mật khẩu.";
+      form.elements.password?.setAttribute("aria-invalid", "true");
+      form.elements.password?.focus();
+      return;
+    }
+    if (passwordError) passwordError.textContent = "";
+    form.elements.password?.removeAttribute("aria-invalid");
+
     if (submitBtn) submitBtn.disabled = true;
+    form.setAttribute("aria-busy", "true");
     if (submitText) submitText.style.display = "none";
     if (submitSpinner) submitSpinner.style.display = "";
 
     const resetLoginUI = () => {
       if (submitBtn) submitBtn.disabled = false;
+      form.removeAttribute("aria-busy");
       if (submitText) submitText.style.display = "";
       if (submitSpinner) submitSpinner.style.display = "none";
     };
@@ -8958,9 +8983,15 @@ function setupPageSpecificHandlers() {
         const res = await fetch("/api/auth?action=login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password: data.get("password") }),
+          body: JSON.stringify({ email, password, rememberMe: data.get("rememberMe") === "on" }),
         });
-        const body = await res.json().catch(() => ({}));
+        const contentType = res.headers.get("content-type") || "";
+        if (!/\bjson\b/i.test(contentType)) {
+          resetLoginUI();
+          openDialog({ type: "alert", title: "Không thể kết nối hệ thống đăng nhập", body: "Máy chủ trả về phản hồi không hợp lệ. Vui lòng thử lại; nếu lỗi tiếp diễn, hãy liên hệ bộ phận hỗ trợ nội bộ." });
+          return;
+        }
+        const body = await res.json();
 
         if (!res.ok) {
           resetLoginUI();
@@ -8995,7 +9026,10 @@ function setupPageSpecificHandlers() {
         const isHr = body.profile.role === "hr" || body.profile.role === "admin";
         session = sessionService.startSession(
           { id: body.profile.id, role: body.profile.role, fullName: body.profile.fullName, accountStatus: body.profile.accountStatus },
-          { rememberMe: data.get("rememberMe") === "on", supabaseAccessToken: body.access_token, supabaseRefreshToken: body.refresh_token }
+          {
+            rememberMe: data.get("rememberMe") === "on",
+            expiresAt: body.expires_at ? new Date(body.expires_at * 1000).toISOString() : "",
+          }
         );
 
         // Reset per-account caches for the new session
@@ -9099,6 +9133,7 @@ function setupPageSpecificHandlers() {
   if (submitScanBtn) {
     submitScanBtn.addEventListener("click", () => {
       const tokenVal = submitScanBtn.dataset.submitScan || "";
+      const preview = qrAttendanceService.validateToken(tokenVal);
 
       async function doScan(locData) {
         const qrPayload = qrAttendanceService.decodeQrToken(tokenVal);
@@ -9109,7 +9144,7 @@ function setupPageSpecificHandlers() {
           try {
             const resp = await fetch("/api/attendance/scan", {
               method: "POST",
-              headers: { "Content-Type": "application/json", "X-Account-Id": session.accountId },
+              headers: apiHeaders({ "Content-Type": "application/json" }),
               body: JSON.stringify(body),
             });
             const data = await resp.json();
@@ -9135,32 +9170,8 @@ function setupPageSpecificHandlers() {
           }
           return;
         }
-        // Legacy localStorage token (same browser as HR)
-        const result = qrAttendanceService.scan(tokenVal, session.accountId, locData);
-        if (!result.ok) {
-          const msgMap = {
-            already_checked_in: uiText("alreadyScanned"),
-            already_checked_out: uiText("alreadyScanned"),
-            not_invited: uiText("notInvited"),
-            missing_check_in: "Vui lòng quét mã check-in trước khi check-out.",
-            expired: uiText("qrExpired"),
-          };
-          openDialog({ type: "alert", title: "Không thể điểm danh", body: msgMap[result.error] || uiText("qrNotOpen") });
-          return;
-        }
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-        const locNote = locData
-          ? locData.insideGeofence === false
-            ? "\n\nVị trí hiện tại nằm ngoài khu vực tổ chức. HR sẽ kiểm tra và xác nhận."
-            : "\nVị trí đã được xác minh."
-          : "";
-        openDialog({
-          type: "alert",
-          title: "Điểm danh thành công",
-          body: `Bạn đã được ghi nhận tham gia buổi học lúc ${timeStr}.${locNote}`,
-        });
-        render();
+        openDialog({ type: "alert", title: "Không thể điểm danh", body: "Mã QR không hợp lệ hoặc thuộc phiên bản cũ. Vui lòng yêu cầu HR tạo mã mới." });
+        return;
       }
 
       // Request geolocation with user-facing status update
@@ -9274,11 +9285,11 @@ function setupPageSpecificHandlers() {
     try{
       const ses=offlineTrainingService.getSession(offlineTrainingService.getSlotSessionId?.(selectedQrSlotId)||(qrAttendanceService.getSlot(selectedQrSlotId)?.sessionId||""));
       if(ses){
-        await fetch("/api/training/sessions",{method:"POST",headers:{"Content-Type":"application/json","X-Account-Id":session.accountId,"X-Account-Role":"hr"},body:JSON.stringify(ses)}).catch(()=>{});
+        await fetch("/api/training/sessions",{method:"POST",headers:apiHeaders({"Content-Type":"application/json"}),body:JSON.stringify(ses)}).catch(()=>{});
         const pids=offlineTrainingService.getParticipantAccountIds(ses.id);
         if(pids.length){
           const participants=pids.map(id=>({id:`${ses.id}_${id}`,sessionId:ses.id,accountId:id,responseStatus:"attending"}));
-          await fetch("/api/training/participants",{method:"POST",headers:{"Content-Type":"application/json","X-Account-Id":session.accountId,"X-Account-Role":"hr"},body:JSON.stringify({session_id:ses.id,participants})}).catch(()=>{});
+          await fetch("/api/training/participants",{method:"POST",headers:apiHeaders({"Content-Type":"application/json"}),body:JSON.stringify({session_id:ses.id,participants})}).catch(()=>{});
         }
       }
     }catch{}
@@ -9317,19 +9328,11 @@ function setupPageSpecificHandlers() {
     }
     if (submitBtn) submitBtn.disabled = true;
 
-    const supabaseToken = session?.supabaseAccessToken;
-    if (!supabaseToken) {
-      if (submitBtn) submitBtn.disabled = false;
-      sessionService.endSession();
-      showPasswordError("Phiên đăng nhập đã cũ. Vui lòng đăng nhập lại bằng mật khẩu tạm thời để đổi mật khẩu.");
-      setTimeout(() => navigate("/login?returnTo=/change-password"), 900);
-      return;
-    }
     (async () => {
       try {
         const res = await fetch("/api/auth?action=change-password", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseToken}` },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ currentPassword: current, newPassword: next }),
         });
         const body = await res.json().catch(() => ({}));
@@ -9345,7 +9348,7 @@ function setupPageSpecificHandlers() {
           updateAccount(session.accountId, { passwordResetRequired: false, accountStatus: "active" });
         }
         toast("changed");
-        navigate(session.role === "hr" ? "/admin" : "/dashboard");
+        navigate(hasAdminAccess() ? "/admin" : "/dashboard");
       } catch {
         if (submitBtn) submitBtn.disabled = false;
         showPasswordError("Không thể kết nối máy chủ. Vui lòng thử lại.");
@@ -9382,8 +9385,8 @@ function setupPageSpecificHandlers() {
     try {
       const res = await fetch(`/api/employees/${encodeURIComponent(employeeEditId)}`, {
         method: "PATCH",
-        headers: {"Content-Type":"application/json","X-Account-Id":session?.accountId||"","X-Account-Role":"hr"},
-        body: JSON.stringify({ full_name: data.fullName, email: data.email, department: data.department, position: data.position, account_status: data.account_status, role: data.role, phone: data.phone, manager_name: data.manager_name, location: data.location, notes: data.notes, joined_date: data.joined_date || null, employee_code: data.employeeCode }),
+        headers: apiHeaders({"Content-Type":"application/json"}),
+        body: JSON.stringify({ full_name: data.fullName, email: data.email, department: data.department, position: data.position, account_status: data.account_status, phone: data.phone, manager_name: data.manager_name, location: data.location, notes: data.notes, joined_date: data.joined_date || null, employee_code: data.employeeCode }),
       });
       if (!res.ok) { const b = await res.json().catch(()=>({error:"Lỗi server"})); throw new Error(b.error); }
       toast("Đã cập nhật nhân viên ✓");
@@ -9403,7 +9406,7 @@ function setupPageSpecificHandlers() {
   document.querySelectorAll("[data-edit-cert]").forEach((el) => el.addEventListener("click", () => { certEditId = el.dataset.editCert; certEditOpen = true; render(); }));
   document.querySelectorAll("[data-revoke-cert]").forEach((el) => el.addEventListener("click", () => {
     openDialog({type:"confirm",title:"Thu hồi chứng chỉ",body:"Chứng chỉ sẽ được đánh dấu là đã thu hồi.",onConfirm:async()=>{
-      const res = await fetch(`/api/employees/${encodeURIComponent(certModalEmployeeId)}/certifications/${el.dataset.revokeCert}`,{method:"PATCH",headers:{"Content-Type":"application/json","X-Account-Id":session?.accountId||"","X-Account-Role":"hr"},body:JSON.stringify({status:"revoked",revoked_at:new Date().toISOString(),revoked_by:session?.accountId||""})});
+      const res = await fetch(`/api/employees/${encodeURIComponent(certModalEmployeeId)}/certifications/${el.dataset.revokeCert}`,{method:"DELETE",headers:apiHeaders()});
       if(res.ok){toast("Đã thu hồi chứng chỉ");loadCertsForEmployee(certModalEmployeeId);}else{toast("error");}
     }});
   }));
@@ -9412,13 +9415,13 @@ function setupPageSpecificHandlers() {
     if (certSaving) return;
     certSaving = true; render();
     const data = Object.fromEntries(new FormData(event.currentTarget));
-    const payload = { name: data.name, certificate_type: data.certificate_type, certificate_number: data.certificate_number||null, issuer: data.issuer, issue_date: data.issue_date, expiry_date: data.expiry_date||null, status: data.status||"valid", evidence_path: data.evidence_path||null, notes: data.notes||null };
+    const payload = { name: data.name, certificate_type: data.certificate_type, certificate_number: data.certificate_number||null, issuer: data.issuer, issue_date: data.issue_date, expiry_date: data.expiry_date||null, evidence_path: data.evidence_path||null, notes: data.notes||null };
     try {
       let res;
       if (certEditId) {
-        res = await fetch(`/api/employees/${encodeURIComponent(certModalEmployeeId)}/certifications/${certEditId}`,{method:"PATCH",headers:{"Content-Type":"application/json","X-Account-Id":session?.accountId||"","X-Account-Role":"hr"},body:JSON.stringify(payload)});
+        res = await fetch(`/api/employees/${encodeURIComponent(certModalEmployeeId)}/certifications/${certEditId}`,{method:"PATCH",headers:apiHeaders({"Content-Type":"application/json"}),body:JSON.stringify(payload)});
       } else {
-        res = await fetch(`/api/employees/${encodeURIComponent(certModalEmployeeId)}/certifications`,{method:"POST",headers:{"Content-Type":"application/json","X-Account-Id":session?.accountId||"","X-Account-Role":"hr"},body:JSON.stringify(payload)});
+        res = await fetch(`/api/employees/${encodeURIComponent(certModalEmployeeId)}/certifications`,{method:"POST",headers:apiHeaders({"Content-Type":"application/json"}),body:JSON.stringify(payload)});
       }
       if (!res.ok) { const b = await res.json().catch(()=>({error:"Lỗi server"})); throw new Error(b.error); }
       toast(certEditId?"Đã cập nhật chứng chỉ ✓":"Đã thêm chứng chỉ ✓");
@@ -9917,7 +9920,7 @@ function setupPageSpecificHandlers() {
     // Step 1: save to localStorage immediately (sync)
     const result = courseFormMode === "edit"
       ? updateCourse(selectedCourseId, payload)
-      : createCourse({ ...payload, createdBy: account?.fullName || "Nguyễn Thị Cẩm Thanh" });
+      : createCourse({ ...payload, createdBy: account?.fullName || "HR / L&D" });
     if (!result) return toast("error");
 
     // Step 2: await Supabase API — use session.accountId (not createdBy which is a display name)
@@ -10266,6 +10269,13 @@ function mostCommon(values) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
 }
 
-window.addEventListener("popstate", render);
+window.addEventListener("popstate", () => {
+  const targetPath = location.pathname.replace(/\/+$/, "") || "/";
+  if (matchRoute(targetPath)?.splitEntry) {
+    location.reload();
+    return;
+  }
+  render();
+});
 window.__mykisSessionService = sessionService;
 render();

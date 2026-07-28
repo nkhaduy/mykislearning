@@ -1,0 +1,209 @@
+{
+  "generatedAt": "2026-07-28T09:17:43.992Z",
+  "environment": {
+    "image": "public.ecr.aws/supabase/postgres:17.6.1.136",
+    "rows": 100000,
+    "data": "deterministic synthetic profiles",
+    "remoteAccess": false
+  },
+  "baseline": {
+    "plan": {
+      "planningMs": 0.594,
+      "executionMs": 45.912,
+      "rowsReturned": 50,
+      "rowsScanned": 5000,
+      "sharedHit": 6825,
+      "sharedRead": 0,
+      "nodes": [
+        "Limit",
+        "Sort",
+        "Seq Scan"
+      ]
+    },
+    "timing": {
+      "p50": 46.397,
+      "p95": 52.878,
+      "p99": 54.512,
+      "samples": [
+        47.002,
+        46.544,
+        48.585,
+        45.963,
+        46.007,
+        45.634,
+        45.854,
+        45.918,
+        46.613,
+        46.397,
+        46.368,
+        46.55,
+        45.674,
+        46.177,
+        47.436,
+        46.474,
+        46.107,
+        47.94,
+        54.512,
+        46.586,
+        52.878,
+        47.512,
+        45.951,
+        46.158
+      ]
+    }
+  },
+  "optimized": {
+    "substring": {
+      "plan": {
+        "planningMs": 1.718,
+        "executionMs": 19.526,
+        "rowsReturned": 50,
+        "rowsScanned": 35000,
+        "sharedHit": 14488,
+        "sharedRead": 0,
+        "nodes": [
+          "Limit",
+          "Bitmap Heap Scan",
+          "Bitmap Index Scan",
+          "Sort",
+          "CTE Scan"
+        ]
+      },
+      "timing": {
+        "p50": 14.838,
+        "p95": 19.629,
+        "p99": 20.079,
+        "samples": [
+          17.498,
+          15.53,
+          16.503,
+          15.589,
+          15.332,
+          13.278,
+          16.804,
+          14.49,
+          14.251,
+          12.878,
+          13.47,
+          13.084,
+          16.146,
+          13.361,
+          19.589,
+          19.629,
+          20.079,
+          17.546,
+          14.838,
+          13.749,
+          18.195,
+          13.226,
+          14.517,
+          14.166
+        ]
+      }
+    },
+    "prefix": {
+      "plan": {
+        "planningMs": 0.662,
+        "executionMs": 1.525,
+        "rowsReturned": 50,
+        "rowsScanned": 200,
+        "sharedHit": 96,
+        "sharedRead": 0,
+        "nodes": [
+          "Limit",
+          "Sort",
+          "Bitmap Heap Scan",
+          "Bitmap Index Scan"
+        ]
+      },
+      "timing": {
+        "p50": 1.286,
+        "p95": 1.488,
+        "p99": 1.602,
+        "samples": [
+          1.215,
+          1.357,
+          1.393,
+          1.389,
+          1.333,
+          1.602,
+          1.345,
+          1.348,
+          1.274,
+          1.236,
+          1.217,
+          1.283,
+          1.289,
+          1.284,
+          1.286,
+          1.252,
+          1.314,
+          1.226,
+          1.429,
+          1.438,
+          1.488,
+          1.265,
+          1.266,
+          1.261
+        ]
+      }
+    },
+    "cursor": {
+      "plan": {
+        "planningMs": 0.387,
+        "executionMs": 0.218,
+        "rowsReturned": 50,
+        "rowsScanned": 50,
+        "sharedHit": 28,
+        "sharedRead": 0,
+        "nodes": [
+          "Limit",
+          "Index Scan"
+        ]
+      },
+      "timing": {
+        "p50": 0.072,
+        "p95": 0.092,
+        "p99": 0.102,
+        "samples": [
+          0.079,
+          0.069,
+          0.07,
+          0.08,
+          0.078,
+          0.08,
+          0.083,
+          0.076,
+          0.072,
+          0.092,
+          0.089,
+          0.068,
+          0.068,
+          0.078,
+          0.07,
+          0.068,
+          0.071,
+          0.067,
+          0.069,
+          0.092,
+          0.102,
+          0.077,
+          0.069,
+          0.068
+        ]
+      }
+    }
+  },
+  "concurrent": {
+    "baselineEightMs": 237.29491599999892,
+    "optimizedEightMs": 160.101666999999
+  },
+  "assertions": {
+    "substringAvoidsSequentialScan": true,
+    "prefixUsesIndex": true,
+    "cursorUsesIndex": true,
+    "substringReturnsRows": true,
+    "optimizedPayloadColumns": 11,
+    "legacyPayloadColumns": 18
+  }
+}
