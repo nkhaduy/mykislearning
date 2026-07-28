@@ -6,7 +6,16 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "vars": {
-    "APP_ENV": "production"
+    "APP_ENV": "production",
+    "SEARCH_ROLLOUT_ENABLED": "false",
+    "EXPORT_FEATURE_ENABLED": "false",
+    "ALLOW_LEGACY_IDENTITY_HEADERS": "false",
+    "SETUP_ADMIN_ENABLED": "false",
+    "DEPLOYMENT_TEST_ACCOUNT_ENABLED": "false",
+    "LOCAL_DEV_ADMIN_ENABLED": "false",
+    "PUBLIC_APP_ORIGIN": "https://kislms.site",
+    "CORS_ALLOWED_ORIGINS": "https://kislms.site,https://www.kislms.site",
+    "MAX_CONCURRENT_SESSIONS": "10"
   },
   "assets": {
     "directory": "./dist",
@@ -30,7 +39,16 @@
       { "binding": "REPORT_EXPORT_QUEUE", "queue": "mykis-report-exports" }
     ],
     "consumers": [
-      { "queue": "mykis-report-exports", "max_batch_size": 10, "max_batch_timeout": 30, "max_retries": 5, "dead_letter_queue": "mykis-report-exports-dlq" }
+      {
+        "queue": "mykis-report-exports",
+        "max_batch_size": 3,
+        "max_batch_timeout": 30,
+        "max_retries": 5,
+        "dead_letter_queue": "mykis-report-exports-dlq",
+        "max_concurrency": 3,
+        "visibility_timeout_ms": 300000,
+        "retry_delay": 30
+      }
     ]
   },
   "r2_buckets": [

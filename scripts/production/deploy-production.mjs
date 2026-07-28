@@ -1,44 +1,81 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { loadSecureRuntime, sha256, tokenConsumptionFile } from "./runtime-contract.mjs";
 import { verifyProductionApproval } from "./verify-production-approval.mjs";
 
-const root = resolve(new URL("../..", import.meta.url).pathname);
+const root = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const apply = process.argv.includes("--apply");
+const loaded = loadSecureRuntime();
 let target;
-try { target = verifyProductionApproval(process.env); } catch (error) { console.error(error.message); process.exit(2); }
-console.log(JSON.stringify({ mode: apply ? "apply" : "plan-only", target, checkpoints: ["validated backup", "migration preflight", "Worker dry-run", "database migration", "Worker deployment", "smoke tests", "rollback checkpoint"] }, null, 2));
-if (!apply) process.exit(0);
-if (process.env.KIS_PRODUCTION_EXECUTION_CONFIRM !== "EXECUTE_REVIEWED_PRODUCTION_PLAN_ONCE") {
-  console.error("PRODUCTION_DEPLOY_REFUSED: one-time execution confirmation is missing");
-  process.exit(2);
-}
-const run = (command, args, options = {}) => {
-  const result = spawnSync(command, args, { cwd: root, encoding: "utf8", stdio: "inherit", ...options });
-  if (result.error || result.status !== 0) throw new Error(`${command} failed`);
-};
-run("npm", ["run", "build"]);
-run("npm", ["run", "check:wrangler"]);
-run("npx", ["wrangler", "deploy", "--dry-run"]);
-const databaseUrl = new URL(process.env.KIS_PRODUCTION_DATABASE_URL);
-const passwordFile = String(process.env.KIS_PRODUCTION_DATABASE_PASSWORD_FILE || "").trim();
-const password = decodeURIComponent(databaseUrl.password || "") || (passwordFile ? readFileSync(passwordFile, "utf8").trim() : "");
-if (!password) {
-  console.error("PRODUCTION_DEPLOY_REFUSED: provide the database password in a mode-0600 KIS_PRODUCTION_DATABASE_PASSWORD_FILE or the secure database URL source");
-  process.exit(2);
-}
-const tempDirectory = mkdtempSync(join(tmpdir(), "kisvn-production-db-"));
-const pgpassPath = join(tempDirectory, "pgpass");
-const escapePgpass = (value) => String(value).replace(/\\/g, "\\\\").replace(/:/g, "\\:");
-const username = decodeURIComponent(databaseUrl.username);
-const database = databaseUrl.pathname.replace(/^\//, "") || "postgres";
-writeFileSync(pgpassPath, `${[databaseUrl.hostname, databaseUrl.port || "5432", database, username, password].map(escapePgpass).join(":")}\n`, { mode: 0o600 });
-databaseUrl.password = "";
 try {
-  run("supabase", ["db", "push", "--db-url", databaseUrl.toString(), "--include-all", "--yes"], { env: { ...process.env, PGPASSFILE: pgpassPath, KIS_PRODUCTION_DATABASE_URL: "" } });
+  target = verifyProductionApproval(loaded.contract, { runtimeFile: loaded.path, requireActiveWindow: apply });
+} catch (error) {
+  const blockers = Array.isArray(error.blockers) ? error.blockers : [error.message];
+  console.error("PRODUCTION PLAN BLOCKED");
+  for (const blocker of blockers) console.error(`- ${blocker}`);
+  process.exit(2);
+}
+
+console.log(JSON.stringify({
+  mode: apply ? "apply" : "plan-only",
+  productionMutation: apply,
+  target,
+  checkpoints: [
+    "revalidated release manifest and one-time approval",
+    "active maintenance window",
+    "restore-tested backup",
+    "Supabase migration dry-run",
+    "Worker build and dry-run",
+    "database migration",
+    "atomic Worker/assets/secrets/Queue/cron deployment",
+    "post-deploy smoke and rollback checkpoint",
+  ],
+}, null, 2));
+if (!apply) {
+  console.log("GO FOR PRODUCTION DEPLOYMENT");
+  process.exit(0);
+}
+
+const run = (command, args, options = {}) => {
+  const result = spawnSync(command, args, { cwd: root, encoding: "utf8", stdio: "inherit", env: process.env, ...options });
+  if (result.error || result.status !== 0) throw new Error(`${command} ${args.join(" ")} failed`);
+};
+
+run("npm", ["run", "build"]);
+run("npm", ["run", "scan:artifact"]);
+run("npm", ["run", "check:wrangler"]);
+run("supabase", ["db", "push", "--linked", "--include-all", "--dry-run"]);
+
+const consumptionPath = tokenConsumptionFile(loaded.path);
+const approvalFingerprint = sha256(loaded.contract.KIS_PRODUCTION_ONE_TIME_APPROVAL_TOKEN);
+writeFileSync(consumptionPath, `${JSON.stringify({
+  schemaVersion: 1,
+  consumedAt: new Date().toISOString(),
+  approvalId: loaded.contract.KIS_PRODUCTION_APPROVAL_ID,
+  approvalFingerprint,
+  releaseCommitSha: loaded.contract.KIS_RELEASE_COMMIT_SHA,
+}, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+chmodSync(consumptionPath, 0o600);
+
+const tempDirectory = mkdtempSync(join(tmpdir(), "kisvn-production-deploy-"));
+const secretsPath = join(tempDirectory, "worker-secrets.json");
+try {
+  const secrets = {
+    ...loaded.secrets,
+    SUPABASE_URL: loaded.contract.KIS_PRODUCTION_SUPABASE_URL,
+  };
+  writeFileSync(secretsPath, `${JSON.stringify(secrets)}\n`, { mode: 0o600 });
+  chmodSync(secretsPath, 0o600);
+  run("supabase", ["db", "push", "--linked", "--include-all", "--yes"]);
+  run(resolve(root, "node_modules/.bin/wrangler"), [
+    "deploy",
+    "--name", loaded.contract.KIS_PRODUCTION_WORKER_NAME,
+    "--secrets-file", secretsPath,
+    "--message", `KIS LMS approved release ${loaded.contract.KIS_RELEASE_COMMIT_SHA.slice(0, 12)}`,
+  ]);
 } finally {
   rmSync(tempDirectory, { recursive: true, force: true });
 }
-run("npx", ["wrangler", "deploy", "--name", process.env.KIS_PRODUCTION_WORKER_NAME, "--message", "KIS LMS owner-approved production deployment"]);

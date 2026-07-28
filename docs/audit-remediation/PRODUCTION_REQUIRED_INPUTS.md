@@ -1,23 +1,22 @@
-# KIS LMS Production Required Inputs
+# KIS LMS Production Approval Contract
 
-Production remains a separate owner-approved session. Provide these values through a secure environment or secret manager, never a tracked file:
+The canonical production contract is stored outside the repository at `/tmp/kisvn-production-runtime.json` with mode `0600`. It contains the verified Cloudflare/Supabase target, exact allowlist, owner approval, restore-tested backup ID, one-time token, and secret material. Do not export or print its values.
 
-```text
-KIS_ALLOW_PRODUCTION_DEPLOYMENT=I_APPROVE_KIS_LMS_PRODUCTION_DEPLOYMENT
-KIS_PRODUCTION_EXECUTION_CONFIRM=EXECUTE_REVIEWED_PRODUCTION_PLAN_ONCE
-KIS_PRODUCTION_BACKUP_ID
-KIS_PRODUCTION_CLOUDFLARE_ACCOUNT_ID
-KIS_PRODUCTION_WORKER_NAME
-KIS_PRODUCTION_HOSTNAME
-KIS_PRODUCTION_SUPABASE_PROJECT_REF
-KIS_PRODUCTION_DATABASE_URL
-KIS_PRODUCTION_DATABASE_PASSWORD_FILE
-KIS_PRODUCTION_TARGET_ALLOWLIST
-KIS_PRODUCTION_ONE_TIME_APPROVAL_TOKEN
+The release preparation flow is:
+
+```bash
+npm run production:runtime:finalize -- --maintenance-window "START+07:00/END+07:00"
+npm run production:gates
+npm run production:manifest
+npm run production:plan
 ```
 
-`KIS_PRODUCTION_TARGET_ALLOWLIST` must contain exact entries for all approved identities, for example `hostname:kislms.site,worker:mykis-learning,project:<ref>,account:<account-id>`. A bare exact hostname is accepted only for the hostname entry; it cannot authorize the other identities.
+`production:plan` loads the secure runtime directly, checks live Worker secret names and the current rollback version, validates repository evidence/checksums, and exits non-zero with only unresolved blockers. It prints `GO FOR PRODUCTION DEPLOYMENT` only when all controls pass.
 
-Prefer a mode-`0600` password file outside the repository for `KIS_PRODUCTION_DATABASE_PASSWORD_FILE` and a password-free `KIS_PRODUCTION_DATABASE_URL`. The deploy script creates a temporary `pgpass` file, passes only a password-free URL to the Supabase CLI, and removes the file in `finally`.
+The single final cutover command is:
 
-Production Worker and Supabase runtime secrets must already be installed through their provider secret mechanisms. The deployment scripts never persist secret values in repository files.
+```bash
+npm run production:deploy-approved
+```
+
+It reloads the mode-`0600` runtime, requires the active maintenance window, reruns preflight/dry-runs, consumes the approval token once, applies linked Supabase migrations, and deploys the reviewed Worker/assets/config/secrets. It must not be run until the plan prints the literal GO line.

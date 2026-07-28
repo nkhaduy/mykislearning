@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-07-28T10:08:00Z",
+  "verifiedDestination": "Cloudflare account email nkhaduy@gmail.com",
+  "wranglerIdentityVerified": true,
+  "apiAlertingAccess": false,
+  "apiResult": "HTTP 403 for alerting destination and policy discovery",
+  "wranglerAlertingScopeAvailable": false,
+  "requiredHumanAction": "Grant an API token Alerting read/edit permission or configure and verify the critical policies in the Cloudflare dashboard",
+  "deliveryTested": false,
+  "criticalPoliciesConfigured": false,
+  "status": "blocked-permission"
+}

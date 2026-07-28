@@ -38,7 +38,7 @@ Refresh-token rotation, refresh-token reuse detection, session revocation, distr
 - Approval date: 2026-07-28
 - Review date: 2027-01-28
 - Approver: Nguyễn Khả Duy (Chủ dự án KIS LMS)
-- Approval record/reference: owner signoff 2026-07-28T16:50:56+07:00
+- Approval record/reference: owner signoff 2026-07-28T21:23:49+07:00
 
 ## Approval
 
@@ -65,12 +65,12 @@ npm run security:accept-no-mfa -- \
 
 ## Recorded owner acceptance
 
-- Approved at: 2026-07-28T16:50:56+07:00
+- Approved at: 2026-07-28T21:23:49+07:00
 - Approval date (Asia/Ho_Chi_Minh): 2026-07-28
 - Approved by: Nguyễn Khả Duy
 - Authority role: Chủ dự án KIS LMS
 - Incident response owner: Nguyễn Khả Duy
 - Review date: 2027-01-28
-- Command executor Git identity: name=<not configured>; email=<not configured>
-- Commit SHA: e0ff4f9b3d2b46e34e0669ef8f86c4d1be37c765
+- Command executor Git identity: name=Nguyễn Khả Duy; email=91268374+nkhaduy@users.noreply.github.com
+- Commit SHA: 2b9c633fc607fe6ac232c2e152dfdda68396aedc
 - Confirmation: Tôi hiểu và chấp nhận rủi ro còn lại khi tài khoản HR và Admin vận hành không có MFA/2FA. Tôi xác nhận đây là quyết định có chủ đích của chủ dự án, đồng thời chấp nhận áp dụng các biện pháp bù trừ gồm mật khẩu mạnh, refresh-token rotation, session revocation, rate limiting, audit logging, giám sát sự cố và quy trình khóa tài khoản.

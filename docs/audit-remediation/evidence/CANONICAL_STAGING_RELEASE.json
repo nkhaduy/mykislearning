@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-07-28T10:06:24.832Z",
+  "workerName": "mykis-learning-staging",
+  "hostname": "mykis-learning-staging.nkhaduy.workers.dev",
+  "deploymentId": "35c719ee-8592-4ae9-9cfb-5aa36e474022",
+  "versionId": "1c8d06e9-393e-4eff-917c-5761a23ddc89",
+  "versionCreatedAt": "2026-07-28T09:21:42.150328Z",
+  "deploymentCreatedAt": "2026-07-28T09:23:51.567219Z",
+  "scriptEtag": "58e7edc46640b70b5f5752a464dd0e56fe04df56d533eef1c1756275e2d30013",
+  "packageLockSha256": "386bdcc92af5e128b5c2aeaeaf6c6ab7a14020084da78c4d96792aa982d3e171",
+  "migrationListSha256": "dd47176cc416800abcf811538f718f85eeac865afcab3ac887b758627b9c5681",
+  "stagingWranglerSha256": "66b71de02a4528f50e20c3a7f78b296ca8ecf24882c3a97e43f6e629414f0d83",
+  "compatibilityDate": "2026-07-28",
+  "handlers": ["fetch", "scheduled", "queue"],
+  "durableObjectMigrationTag": "v1-rate-limiter",
+  "queueName": "kis-lms-export-staging",
+  "r2BucketName": "kis-lms-exports-staging",
+  "supabaseProjectRef": "vwawtqbkchmdnqetkewm",
+  "smoke": {
+    "status": "pass",
+    "checks": 22,
+    "completedAt": "2026-07-28T10:06:24.832Z"
+  }
+}

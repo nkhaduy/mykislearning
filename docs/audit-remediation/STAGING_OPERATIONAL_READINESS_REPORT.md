@@ -119,6 +119,7 @@ The fresh staging dataset cannot reproduce production-scale concurrent-index loc
 
 ## 13. Staging deployment
 
+- Canonical release evidence: `docs/audit-remediation/evidence/CANONICAL_STAGING_RELEASE.json`, verified read-only against the active Cloudflare deployment on 2026-07-28.
 - Stable Worker version after rollback: `1c8d06e9-393e-4eff-917c-5761a23ddc89`.
 - Stable deployment ID after rollback: `35c719ee-8592-4ae9-9cfb-5aa36e474022`.
 - Candidate used for final rollback drill: `629ff5d6-f10b-41ae-9437-b56c1af80740`.

@@ -28,7 +28,7 @@ Staging-only CSPRNG values were installed for `JWT_SECRET`, `REFRESH_TOKEN_HASH_
 
 - Bootstrap plan and apply are idempotent and target verification passes.
 - Fresh hosted migrations, DB evidence, PostgREST timeout/connection reuse, logical restore, smoke, 24-format export integration, and rollback pass.
-- Stable version after rollback: `1c8d06e9-393e-4eff-917c-5761a23ddc89`.
+- Canonical stable version after rollback: `1c8d06e9-393e-4eff-917c-5761a23ddc89`; active deployment `35c719ee-8592-4ae9-9cfb-5aa36e474022`, recorded in `evidence/CANONICAL_STAGING_RELEASE.json`.
 - Queue retention is 86,400 seconds due to the account maximum; application/R2 cleanup remains configured.
 - Real integration found and fixed R2 multipart API handling and Queue batch concurrency. Final integration passes 30/30.
 

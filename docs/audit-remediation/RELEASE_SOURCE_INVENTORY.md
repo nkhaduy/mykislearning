@@ -16,6 +16,7 @@ Protection snapshot: `/tmp/kisvn-production-bootstrap-Vq3YlD`
 
 - Generated `dist` assets produced by the tested static build, including removal of the legacy monolith.
 - Production/staging guards, runbooks, inventories, checksum evidence, and remediation reports.
+- Production secure-runtime loader, approval verifier tests, restore-test tooling, gate runner, and release-manifest generator. Runtime values and generated manifests remain outside the repository.
 - Private-data fixtures and legacy spreadsheet/employee exports are deleted from the release tree.
 
 ## Removed repository runtime state

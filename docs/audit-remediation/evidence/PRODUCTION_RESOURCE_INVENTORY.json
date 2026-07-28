@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-07-28T11:36:30Z",
+  "accountId": "b9ae472cee29c5729ee90ccbb3533f33",
+  "worker": {
+    "name": "mykis-learning",
+    "durableObjectBinding": "RATE_LIMITER_DO",
+    "durableObjectMigrationTag": "v1-rate-limiter",
+    "cron": "0 * * * *"
+  },
+  "queue": {
+    "name": "mykis-report-exports",
+    "id": "5ba8a09b4a11487ab8b440218b83e569",
+    "retentionSeconds": 86400,
+    "expectedBatchSize": 3,
+    "expectedMaxConcurrency": 3,
+    "consumerAttachedBeforeCutover": false
+  },
+  "dlq": {
+    "name": "mykis-report-exports-dlq",
+    "id": "76a0da88e0e44bdeb4cc96c4c3072fd2",
+    "retentionSeconds": 86400
+  },
+  "r2": {
+    "name": "mykis-report-exports",
+    "location": "APAC",
+    "publicDevUrlEnabled": false,
+    "objectCount": 0,
+    "lifecycle": "expire after 1 day; abort incomplete multipart after 1 day",
+    "applicationRetention": "CSV/XLSX 24 hours; PDF 12 hours"
+  },
+  "stagingResourcesReused": false,
+  "bindingActivationRequiresFinalWorkerDeployment": true,
+  "status": "provisioned"
+}
