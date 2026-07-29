@@ -5,6 +5,47 @@ import { auditLater } from "../services/audit-service.js";
 
 const STORAGE_BUCKET = "course-content";
 const SIGNED_URL_EXPIRES = 3600;
+const COURSE_STATUSES = new Set(["draft", "published", "archived"]);
+
+function courseText(value, field, { required = false, max = 4000 } = {}) {
+  const normalized = String(value ?? "").trim().replace(/\s+/g, " ");
+  if (required && !normalized) throw Object.assign(new Error(`${field} is required`), { status: 422, code: "INVALID_INPUT" });
+  if (normalized.length > max) throw Object.assign(new Error(`${field} is too long`), { status: 422, code: "INVALID_INPUT" });
+  return normalized || null;
+}
+
+function generatedCourseId(title) {
+  const slug = title.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "course";
+  return `${slug}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+export function validateCourseCreationInput(body = {}) {
+  const title = courseText(body.title || body.name, "title", { required: true, max: 200 });
+  const requestedId = courseText(body.id, "id", { max: 128 });
+  if (requestedId && !/^[\p{L}\p{N}._~-]+$/u.test(requestedId)) {
+    throw Object.assign(new Error("id is invalid"), { status: 422, code: "INVALID_COURSE_ID" });
+  }
+  const status = courseText(body.status || "draft", "status", { max: 20 });
+  if (!COURSE_STATUSES.has(status)) throw Object.assign(new Error("status is invalid"), { status: 422, code: "INVALID_COURSE_STATUS" });
+  const deliveryMode = courseText(body.deliveryMode || body.delivery_mode || "online", "deliveryMode", { max: 40 });
+  const description = courseText(body.description, "description", { max: 4000 });
+  const durationMinutesRaw = body.durationMinutes ?? body.duration_minutes ?? null;
+  const durationMinutes = durationMinutesRaw === null || durationMinutesRaw === "" ? null : Number(durationMinutesRaw);
+  if (durationMinutes !== null && (!Number.isSafeInteger(durationMinutes) || durationMinutes < 0 || durationMinutes > 525600)) {
+    throw Object.assign(new Error("durationMinutes is invalid"), { status: 422, code: "INVALID_DURATION" });
+  }
+  return {
+    ...body,
+    id: requestedId || generatedCourseId(title),
+    title,
+    description: description || "",
+    status,
+    deliveryMode,
+    durationMinutes,
+    objectives: Array.isArray(body.objectives) ? body.objectives.map((item) => String(item).trim()).filter(Boolean).slice(0, 50) : [],
+  };
+}
 
 async function deleteCourseOperationalDependencies(supabase, courseId) {
   const lpSteps = await supabase
@@ -208,23 +249,32 @@ export async function handleCourses(request, env) {
   if (path === "/api/courses" && method === "POST") {
     const acct = await requireHr(request, env);
     if (!acct) return json({ error: "HR only" }, 403);
-    const course = await readJson(request);
-    if (!course?.id) return json({ error: "course.id required" }, 400);
-    const { data: existing } = await supabase.from("courses").select("id, status, data").eq("id", course.id).maybeSingle();
+    const course = validateCourseCreationInput(await readJson(request));
+    const { data: existing, error: existingError } = await supabase.from("courses").select("id, status, data, created_by, current_version_id").eq("id", course.id).maybeSingle();
+    if (existingError) return json({ error: "COURSE_LOOKUP_FAILED" }, 500);
+    const created = !existing;
     const row = {
       id: course.id, status: course.status || "draft",
       delivery_mode: course.deliveryMode || course.delivery_mode || "online",
-      created_by: course.createdBy || acct.accountId,
-      data: course, updated_at: new Date().toISOString(),
+      created_by: existing?.created_by || acct.accountId,
+      data: { ...(existing?.data || {}), ...course, createdBy: existing?.data?.createdBy || existing?.created_by || acct.accountId },
+      updated_at: new Date().toISOString(),
     };
     const { error } = await supabase.from("courses").upsert(row, { onConflict: "id" });
-    if (error) return json({ error: error.message }, 500);
-    if (!existing) {
-      const { data: createdVersion } = await supabase.from("course_versions").insert({
+    if (error) return json({ error: "COURSE_CREATE_FAILED" }, 500);
+
+    let { data: initialVersion, error: versionLookupError } = await supabase.from("course_versions")
+      .select("id, status, version_number").eq("course_id", course.id).eq("version_number", 1).maybeSingle();
+    if (versionLookupError) {
+      if (created) await supabase.from("courses").delete().eq("id", course.id);
+      return json({ error: "COURSE_VERSION_LOOKUP_FAILED" }, 500);
+    }
+    if (!initialVersion) {
+      const versionInsert = await supabase.from("course_versions").insert({
         course_id: course.id,
         version_number: 1,
         status: row.status === "published" ? "published" : "draft",
-        title: course.title || course.name || course.id,
+        title: course.title,
         description: course.description || null,
         objectives: course.objectives || [],
         content_snapshot: [],
@@ -237,19 +287,45 @@ export async function handleCourses(request, env) {
         created_by: acct.accountId,
         published_by: row.status === "published" ? acct.accountId : null,
         published_at: row.status === "published" ? new Date().toISOString() : null,
-      }).select("id").maybeSingle();
-      if (createdVersion?.id) await supabase.from("courses").update({ current_version_id: createdVersion.id }).eq("id", course.id);
+      }).select("id, status, version_number").maybeSingle();
+      initialVersion = versionInsert.data || null;
+      if (versionInsert.error?.code === "23505") {
+        const raced = await supabase.from("course_versions").select("id, status, version_number")
+          .eq("course_id", course.id).eq("version_number", 1).maybeSingle();
+        initialVersion = raced.data || null;
+      } else if (versionInsert.error) {
+        if (created) await supabase.from("courses").delete().eq("id", course.id);
+        auditLater(supabase, request, { actor: acct, action: "course.create_failed", status: "failed", entityType: "course", entityId: course.id, errorCode: "COURSE_VERSION_CREATE_FAILED", metadata: { course_cleanup: created ? "attempted" : "not_applicable" } });
+        return json({ error: "COURSE_VERSION_CREATE_FAILED" }, 500);
+      }
+    }
+    if (!initialVersion?.id) {
+      if (created) await supabase.from("courses").delete().eq("id", course.id);
+      return json({ error: "COURSE_VERSION_CREATE_FAILED" }, 500);
+    }
+    const currentVersionUpdate = await supabase.from("courses").update({ current_version_id: initialVersion.id }).eq("id", course.id);
+    if (currentVersionUpdate.error) {
+      if (created) {
+        await supabase.from("course_versions").delete().eq("id", initialVersion.id);
+        await supabase.from("courses").delete().eq("id", course.id);
+      }
+      return json({ error: "COURSE_VERSION_LINK_FAILED" }, 500);
     }
     auditLater(supabase, request, {
       actor: acct,
       action: existing ? (existing.status !== row.status && row.status === "published" ? "course.published" : "course.updated") : "course.created",
       entityType: "course",
       entityId: course.id,
-      entityDisplayName: course.title || course.name || course.id,
+      entityDisplayName: course.title,
       beforeData: existing ? { status: existing.status, title: existing.data?.title || existing.data?.name || "" } : null,
-      afterData: { status: row.status, title: course.title || course.name || "" },
+      afterData: { status: row.status, title: course.title, initial_version_id: initialVersion.id },
     });
-    return json({ ok: true, id: course.id });
+    return json({
+      ok: true,
+      created,
+      course: { ...row.data, id: course.id, status: row.status, deliveryMode: row.delivery_mode, currentVersionId: initialVersion.id },
+      initialVersion: { id: initialVersion.id, status: initialVersion.status, versionNumber: initialVersion.version_number || 1 },
+    }, created ? 201 : 200);
   }
 
   if (path === "/api/courses/bulk" && method === "POST") {

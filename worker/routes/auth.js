@@ -40,10 +40,36 @@ import {
 } from "../services/deployment-test-account.js";
 
 const CANONICAL_ROLES = new Set(["hr", "employee"]);
+const EMPLOYEE_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Fire-and-forget audit log — never throws, doesn't block response. */
-function auditLog(supabase, row) {
-  Promise.resolve(supabase.from("audit_logs").insert(row)).then(null, () => {});
+function boundedText(value, field, { required = false, max = 200 } = {}) {
+  const normalized = String(value ?? "").trim().replace(/\s+/g, " ");
+  if (required && !normalized) {
+    throw Object.assign(new Error(`${field} is required`), { status: 422, code: "INVALID_INPUT" });
+  }
+  if (normalized.length > max) {
+    throw Object.assign(new Error(`${field} is too long`), { status: 422, code: "INVALID_INPUT" });
+  }
+  return normalized || null;
+}
+
+export function validateEmployeeCreationInput(body = {}) {
+  const email = boundedText(body.email, "email", { required: true, max: 320 }).toLowerCase();
+  if (!EMPLOYEE_EMAIL_PATTERN.test(email)) {
+    throw Object.assign(new Error("email is invalid"), { status: 422, code: "INVALID_EMAIL" });
+  }
+  const password = String(body.password ?? "");
+  if (password.length < 12 || password.length > 256) {
+    throw Object.assign(new Error("password must be between 12 and 256 characters"), { status: 422, code: "INVALID_PASSWORD" });
+  }
+  const fullName = boundedText(body.fullName, "fullName", { required: true, max: 200 });
+  const employeeCode = boundedText(body.employeeCode, "employeeCode", { required: true, max: 80 });
+  const department = boundedText(body.department, "department", { required: true, max: 200 });
+  const position = boundedText(body.position, "position", { max: 200 });
+  if (body.role !== undefined && body.role !== "employee") {
+    throw Object.assign(new Error("new employees must use the employee role"), { status: 422, code: "INVALID_ROLE" });
+  }
+  return { email, password, fullName, employeeCode, department, position, role: "employee" };
 }
 
 function taskStatusForResolution(status) {
@@ -581,44 +607,97 @@ export async function handleAuth(request, env) {
     return json({ ok: true, id: profile.id, role: profile.role });
   }
 
-  // ── CREATE USER ───────────────────────────────────────────────────────────
+  // ── CREATE EMPLOYEE ───────────────────────────────────────────────────────
   if (action === "create-user") {
     const { error, caller } = await requireHrSession(request, env);
     if (error) return error;
 
-    const { email, password, fullName, employeeCode, department, position, role = "employee" } = body;
-    if (!email || !password || !fullName) return json({ error: "email, password, fullName are required" }, 400);
-    if (!CANONICAL_ROLES.has(role)) return json({ error: "INVALID_ROLE" }, 400);
+    const rateLimitResponse = await enforceRateLimit(request, env, "create-employee", caller.accountId, { limit: 20, windowSeconds: 300, critical: true });
+    if (rateLimitResponse) return rateLimitResponse;
 
-    const tempHash = await hashPassword(String(password));
+    const input = validateEmployeeCreationInput(body);
+    const { data: duplicateEmail } = await supabase.from("profiles").select("id").eq("email", input.email).maybeSingle();
+    if (duplicateEmail) return json({ error: "DUPLICATE_EMAIL", message: "Email đã tồn tại." }, 409);
+    const { data: duplicateCode } = await supabase.from("profiles").select("id").eq("employee_code", input.employeeCode).maybeSingle();
+    if (duplicateCode) return json({ error: "DUPLICATE_EMPLOYEE_CODE", message: "Mã nhân viên đã tồn tại." }, 409);
+
+    const tempHash = await hashPassword(input.password);
     const newId = `emp-${crypto.randomUUID()}`;
-
-    const { error: profileErr } = await supabase.from("profiles").insert({
-      id: newId,
-      full_name: fullName.trim(),
-      email: String(email).trim().toLowerCase(),
-      employee_code: employeeCode || null,
-      role,
-      department: department || null,
-      position: position || null,
-      account_status: "active",
+    const authResult = await supabase.auth.admin.createUser({
+      email: input.email,
+      password: input.password,
+      email_confirm: true,
+      app_metadata: { application_role: "employee" },
+      user_metadata: { full_name: input.fullName, employee_code: input.employeeCode },
     });
+    if (authResult.error || !authResult.data?.user?.id) {
+      const duplicate = /already|exists|registered/i.test(`${authResult.error?.code || ""} ${authResult.error?.message || ""}`);
+      return json({
+        error: duplicate ? "DUPLICATE_EMAIL" : "AUTH_USER_CREATE_FAILED",
+        ...(duplicate ? { message: "Email đã tồn tại." } : {}),
+      }, duplicate ? 409 : 502);
+    }
+    const authUserId = authResult.data.user.id;
 
-    if (profileErr) return json({ error: profileErr.message }, 400);
+    const { data: createdProfile, error: profileErr } = await supabase.from("profiles").insert({
+      id: newId,
+      auth_user_id: authUserId,
+      full_name: input.fullName,
+      email: input.email,
+      employee_code: input.employeeCode,
+      role: input.role,
+      department: input.department,
+      position: input.position,
+      account_status: "active",
+    }).select("id, full_name, email, employee_code, department, position, role, account_status").maybeSingle();
+
+    if (profileErr) {
+      await supabase.auth.admin.deleteUser(authUserId).catch(() => {});
+      if (profileErr.code === "23505") {
+        const duplicate = /employee_code/i.test(profileErr.message || "") ? "DUPLICATE_EMPLOYEE_CODE" : "DUPLICATE_EMAIL";
+        return json({ error: duplicate, message: duplicate === "DUPLICATE_EMAIL" ? "Email đã tồn tại." : "Mã nhân viên đã tồn tại." }, 409);
+      }
+      return json({ error: "EMPLOYEE_CREATE_FAILED" }, 500);
+    }
 
     try {
       await writeCredential(supabase, newId, tempHash, { mustChange: true });
     } catch (error) {
-      await supabase.from("profiles").delete().eq("id", newId);
-      throw error;
+      const cleanup = await supabase.from("profiles").delete().eq("id", newId);
+      const authCleanup = await supabase.auth.admin.deleteUser(authUserId).catch(() => ({ error: true }));
+      await writeAuditLog(supabase, request, {
+        actor: caller,
+        action: "employee.create_failed",
+        status: "failed",
+        entityType: "profile",
+        entityId: newId,
+        errorCode: error.code || "CREDENTIAL_STORE_UNAVAILABLE",
+        metadata: { profile_cleanup: cleanup.error ? "failed" : "pass", auth_cleanup: authCleanup?.error ? "failed" : "pass" },
+      }).catch(() => {});
+      throw Object.assign(new Error("Employee creation failed"), { status: 503, code: "EMPLOYEE_CREATE_FAILED" });
     }
 
-    auditLog(supabase, {
-      actor_id: caller.accountId, action: "create_user", target_type: "profile",
-      target_id: newId, result: "success", details: { role },
-    });
+    await writeAuditLog(supabase, request, {
+      actor: caller,
+      action: "employee.created",
+      entityType: "profile",
+      entityId: newId,
+      entityDisplayName: input.fullName,
+      afterData: { role: input.role, department: input.department, employee_code: input.employeeCode, account_status: "active" },
+      metadata: { credential_status: "must_change", auth_user_linked: true },
+    }).catch(() => {});
 
-    return json({ userId: newId }, 201);
+    return json({ ok: true, employee: {
+      id: createdProfile?.id || newId,
+      fullName: createdProfile?.full_name || input.fullName,
+      email: createdProfile?.email || input.email,
+      employeeCode: createdProfile?.employee_code || input.employeeCode,
+      department: createdProfile?.department || input.department,
+      position: createdProfile?.position || input.position || "",
+      role: "employee",
+      accountStatus: createdProfile?.account_status || "active",
+      passwordStatus: "resetRequired",
+    } }, 201);
   }
 
   return json({ error: "Missing or invalid action" }, 400);

@@ -4,25 +4,25 @@ import { createRouteShell, escapeAttribute, escapeHtml } from "../../shared/ui/r
 
 const copy = {
   vi: {
-    title: "Quản lý nhân viên", eyebrow: "HR / People Operations", intro: "Tìm kiếm và cập nhật hồ sơ nhân viên với phân trang theo cursor.",
+    title: "Quản lý nhân viên", eyebrow: "HR / People Operations", intro: "Tìm kiếm và cập nhật hồ sơ nhân viên với phân trang theo cursor.", add: "Thêm nhân viên",
     search: "Mã nhân viên, họ tên, email, phòng ban...", department: "Phòng ban", status: "Trạng thái", location: "Địa điểm", position: "Vị trí", manager: "Quản lý",
     apply: "Áp dụng", clear: "Xóa lọc", sortAsc: "Tên A-Z", sortDesc: "Tên Z-A", refresh: "Làm mới", loading: "Đang tải danh sách nhân viên", loadError: "Không thể tải danh sách nhân viên.", retry: "Thử lại",
     empty: "Không tìm thấy nhân viên phù hợp.", employee: "Nhân viên", code: "Mã NV", contact: "Liên hệ", organization: "Tổ chức", account: "Tài khoản", actions: "Thao tác", edit: "Sửa", records: "Chứng chỉ", security: "Tài khoản", previous: "Trang trước", next: "Trang sau", resultCount: "kết quả trên trang này",
-    restricted: "Tài khoản này không có quyền quản lý nhân viên.", close: "Đóng", save: "Lưu thay đổi", saving: "Đang lưu", saved: "Đã cập nhật hồ sơ nhân viên", updateError: "Không thể cập nhật hồ sơ.", searchHint: "Từ 1-2 ký tự chỉ tìm theo tiền tố; từ 3 ký tự hỗ trợ tìm chuỗi con và không dấu.",
+    restricted: "Tài khoản này không có quyền quản lý nhân viên.", close: "Đóng", save: "Lưu thay đổi", saving: "Đang lưu", saved: "Đã cập nhật hồ sơ nhân viên", updateError: "Không thể cập nhật hồ sơ.", createTitle: "Thêm nhân viên", createIntro: "Tạo hồ sơ employee và mật khẩu tạm thời trong một bước.", create: "Tạo nhân viên", creating: "Đang tạo", created: "Đã tạo nhân viên", createError: "Không thể tạo nhân viên.", password: "Mật khẩu tạm thời", passwordHint: "Ít nhất 12 ký tự; nhân viên sẽ đổi mật khẩu khi đăng nhập.", required: "Trường này bắt buộc.", searchHint: "Từ 1-2 ký tự chỉ tìm theo tiền tố; từ 3 ký tự hỗ trợ tìm chuỗi con và không dấu.",
   },
   en: {
-    title: "Employee management", eyebrow: "HR / People Operations", intro: "Search and update employee profiles with cursor pagination.",
+    title: "Employee management", eyebrow: "HR / People Operations", intro: "Search and update employee profiles with cursor pagination.", add: "Add employee",
     search: "Employee code, name, email, department...", department: "Department", status: "Status", location: "Location", position: "Position", manager: "Manager",
     apply: "Apply", clear: "Clear", sortAsc: "Name A-Z", sortDesc: "Name Z-A", refresh: "Refresh", loading: "Loading employees", loadError: "Unable to load employees.", retry: "Retry",
     empty: "No matching employees.", employee: "Employee", code: "Code", contact: "Contact", organization: "Organization", account: "Account", actions: "Actions", edit: "Edit", records: "Certificates", security: "Account", previous: "Previous", next: "Next", resultCount: "results on this page",
-    restricted: "This account cannot manage employees.", close: "Close", save: "Save changes", saving: "Saving", saved: "Employee profile updated", updateError: "Unable to update the profile.", searchHint: "One or two characters use prefix search; three or more support accent-insensitive substring search.",
+    restricted: "This account cannot manage employees.", close: "Close", save: "Save changes", saving: "Saving", saved: "Employee profile updated", updateError: "Unable to update the profile.", createTitle: "Add employee", createIntro: "Create the employee profile and temporary password in one step.", create: "Create employee", creating: "Creating", created: "Employee created", createError: "Unable to create the employee.", password: "Temporary password", passwordHint: "At least 12 characters; the employee will change it after sign-in.", required: "This field is required.", searchHint: "One or two characters use prefix search; three or more support accent-insensitive substring search.",
   },
   kr: {
-    title: "직원 관리", eyebrow: "HR / People Operations", intro: "커서 페이지네이션으로 직원 프로필을 검색하고 수정합니다.",
+    title: "직원 관리", eyebrow: "HR / People Operations", intro: "커서 페이지네이션으로 직원 프로필을 검색하고 수정합니다.", add: "직원 추가",
     search: "사번, 이름, 이메일, 부서...", department: "부서", status: "상태", location: "근무지", position: "직책", manager: "관리자",
     apply: "적용", clear: "초기화", sortAsc: "이름 오름차순", sortDesc: "이름 내림차순", refresh: "새로고침", loading: "직원 목록 로딩 중", loadError: "직원 목록을 불러올 수 없습니다.", retry: "다시 시도",
     empty: "조건에 맞는 직원이 없습니다.", employee: "직원", code: "사번", contact: "연락처", organization: "조직", account: "계정", actions: "작업", edit: "수정", records: "자격증", security: "계정", previous: "이전", next: "다음", resultCount: "현재 페이지 결과",
-    restricted: "직원 관리 권한이 없습니다.", close: "닫기", save: "변경 저장", saving: "저장 중", saved: "직원 프로필이 업데이트되었습니다", updateError: "프로필을 업데이트할 수 없습니다.", searchHint: "1~2자는 접두사 검색, 3자 이상은 악센트 비구분 부분 문자열 검색을 사용합니다.",
+    restricted: "직원 관리 권한이 없습니다.", close: "닫기", save: "변경 저장", saving: "저장 중", saved: "직원 프로필이 업데이트되었습니다", updateError: "프로필을 업데이트할 수 없습니다.", createTitle: "직원 추가", createIntro: "직원 프로필과 임시 비밀번호를 한 번에 만듭니다.", create: "직원 만들기", creating: "생성 중", created: "직원이 생성되었습니다", createError: "직원을 생성할 수 없습니다.", password: "임시 비밀번호", passwordHint: "12자 이상; 로그인 후 비밀번호를 변경합니다.", required: "필수 입력입니다.", searchHint: "1~2자는 접두사 검색, 3자 이상은 악센트 비구분 부분 문자열 검색을 사용합니다.",
   },
 };
 
@@ -93,7 +93,7 @@ function renderRows(state, i18n, text) {
 }
 
 function render(state, i18n, text) {
-  return `<section class="employee-hero"><div><p>${escapeHtml(text.eyebrow)}</p><h2 tabindex="-1">${escapeHtml(text.title)}</h2><span>${escapeHtml(text.intro)}</span></div><button type="button" class="route-button employee-refresh" data-employee-refresh>${escapeHtml(text.refresh)}</button></section>
+  return `<section class="employee-hero"><div><p>${escapeHtml(text.eyebrow)}</p><h2 tabindex="-1">${escapeHtml(text.title)}</h2><span>${escapeHtml(text.intro)}</span></div><div class="employee-hero-actions"><button type="button" class="route-button employee-add" data-employee-add>${escapeHtml(text.add)}</button><button type="button" class="route-button employee-refresh" data-employee-refresh>${escapeHtml(text.refresh)}</button></div></section>
   <form class="route-card route-panel employee-filters" data-employee-filters>
     <label class="employee-search"><span>${escapeHtml(text.search)}</span><input id="employeeDirSearch" name="search" type="search" value="${escapeAttribute(state.search)}" maxlength="80" autocomplete="off" placeholder="${escapeAttribute(text.search)}" aria-describedby="employee-search-hint"><small id="employee-search-hint">${escapeHtml(text.searchHint)}</small></label>
     ${filterField("department", text.department, state.department)}
@@ -108,6 +108,19 @@ function render(state, i18n, text) {
     ${state.loading ? `<div class="route-loading" aria-label="${escapeAttribute(text.loading)}"><span></span><span></span><span></span></div>` : state.error ? `<div class="route-error"><p>${escapeHtml(text.loadError)}</p><button type="button" class="route-button" data-employee-retry>${escapeHtml(text.retry)}</button></div>` : renderRows(state, i18n, text)}
     <nav class="employee-pagination" aria-label="Pagination"><button type="button" data-employee-previous ${state.loading || !state.history.length ? "disabled" : ""}>${escapeHtml(text.previous)}</button><button type="button" data-employee-next ${state.loading || !state.hasMore || !state.nextCursor ? "disabled" : ""}>${escapeHtml(text.next)}</button></nav>
   </section>`;
+}
+
+function createDialog(text) {
+  return `<dialog class="employee-dialog" data-employee-dialog><form method="dialog" class="employee-dialog__close"><button value="cancel" aria-label="${escapeAttribute(text.close)}">×</button></form><form data-employee-create-form novalidate><header><p>${escapeHtml(text.eyebrow)}</p><h2>${escapeHtml(text.createTitle)}</h2><span>${escapeHtml(text.createIntro)}</span></header>
+    <label><span>${escapeHtml(text.employee)}</span><input name="fullName" maxlength="200" required autocomplete="name"></label>
+    <label><span>Email</span><input name="email" type="email" maxlength="320" required autocomplete="email"></label>
+    <label><span>${escapeHtml(text.code)}</span><input name="employeeCode" maxlength="80" required autocomplete="off"></label>
+    <label><span>${escapeHtml(text.department)}</span><input name="department" maxlength="200" required autocomplete="organization"></label>
+    <label><span>${escapeHtml(text.position)}</span><input name="position" maxlength="200" autocomplete="organization-title"></label>
+    <label><span>${escapeHtml(text.password)}</span><input name="password" type="password" minlength="12" maxlength="256" required autocomplete="new-password"><small>${escapeHtml(text.passwordHint)}</small></label>
+    <p class="employee-form-error" data-employee-create-error role="alert" aria-live="polite"></p>
+    <footer><button type="button" class="route-button route-button--secondary" data-employee-dialog-close>${escapeHtml(text.close)}</button><button type="submit" class="route-button">${escapeHtml(text.create)}</button></footer>
+  </form></dialog>`;
 }
 
 function editDialog(item, i18n, text) {
@@ -163,6 +176,7 @@ export async function mount({ account }) {
       load();
     });
     shell.content.querySelector("[data-employee-refresh]")?.addEventListener("click", () => load(true));
+    shell.content.querySelector("[data-employee-add]")?.addEventListener("click", openCreator);
     shell.content.querySelector("[data-employee-retry]")?.addEventListener("click", () => load(), { once: true });
     shell.content.querySelector("[data-employee-next]")?.addEventListener("click", () => {
       if (!state.nextCursor) return;
@@ -176,6 +190,36 @@ export async function mount({ account }) {
       load();
     });
     shell.content.querySelectorAll("[data-employee-edit]").forEach((button) => button.addEventListener("click", () => openEditor(button.dataset.employeeEdit)));
+  };
+
+  const openCreator = () => {
+    shell.content.insertAdjacentHTML("beforeend", createDialog(text));
+    const dialog = shell.content.querySelector("[data-employee-dialog]");
+    const form = dialog.querySelector("[data-employee-create-form]");
+    const errorBox = dialog.querySelector("[data-employee-create-error]");
+    dialog.querySelector("[data-employee-dialog-close]")?.addEventListener("click", () => dialog.close());
+    dialog.addEventListener("close", () => dialog.remove(), { once: true });
+    form?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      errorBox.textContent = "";
+      if (!form.reportValidity()) return;
+      const submit = form.querySelector('[type="submit"]');
+      submit.disabled = true;
+      submit.textContent = text.creating;
+      try {
+        await apiJson("/api/auth", { method: "POST", body: JSON.stringify({ action: "create-user", ...Object.fromEntries(new FormData(form)) }) });
+        dialog.close();
+        shell.announce(text.created);
+        await load(true);
+      } catch (error) {
+        submit.disabled = false;
+        submit.textContent = text.create;
+        const messages = { DUPLICATE_EMAIL: "Email đã tồn tại.", DUPLICATE_EMPLOYEE_CODE: "Mã nhân viên đã tồn tại.", INVALID_EMAIL: "Email không hợp lệ.", INVALID_PASSWORD: "Mật khẩu phải có ít nhất 12 ký tự." };
+        errorBox.textContent = messages[error.code] || error.message || text.createError;
+      }
+    });
+    dialog.showModal();
+    form?.querySelector("input")?.focus();
   };
 
   const openEditor = (id) => {

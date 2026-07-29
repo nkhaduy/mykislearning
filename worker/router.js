@@ -196,12 +196,13 @@ export async function handleApiRequest(request, env) {
     } catch (error) {
       if (![401, 403].includes(error?.status)) console.error("[WORKER]", error?.code || "INTERNAL_ERROR");
       const ctx = getRequestContext(request);
+      const status = error.status || 500;
       return json({
         ok: false,
         error: error.code || "INTERNAL_ERROR",
-        message: error.message || "Unexpected error",
+        ...(status < 500 && error.message ? { message: error.message } : {}),
         requestId: ctx.requestId,
-      }, error.status || 500);
+      }, status);
     }
   });
 }

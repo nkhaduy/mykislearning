@@ -44,7 +44,7 @@ test("PERF-005: learner, HR, employee and reporting entries do not import the ap
   assert.match(bootstrap, /learner:\s*\(\)\s*=>\s*import\("\.\.\/features\/learner\/dashboard\.js"\)/);
   assert.match(bootstrap, /learnerCourses:\s*\(\)\s*=>\s*import\("\.\.\/features\/learner\/courses\.js"\)/);
   assert.match(bootstrap, /admin:\s*\(\)\s*=>\s*import\("\.\.\/features\/admin\/dashboard\.js"\)/);
-  assert.match(bootstrap, /employees:\s*\(\)\s*=>\s*import\("\.\.\/features\/employees\/employees\.js"\)/);
+  assert.match(bootstrap, /employees:\s*\(\)\s*=>\s*import\("\.\.\/features\/employees\/employees\.js(?:\?[^"']+)?"\)/);
   assert.match(bootstrap, /reporting:\s*\(\)\s*=>\s*import\("\.\.\/features\/reporting\/reports\.js"\)/);
   for (const path of ["src/features/learner/dashboard.js", "src/features/learner/courses.js", "src/features/admin/dashboard.js", "src/features/employees/employees.js", "src/features/reporting/reports.js"]) {
     const source = read(path);

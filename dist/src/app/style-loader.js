@@ -32,10 +32,10 @@ if (isHome) {
   document.write('<link rel="stylesheet" href="/src/features/admin/admin.css?v=20260727-route-split1">');
 } else if ((location.pathname.replace(/\/+$/, "") || "/") === "/hr/employees") {
   document.write('<link rel="stylesheet" href="/src/shared/ui/route-shell.css?v=20260727-shared-type2">');
-  document.write('<link rel="stylesheet" href="/src/features/employees/employees.css?v=20260728-employee-split1">');
+  document.write('<link rel="stylesheet" href="/src/features/employees/employees.css?v=20260729-hr-create1">');
 } else if (/^\/hr\/courses(?:\/[^/]+)?$/.test(location.pathname.replace(/\/+$/, "") || "/") || /^\/dashboard\/courses\/[^/]+$/.test(location.pathname.replace(/\/+$/, "") || "/")) {
   document.write('<link rel="stylesheet" href="/src/shared/ui/route-shell.css?v=20260727-shared-type2">');
-  document.write('<link rel="stylesheet" href="/src/features/courses/courses.css?v=20260728-course-split1">');
+  document.write('<link rel="stylesheet" href="/src/features/courses/courses.css?v=20260729-hr-create1">');
 } else if (["/hr/quizzes", "/dashboard/quizzes", "/hr/learning-records", "/dashboard/certificates"].includes(location.pathname.replace(/\/+$/, "") || "/") || /^\/hr\/live-training(?:\/[^/]+)?$/.test(location.pathname.replace(/\/+$/, "") || "/")) {
   document.write('<link rel="stylesheet" href="/src/shared/ui/route-shell.css?v=20260727-shared-type2">');
   document.write('<link rel="stylesheet" href="/src/features/operations/operations.css?v=20260728-operations-split1">');

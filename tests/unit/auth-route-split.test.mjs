@@ -51,7 +51,7 @@ test("AUTHZ-ROLE-001: role inputs are canonical and legacy values fail closed", 
   const auth = read("worker/routes/auth.js");
   const employees = read("worker/routes/employees.js");
   assert.match(auth, /CANONICAL_ROLES\s*=\s*new Set\(\["hr", "employee"\]\)/);
-  assert.match(auth, /if \(!CANONICAL_ROLES\.has\(role\)\) return json\(\{ error: "INVALID_ROLE" \}, 400\)/);
+  assert.match(auth, /body\.role !== undefined && body\.role !== "employee"[\s\S]*code: "INVALID_ROLE"/);
   assert.match(employees, /if \(!\["hr", "employee"\]\.includes\(patch\.role\)\) return json\(\{ error: "INVALID_ROLE" \}, 400\)/);
 });
 
