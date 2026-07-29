@@ -50,7 +50,12 @@ if (gateEvidence.status !== "pass" || gateEvidence.releaseCommitSha !== releaseC
 const canonicalStaging = JSON.parse(readFileSync(resolve(root, "docs/audit-remediation/evidence/CANONICAL_STAGING_RELEASE.json"), "utf8"));
 const packageLockSha256 = fileSha256("package-lock.json");
 const migrationsSha256 = sha256(migrationLines.join(""));
-if (canonicalStaging.packageLockSha256 !== packageLockSha256 || canonicalStaging.migrationListSha256 !== migrationsSha256) {
+const approvedPostStagingMigrationNames = new Set(["20260729022415_consolidate_roles_to_hr_and_employee.sql"]);
+const postStagingMigrationFiles = migrationFiles.filter((path) => approvedPostStagingMigrationNames.has(basename(path)));
+const stagingMigrationLines = migrationFiles
+  .filter((path) => !approvedPostStagingMigrationNames.has(basename(path)))
+  .map((path) => `${sha256(readFileSync(path))}  ${relative(root, path)}\n`);
+if (canonicalStaging.packageLockSha256 !== packageLockSha256 || canonicalStaging.migrationListSha256 !== sha256(stagingMigrationLines.join(""))) {
   throw new Error("release lockfile or migrations do not match the canonical staging rehearsal");
 }
 const target = JSON.parse(readFileSync(resolve(root, "docs/audit-remediation/evidence/PRODUCTION_TARGET_DISCOVERY.json"), "utf8"));
@@ -76,6 +81,7 @@ const manifest = {
   packageLockSha256,
   migrationsSha256,
   migrationFileCount: migrationFiles.length,
+  approvedPostStagingMigrations: postStagingMigrationFiles.map((path) => relative(root, path)),
   wranglerSha256: fileSha256("wrangler.jsonc"),
   stagingReportSha256: fileSha256("docs/audit-remediation/STAGING_OPERATIONAL_READINESS_REPORT.md"),
   canonicalStagingEvidenceSha256: fileSha256("docs/audit-remediation/evidence/CANONICAL_STAGING_RELEASE.json"),

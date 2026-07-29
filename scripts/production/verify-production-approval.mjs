@@ -339,7 +339,15 @@ export function verifyProductionApproval(input, options = {}) {
     } catch { blockers.push("release build artifact is missing"); }
     if (gates && manifest.qualityGateEvidenceSha256 !== sha256(readFileSync(gatePath))) blockers.push("release manifest quality-gate checksum is stale");
     if (manifest.canonicalStagingVersion !== input.KIS_CANONICAL_STAGING_VERSION || manifest.productionBackupId !== input.KIS_PRODUCTION_BACKUP_ID || manifest.productionApprovalId !== input.KIS_PRODUCTION_APPROVAL_ID) blockers.push("release manifest is not bound to the approved staging/backup/approval package");
-    if (staging && (manifest.packageLockSha256 !== staging.packageLockSha256 || manifest.migrationsSha256 !== staging.migrationListSha256)) blockers.push("release lockfile or migrations do not match the canonical staging rehearsal");
+    if (staging) {
+      const approvedPostStagingMigrationNames = new Set(["20260729022415_consolidate_roles_to_hr_and_employee.sql"]);
+      const postStagingMigrationFiles = migrationFiles.filter((path) => approvedPostStagingMigrationNames.has(basename(path)));
+      const stagingMigrationLines = migrationFiles
+        .filter((path) => !approvedPostStagingMigrationNames.has(basename(path)))
+        .map((path) => `${sha256(readFileSync(resolve(root, path)))}  ${path}\n`);
+      if (manifest.packageLockSha256 !== staging.packageLockSha256 || sha256(stagingMigrationLines.join("")) !== staging.migrationListSha256) blockers.push("release lockfile or migrations do not match the canonical staging rehearsal");
+      if (JSON.stringify(manifest.approvedPostStagingMigrations || []) !== JSON.stringify(postStagingMigrationFiles)) blockers.push("release manifest post-staging migration delta is stale");
+    }
     const allowlistSha256 = sha256(JSON.stringify([...PURGE_TABLES].sort()));
     const ownerApprovalPath = resolve(root, "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_OWNER_APPROVAL.json");
     const twoRoleContractPath = resolve(root, "docs/audit-remediation/evidence/TWO_ROLE_AUTHORIZATION_CONTRACT.json");

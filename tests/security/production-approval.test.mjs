@@ -131,6 +131,7 @@ function fixture({ alertsVerified = true } = {}) {
     canonicalStagingVersion: canonical.versionId, productionBackupId: contract.KIS_PRODUCTION_BACKUP_ID = "LOGICAL-TEST-BACKUP", productionApprovalId: contract.KIS_PRODUCTION_APPROVAL_ID,
     qualityGateEvidenceSha256: sha256(readFileSync(gatesPath)),
     cleanResetAllowlistSha256,
+    approvedPostStagingMigrations: [],
     cleanResetOwnerApprovalSha256: sha256(readFileSync(join(root, "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_OWNER_APPROVAL.json"))),
     pendingMigrationAllowlist: pendingMigrations,
     rollbackWorkerVersion: "version-current",
