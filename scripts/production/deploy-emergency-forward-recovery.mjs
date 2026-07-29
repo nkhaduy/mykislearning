@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join, relative, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { loadSecureRuntime, tokenConsumptionFile } from "./runtime-contract.mjs";
 
 const root = resolve(new URL("../..", import.meta.url).pathname);
@@ -57,7 +57,14 @@ function verifyStaticContract() {
 }
 
 function pendingMigrations() {
-  const output = command("supabase", ["db", "push", "--linked", "--include-all", "--dry-run"]);
+  const result = spawnSync("supabase", ["db", "push", "--linked", "--include-all", "--dry-run"], {
+    cwd: root,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    env: process.env,
+  });
+  if (result.error || result.status !== 0) throw result.error || new Error("Supabase migration dry-run failed");
+  const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
   if (output.includes("Remote database is up to date.")) return [];
   return [...output.matchAll(/^\s*[•*]\s+(\d{3,14}_[A-Za-z0-9_]+\.sql)\s*$/gm)].map((match) => match[1]);
 }
