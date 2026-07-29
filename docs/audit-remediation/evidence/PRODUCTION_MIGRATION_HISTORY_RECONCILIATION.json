@@ -3,7 +3,7 @@
   "status": "pass",
   "capturedAt": "2026-07-29T08:46:22.654Z",
   "projectRef": "mooqdtiedfamnlpitqtq",
-  "releaseCommitSha": "185f6ddc6df5a86551fa2013a58e632bf9e0e54b",
+  "releaseCommitSha": null,
   "releaseManifestSha256": null,
   "backupEvidenceSha256": "426d981933ebee5de414e6ad758ee4a8412758cb9c3f9968a234fa803594a5c1",
   "historyBeforeSha256": "61a148a79e008b63d85dd355823cffde8903f4411f0c593615ba6ff297ecad0d",
