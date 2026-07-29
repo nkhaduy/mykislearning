@@ -31,3 +31,11 @@ test("REPORT-PERF-003: report requests have a timeout and generic client errors"
   assert.match(migration, /service_report_timeout_probe/);
   assert.match(route, /REPORT_QUERY_FAILED/);
 });
+
+test("REPORT-RECOVERY-001: forward fix keeps overview compatible with legacy enrollments", () => {
+  const migration = readFileSync(new URL("../../supabase/migrations/20260729121500_fix_reporting_rpc_enrollment_compatibility.sql", import.meta.url), "utf8");
+  assert.match(migration, /create or replace function public\.service_report_overview/);
+  assert.match(migration, /select e\.id, e\.account_id, e\.course_id, e\.status, e\.updated_at,/);
+  assert.doesNotMatch(migration, /select e\.id, e\.account_id, e\.course_id, e\.status, e\.created_at/);
+  assert.doesNotMatch(migration, /\b(drop|delete|truncate)\b/i);
+});
