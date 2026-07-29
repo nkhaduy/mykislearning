@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-07-30T01:35:00+07:00",
+  "status": "not_deployed",
+  "productionHealth": "pass",
+  "activeDeploymentId": "4c1c33d2-b226-4402-9023-87486ed7750f",
+  "activeWorkerVersion": "7f2abc31-45ef-4da5-aa82-880fcf91c988",
+  "databaseMutation": false,
+  "workerDeployment": false,
+  "syntheticSmokeCreated": false,
+  "cleanupRequired": false,
+  "rollbackRequired": false,
+  "protectedPlan": "blocked",
+  "containsSecrets": false,
+  "containsRawPii": false
+}

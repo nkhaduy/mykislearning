@@ -48,3 +48,12 @@ JWT/profile mismatches and profiles carrying `admin`, `trainer`, `unknown` or `n
 ## Remaining blockers
 
 No two-role authorization blocker remains. This report does not imply production deployment; production approval still depends on the protected release manifest, owner-approved maintenance window and other production gates.
+
+## 2026-07-30 route-level hardening
+
+- Employee course content now requires an enrollment in a published course before content or signed storage URLs are returned.
+- Employee enrollment PATCH is owner-scoped and cannot set progress, status, or ownership fields.
+- Learner quiz lists/questions are assignment-scoped and answer keys are removed.
+- Quiz scores, pass results, prerequisites, and attempt limits are enforced server-side.
+- Enrollment completion is recalculated from required content and quiz outcomes.
+- Regression evidence is in `tests/unit/quiz-security.test.mjs`; protected gates pass for remediation commit `7d0b5ab6a68ca2656e9516aa2cf57b4404f55b05`.

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-07-30T01:35:00+07:00",
+  "status": "partially_completed",
+  "owner": "Nguyen Kha Duy",
+  "release": {
+    "branch": "release/kis-lms-autonomous-audit-20260730",
+    "baseCommit": "d10182193aaffe73d56616154eaf20dc18cb0077",
+    "remediationCommit": "7d0b5ab6a68ca2656e9516aa2cf57b4404f55b05"
+  },
+  "production": {
+    "domain": "https://kislms.site",
+    "health": "pass",
+    "deploymentId": "4c1c33d2-b226-4402-9023-87486ed7750f",
+    "workerVersion": "7f2abc31-45ef-4da5-aa82-880fcf91c988",
+    "historicalEvidenceVersion": "4878632f-6dee-4408-9c97-abb0329eb039",
+    "databaseMutation": false,
+    "workerDeployment": false,
+    "rollback": false
+  },
+  "findings": {
+    "critical": { "found": 0, "fixed": 0, "remaining": 0 },
+    "high": { "found": 7, "fixed": 6, "remaining": 1 },
+    "medium": { "found": 5, "fixed": 3, "remaining": 2 },
+    "low": { "found": 1, "fixed": 0, "remaining": 1 }
+  },
+  "validation": {
+    "protectedQualityGates": "pass",
+    "qualityGateChecks": 30,
+    "unitTests": { "passed": 111, "failed": 0 },
+    "securityTests": { "passed": 45, "failed": 0 },
+    "migrationReplay": "pass",
+    "publicBrowserLocal": { "passed": 9, "failed": 0 },
+    "authenticatedBrowserLocal": { "passed": 8, "failed": 0 },
+    "productionPublicBrowser": { "passed": 6, "failed": 3 },
+    "requiredViewportChecksLocal": { "passed": 21, "failed": 0 },
+    "requiredViewportChecksProduction": { "http200": 21, "horizontalOverflow": 0, "cspAnalyticsErrors": 21 },
+    "artifactScan": "pass",
+    "bundleBudget": "pass",
+    "dependencyAudit": "pass",
+    "secretPatternScan": "pass"
+  },
+  "deploymentDecision": {
+    "plan": "blocked",
+    "deployApprovedExecuted": false,
+    "reason": "Protected runtime/manifest/rollback/migration/approval bindings and credential rotation evidence were not current."
+  },
+  "containsSecrets": false,
+  "containsRawPii": false
+}
