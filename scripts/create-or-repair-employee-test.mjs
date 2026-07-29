@@ -5,22 +5,25 @@
  * Uses Worker API with an HR session. Does not print secrets or password hashes.
  *
  * Env:
- *   BASE_URL    default: https://mykis-learning.nkhaduy.workers.dev
- *   HR_EMAIL    default: hr.demo@kisvn.vn
- *   HR_PASSWORD optional. When omitted/invalid, uses the Worker legacy HR headers
- *               supported by the current admin API.
+ * All target and credential values are required and must point to local/disposable infrastructure.
  */
 
-const BASE_URL = process.env.BASE_URL || "https://mykis-learning.nkhaduy.workers.dev";
-const HR_EMAIL = process.env.HR_EMAIL || "hr.demo@kisvn.vn";
-const HR_PASSWORD = process.env.HR_PASSWORD || "KIS@HR2026!";
+import { assertSafeE2ETarget } from "./assert-safe-e2e-target.mjs";
+
+const BASE_URL = process.env.BASE_URL || "";
+const HR_EMAIL = process.env.HR_EMAIL || "";
+const HR_PASSWORD = process.env.HR_PASSWORD || "";
+assertSafeE2ETarget({ baseURL: BASE_URL, suite: "mutation", mutationAllowed: true });
+if (!HR_EMAIL || !HR_PASSWORD || !process.env.TEST_EMPLOYEE_EMAIL || !process.env.TEST_EMPLOYEE_PASSWORD) {
+  throw new Error("isolated HR and employee runtime credentials are required");
+}
 
 const TEST = {
   id: "emp-test-001",
   employeeCode: "TEST001",
   fullName: "Nhân viên Test",
-  email: "employee.test@kisvn.vn",
-  password: "Test@123456",
+  email: process.env.TEST_EMPLOYEE_EMAIL,
+  password: process.env.TEST_EMPLOYEE_PASSWORD,
 };
 
 async function api(path, options = {}) {
@@ -36,16 +39,14 @@ async function loginHr() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email: HR_EMAIL, password: HR_PASSWORD }),
   });
-  if (!["hr", "admin"].includes(body.profile?.role)) throw new Error("Configured account is not HR/admin.");
+  if (body.profile?.role !== "hr") throw new Error("Configured account is not HR.");
   return body.access_token;
 }
 
 function headers(token = "") {
   return {
     "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    "X-Account-Id": "acc-hr-demo",
-    "X-Account-Role": "hr",
+    Authorization: `Bearer ${token}`,
   };
 }
 
@@ -154,20 +155,15 @@ async function ensureNotification(token, accountId) {
 }
 
 async function main() {
-  let token = "";
-  try {
-    token = await loginHr();
-  } catch {
-    token = "";
-  }
+  const token = await loginHr();
   const accountId = await ensureProfile(token);
   await ensureCoursesAndEnrollments(token, accountId);
   await ensureNotification(token, accountId);
   console.log(JSON.stringify({
     ok: true,
     accountId,
-    email: TEST.email,
-    password: "Test@123456",
+    emailConfigured: true,
+    passwordPersistedOnlyInRuntime: true,
     role: "employee",
     status: "active",
   }, null, 2));

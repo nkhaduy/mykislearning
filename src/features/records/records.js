@@ -7,6 +7,6 @@ const copy = {
 };
 
 export async function mount({ account }) {
-  const admin = account.role !== "employee";
-  return mountCollectionRoute({ account, roles: ["employee", "hr", "admin"], entry: admin ? "learning-records" : "learner-certificates", endpoint: admin ? "/api/admin/learning-records" : "/api/certifications/me", itemKeys: ["items", "records", "certifications", "data"], copy, mapItem: (row) => ({ id: row.id, title: row.title || row.name || row.course_title || row.certificate_type || row.id, subtitle: row.employee?.fullName || row.employee_name || row.issuer || row.provider || "", status: row.status || row.verification_status || "recorded", meta: row.completed_at || row.issue_date || row.updated_at || "", href: "" }) });
+  const isHr = account.role === "hr";
+  return mountCollectionRoute({ account, roles: ["employee", "hr"], entry: isHr ? "learning-records" : "learner-certificates", endpoint: isHr ? "/api/admin/learning-records" : "/api/certifications/me", itemKeys: ["items", "records", "certifications", "data"], copy, mapItem: (row) => ({ id: row.id, title: row.title || row.name || row.course_title || row.certificate_type || row.id, subtitle: row.employee?.fullName || row.employee_name || row.issuer || row.provider || "", status: row.status || row.verification_status || "recorded", meta: row.completed_at || row.issue_date || row.updated_at || "", href: "" }) });
 }

@@ -157,15 +157,15 @@ test("EXPORT-006: HR can read only through the owner-bound RPC contract", async 
   assert.equal(response.status, 200);
   const read = calls.find((call) => call.name === "service_get_export_job");
   assert.equal(read.params.p_requester_id, "hr-owner");
-  assert.equal(read.params.p_is_admin, false);
+  assert.equal(read.params.p_is_admin, true);
 });
 
-test("EXPORT-007: admin cross-owner access is explicit and role downgrade blocks download", async () => {
+test("EXPORT-007: HR cross-owner access is explicit and role downgrade blocks download", async () => {
   const jobId = "00000000-0000-4000-8000-000000000002";
-  const adminHarness = exportRouteEnv("admin", {
+  const adminHarness = exportRouteEnv("hr", {
     service_get_export_job: async () => ({ data: { id: jobId, status: "completed" }, error: null }),
   });
-  const adminResponse = await handleReportExports(await exportRequest(`/api/admin/report-exports/${jobId}`, "admin"), adminHarness.env);
+  const adminResponse = await handleReportExports(await exportRequest(`/api/admin/report-exports/${jobId}`, "hr"), adminHarness.env);
   assert.equal(adminResponse.status, 200);
   assert.equal(adminHarness.calls.find((call) => call.name === "service_get_export_job").params.p_is_admin, true);
 

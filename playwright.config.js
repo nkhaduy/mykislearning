@@ -7,6 +7,7 @@ const localTarget = new URL(baseURL).hostname === "127.0.0.1" || new URL(baseURL
 const suiteMatch = {
   "public-readonly": /public-readonly\.spec\.js/,
   "authenticated-readonly": /(?:authenticated-route-split|secondary-route-parity)\.spec\.js/,
+  "clean-room-role-audit": /clean-room-role-audit\.spec\.js/,
 }[suite] || /.*\.spec\.js/;
 
 export default defineConfig({
@@ -28,6 +29,7 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
     screenshot: "only-on-failure",
     video: "retain-on-failure",
+    trace: suite === "clean-room-role-audit" ? "on" : "retain-on-failure",
     channel: "chrome",
   },
   projects: [

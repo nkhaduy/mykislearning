@@ -6,8 +6,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { loadSecureRuntime, sha256 } from "../../scripts/production/runtime-contract.mjs";
 import { ProductionApprovalError, verifyProductionApproval } from "../../scripts/production/verify-production-approval.mjs";
+import { PURGE_TABLES } from "../../scripts/production/clean-reset/production-clean-reset-common.mjs";
 
-const confirmation = "Tôi hiểu và chấp nhận rủi ro còn lại khi tài khoản HR và Admin vận hành không có MFA/2FA. Tôi xác nhận đây là quyết định có chủ đích của chủ dự án, đồng thời chấp nhận áp dụng các biện pháp bù trừ gồm mật khẩu mạnh, refresh-token rotation, session revocation, rate limiting, audit logging, giám sát sự cố và quy trình khóa tài khoản.";
+const confirmation = "Tôi hiểu và chấp nhận rủi ro còn lại khi tài khoản HR vận hành không có MFA/2FA. Tôi xác nhận đây là quyết định có chủ đích của chủ dự án, đồng thời chấp nhận áp dụng các biện pháp bù trừ gồm mật khẩu mạnh, refresh-token rotation, session revocation, rate limiting, audit logging, giám sát sự cố và quy trình khóa tài khoản.";
 const write = (root, path, value) => {
   const target = join(root, path);
   mkdirSync(dirname(target), { recursive: true });
@@ -55,6 +56,25 @@ function fixture({ alertsVerified = true } = {}) {
     deliveryTested: alertsVerified,
     criticalPoliciesConfigured: alertsVerified,
   });
+  const cleanResetAllowlistSha256 = sha256(JSON.stringify([...PURGE_TABLES].sort()));
+  write(root, "docs/audit-remediation/evidence/CLEAN_ROOM_ROLE_AUDIT.json", {
+    canonicalRoles: ["hr", "employee"],
+    trainerRoleCount: 0,
+    adminRoleCount: 0,
+    unknownRoleCount: 0,
+    activeApplicationRoleSurfaces: { trainerRoutes: 0, adminRoleRoutes: 0, trainerPolicies: 0, adminRolePolicies: 0 },
+    migration: { cleanReplay: "PASS", legacyCleanReset: "PASS", schemaEquivalence: "PASS", rollbackRestoreRehearsal: "PASS" },
+    roles: { employee: { status: "PASS" }, hr: { status: "PASS" } },
+    invalidLegacyRoleAudit: "PASS",
+    remainingBlockers: 0,
+  });
+  write(root, "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_REHEARSAL.json", {
+    legacyCleanResetRehearsal: { status: "pass", rollbackRestoreRehearsal: "pass", bootstrapHrRecovery: "pass" },
+    schemaEquivalence: { status: "pass" },
+    idempotency: { status: "pass" },
+    cleanResetAllowlist: { tableCount: PURGE_TABLES.length, sha256: cleanResetAllowlistSha256, forbiddenSchemasPresent: false },
+    pendingMigrations: { expected: 8, applied: 8, status: "pass" },
+  });
   git(root, "init", "-q");
   git(root, "config", "user.name", "Verifier Test");
   git(root, "config", "user.email", "verifier@example.invalid");
@@ -74,6 +94,8 @@ function fixture({ alertsVerified = true } = {}) {
     KIS_PRODUCTION_ONE_TIME_APPROVAL_TOKEN: "x".repeat(64), KIS_PRODUCTION_APPROVAL_ID: `OWNER-PRODUCTION-20260728T000000Z-${head.slice(0, 8)}`,
     KIS_PRODUCTION_APPROVED_BY: "Nguyễn Khả Duy", KIS_PRODUCTION_CHANGE_OWNER: "Nguyễn Khả Duy", KIS_PRODUCTION_ROLLBACK_OWNER: "Nguyễn Khả Duy",
     KIS_PRODUCTION_MAINTENANCE_WINDOW: "2026-07-28T20:00:00+07:00/2026-07-28T23:00:00+07:00",
+    KIS_PRODUCTION_CLEAN_RESET_ALLOWLIST_APPROVED: "true",
+    KIS_PRODUCTION_CLEAN_RESET_ALLOWLIST_SHA256: cleanResetAllowlistSha256,
     KIS_CANONICAL_STAGING_VERSION: canonical.versionId, KIS_RELEASE_COMMIT_SHA: head,
   };
   const gatesPath = join(root, "quality-gates.json");
@@ -128,6 +150,98 @@ test("plan verification can precede manifest generation while apply verification
     const plan = verifyProductionApproval(state.contract, { ...options, allowMissingManifest: true });
     assert.equal(plan.releaseManifest, null);
     assert.throws(() => verifyProductionApproval(state.contract, options), /release manifest is missing or invalid/);
+  } finally { rmSync(state.root, { recursive: true, force: true }); }
+});
+
+test("production verifier requires passing migration reconciliation evidence and an exact pending allowlist", () => {
+  const state = fixture();
+  const pending = [
+    "20260727172321_reconcile_legacy_department_schema.sql",
+    "20260728013513_auth_rotation_mfa_hardening.sql",
+    "20260728030009_remove_mfa_2fa.sql",
+    "20260728031000_employee_search_cursor.sql",
+    "20260728032000_background_export_jobs.sql",
+    "20260728103000_reporting_rpc.sql",
+    "20260728104000_export_operations.sql",
+    "20260729022415_consolidate_roles_to_hr_and_employee.sql",
+  ];
+  const evidencePath = join(state.root, "migration-reconciliation.json");
+  try {
+    writeFileSync(evidencePath, `${JSON.stringify({
+      schemaVersion: 1,
+      status: "pass",
+      projectRef: state.contract.KIS_PRODUCTION_SUPABASE_PROJECT_REF,
+      releaseCommitSha: state.contract.KIS_RELEASE_COMMIT_SHA,
+      remoteOnlyCount: 0,
+      approvedBaselineMapping: { status: "approved" },
+      schemaDiff: { status: "approved" },
+      disposableRehearsal: { status: "pass" },
+      repairEvidenceChecksum: "a".repeat(64),
+      pendingProductionMigrations: pending,
+    })}\n`);
+    const result = verifyProductionApproval(state.contract, {
+      root: state.root,
+      now: "2026-07-28T14:30:00.000Z",
+      consumptionFile: state.consumptionFile,
+      requireMigrationReconciliation: true,
+      migrationReconciliationEvidence: evidencePath,
+      providerMigrationReconciliation: { remoteOnlyCount: 0, pendingProductionMigrations: pending, dryRunStatus: "pass" },
+      providerSecretNames: ["AUDIT_IP_HASH_SALT", "CURSOR_SIGNING_SECRET", "JWT_SECRET", "RATE_LIMIT_KEY_SECRET", "REFRESH_TOKEN_HASH_SECRET", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"],
+      providerDeployment: { deploymentId: "deployment-current", versionId: "version-current" },
+    });
+    assert.equal(result.migrationReconciliation.status, "pass");
+
+    assert.throws(() => verifyProductionApproval(state.contract, {
+      root: state.root,
+      now: "2026-07-28T14:30:00.000Z",
+      consumptionFile: state.consumptionFile,
+      requireMigrationReconciliation: true,
+      migrationReconciliationEvidence: evidencePath,
+      providerMigrationReconciliation: { remoteOnlyCount: 1, pendingProductionMigrations: pending, dryRunStatus: "pass" },
+      providerSecretNames: ["AUDIT_IP_HASH_SALT", "CURSOR_SIGNING_SECRET", "JWT_SECRET", "RATE_LIMIT_KEY_SECRET", "REFRESH_TOKEN_HASH_SECRET", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"],
+      providerDeployment: { deploymentId: "deployment-current", versionId: "version-current" },
+    }), /unexplained remote-only/);
+  } finally { rmSync(state.root, { recursive: true, force: true }); }
+});
+
+test("production verifier requires clean-reset readiness and zero role-audit blockers", () => {
+  const state = fixture();
+  try {
+    const options = {
+      root: state.root,
+      now: "2026-07-28T14:30:00.000Z",
+      consumptionFile: state.consumptionFile,
+      requireCleanResetReadiness: true,
+      providerSecretNames: ["AUDIT_IP_HASH_SALT", "CURSOR_SIGNING_SECRET", "JWT_SECRET", "RATE_LIMIT_KEY_SECRET", "REFRESH_TOKEN_HASH_SECRET", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"],
+      providerDeployment: { deploymentId: "deployment-current", versionId: "version-current" },
+    };
+    const result = verifyProductionApproval(state.contract, options);
+    assert.equal(result.cleanResetReadiness.status, "pass");
+    const roleAuditPath = join(state.root, "docs/audit-remediation/evidence/CLEAN_ROOM_ROLE_AUDIT.json");
+    const roleAudit = JSON.parse(readFileSync(roleAuditPath, "utf8"));
+    roleAudit.remainingBlockers = 1;
+    writeFileSync(roleAuditPath, `${JSON.stringify(roleAudit)}\n`);
+    assert.throws(() => verifyProductionApproval(state.contract, options), /remaining blocker/);
+  } finally { rmSync(state.root, { recursive: true, force: true }); }
+});
+
+test("production plan requires active clean-reset gates, an exact manifest, and a 90-minute window", () => {
+  const source = readFileSync(new URL("../../scripts/production/deploy-production.mjs", import.meta.url), "utf8");
+  assert.match(source, /requireActiveWindow:\s*true/);
+  assert.match(source, /requireCleanResetReadiness:\s*true/);
+  assert.match(source, /allowMissingManifest:\s*false/);
+
+  const state = fixture();
+  try {
+    state.contract.KIS_PRODUCTION_MAINTENANCE_WINDOW = "2026-07-28T20:00:00+07:00/2026-07-28T21:00:00+07:00";
+    assert.throws(() => verifyProductionApproval(state.contract, {
+      root: state.root,
+      now: "2026-07-28T13:30:00.000Z",
+      consumptionFile: state.consumptionFile,
+      requireActiveWindow: true,
+      providerSecretNames: ["AUDIT_IP_HASH_SALT", "CURSOR_SIGNING_SECRET", "JWT_SECRET", "RATE_LIMIT_KEY_SECRET", "REFRESH_TOKEN_HASH_SECRET", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"],
+      providerDeployment: { deploymentId: "deployment-current", versionId: "version-current" },
+    }), /at least 90 minutes/);
   } finally { rmSync(state.root, { recursive: true, force: true }); }
 });
 

@@ -1,6 +1,6 @@
 import { test, expect } from "playwright/test";
 
-const BASE = "https://mykis-learning.nkhaduy.workers.dev";
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
 const HR_HEADERS = { "X-Account-Id": "acc-hr-001", "X-Account-Role": "hr" };
 const EMP_ID = "emp-test-001";
 
@@ -107,7 +107,7 @@ test("Phase 8 HR retraining page renders", async ({ page }) => {
       loginAt: new Date().toISOString(),
     }));
   });
-  await page.goto(`${BASE}/admin/retraining`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/hr/retraining`, { waitUntil: "domcontentloaded" });
   await expect(page.locator("h1")).toContainText("Tái đào tạo");
   await expect(page.locator("body")).not.toContainText("Không thể tải trang");
 });

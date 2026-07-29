@@ -27,7 +27,7 @@ test("AUTH-SESSION-001: password changes revoke auth sessions", () => {
   assert.match(migration, /service_revoke_all_auth_sessions/);
 });
 
-test("AUTH-PRIVILEGED-001: sensitive account actions still require an HR/Admin session", () => {
+test("AUTH-PRIVILEGED-001: sensitive account actions require an HR session", () => {
   assert.match(authRoutes, /export async function requirePrivilegedSession/);
   assert.match(accountSupportRoutes, /action === "unlock"[\s\S]*requirePrivilegedSession/);
   assert.match(accountSupportRoutes, /action === "reactivate"[\s\S]*requirePrivilegedSession/);

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-28T09:18:31.804Z",
+  "generatedAt": "2026-07-29T02:51:20.514Z",
   "environment": {
     "image": "public.ecr.aws/supabase/postgres:17.6.1.136",
     "profiles": 100000,
@@ -200,8 +200,8 @@
     "plan": {
       "note": "EXPLAIN wraps the stable RPC call; inner SQL plans require staging auto_explain/catalog capture",
       "outer": {
-        "planningMs": 0.055,
-        "executionMs": 1194.493,
+        "planningMs": 0.028,
+        "executionMs": 911.682,
         "rowsReturned": 1,
         "rowsScanned": 0,
         "sharedHit": 9221,
@@ -212,22 +212,22 @@
       }
     },
     "timing": {
-      "p50": 685.572,
-      "p95": 1187.26,
-      "p99": 1187.26,
+      "p50": 618.099,
+      "p95": 1769.989,
+      "p99": 1769.989,
       "samples": [
-        1187.26,
-        789.347,
-        601.891,
-        698.52,
-        767.927,
-        685.572,
-        656.93,
-        847.188,
-        743.272,
-        632.919,
-        566.177,
-        615.398
+        759.886,
+        706.653,
+        677.812,
+        618.099,
+        664.88,
+        578.982,
+        594.294,
+        1769.989,
+        699.694,
+        584.138,
+        554.359,
+        544.892
       ]
     }
   },
@@ -245,8 +245,8 @@
     "plan": {
       "note": "EXPLAIN wraps the stable RPC call; inner SQL plans require staging auto_explain/catalog capture",
       "outer": {
-        "planningMs": 0.026,
-        "executionMs": 286.814,
+        "planningMs": 0.025,
+        "executionMs": 255.604,
         "rowsReturned": 1,
         "rowsScanned": 0,
         "sharedHit": 46416,
@@ -257,22 +257,22 @@
       }
     },
     "timing": {
-      "p50": 238.003,
-      "p95": 283.99,
-      "p99": 283.99,
+      "p50": 230.083,
+      "p95": 339.767,
+      "p99": 339.767,
       "samples": [
-        235.522,
-        281.154,
-        283.99,
-        261.829,
-        238.703,
-        229.661,
-        227.598,
-        243.212,
-        234.752,
-        233.706,
-        238.003,
-        247.299
+        334.935,
+        288.615,
+        248.222,
+        230.083,
+        234.947,
+        255.795,
+        339.767,
+        223.21,
+        221.61,
+        227.347,
+        223.802,
+        223.873
       ]
     }
   },
@@ -282,13 +282,13 @@
     "hasMore": true
   },
   "timeout": {
-    "elapsedMs": 175.81629199999952,
+    "elapsedMs": 165.00833299999795,
     "cancelled": true,
     "sameConnectionReusable": true
   },
   "concurrency": {
-    "overview8Ms": 2299.5138329999972,
-    "overview20Ms": 8116.0272079999995
+    "overview8Ms": 2580.411042000007,
+    "overview20Ms": 7597.820375000003
   },
   "assertions": {
     "aggregateRowsHydrated": 0,

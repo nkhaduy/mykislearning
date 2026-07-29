@@ -11,7 +11,7 @@ const KNOWN_HR_IDS = new Set(["acc-hr-demo", "acc-hr-001"]);
 
 export function hasAdministrativeAccess(accountOrRole) {
   const role = typeof accountOrRole === "string" ? accountOrRole : accountOrRole?.role;
-  return role === "hr" || role === "admin";
+  return role === "hr";
 }
 
 function runtimeName(env = {}) {
@@ -29,11 +29,8 @@ function resolveFromHeader(request) {
   const accountId = request.headers.get("x-account-id");
   if (!accountId) return null;
   const headerRole = request.headers.get("x-account-role");
-  const role = headerRole === "hr"
-    ? "hr"
-    : KNOWN_HR_IDS.has(accountId)
-      ? "hr"
-      : "employee";
+  const role = KNOWN_HR_IDS.has(accountId) ? "hr" : headerRole;
+  if (!["hr", "employee"].includes(role)) return null;
   return { accountId, role };
 }
 

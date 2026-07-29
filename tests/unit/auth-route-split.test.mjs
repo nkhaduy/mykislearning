@@ -35,12 +35,24 @@ test("UX-004: post-login redirect remains internal and modal keyboard handling i
   assert.match(session, /route\.startsWith\("\/\/"\)/);
   assert.match(session, /consumePostLoginRedirect\(fallback = "\/dashboard"\)/);
   assert.match(login, /isSafeReturnTo\(route\)/);
+  assert.match(login, /\/admin[\s\S]*\/hr/);
+  assert.match(login, /\["hr", "employee"\]\.includes\(role\)/);
+  assert.doesNotMatch(login, /profile\.role === "hr" \? profile\.role : "employee"/);
+  assert.match(login, /isReturnToAllowedForRole\(state\.returnTo, role\)/);
   assert.match(login, /auth-destination/);
   assert.match(bootstrap, /fetch\("\/api\/auth\?action=session"/);
   assert.match(bootstrap, /location\.replace\(`\/login\?returnTo=/);
   assert.match(login, /event\.key === "Escape"/);
   assert.match(login, /event\.key !== "Tab"/);
   assert.match(login, /supportReturnFocus[\s\S]*querySelector\("\[data-support-open\]"\)\?\.focus/);
+});
+
+test("AUTHZ-ROLE-001: role inputs are canonical and legacy values fail closed", () => {
+  const auth = read("worker/routes/auth.js");
+  const employees = read("worker/routes/employees.js");
+  assert.match(auth, /CANONICAL_ROLES\s*=\s*new Set\(\["hr", "employee"\]\)/);
+  assert.match(auth, /if \(!CANONICAL_ROLES\.has\(role\)\) return json\(\{ error: "INVALID_ROLE" \}, 400\)/);
+  assert.match(employees, /if \(!\["hr", "employee"\]\.includes\(patch\.role\)\) return json\(\{ error: "INVALID_ROLE" \}, 400\)/);
 });
 
 test("UX-005: account security route manages server-side sessions without MFA UI", () => {

@@ -24,7 +24,7 @@ async function requirePrivateSession() {
     const contentType = response.headers.get("content-type") || "";
     if (!response.ok || !/\bjson\b/i.test(contentType)) throw new Error("unauthenticated");
     const body = await response.json();
-    if (!body.authenticated || !body.account?.id || !["employee", "hr", "admin"].includes(body.account.role)) throw new Error("unauthenticated");
+    if (!body.authenticated || !body.account?.id || !["employee", "hr"].includes(body.account.role)) throw new Error("unauthenticated");
 
     return body;
   } catch {
@@ -33,6 +33,10 @@ async function requirePrivateSession() {
     location.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
     return null;
   }
+}
+
+function homeForRole(role) {
+  return role === "hr" ? "/hr" : "/dashboard";
 }
 
 const splitEntries = {
@@ -55,7 +59,11 @@ const splitEntries = {
   adminSecondary: () => import("../features/secondary/admin.js"),
 };
 
-if (path === "/") {
+if (/^\/admin(?:\/|$)/.test(path)) {
+  // Preserve old bookmarks while exposing only the canonical HR workspace.
+  const target = `/hr${path.slice("/admin".length)}${location.search}${location.hash}`;
+  location.replace(target || "/hr");
+} else if (path === "/") {
   await import("../features/public/home.js");
 } else if (path === "/login") {
   await import("../features/auth/login.js");
@@ -83,7 +91,10 @@ if (path === "/") {
     else renderBootstrapError("Invalid redirect");
   } else if (isPrivateRoute(path)) {
     const privateSession = await requirePrivateSession();
-    if (privateSession && routeDefinition.splitEntry && splitEntries[routeDefinition.splitEntry]) {
+    if (privateSession && !routeDefinition.roles.includes(privateSession.account.role)) {
+      // Keep authenticated users inside the workspace their role can access.
+      location.replace(homeForRole(privateSession.account.role));
+    } else if (privateSession && routeDefinition.splitEntry && splitEntries[routeDefinition.splitEntry]) {
       const feature = await splitEntries[routeDefinition.splitEntry]();
       await feature.mount({ account: privateSession.account, expiresAt: privateSession.expires_at, route: routeDefinition });
     } else if (privateSession) {

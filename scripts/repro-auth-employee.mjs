@@ -1,8 +1,11 @@
 import { chromium } from "@playwright/test";
+import { assertSafeE2ETarget } from "./assert-safe-e2e-target.mjs";
 
-const BASE = process.env.BASE_URL || "https://mykis-learning.nkhaduy.workers.dev";
-const EMP_EMAIL = "employee.test@kisvn.vn";
-const EMP_PASSWORD = "Test@123456";
+const BASE = process.env.BASE_URL || "";
+const EMP_EMAIL = process.env.KIS_E2E_EMPLOYEE_EMAIL || "";
+const EMP_PASSWORD = process.env.KIS_E2E_EMPLOYEE_PASSWORD || "";
+assertSafeE2ETarget({ baseURL: BASE, suite: "mutation", mutationAllowed: true });
+if (!EMP_EMAIL || !EMP_PASSWORD) throw new Error("isolated employee runtime credentials are required");
 
 function log(label, data) {
   const safe = typeof data === "string" ? data : JSON.stringify(data);
@@ -246,7 +249,7 @@ await runCase("Case G — HR admin route renders (no regression)", async (browse
     };
     localStorage.setItem("mykis.session.v1", JSON.stringify(sess));
   });
-  await page.goto(`${BASE}/admin`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/hr`, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(".app-layout, .app-main", { timeout: 10000 });
   await page.waitForTimeout(1200);
   const url = page.url();
@@ -260,7 +263,7 @@ await runCase("Case G — HR admin route renders (no regression)", async (browse
   log("Case G mainHeight", mainHeight);
   log("Case G PAGE_ERRORS", cap.pageErrors);
   await page.screenshot({ path: "test-results/auth-employee/case-g-hr-admin.png", fullPage: true });
-  if (!url.includes("/admin")) throw new Error("HR bounced off /admin: " + url);
+  if (!url.includes("/hr")) throw new Error("HR bounced off /hr: " + url);
   if (errorFallback > 0) throw new Error("HR admin dashboard crashed");
   if (mainHeight < 50) throw new Error("HR admin dashboard blank");
   await ctx.close();

@@ -23,8 +23,8 @@ test("UX-001: every implemented route is classified and reachable or intentional
   }
 });
 
-test("UX-001: learner and admin navigation are role-aware with no duplicate destinations", () => {
-  for (const role of ["employee", "hr", "admin"]) {
+test("UX-001: learner and HR navigation are role-aware with no duplicate destinations", () => {
+  for (const role of ["employee", "hr"]) {
     const items = getNavigationGroups(role, "vi").flatMap((group) => group.items);
     assert.equal(items.length, new Set(items.map((item) => item.path)).size, `${role} navigation must not duplicate routes`);
     assert.ok(items.every((item) => item.roles.includes(role)), `${role} must only see allowed routes`);
@@ -33,13 +33,13 @@ test("UX-001: learner and admin navigation are role-aware with no duplicate dest
   const hrPaths = new Set(getNavigationGroups("hr", "vi").flatMap((group) => group.items.map((item) => item.path)));
   assert.ok(employeePaths.has("/dashboard/resources"));
   assert.ok(employeePaths.has("/dashboard/calendar"));
-  assert.ok(hrPaths.has("/admin/competencies"));
-  assert.ok(hrPaths.has("/admin/learning-records"));
-  assert.ok([...employeePaths].every((path) => !path.startsWith("/admin")));
+  assert.ok(hrPaths.has("/hr/competencies"));
+  assert.ok(hrPaths.has("/hr/learning-records"));
+  assert.ok([...employeePaths].every((path) => !path.startsWith("/hr")));
   assert.ok([...hrPaths].every((path) => !path.startsWith("/dashboard")));
 });
 
-test("PERF-005: learner, admin, employee and reporting entries do not import the application monolith", () => {
+test("PERF-005: learner, HR, employee and reporting entries do not import the application monolith", () => {
   const bootstrap = read("src/app/bootstrap.js");
   assert.match(bootstrap, /learner:\s*\(\)\s*=>\s*import\("\.\.\/features\/learner\/dashboard\.js"\)/);
   assert.match(bootstrap, /learnerCourses:\s*\(\)\s*=>\s*import\("\.\.\/features\/learner\/courses\.js"\)/);

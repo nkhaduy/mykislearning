@@ -1,11 +1,11 @@
 // @ts-check
 import { test, expect } from "playwright/test";
 
-const BASE = "https://mykis-learning.nkhaduy.workers.dev";
-const HR_EMAIL = "hr@kisvn.vn";
-const HR_PASSWORD = "Training@2026";
-const EMP_EMAIL = "employee.test@kisvn.vn";
-const EMP_PASSWORD = "Test@123456";
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
+const HR_EMAIL = process.env.KIS_E2E_HR_EMAIL || "";
+const HR_PASSWORD = process.env.KIS_E2E_HR_PASSWORD || "";
+const EMP_EMAIL = process.env.KIS_E2E_EMPLOYEE_EMAIL || "";
+const EMP_PASSWORD = process.env.KIS_E2E_EMPLOYEE_PASSWORD || "";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -14,7 +14,7 @@ async function loginAsHr(page) {
   await page.fill("#loginEmail", HR_EMAIL);
   await page.fill("#loginPassword", HR_PASSWORD);
   await page.click("#loginSubmitBtn");
-  await page.waitForURL("**/admin**", { timeout: 15000 });
+  await page.waitForURL("**/hr**", { timeout: 15000 });
 }
 
 async function loginAsEmployee(page) {
@@ -79,7 +79,7 @@ test.describe("Skeleton / Loading UI", () => {
   test("T01 - Course list initial load shows skeleton then data", async ({ page }) => {
     await loginAsHr(page);
     // Navigate to courses page fresh
-    await page.goto(`${BASE}/admin/courses`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}/hr/courses`, { waitUntil: "domcontentloaded" });
     // Should eventually have the course table or empty state — never stuck on skeleton
     await expect(page.locator(".app-main")).toBeVisible({ timeout: 15000 });
     const stuck = await page.locator(".hr-overview-skeleton").count();
@@ -91,7 +91,7 @@ test.describe("Skeleton / Loading UI", () => {
 
   test("T02 - Course list loaded: filter does not blank out list", async ({ page }) => {
     await loginAsHr(page);
-    await page.goto(`${BASE}/admin/courses`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}/hr/courses`, { waitUntil: "domcontentloaded" });
     await page.waitForSelector(".app-main", { timeout: 10000 });
     // Wait for initial data to appear
     await page.waitForFunction(() => !document.querySelector(".hr-overview-skeleton"), { timeout: 10000 });
@@ -107,7 +107,7 @@ test.describe("Skeleton / Loading UI", () => {
 
   test("T03 - Empty API response shows empty state, not skeleton", async ({ page }) => {
     await loginAsHr(page);
-    await page.goto(`${BASE}/admin/courses`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}/hr/courses`, { waitUntil: "domcontentloaded" });
     await page.waitForSelector(".app-main", { timeout: 10000 });
     await page.waitForFunction(() => !document.querySelector(".hr-overview-skeleton"), { timeout: 10000 });
     // Apply filter that unlikely matches any real course
@@ -122,7 +122,7 @@ test.describe("Skeleton / Loading UI", () => {
     const errors = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     await loginAsHr(page);
-    await page.goto(`${BASE}/admin/courses`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}/hr/courses`, { waitUntil: "domcontentloaded" });
     await page.waitForSelector(".app-main", { timeout: 10000 });
     await page.waitForFunction(() => !document.querySelector(".hr-overview-skeleton"), { timeout: 10000 });
     const fatal = errors.filter(e => !e.includes("ResizeObserver"));
@@ -131,11 +131,11 @@ test.describe("Skeleton / Loading UI", () => {
 
   test("T05 - Course detail page loads without blank flash", async ({ page }) => {
     await loginAsHr(page);
-    await page.goto(`${BASE}/admin/courses`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}/hr/courses`, { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => !document.querySelector(".hr-overview-skeleton"), { timeout: 10000 });
     // Click the first course's detail link — either "Xem" button or "Chi tiết" anchor
-    // Course rows have <a href="/admin/courses/:id" data-link> as detail button
-    const detailLink = page.locator("table tbody tr a[href*='/admin/courses/'], table tbody tr [data-course-detail], table tbody tr .btn").first();
+    // Course rows have <a href="/hr/courses/:id" data-link> as detail button
+    const detailLink = page.locator("table tbody tr a[href*='/hr/courses/'], table tbody tr [data-course-detail], table tbody tr .btn").first();
     const hasLink = await detailLink.count();
     if (!hasLink) {
       test.skip(); // No courses to click
@@ -144,7 +144,7 @@ test.describe("Skeleton / Loading UI", () => {
     await detailLink.click();
     // Wait for navigation or modal
     await page.waitForFunction(
-      () => document.querySelector(".modal-backdrop, .course-drawer-content, [data-course-detail], .course-detail") || window.location.pathname.includes("/admin/courses/"),
+      () => document.querySelector(".modal-backdrop, .course-drawer-content, [data-course-detail], .course-detail") || window.location.pathname.includes("/hr/courses/"),
       { timeout: 10000 }
     ).catch(() => {});
     const mainVisible = await page.locator(".app-main").isVisible();
@@ -153,7 +153,7 @@ test.describe("Skeleton / Loading UI", () => {
 
   test("T06 - Offline sessions page does not infinite-load", async ({ page }) => {
     await loginAsHr(page);
-    await page.goto(`${BASE}/admin/sessions`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}/hr/sessions`, { waitUntil: "domcontentloaded" });
     await page.waitForSelector(".app-main", { timeout: 10000 });
     // Wait up to 12s for loading to resolve
     await page.waitForFunction(
@@ -168,7 +168,7 @@ test.describe("Skeleton / Loading UI", () => {
     const errors = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     await loginAsHr(page);
-    await page.goto(`${BASE}/admin`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}/hr`, { waitUntil: "domcontentloaded" });
     await page.waitForSelector(".app-main", { timeout: 10000 });
     await page.waitForFunction(() => !document.querySelector(".hr-overview-skeleton"), { timeout: 12000 });
     const mainVisible = await page.locator(".app-main").isVisible();
@@ -291,7 +291,7 @@ test.describe("Course Hard Delete", () => {
         headers: { ...authHeaders, "Content-Type": "application/json" },
       });
     }, { id, BASE, authHeaders });
-    await page.goto(`${BASE}/admin/courses`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}/hr/courses`, { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => !document.querySelector(".hr-overview-skeleton"), { timeout: 10000 });
     const body = await page.textContent("body");
     // Check that THIS run's specific fixture ID is gone (not just any "f5-" prefixed fixture from old runs)
@@ -348,7 +348,7 @@ test.describe("Course Hard Delete", () => {
     await page.fill("#loginEmail", HR_EMAIL);
     await page.fill("#loginPassword", HR_PASSWORD);
     await page.click("#loginSubmitBtn");
-    await page.waitForURL("**/admin**", { timeout: 15000 });
+    await page.waitForURL("**/hr**", { timeout: 15000 });
     await cleanupFixtureCourse(page, id);
   });
 });

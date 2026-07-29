@@ -1,11 +1,11 @@
 // @ts-check
 import { test, expect } from "playwright/test";
 
-const BASE = process.env.BASE_URL || "https://mykis-learning.nkhaduy.workers.dev";
-const HR_EMAIL = "thanh.ntc@kisvn.vn";
-const HR_PASSWORD = "Demo@123456";
-const EMP_EMAIL = "nguyen.van.an@kisvn.vn";
-const EMP_PASSWORD = "Test@123456";
+const BASE = process.env.BASE_URL || (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
+const HR_EMAIL = process.env.KIS_E2E_HR_EMAIL || "";
+const HR_PASSWORD = process.env.KIS_E2E_HR_PASSWORD || "";
+const EMP_EMAIL = process.env.KIS_E2E_EMPLOYEE_EMAIL || "";
+const EMP_PASSWORD = process.env.KIS_E2E_EMPLOYEE_PASSWORD || "";
 const SEARCH_TEXT = "quản lý khóa học 2026";
 
 async function login(page, role = "hr") {
@@ -24,7 +24,7 @@ async function login(page, role = "hr") {
         rememberMe: false,
       }));
     }, { account });
-    await page.goto(`${BASE}${role === "hr" ? "/admin" : "/dashboard"}`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}${role === "hr" ? "/hr" : "/dashboard"}`, { waitUntil: "domcontentloaded" });
     await page.waitForSelector(".app-layout", { timeout: 15000 });
     return;
   }
@@ -32,7 +32,7 @@ async function login(page, role = "hr") {
   await page.fill("#loginEmail", role === "hr" ? HR_EMAIL : EMP_EMAIL);
   await page.fill("#loginPassword", role === "hr" ? HR_PASSWORD : EMP_PASSWORD);
   await page.click("#loginSubmitBtn");
-  await page.waitForURL(role === "hr" ? "**/admin**" : "**/dashboard**", { timeout: 15000 });
+  await page.waitForURL(role === "hr" ? "**/hr**" : "**/dashboard**", { timeout: 15000 });
 }
 
 async function sessionHeaders(page) {
@@ -92,17 +92,17 @@ test("public header keeps only public navigation and exposes real user dropdown"
 test("priority search inputs keep focus while typing Vietnamese text", async ({ page }) => {
   await login(page, "hr");
   for (const [url, selector] of [
-    ["/admin/courses", "[data-course-search]"],
-    ["/admin/employees", "#employeeDirSearch"],
-    ["/admin/training-tracking", "[data-tt-search]"],
-    ["/admin/cchn-registrations", "[data-cchn-search]"],
+    ["/hr/courses", "[data-course-search]"],
+    ["/hr/employees", "#employeeDirSearch"],
+    ["/hr/training-tracking", "[data-tt-search]"],
+    ["/hr/cchn-registrations", "[data-cchn-search]"],
   ]) {
     await page.goto(`${BASE}${url}`, { waitUntil: "domcontentloaded" });
     await page.waitForSelector(selector, { timeout: 15000 });
     await typeWithoutFocusLoss(page, selector);
   }
 
-  await page.goto(`${BASE}/admin/audit-log`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/hr/audit-log`, { waitUntil: "domcontentloaded" });
   await page.waitForSelector("[data-audit-filter] input[name='search']", { timeout: 15000 });
   await typeWithoutFocusLoss(page, "[data-audit-filter] input[name='search']");
 });
@@ -139,7 +139,7 @@ test("course delete is one click with no confirmation popup and persists after r
     }, { BASE, headers, id, title });
   expect(created).toBe(true);
 
-  await page.goto(`${BASE}/admin/courses`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/hr/courses`, { waitUntil: "domcontentloaded" });
   await page.locator("[data-course-search]").waitFor({ state: "visible", timeout: 15000 });
   await page.waitForTimeout(250);
   await page.locator("[data-course-search]").evaluate((el, value) => {

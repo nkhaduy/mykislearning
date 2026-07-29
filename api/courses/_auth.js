@@ -9,8 +9,8 @@ export function resolveAccount(req) {
   const accountId = req.headers["x-account-id"];
   const roleHeader = req.headers["x-account-role"];
   if (!accountId) return null;
-  const isKnownHr = KNOWN_HR_IDS.has(accountId) || roleHeader === "hr";
-  const role = isKnownHr ? "hr" : "employee";
+  if (roleHeader && !["hr", "employee"].includes(roleHeader)) return null;
+  const role = KNOWN_HR_IDS.has(accountId) ? "hr" : "employee";
   return { accountId, role };
 }
 

@@ -10,15 +10,15 @@
  */
 import { test, expect } from "playwright/test";
 
-const BASE = "https://mykis-learning.nkhaduy.workers.dev";
-const HR_EMAIL = "hr@kisvn.vn";
-const EMP_EMAIL = "employee.test@kisvn.vn";
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
+const HR_EMAIL = process.env.KIS_E2E_HR_EMAIL || "";
+const EMP_EMAIL = process.env.KIS_E2E_EMPLOYEE_EMAIL || "";
 const RESULTS_DIR = "test-results/learning-path";
 
 // Credentials are read-only in the test file; never logged or stored.
 // Actual values come from environment or are well-known test accounts.
-const HR_PASSWORD = process.env.HR_PASSWORD || "Training@2026";
-const EMP_PASSWORD = process.env.EMP_PASSWORD || "Test@123456";
+const HR_PASSWORD = process.env.KIS_E2E_HR_PASSWORD || "";
+const EMP_PASSWORD = process.env.KIS_E2E_EMPLOYEE_PASSWORD || "";
 
 // Known stable test resources in production DB:
 // - test-course-completed: course with a completed enrollment for emp-test-001
@@ -33,7 +33,7 @@ async function loginAs(page, email, password) {
   await page.fill("#loginEmail", email);
   await page.fill("#loginPassword", password);
   await page.click("#loginSubmitBtn");
-  await page.waitForURL(/\/(dashboard|admin)/, { timeout: 15000 });
+  await page.waitForURL(/\/(dashboard|hr)/, { timeout: 15000 });
 }
 
 /** HR API call via fetch from inside browser page context */
@@ -87,13 +87,13 @@ test("REG1 — Employee login redirects to /dashboard", async ({ browser }) => {
   await ctx.close();
 });
 
-test("REG2 — HR login redirects to /admin", async ({ browser }) => {
+test("REG2 — HR login redirects to /hr", async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
   const errs = [];
   page.on("pageerror", (e) => errs.push(String(e)));
   await loginAs(page, HR_EMAIL, HR_PASSWORD);
-  expect(page.url()).toContain("/admin");
+  expect(page.url()).toContain("/hr");
   expect(errs, `JS errors: ${errs.join(", ")}`).toHaveLength(0);
   await page.screenshot({ path: `${RESULTS_DIR}/reg2-hr-login.png` });
   await ctx.close();
@@ -147,18 +147,18 @@ test("HR1 — HR sees 'Lộ trình học tập' link in sidebar", async ({ brows
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
   await loginAs(page, HR_EMAIL, HR_PASSWORD);
-  await expect(page.locator("a[href='/admin/learning-paths']").first()).toBeVisible({ timeout: 5000 });
+  await expect(page.locator("a[href='/hr/learning-paths']").first()).toBeVisible({ timeout: 5000 });
   await page.screenshot({ path: `${RESULTS_DIR}/hr1-sidebar-lp.png` });
   await ctx.close();
 });
 
-test("HR2 — HR opens /admin/learning-paths without crash or error card", async ({ browser }) => {
+test("HR2 — HR opens /hr/learning-paths without crash or error card", async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
   const errs = [];
   page.on("pageerror", (e) => errs.push(String(e)));
   await loginAs(page, HR_EMAIL, HR_PASSWORD);
-  await page.goto(`${BASE}/admin/learning-paths`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/hr/learning-paths`, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(".app-layout", { timeout: 8000 });
   expect(await page.locator("text=Không thể tải trang").count()).toBe(0);
   expect(errs, `JS errors: ${errs.join(", ")}`).toHaveLength(0);
@@ -170,7 +170,7 @@ test("HR3 — 'Tạo lộ trình' button visible on LP list page", async ({ brow
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
   await loginAs(page, HR_EMAIL, HR_PASSWORD);
-  await page.goto(`${BASE}/admin/learning-paths`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/hr/learning-paths`, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(".app-layout", { timeout: 8000 });
   await expect(page.locator("[data-lp-create]").first()).toBeVisible({ timeout: 5000 });
   await ctx.close();
@@ -178,11 +178,11 @@ test("HR3 — 'Tạo lộ trình' button visible on LP list page", async ({ brow
 
 // ── SECURITY ─────────────────────────────────────────────────
 
-test("SEC1 — Employee cannot access /admin/learning-paths (no Create button)", async ({ browser }) => {
+test("SEC1 — Employee cannot access /hr/learning-paths (no Create button)", async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
   await loginAs(page, EMP_EMAIL, EMP_PASSWORD);
-  await page.goto(`${BASE}/admin/learning-paths`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/hr/learning-paths`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(1500);
   expect(await page.locator("[data-lp-create]").count(), "Employee must NOT see Create Path button").toBe(0);
   await page.screenshot({ path: `${RESULTS_DIR}/sec1-emp-blocked.png` });
@@ -445,7 +445,7 @@ test("E2E1 — HR LP list loads real data from production DB", async ({ browser 
     }
   });
   await loginAs(page, HR_EMAIL, HR_PASSWORD);
-  await page.goto(`${BASE}/admin/learning-paths`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/hr/learning-paths`, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(".app-layout", { timeout: 8000 });
 
   // Must not show 500 error in UI
@@ -564,7 +564,7 @@ test("MOB2 — Mobile 390×844: HR LP list no horizontal overflow", async ({ bro
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await ctx.newPage();
   await loginAs(page, HR_EMAIL, HR_PASSWORD);
-  await page.goto(`${BASE}/admin/learning-paths`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/hr/learning-paths`, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(".app-layout", { timeout: 8000 });
   const overflow = await page.evaluate(() => document.body.scrollWidth > window.innerWidth);
   expect(overflow, "Mobile: no horizontal scroll allowed").toBe(false);

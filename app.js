@@ -4868,7 +4868,6 @@ function employeeEditModal() {
       <div class="field"><label>Role</label><select name="role">
         <option value="employee" ${a.role==="employee"?"selected":""}>Employee</option>
         <option value="hr" ${a.role==="hr"?"selected":""}>HR</option>
-        <option value="trainer" ${a.role==="trainer"?"selected":""}>Trainer</option>
       </select></div>
       <div class="field"><label>Quản lý trực tiếp</label><input name="manager_name" value="${escapeHtmlAttribute(a.managerName||"")}"></div>
       <div class="field"><label>Địa điểm làm việc</label><input name="location" value="${escapeHtmlAttribute(a.location||"")}"></div>

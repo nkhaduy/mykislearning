@@ -104,7 +104,7 @@ function syncUrl(state) {
   if (state.courseId) params.set("courseId", state.courseId);
   if (state.status) params.set("status", state.status);
   if (state.page > 1) params.set("page", String(state.page));
-  history.replaceState({}, "", `/admin/reports?${params}`);
+  history.replaceState({}, "", `/hr/reports?${params}`);
 }
 
 function metric(label, value, hint = "") {
@@ -163,7 +163,7 @@ export async function mount({ account }) {
   const i18n = createI18n();
   const text = copy[i18n.language] || copy.vi;
   const shell = createRouteShell({ account, i18n, title: i18n.t("reports.title", "Reports"), eyebrow: text.eyebrow, entry: "admin-reporting" });
-  if (!["hr", "admin"].includes(account.role)) {
+  if (!["hr"].includes(account.role)) {
     shell.setContent(`<section class="route-card route-error"><h2 tabindex="-1">${escapeHtml(text.restricted)}</h2><a class="route-button" href="/dashboard">${escapeHtml(text.back)}</a></section>`, { focus: true });
     return;
   }

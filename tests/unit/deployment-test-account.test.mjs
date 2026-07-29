@@ -14,6 +14,7 @@ const secretEnv = {
   DEPLOYMENT_TEST_ACCOUNT_ENABLED: "true",
   DEPLOYMENT_TEST_ACCOUNTS: JSON.stringify([
     { username: "opaque-user", password: "opaque-password", role: "employee" },
+    { username: "opaque-hr", password: "opaque-hr-password", role: "hr" },
     { username: "opaque-admin", password: "opaque-admin-password", role: "admin" },
   ]),
 };
@@ -21,14 +22,15 @@ const secretEnv = {
 test("DEPLOY-TEST-001: deployment test accounts are enabled only for HTTPS deploy runtimes", () => {
   assert.deepEqual(deploymentTestAccounts(secretEnv).map(({ username, role }) => ({ username, role })), [
     { username: "opaque-user", role: "employee" },
-    { username: "opaque-admin", role: "admin" },
+    { username: "opaque-hr", role: "hr" },
   ]);
   assert.equal(deploymentTestAccountsEnabled(new Request("https://lms.example.test/login"), secretEnv), true);
   assert.equal(deploymentTestAccountsEnabled(new Request("http://lms.example.test/login"), secretEnv), false);
   assert.equal(deploymentTestAccountsEnabled(new Request("https://localhost/login"), secretEnv), false);
   assert.equal(deploymentTestAccountsEnabled(new Request("https://lms.example.test/login"), { ...secretEnv, APP_ENV: "development" }), false);
   assert.equal(deploymentTestAccountsEnabled(new Request("https://lms.example.test/login"), { ...secretEnv, DEPLOYMENT_TEST_ACCOUNTS: "[]" }), false);
-  assert.equal(deploymentTestAccountForLogin(new Request("https://lms.example.test/login"), secretEnv, "OPAQUE-ADMIN")?.role, "admin");
+  assert.equal(deploymentTestAccountForLogin(new Request("https://lms.example.test/login"), secretEnv, "OPAQUE-HR")?.role, "hr");
+  assert.equal(deploymentTestAccountForLogin(new Request("https://lms.example.test/login"), secretEnv, "OPAQUE-ADMIN"), null);
   assert.equal(isReservedDeploymentTestProfile({ id: "deployment-test:opaque-user" }), true);
 });
 

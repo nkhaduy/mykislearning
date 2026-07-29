@@ -1,18 +1,15 @@
 // @ts-check
 import { test, expect } from "playwright/test";
 
-const BASE = "https://mykis-learning.nkhaduy.workers.dev";
-const HR_EMAIL = "thanh.ntc@kisvn.vn";
-const HR_PASSWORD = "Demo@123456";
-const EMP_EMAIL = "employee.test@kisvn.vn";
-const EMP_PASSWORD = "Test@123456";
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
+const HR_EMAIL = process.env.KIS_E2E_HR_EMAIL || "";
+const HR_PASSWORD = process.env.KIS_E2E_HR_PASSWORD || "";
+const EMP_EMAIL = process.env.KIS_E2E_EMPLOYEE_EMAIL || "";
+const EMP_PASSWORD = process.env.KIS_E2E_EMPLOYEE_PASSWORD || "";
 
 test.describe("Offline Class Production Verification", () => {
   // ── HR tests require a valid HR account in Supabase ─────────────────
-  // HR account thanh.ntc@kisvn.vn needs its password set via:
-  //   POST /api/auth?action=setup-admin-password
-  //   { email: "thanh.ntc@kisvn.vn", password: "Demo@123456" }
-  // Until then, HR tests are skipped in CI.
+  // Credentials must be supplied through the isolated E2E runtime environment.
 
   test.skip("1. HR sidebar has no raw i18n keys", async ({ page }) => {
     await page.goto(`${BASE}/login`);
@@ -29,7 +26,7 @@ test.describe("Offline Class Production Verification", () => {
     expect(body).toContain("Tuân thủ");
   });
 
-  test.skip("2. /admin/sessions loading completes", async ({ page }) => {
+  test.skip("2. /hr/sessions loading completes", async ({ page }) => {
     page.on("pageerror", (e) => console.log("PAGE_ERROR:", e.message));
     page.on("requestfailed", (req) => console.log("REQ_FAIL:", req.url()));
     await page.goto(`${BASE}/login`);
@@ -37,7 +34,7 @@ test.describe("Offline Class Production Verification", () => {
     await page.fill("#loginPassword", HR_PASSWORD);
     await page.click("#loginSubmitBtn");
     await page.waitForURL("**/dashboard**", { timeout: 15000 });
-    await page.goto(`${BASE}/admin/sessions`);
+    await page.goto(`${BASE}/hr/sessions`);
     await page.waitForTimeout(4000);
     const loadingVisible = await page.locator("text=Đang tải lớp học").isVisible().catch(() => false);
     expect(loadingVisible).toBeFalsy();
@@ -47,13 +44,13 @@ test.describe("Offline Class Production Verification", () => {
     expect(hasCards || hasEmpty || hasError).toBeTruthy();
   });
 
-  test("3. Employee blocked from /admin/sessions", async ({ page }) => {
+  test("3. Employee blocked from /hr/sessions", async ({ page }) => {
     await page.goto(`${BASE}/login`);
     await page.fill("#loginEmail", EMP_EMAIL);
     await page.fill("#loginPassword", EMP_PASSWORD);
     await page.click("#loginSubmitBtn");
     await page.waitForURL("**/dashboard**", { timeout: 15000 });
-    await page.goto(`${BASE}/admin/sessions`);
+    await page.goto(`${BASE}/hr/sessions`);
     await page.waitForTimeout(3000);
     const body = await page.locator("body").textContent();
     expect(body).not.toContain("Quản lý buổi học");

@@ -1,12 +1,12 @@
 // @ts-check
 import { test, expect } from "playwright/test";
 
-const BASE = process.env.BASE_URL || "https://mykis-learning.nkhaduy.workers.dev";
+const BASE = process.env.BASE_URL || (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
 
-const HR_EMAIL = "hr@kisvn.vn";
-const HR_PASS = "KIS@Admin2025";
-const EMP_EMAIL = "employee@kisvn.vn";
-const EMP_PASS = "KIS@Employee2025";
+const HR_EMAIL = process.env.KIS_E2E_HR_EMAIL || "";
+const HR_PASS = process.env.KIS_E2E_HR_PASSWORD || "";
+const EMP_EMAIL = process.env.KIS_E2E_EMPLOYEE_EMAIL || "";
+const EMP_PASS = process.env.KIS_E2E_EMPLOYEE_PASSWORD || "";
 
 async function loginAs(page, email, password) {
   await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
@@ -30,7 +30,7 @@ test("HR shell renders sidebar and topbar", async ({ page }) => {
 // ── 2. Sidebar active state ──────────────────────────────────
 test("Sidebar marks active route correctly", async ({ page }) => {
   await loginAs(page, HR_EMAIL, HR_PASS);
-  await page.goto(`${BASE}/admin/courses`);
+  await page.goto(`${BASE}/hr/courses`);
   await page.waitForSelector(".app-sidebar .side-nav a.active", { timeout: 5000 });
   const active = page.locator(".app-sidebar .side-nav a.active");
   await expect(active).toHaveCount(1);
@@ -76,7 +76,7 @@ test("Sidebar links are keyboard focusable", async ({ page }) => {
 // ── 6. Course list renders ───────────────────────────────────
 test("Course list page renders table and filter bar", async ({ page }) => {
   await loginAs(page, HR_EMAIL, HR_PASS);
-  await page.goto(`${BASE}/admin/courses`);
+  await page.goto(`${BASE}/hr/courses`);
   await page.waitForSelector(".filter-bar", { timeout: 8000 });
   await expect(page.locator(".filter-bar")).toBeVisible();
   await expect(page.locator(".table-wrap table, .ui-table")).toBeVisible();
@@ -85,7 +85,7 @@ test("Course list page renders table and filter bar", async ({ page }) => {
 // ── 7. Search input does not lose focus ──────────────────────
 test("Course search input retains focus during typing", async ({ page }) => {
   await loginAs(page, HR_EMAIL, HR_PASS);
-  await page.goto(`${BASE}/admin/courses`);
+  await page.goto(`${BASE}/hr/courses`);
   const searchInput = page.locator("#courseSearchInput");
   await searchInput.waitFor({ timeout: 8000 });
   await searchInput.click();
@@ -103,7 +103,7 @@ test("Course search input retains focus during typing", async ({ page }) => {
 // ── 8. Filter selects do not cause page flicker ──────────────
 test("Course filter selects update results without full page reload", async ({ page }) => {
   await loginAs(page, HR_EMAIL, HR_PASS);
-  await page.goto(`${BASE}/admin/courses`);
+  await page.goto(`${BASE}/hr/courses`);
   await page.waitForSelector("[data-course-filter-status]", { timeout: 8000 });
   const results = page.locator("#courseResults");
   const initial = await results.innerHTML();
@@ -117,9 +117,9 @@ test("Course filter selects update results without full page reload", async ({ p
 // ── 9. Course detail tabs switch content ─────────────────────
 test("Course detail page tabs switch between panels", async ({ page }) => {
   await loginAs(page, HR_EMAIL, HR_PASS);
-  await page.goto(`${BASE}/admin/courses`);
-  await page.waitForSelector(".table-wrap table tbody tr a[href^='/admin/courses/']", { timeout: 8000 });
-  const firstLink = page.locator(".table-wrap table tbody tr a[href^='/admin/courses/']").first();
+  await page.goto(`${BASE}/hr/courses`);
+  await page.waitForSelector(".table-wrap table tbody tr a[href^='/hr/courses/']", { timeout: 8000 });
+  const firstLink = page.locator(".table-wrap table tbody tr a[href^='/hr/courses/']").first();
   const href = await firstLink.getAttribute("href");
   if (!href) return;
   await page.goto(`${BASE}${href}`);
@@ -139,7 +139,7 @@ test("Course detail page tabs switch between panels", async ({ page }) => {
 // ── 10. Loading / empty / error state primitives ─────────────
 test("Course list shows empty state when no matches", async ({ page }) => {
   await loginAs(page, HR_EMAIL, HR_PASS);
-  await page.goto(`${BASE}/admin/courses`);
+  await page.goto(`${BASE}/hr/courses`);
   const search = page.locator("#courseSearchInput");
   await search.waitFor({ timeout: 8000 });
   await search.fill("ZZZZZZZZZ_no_match_9999");
@@ -154,7 +154,7 @@ test("Course list shows empty state when no matches", async ({ page }) => {
 test("Course list has no horizontal overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await loginAs(page, HR_EMAIL, HR_PASS);
-  await page.goto(`${BASE}/admin/courses`);
+  await page.goto(`${BASE}/hr/courses`);
   await page.waitForSelector(".content", { timeout: 8000 });
   const overflow = await page.evaluate(() => {
     return document.documentElement.scrollWidth > document.documentElement.clientWidth;
@@ -165,7 +165,7 @@ test("Course list has no horizontal overflow", async ({ page }) => {
 // ── 12. No raw i18n keys visible ────────────────────────────
 test("Course list page shows no raw i18n translation keys", async ({ page }) => {
   await loginAs(page, HR_EMAIL, HR_PASS);
-  await page.goto(`${BASE}/admin/courses`);
+  await page.goto(`${BASE}/hr/courses`);
   await page.waitForSelector(".content", { timeout: 8000 });
   const text = await page.locator(".content").innerText();
   // Raw keys look like "course.manage" "table.createdAt" etc.
@@ -175,7 +175,7 @@ test("Course list page shows no raw i18n translation keys", async ({ page }) => 
 // ── 13. No undefined in visible text ────────────────────────
 test("Course list page shows no literal undefined", async ({ page }) => {
   await loginAs(page, HR_EMAIL, HR_PASS);
-  await page.goto(`${BASE}/admin/courses`);
+  await page.goto(`${BASE}/hr/courses`);
   await page.waitForSelector(".content", { timeout: 8000 });
   const text = await page.locator(".content").innerText();
   expect(text).not.toContain("undefined");
@@ -188,7 +188,7 @@ test("Course list has no console errors", async ({ page }) => {
     if (msg.type() === "error") errors.push(msg.text());
   });
   await loginAs(page, HR_EMAIL, HR_PASS);
-  await page.goto(`${BASE}/admin/courses`);
+  await page.goto(`${BASE}/hr/courses`);
   await page.waitForSelector(".filter-bar", { timeout: 8000 });
   // Filter out known non-critical noise
   const fatal = errors.filter((e) => !e.includes("favicon") && !e.includes("chrome-extension"));
@@ -238,7 +238,7 @@ test("No React runtime loaded in production bundle", async ({ page }) => {
   page.on("response", (resp) => {
     if (resp.url().includes(".js")) scriptUrls.push(resp.url());
   });
-  await page.goto(`${BASE}/admin/courses`);
+  await page.goto(`${BASE}/hr/courses`);
   await page.waitForSelector(".filter-bar", { timeout: 10000 });
   const reactLoaded = scriptUrls.some((url) => url.includes("react") || url.includes("react-dom"));
   expect(reactLoaded).toBe(false);

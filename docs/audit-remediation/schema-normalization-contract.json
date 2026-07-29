@@ -55,9 +55,9 @@
     }
   ],
   "roles": {
-    "runtime": ["employee", "hr", "admin"],
-    "databaseLegacy": ["trainer"],
+    "runtime": ["hr", "employee"],
+    "databaseLegacy": ["admin", "trainer"],
     "clientLegacy": ["manager", "superAdmin"],
-    "decision": "Do not add policies for legacy roles until ownership and product semantics are approved."
+    "decision": "Admin migrates to HR; Trainer and every unknown role fail closed and are removed from application data."
   }
 }

@@ -6,6 +6,7 @@ import { getSupabase } from "./supabase.js";
 export const ACCESS_COOKIE = "mykis_session";
 export const REFRESH_COOKIE = "mykis_refresh";
 export const ACCESS_TTL_SECONDS = 15 * 60;
+const CANONICAL_ROLES = new Set(["hr", "employee"]);
 
 function requiredSecret(env, name, fallback = "") {
   const value = String(env?.[name] || fallback || "");
@@ -77,6 +78,9 @@ function rawRefreshToken(tokenId) {
 }
 
 async function accessToken(env, { profileId, role, sessionId }) {
+  if (!CANONICAL_ROLES.has(role)) {
+    throw Object.assign(new Error("Invalid application role"), { status: 403, code: "INVALID_ROLE" });
+  }
   const now = Math.floor(Date.now() / 1000);
   return {
     token: await signToken({
@@ -95,6 +99,9 @@ async function accessToken(env, { profileId, role, sessionId }) {
 export async function createAuthSession(request, env, profile, {
   rememberMe = false,
 } = {}) {
+  if (!CANONICAL_ROLES.has(profile?.role)) {
+    throw Object.assign(new Error("Invalid application role"), { status: 403, code: "INVALID_ROLE" });
+  }
   const supabase = getSupabase(env);
   const sessionId = crypto.randomUUID();
   const familyId = crypto.randomUUID();
@@ -122,7 +129,7 @@ export async function createAuthSession(request, env, profile, {
   }
   const access = await accessToken(env, {
     profileId: profile.id,
-    role: data.role || profile.role || "employee",
+    role: data.role || profile.role,
     sessionId,
   });
   return {
@@ -159,6 +166,14 @@ export async function rotateAuthSession(request, env) {
   });
   if (error) throw Object.assign(new Error("Refresh rotation failed"), { status: 503, code: "SESSION_STORE_UNAVAILABLE" });
   if (data?.status !== "rotated") return { ok: false, reason: data?.status || "invalid", audit: data || null };
+  if (!CANONICAL_ROLES.has(data.role)) {
+    await supabase.rpc("service_revoke_all_auth_sessions", {
+      p_profile_id: data.profile_id,
+      p_reason: "invalid_role",
+      p_except_session_id: null,
+    });
+    return { ok: false, reason: "invalid_role", audit: data || null };
+  }
   const access = await accessToken(env, {
     profileId: data.profile_id,
     role: data.role,

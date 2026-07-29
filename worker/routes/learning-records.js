@@ -19,7 +19,7 @@ function pageParams(url) {
   const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("pageSize") || "20", 10)));
   return { page, pageSize, from: (page - 1) * pageSize, to: page * pageSize - 1 };
 }
-function isHr(acct) { return ["hr", "admin"].includes(acct?.role); }
+function isHr(acct) { return ["hr"].includes(acct?.role); }
 function certEffectiveStatus(row) {
   if (row.status === "revoked") return "revoked";
   if (row.no_expiry || !row.expiry_date) return "no_expiry";

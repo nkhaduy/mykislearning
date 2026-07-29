@@ -1,16 +1,16 @@
 // @ts-check
 import { test, expect } from "playwright/test";
 
-const PROD = "https://mykis-learning.nkhaduy.workers.dev";
-const HR_EMAIL = "hr@kisvn.vn";
-const HR_PASS = "Training@2026";
+const PROD = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
+const HR_EMAIL = process.env.KIS_E2E_HR_EMAIL || "";
+const HR_PASS = process.env.KIS_E2E_HR_PASSWORD || "";
 
 async function loginAsHr(page) {
   await page.goto(PROD + "/login");
   await page.fill("#loginEmail", HR_EMAIL);
   await page.fill("#loginPassword", HR_PASS);
   await page.click("#loginSubmitBtn");
-  await page.waitForURL(/\/admin/, { timeout: 15000 });
+  await page.waitForURL(/\/hr/, { timeout: 15000 });
 }
 
 test("HR Overview - no raw i18n keys in breadcrumb or sidebar", async ({ page }) => {
@@ -31,7 +31,7 @@ test("HR Overview - resolved tasks tab exists", async ({ page }) => {
 
 test("Course List - delete button for all courses", async ({ page }) => {
   await loginAsHr(page);
-  await page.goto(PROD + "/admin/courses");
+  await page.goto(PROD + "/hr/courses");
   await page.waitForTimeout(3000);
   const deleteBtns = page.locator("[data-course-delete]");
   const count = await deleteBtns.count();
@@ -42,7 +42,7 @@ test("Course List - delete button for all courses", async ({ page }) => {
 
 test("Course delete - impact modal appears and closes", async ({ page }) => {
   await loginAsHr(page);
-  await page.goto(PROD + "/admin/courses");
+  await page.goto(PROD + "/hr/courses");
   await page.waitForTimeout(3000);
   await page.locator("[data-course-delete]").first().click();
   await page.waitForSelector("[data-close-course-delete]", { timeout: 6000 });
@@ -55,7 +55,7 @@ test("Course delete - impact modal appears and closes", async ({ page }) => {
 
 test("Content picker - no Bai doc van ban type", async ({ page }) => {
   await loginAsHr(page);
-  await page.goto(PROD + "/admin/courses");
+  await page.goto(PROD + "/hr/courses");
   await page.waitForTimeout(3000);
   const detailBtn = page.locator("[data-course-detail]").first();
   const hasDetail = await detailBtn.isVisible({ timeout: 3000 }).catch(() => false);

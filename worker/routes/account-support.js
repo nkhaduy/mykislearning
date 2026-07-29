@@ -507,7 +507,6 @@ export async function handleHrAccountActions(request, env) {
 
   if (fetchErr) return json({ error: "ACCOUNT_LOOKUP_FAILED", message: fetchErr.message }, 500);
   if (!target) return json({ error: "ACCOUNT_NOT_FOUND", message: "Employee profile không tồn tại." }, 404);
-  if (target.role === "superAdmin") return json({ error: "CANNOT_MODIFY_SYSTEM_ACCOUNT" }, 403);
 
   function auditAction(act, result, details = {}) {
     auditLog(supabase, {

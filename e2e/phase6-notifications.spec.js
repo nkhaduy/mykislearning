@@ -1,10 +1,10 @@
 import { test, expect } from "playwright/test";
 
-const BASE = "https://mykis-learning.nkhaduy.workers.dev";
-const HR_EMAIL = process.env.MYKIS_HR_EMAIL || "hr@kisvn.vn";
-const HR_PASSWORD = process.env.MYKIS_HR_PASSWORD || "Training@2026";
-const EMP_EMAIL = process.env.MYKIS_EMP_EMAIL || "employee.test@kisvn.vn";
-const EMP_PASSWORD = process.env.MYKIS_EMP_PASSWORD || "Test@123456";
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
+const HR_EMAIL = process.env.KIS_E2E_HR_EMAIL || "";
+const HR_PASSWORD = process.env.KIS_E2E_HR_PASSWORD || "";
+const EMP_EMAIL = process.env.KIS_E2E_EMPLOYEE_EMAIL || "";
+const EMP_PASSWORD = process.env.KIS_E2E_EMPLOYEE_PASSWORD || "";
 
 async function login(page, email, password) {
   await page.goto(`${BASE}/login`);

@@ -102,7 +102,7 @@ export async function mount({ account }) {
   const text = copy[i18n.language] || copy.vi;
   const shell = createRouteShell({ account, i18n, title: text.title, eyebrow: text.eyebrow, entry: "learner-dashboard" });
   if (account.role !== "employee") {
-    shell.setContent(`<section class="route-card route-error"><h2 tabindex="-1">${escapeHtml(text.restricted)}</h2><a class="route-button" href="/admin">${escapeHtml(text.admin)}</a></section>`, { focus: true });
+    shell.setContent(`<section class="route-card route-error"><h2 tabindex="-1">${escapeHtml(text.restricted)}</h2><a class="route-button" href="/hr">${escapeHtml(text.admin)}</a></section>`, { focus: true });
     return;
   }
 

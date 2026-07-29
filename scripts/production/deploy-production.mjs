@@ -13,8 +13,10 @@ let target;
 try {
   target = verifyProductionApproval(loaded.contract, {
     runtimeFile: loaded.path,
-    requireActiveWindow: apply,
-    allowMissingManifest: !apply,
+    requireActiveWindow: true,
+    requireMigrationReconciliation: true,
+    requireCleanResetReadiness: true,
+    allowMissingManifest: false,
   });
 } catch (error) {
   const blockers = Array.isArray(error.blockers) ? error.blockers : [error.message];
@@ -31,6 +33,7 @@ console.log(JSON.stringify({
     "revalidated release manifest and one-time approval",
     "active maintenance window",
     "restore-tested backup",
+    "migration-history reconciliation evidence and dry-run allowlist",
     "Supabase migration dry-run",
     "Worker build and dry-run",
     "database migration",

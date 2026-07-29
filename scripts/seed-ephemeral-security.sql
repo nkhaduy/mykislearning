@@ -7,9 +7,8 @@ insert into public.profiles (
 ) values
   ('synthetic-employee-a', 'SYN-EA', 'Synthetic Employee A', 'employee-a@example.invalid', 'employee', 'Engineering', 'Analyst', 'active', 'normal', '__pwd__:reset:pbkdf2-sha256$100000$c3ludGhldGljLXNhbHQ=$c3ludGhldGljLWhhc2g=', 'Synthetic Manager', 'Local'),
   ('synthetic-employee-b', 'SYN-EB', 'Synthetic Employee B', 'employee-b@example.invalid', 'employee', 'Operations', 'Analyst', 'active', 'normal', null, 'Synthetic Manager', 'Local'),
-  ('synthetic-trainer', 'SYN-TR', 'Synthetic Trainer', 'trainer@example.invalid', 'trainer', 'Learning', 'Trainer', 'active', 'normal', null, null, 'Local'),
-  ('synthetic-hr', 'SYN-HR', 'Synthetic HR', 'hr@example.invalid', 'hr', 'Human Resources', 'HR Specialist', 'active', 'normal', '__pwd__:pbkdf2-sha256$100000$c3ludGhldGljLXNhbHQ=$c3ludGhldGljLWhhc2g=', null, 'Local'),
-  ('synthetic-admin', 'SYN-AD', 'Synthetic Admin', 'admin@example.invalid', 'admin', 'Platform', 'System Administrator', 'active', 'normal', '__pwd__:pbkdf2-sha256$100000$c3ludGhldGljLXNhbHQ=$c3ludGhldGljLWhhc2g=', null, 'Local')
+  ('synthetic-hr-a', 'SYN-HRA', 'Synthetic HR A', 'hr-a@example.invalid', 'hr', 'Human Resources', 'HR Specialist', 'active', 'normal', '__pwd__:pbkdf2-sha256$100000$c3ludGhldGljLXNhbHQ=$c3ludGhldGljLWhhc2g=', null, 'Local'),
+  ('synthetic-hr-b', 'SYN-HRB', 'Synthetic HR B', 'hr-b@example.invalid', 'hr', 'Human Resources', 'HR Specialist', 'active', 'normal', '__pwd__:pbkdf2-sha256$100000$c3ludGhldGljLXNhbHQ=$c3ludGhldGljLWhhc2g=', null, 'Local')
 on conflict (id) do update set
   employee_code = excluded.employee_code,
   full_name = excluded.full_name,
@@ -25,8 +24,8 @@ on conflict (id) do update set
 
 insert into public.courses (id, status, delivery_mode, created_by, data)
 values (
-  'synthetic-course-security', 'published', 'online', 'synthetic-hr',
-  '{"title":"Synthetic Security Course","visibility":"private","owner":"synthetic-trainer"}'::jsonb
+  'synthetic-course-security', 'published', 'online', 'synthetic-hr-a',
+  '{"title":"Synthetic Security Course","visibility":"private","owner":"synthetic-hr-a"}'::jsonb
 )
 on conflict (id) do update set data = excluded.data, updated_at = now();
 
@@ -38,7 +37,7 @@ insert into public.course_versions (
   'Synthetic Security Course', 'Synthetic content only',
   '[{"id":"synthetic-content-1","type":"text"}]'::jsonb,
   30, 'online', 'major', 'Synthetic baseline version',
-  'synthetic-trainer', 'synthetic-hr', now()
+  'synthetic-hr-a', 'synthetic-hr-a', now()
 )
 on conflict (id) do update set title = excluded.title, updated_at = now();
 
@@ -55,8 +54,8 @@ on conflict (id) do update set data = excluded.data, updated_at = now();
 
 insert into public.enrollments (id, course_id, account_id, status, data, course_version_id)
 values
-  ('synthetic-enrollment-a', 'synthetic-course-security', 'synthetic-employee-a', 'inProgress', '{"assignedBy":"synthetic-hr"}'::jsonb, 'synthetic-course-version-1'),
-  ('synthetic-enrollment-b', 'synthetic-course-security', 'synthetic-employee-b', 'notStarted', '{"assignedBy":"synthetic-hr"}'::jsonb, 'synthetic-course-version-1')
+  ('synthetic-enrollment-a', 'synthetic-course-security', 'synthetic-employee-a', 'inProgress', '{"assignedBy":"synthetic-hr-a"}'::jsonb, 'synthetic-course-version-1'),
+  ('synthetic-enrollment-b', 'synthetic-course-security', 'synthetic-employee-b', 'notStarted', '{"assignedBy":"synthetic-hr-a"}'::jsonb, 'synthetic-course-version-1')
 on conflict (id) do update set status = excluded.status, data = excluded.data, updated_at = now();
 
 insert into public.content_progress (id, content_id, account_id, course_id, data)
@@ -89,8 +88,8 @@ on conflict (id) do update set status = excluded.status, updated_at = now();
 
 insert into public.notifications (id, account_id, type, title, body, link, created_by, data)
 values
-  ('synthetic-notification-a', 'synthetic-employee-a', 'assignment', 'Synthetic notification A', 'Private A', '/dashboard/courses/synthetic-course-security', 'synthetic-hr', '{"scope":"employee-a"}'::jsonb),
-  ('synthetic-notification-b', 'synthetic-employee-b', 'assignment', 'Synthetic notification B', 'Private B', '/dashboard/courses/synthetic-course-security', 'synthetic-hr', '{"scope":"employee-b"}'::jsonb)
+  ('synthetic-notification-a', 'synthetic-employee-a', 'assignment', 'Synthetic notification A', 'Private A', '/dashboard/courses/synthetic-course-security', 'synthetic-hr-a', '{"scope":"employee-a"}'::jsonb),
+  ('synthetic-notification-b', 'synthetic-employee-b', 'assignment', 'Synthetic notification B', 'Private B', '/dashboard/courses/synthetic-course-security', 'synthetic-hr-a', '{"scope":"employee-b"}'::jsonb)
 on conflict (id) do update set body = excluded.body, data = excluded.data, updated_at = now();
 
 insert into public.training_sessions (
@@ -99,7 +98,7 @@ insert into public.training_sessions (
 ) values (
   'synthetic-session-1', 'synthetic-course-security', 'scheduled',
   now() + interval '1 day', now() + interval '1 day 1 hour',
-  10.7769, 106.7009, 100, 'synthetic-trainer',
+  10.7769, 106.7009, 100, 'synthetic-hr-a',
   '{"title":"Synthetic private training","visibility":"private"}'::jsonb
 )
 on conflict (id) do update set data = excluded.data, updated_at = now();
@@ -129,7 +128,7 @@ insert into public.compliance_programs (
 ) values (
   'synthetic-compliance-program', 'SYN-COMP', 'Synthetic Compliance Program',
   'published', 'course', 'synthetic-course-security', 'annual', 30, 80, 3,
-  'synthetic-hr', '{"synthetic":true}'::jsonb
+  'synthetic-hr-a', '{"synthetic":true}'::jsonb
 )
 on conflict (id) do update set data = excluded.data, updated_at = now();
 
@@ -139,7 +138,7 @@ insert into public.compliance_cycles (
 ) values (
   'synthetic-compliance-cycle', 'synthetic-compliance-program', 'SYN-2026',
   'Synthetic Compliance Cycle', 'active', now(), now() + interval '30 days',
-  'course', 'synthetic-course-security', 80, 3, 'synthetic-hr', '{"synthetic":true}'::jsonb
+  'course', 'synthetic-course-security', 80, 3, 'synthetic-hr-a', '{"synthetic":true}'::jsonb
 )
 on conflict (id) do update set data = excluded.data, updated_at = now();
 
@@ -153,16 +152,16 @@ on conflict (id) do update set status = excluded.status, data = excluded.data, u
 insert into public.development_plans (
   id, employee_id, title, description, status, start_at, target_end_at, created_by
 ) values
-  ('synthetic-plan-a', 'synthetic-employee-a', 'Synthetic Plan A', 'Private A', 'active', now(), now() + interval '90 days', 'synthetic-hr'),
-  ('synthetic-plan-b', 'synthetic-employee-b', 'Synthetic Plan B', 'Private B', 'active', now(), now() + interval '90 days', 'synthetic-hr')
+  ('synthetic-plan-a', 'synthetic-employee-a', 'Synthetic Plan A', 'Private A', 'active', now(), now() + interval '90 days', 'synthetic-hr-a'),
+  ('synthetic-plan-b', 'synthetic-employee-b', 'Synthetic Plan B', 'Private B', 'active', now(), now() + interval '90 days', 'synthetic-hr-a')
 on conflict (id) do update set description = excluded.description, updated_at = now();
 
 insert into public.audit_logs (
   id, actor_id, action, target_type, target_id, result, details,
   actor_type, actor_user_id, actor_role, category, severity, source, status, metadata
 ) values (
-  'synthetic-audit-1', 'synthetic-admin', 'synthetic.seed', 'database', 'ephemeral',
-  'success', '{"synthetic":true}'::jsonb, 'user', 'synthetic-admin', 'admin',
+  'synthetic-audit-1', 'synthetic-hr-b', 'synthetic.seed', 'database', 'ephemeral',
+  'success', '{"synthetic":true}'::jsonb, 'user', 'synthetic-hr-b', 'hr',
   'security', 'info', 'migration', 'success', '{"containsProductionData":false}'::jsonb
 )
 on conflict (id) do update set occurred_at = now(), metadata = excluded.metadata;

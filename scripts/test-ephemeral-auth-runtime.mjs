@@ -7,8 +7,10 @@ import { signToken } from "../worker/services/crypto.js";
 
 const credentialsPath = process.env.EPHEMERAL_RUNTIME_CREDENTIALS;
 const statusPath = process.env.EPHEMERAL_SUPABASE_STATUS;
+const workerEnvPath = process.env.EPHEMERAL_WORKER_ENV;
 assert.ok(credentialsPath, "EPHEMERAL_RUNTIME_CREDENTIALS is required");
 assert.ok(statusPath, "EPHEMERAL_SUPABASE_STATUS is required");
+assert.ok(workerEnvPath, "EPHEMERAL_WORKER_ENV is required");
 
 function parseEnvFile(path) {
   return Object.fromEntries(fs.readFileSync(path, "utf8").split(/\r?\n/).filter(Boolean).map((line) => {
@@ -25,6 +27,12 @@ const baseUrl = runtime.baseUrl;
 
 function cookiePair(setCookie) {
   return String(setCookie || "").split(";")[0];
+}
+
+function authCookieHeader(setCookie) {
+  return [...String(setCookie || "").matchAll(/(?:^|,\s*)(mykis_(?:session|refresh)=[^;,]+)/g)]
+    .map((match) => match[1])
+    .join("; ");
 }
 
 function containsSensitiveValue(value) {
@@ -87,10 +95,10 @@ results.cookie.normalMaxAge = 28800;
 
 const employeeBLogin = await login(runtime.identities.employeeB, { rememberMe: true, ip: "198.51.100.12" });
 assert.equal(employeeBLogin.response.status, 200);
-assert.match(employeeBLogin.setCookie, /Max-Age=604800/i);
+assert.match(employeeBLogin.setCookie, /Max-Age=2592000/i);
 const employeeBCookie = cookiePair(employeeBLogin.setCookie);
 results.login.employeeB = employeeBLogin.response.status;
-results.cookie.rememberMeMaxAge = 604800;
+results.cookie.rememberMeMaxAge = 2592000;
 
 const sessionProbe = await request("/api/auth?action=session", { headers: { Cookie: employeeACookie } });
 assert.equal(sessionProbe.response.status, 200);
@@ -101,7 +109,7 @@ assert.equal(sessionProbe.body.account.role, "employee");
 results.lifecycle.sessionProbeMinimal = true;
 
 const conflictingHeaders = await request("/api/auth?action=session", {
-  headers: { Cookie: employeeACookie, "X-Account-Id": runtime.identities.hr.id, "X-Account-Role": "hr" },
+  headers: { Cookie: employeeACookie, "X-Account-Id": runtime.identities.hrA.id, "X-Account-Role": "hr" },
 });
 assert.equal(conflictingHeaders.response.status, 200);
 assert.equal(conflictingHeaders.body.account.role, "employee");
@@ -121,7 +129,7 @@ assert.equal(fixedLogin.response.status, 200);
 assert.notEqual(cookiePair(fixedLogin.setCookie), "mykis_session=attacker-fixed-session");
 results.lifecycle.sessionFixationBlocked = true;
 
-const workerEnv = parseEnvFile("/tmp/kis-lms-worker-supabase.tzteKG/worker.env");
+const workerEnv = parseEnvFile(workerEnvPath);
 const httpsLogin = await handleApiRequest(new Request("https://portal.example.test/api/auth", {
   method: "POST",
   headers: { "Content-Type": "application/json", "cf-connecting-ip": "198.51.100.14" },
@@ -156,12 +164,7 @@ assert.equal((await request("/api/certificates/my/00000000-0000-0000-0000-000000
 assert.equal((await request("/api/employees", { headers: { Cookie: employeeACookie } })).response.status, 403);
 results.identityScope.symmetricCrossUserDenial = true;
 
-const trainerLogin = await login(runtime.identities.trainer, { ip: "198.51.100.15" });
-assert.equal(trainerLogin.response.status, 200);
-assert.equal((await request("/api/employees", { headers: { Cookie: cookiePair(trainerLogin.setCookie) } })).response.status, 403);
-results.identityScope.trainer = { employeePiiDenied: true, instructorRoleImplemented: false };
-
-const hrLogin = await login(runtime.identities.hr, { ip: "198.51.100.16" });
+const hrLogin = await login(runtime.identities.hrA, { ip: "198.51.100.16" });
 assert.equal(hrLogin.response.status, 200);
 const hrCookie = cookiePair(hrLogin.setCookie);
 const employeeList = await request("/api/employees?page=1&pageSize=20", { headers: { Cookie: hrCookie } });
@@ -169,13 +172,13 @@ assert.equal(employeeList.response.status, 200);
 assert.equal(containsSensitiveValue(employeeList.body), false);
 results.identityScope.hr = { employeeListAllowed: true, credentialsAbsent: true };
 
-const adminLogin = await login(runtime.identities.admin, { ip: "198.51.100.17" });
+const adminLogin = await login(runtime.identities.hrB, { ip: "198.51.100.17" });
 assert.equal(adminLogin.response.status, 200);
 const adminCookie = cookiePair(adminLogin.setCookie);
 const auditList = await request("/api/admin/audit-logs?page=1&pageSize=10", { headers: { Cookie: adminCookie } });
 assert.equal(auditList.response.status, 200);
 assert.equal(containsSensitiveValue(auditList.body), false);
-results.identityScope.admin = { auditLogAllowed: true, credentialsAbsent: true };
+results.identityScope.hrB = { auditLogAllowed: true, credentialsAbsent: true };
 
 const legacyProfile = {
   id: "synthetic-legacy-only",
@@ -238,32 +241,43 @@ const logout = await request("/api/auth", {
 assert.equal(logout.response.status, 200);
 assert.match(logout.setCookie, /Max-Age=0/i);
 assert.equal((await request("/api/auth?action=session", { headers: { Cookie: logoutCookie } })).response.status, 401);
-const revoked = await serviceRest("rpc/service_is_session_revoked", { method: "POST", body: JSON.stringify({ p_session_id: tokenPayload.jti }) });
-assert.equal(revoked.response.status, 200);
-assert.equal(revoked.body, true);
+const activeSessions = await serviceRest("rpc/service_list_auth_sessions", {
+  method: "POST",
+  body: JSON.stringify({ p_profile_id: updatedEmployeeB.id, p_current_session_id: null }),
+});
+assert.equal(activeSessions.response.status, 200);
+assert.equal((activeSessions.body || []).some((session) => session.id === tokenPayload.sid), false);
 results.lifecycle.logout = { cookieCleared: true, oldSessionRejected: true, revocationPersisted: true };
 
+const refreshCookie = authCookieHeader(resetEmployeeALogin.setCookie);
 const refresh = await request("/api/auth", {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", Cookie: refreshCookie },
   body: JSON.stringify({ action: "refresh" }),
 });
-assert.equal(refresh.response.status, 400);
-results.limitations.push("Refresh token rotation/reuse is not implemented; SEC-005 cannot be marked VERIFIED.");
+assert.equal(refresh.response.status, 200);
+assert.match(refresh.setCookie, /mykis_refresh=/);
+const replay = await request("/api/auth", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", Cookie: refreshCookie },
+  body: JSON.stringify({ action: "refresh" }),
+});
+assert.equal(replay.response.status, 401);
+results.lifecycle.refreshRotation = { rotated: true, replayRejected: true };
 
 assert.notEqual(runtime.setupKey, supabase.SERVICE_ROLE_KEY);
 assert.equal(supabase.SERVICE_ROLE_KEY.endsWith(runtime.setupKey), false);
 const invalidSetup = await request("/api/auth", {
   method: "POST",
   headers: { "Content-Type": "application/json", "X-Setup-Key": `${runtime.setupKey}x`, "cf-connecting-ip": "203.0.113.1" },
-  body: JSON.stringify({ action: "setup-admin-password", email: runtime.identities.bootstrapAdmin.email, password: runtime.identities.bootstrapAdmin.password }),
+  body: JSON.stringify({ action: "setup-admin-password", email: runtime.identities.bootstrapHr.email, password: runtime.identities.bootstrapHr.password }),
 });
 assert.equal(invalidSetup.response.status, 401);
 
 const bootstrapResponses = await Promise.all(Array.from({ length: 8 }, (_, index) => request("/api/auth", {
   method: "POST",
   headers: { "Content-Type": "application/json", "X-Setup-Key": runtime.setupKey, "cf-connecting-ip": `203.0.113.${index + 10}` },
-  body: JSON.stringify({ action: "setup-admin-password", email: runtime.identities.bootstrapAdmin.email, password: runtime.identities.bootstrapAdmin.password }),
+  body: JSON.stringify({ action: "setup-admin-password", email: runtime.identities.bootstrapHr.email, password: runtime.identities.bootstrapHr.password }),
 })));
 const bootstrapStatuses = bootstrapResponses.map(({ response }) => response.status);
 assert.equal(bootstrapStatuses.filter((status) => status === 200).length, 1);
@@ -271,11 +285,11 @@ assert.equal(bootstrapStatuses.filter((status) => status === 410).length, 7);
 const afterBootstrap = await request("/api/auth", {
   method: "POST",
   headers: { "Content-Type": "application/json", "X-Setup-Key": runtime.setupKey, "cf-connecting-ip": "203.0.113.30" },
-  body: JSON.stringify({ action: "setup-admin-password", email: runtime.identities.bootstrapAdmin.email, password: runtime.identities.bootstrapAdmin.password }),
+  body: JSON.stringify({ action: "setup-admin-password", email: runtime.identities.bootstrapHr.email, password: runtime.identities.bootstrapHr.password }),
 });
 assert.equal(afterBootstrap.response.status, 410);
-assert.equal((await login(runtime.identities.bootstrapAdmin, { ip: "203.0.113.31" })).response.status, 200);
-const bootstrapProfiles = await serviceRest(`profiles?id=eq.${encodeURIComponent(runtime.identities.bootstrapAdmin.id)}&select=id`);
+assert.equal((await login(runtime.identities.bootstrapHr, { ip: "203.0.113.31" })).response.status, 200);
+const bootstrapProfiles = await serviceRest(`profiles?id=eq.${encodeURIComponent(runtime.identities.bootstrapHr.id)}&select=id`);
 assert.equal(bootstrapProfiles.response.status, 200);
 assert.equal(bootstrapProfiles.body.length, 1);
 const bootstrapAudit = await serviceRest("audit_logs?action=eq.auth.setup_admin_completed&select=id");

@@ -376,7 +376,7 @@ export async function createSelfAssessment(supabase, request, acct, competencyId
     recipientId: "acc-hr-demo",
     idempotencyKey: `self_assessment_submitted:${data.id}`,
     payload: { competency_name: competencyId, employee_name: acct.accountId },
-    link: "/admin/skills-matrix",
+    link: "/hr/skills-matrix",
   }).catch(() => {});
   auditLater(supabase, request, { actor: acct, action: "competency.self_assessment_submitted", entityType: "competency_assessment", entityId: data.id, metadata: { competency_id: competencyId, employee_id: acct.accountId, level_to: levelId } });
   return data;

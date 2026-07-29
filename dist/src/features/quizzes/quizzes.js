@@ -7,6 +7,6 @@ const copy = {
 };
 
 export async function mount({ account }) {
-  const admin = account.role !== "employee";
-  return mountCollectionRoute({ account, roles: ["employee", "hr", "admin"], entry: admin ? "quiz-management" : "quiz-player", endpoint: "/api/quizzes", itemKeys: ["items", "data"], copy, mapItem: (row) => { const data = row.data || row; return { id: row.id, title: data.title || data.name || row.id, subtitle: data.description || "", status: row.status || data.status || "draft", meta: data.timeLimitMinutes ? `${data.timeLimitMinutes} min` : "", href: admin ? "" : `/dashboard/quizzes?quiz=${encodeURIComponent(row.id)}` }; } });
+  const isHr = account.role === "hr";
+  return mountCollectionRoute({ account, roles: ["employee", "hr"], entry: isHr ? "quiz-management" : "quiz-player", endpoint: "/api/quizzes", itemKeys: ["items", "data"], copy, mapItem: (row) => { const data = row.data || row; return { id: row.id, title: data.title || data.name || row.id, subtitle: data.description || "", status: row.status || data.status || "draft", meta: data.timeLimitMinutes ? `${data.timeLimitMinutes} min` : "", href: isHr ? "" : `/dashboard/quizzes?quiz=${encodeURIComponent(row.id)}` }; } });
 }

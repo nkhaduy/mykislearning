@@ -14,7 +14,7 @@ const role = value("--role");
 const reviewDate = value("--review-date");
 const incidentOwner = value("--incident-owner");
 const confirmation = value("--confirm");
-const requiredConfirmation = "Tôi hiểu và chấp nhận rủi ro còn lại khi tài khoản HR và Admin vận hành không có MFA/2FA. Tôi xác nhận đây là quyết định có chủ đích của chủ dự án, đồng thời chấp nhận áp dụng các biện pháp bù trừ gồm mật khẩu mạnh, refresh-token rotation, session revocation, rate limiting, audit logging, giám sát sự cố và quy trình khóa tài khoản.";
+const requiredConfirmation = "Tôi hiểu và chấp nhận rủi ro còn lại khi tài khoản HR vận hành không có MFA/2FA. Tôi xác nhận đây là quyết định có chủ đích của chủ dự án, đồng thời chấp nhận áp dụng các biện pháp bù trừ gồm mật khẩu mạnh, refresh-token rotation, session revocation, rate limiting, audit logging, giám sát sự cố và quy trình khóa tài khoản.";
 if (!approvedBy || !role || !/^\d{4}-\d{2}-\d{2}$/.test(reviewDate) || !incidentOwner || confirmation !== requiredConfirmation) {
   console.error(`NO_MFA_ACCEPTANCE_REFUSED: provide --approved-by, --role, --review-date YYYY-MM-DD, --incident-owner and --confirm "${requiredConfirmation}"`);
   process.exit(2);

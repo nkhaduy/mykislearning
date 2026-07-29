@@ -11,9 +11,9 @@ import { test, expect } from "playwright/test";
 import * as fs from "fs";
 import * as path from "path";
 
-const BASE = "https://mykis-learning.nkhaduy.workers.dev";
-const HR_EMAIL = "hr@kisvn.vn";
-const HR_PASSWORD = process.env.HR_PASSWORD || "Training@2026";
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
+const HR_EMAIL = process.env.KIS_E2E_HR_EMAIL || "";
+const HR_PASSWORD = process.env.KIS_E2E_HR_PASSWORD || "";
 const RESULTS_DIR = "test-results/public-training-external-links";
 const TEST_PREFIX = "[LIVE TRAINING TEST]";
 const QUIZIZZ_URL = "https://quizizz.com/join?gc=00000000";
@@ -30,7 +30,7 @@ async function loginAs(page, email, password) {
   await page.fill("#loginEmail", email);
   await page.fill("#loginPassword", password);
   await page.click("#loginSubmitBtn");
-  await page.waitForURL(/\/(dashboard|admin)/, { timeout: 15000 });
+  await page.waitForURL(/\/(dashboard|hr)/, { timeout: 15000 });
 }
 
 async function hrApi(page, method, path, body) {
@@ -94,7 +94,7 @@ test("HR-1 — HR login shows Hành trình buổi học menu item", async ({ bro
   page.on("pageerror", (e) => errs.push(String(e)));
   try {
     await loginAs(page, HR_EMAIL, HR_PASSWORD);
-    await page.goto(`${BASE}/admin/live-training`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}/hr/live-training`, { waitUntil: "domcontentloaded" });
     await page.waitForSelector(".app-layout", { timeout: 8000 });
     const menuText = await page.content();
     expect(menuText).toContain("Hành trình buổi học");
@@ -120,7 +120,7 @@ test("HR-2 — HR can create a flow and see detail page", async ({ browser }) =>
     const pubLink = res.data.flow?.publicLink;
     expect(pubLink).toContain("/join/");
 
-    await page.goto(`${BASE}/admin/live-training/${flowId}`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}/hr/live-training/${flowId}`, { waitUntil: "domcontentloaded" });
     // Wait for detail to load (skeleton gives way to real content)
     await page.waitForFunction(
       (prefix) => document.body.innerText.includes(prefix),
@@ -570,7 +570,7 @@ test("SEC-3 — HTML in participant name does not cause XSS in HR participant li
     await publicApi(hrPage, "POST", `/api/public/live-training/${accessToken}/join`, { displayName: xssName }, null);
 
     // Load the detail page as HR
-    await hrPage.goto(`${BASE}/admin/live-training/${flowId}`, { waitUntil: "domcontentloaded" });
+    await hrPage.goto(`${BASE}/hr/live-training/${flowId}`, { waitUntil: "domcontentloaded" });
     await hrPage.waitForSelector(".app-layout", { timeout: 8000 });
 
     const xssTriggered = await hrPage.evaluate(() => !!(window)._xss);
@@ -672,7 +672,7 @@ test("I18N-1 — No raw i18n key displayed on public or HR page (VI default)", a
     accessToken = create.data.flow.access_token;
 
     // HR page
-    await hrPage.goto(`${BASE}/admin/live-training/${flowId}`, { waitUntil: "domcontentloaded" });
+    await hrPage.goto(`${BASE}/hr/live-training/${flowId}`, { waitUntil: "domcontentloaded" });
     await hrPage.waitForSelector(".app-layout", { timeout: 8000 });
     const hrContent = await hrPage.textContent(".content");
     const rawKeys = ["liveTraining.", "pretestUrl", "posttestUrl", "evaluationUrl", "openStep", "closeStep", "notOpen"];

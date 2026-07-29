@@ -8,10 +8,12 @@ import {
   loadSecureRuntime,
   sha256,
 } from "./runtime-contract.mjs";
+import { PURGE_TABLES } from "./clean-reset/production-clean-reset-common.mjs";
 
 const root = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const runtimeFile = process.env.KIS_PRODUCTION_RUNTIME_FILE;
-const { contract } = loadSecureRuntime(runtimeFile);
+const loaded = loadSecureRuntime(runtimeFile);
+const { contract } = loaded;
 const manifestPath = resolve(contract.KIS_PRODUCTION_RELEASE_MANIFEST || DEFAULT_MANIFEST_FILE);
 const gateEvidencePath = resolve(contract.KIS_PRODUCTION_GATE_EVIDENCE || DEFAULT_GATE_EVIDENCE_FILE);
 
@@ -52,6 +54,19 @@ if (canonicalStaging.packageLockSha256 !== packageLockSha256 || canonicalStaging
   throw new Error("release lockfile or migrations do not match the canonical staging rehearsal");
 }
 const target = JSON.parse(readFileSync(resolve(root, "docs/audit-remediation/evidence/PRODUCTION_TARGET_DISCOVERY.json"), "utf8"));
+const reconciliation = JSON.parse(readFileSync(resolve(root, "docs/audit-remediation/evidence/PRODUCTION_MIGRATION_HISTORY_RECONCILIATION.json"), "utf8"));
+const runtimeSha256 = sha256(readFileSync(loaded.path));
+const allowlistSha256 = sha256(JSON.stringify([...PURGE_TABLES].sort()));
+const ownerApprovalPath = "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_OWNER_APPROVAL.json";
+const twoRoleContractPath = "docs/audit-remediation/evidence/TWO_ROLE_AUTHORIZATION_CONTRACT.json";
+const backupEvidencePath = "docs/audit-remediation/evidence/PRODUCTION_BACKUP_RESTORE.json";
+const testEvidencePaths = [
+  "docs/audit-remediation/evidence/CLEAN_ROOM_ROLE_AUDIT.json",
+  "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_REHEARSAL.json",
+  "docs/audit-remediation/evidence/PRODUCTION_MIGRATION_HISTORY_RECONCILIATION.json",
+  twoRoleContractPath,
+];
+const testEvidenceSha256 = sha256(testEvidencePaths.map((path) => `${fileSha256(path)}  ${path}\n`).join(""));
 const manifest = {
   schemaVersion: 1,
   generatedAt: new Date().toISOString(),
@@ -71,6 +86,14 @@ const manifest = {
   previousProductionDeploymentId: target.cloudflare.currentDeploymentId,
   previousProductionVersionId: target.cloudflare.currentVersionId,
   qualityGateEvidenceSha256: sha256(readFileSync(gateEvidencePath)),
+  productionRuntimeSha256: runtimeSha256,
+  cleanResetAllowlistSha256: allowlistSha256,
+  cleanResetOwnerApprovalSha256: fileSha256(ownerApprovalPath),
+  pendingMigrationAllowlist: reconciliation.pendingProductionMigrations,
+  rollbackWorkerVersion: contract.KIS_PRODUCTION_ROLLBACK_WORKER_VERSION || target.cloudflare.currentVersionId,
+  backupEvidenceSha256: fileSha256(backupEvidencePath),
+  twoRoleContractSha256: fileSha256(twoRoleContractPath),
+  testEvidenceSha256,
 };
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });
 chmodSync(manifestPath, 0o600);

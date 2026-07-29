@@ -241,7 +241,7 @@ export async function handleEmployees(request, env) {
     const acct = await requireHr(request, env);
     if (!acct) return json({ error: "HR only" }, 403);
     const body = await readJson(request);
-    if (body.account_status !== undefined) {
+    if (body.account_status !== undefined || body.role !== undefined) {
       const privileged = await requirePrivilegedSession(request, env);
       if (privileged.error) return privileged.error;
     }
@@ -256,7 +256,11 @@ export async function handleEmployees(request, env) {
       }
     }
     if (body.employee_code !== undefined) patch.employee_code = stringField(body, "employee_code", 80);
-    // Role, credential fields, owner fields, and audit fields are intentionally not writable here.
+    if (body.role !== undefined) {
+      patch.role = stringField(body, "role", 20);
+      if (!["hr", "employee"].includes(patch.role)) return json({ error: "INVALID_ROLE" }, 400);
+    }
+    // Credential fields, owner fields, and audit fields are intentionally not writable here.
     if (body.department !== undefined) patch.department = stringField(body, "department", 200);
     if (body.position !== undefined) patch.position = stringField(body, "position", 200);
     if (body.account_status !== undefined) {
@@ -328,7 +332,7 @@ export async function handleEmployees(request, env) {
 
     // Prevent deleting system/service accounts
     const systemIds = ["acc-sa-001", "acc-hr-001"];
-    if (systemIds.includes(employeeId) || profile.role === "superAdmin") {
+    if (systemIds.includes(employeeId)) {
       return json({ error: "CANNOT_DELETE_SYSTEM_ACCOUNT" }, 403);
     }
 

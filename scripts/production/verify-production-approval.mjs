@@ -5,13 +5,15 @@ import { fileURLToPath } from "node:url";
 import {
   DEFAULT_GATE_EVIDENCE_FILE,
   DEFAULT_MANIFEST_FILE,
+  DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE,
   loadSecureRuntime,
   sha256,
   tokenConsumptionFile,
 } from "./runtime-contract.mjs";
+import { PURGE_TABLES } from "./clean-reset/production-clean-reset-common.mjs";
 
 const defaultRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
-const exactRiskConfirmation = "Tôi hiểu và chấp nhận rủi ro còn lại khi tài khoản HR và Admin vận hành không có MFA/2FA. Tôi xác nhận đây là quyết định có chủ đích của chủ dự án, đồng thời chấp nhận áp dụng các biện pháp bù trừ gồm mật khẩu mạnh, refresh-token rotation, session revocation, rate limiting, audit logging, giám sát sự cố và quy trình khóa tài khoản.";
+const exactRiskConfirmation = "Tôi hiểu và chấp nhận rủi ro còn lại khi tài khoản HR vận hành không có MFA/2FA. Tôi xác nhận đây là quyết định có chủ đích của chủ dự án, đồng thời chấp nhận áp dụng các biện pháp bù trừ gồm mật khẩu mạnh, refresh-token rotation, session revocation, rate limiting, audit logging, giám sát sự cố và quy trình khóa tài khoản.";
 const requiredSecretNames = [
   "AUDIT_IP_HASH_SALT",
   "CURSOR_SIGNING_SECRET",
@@ -21,6 +23,16 @@ const requiredSecretNames = [
   "SUPABASE_ANON_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
   "SUPABASE_URL",
+];
+const requiredPendingMigrations = [
+  "20260727172321_reconcile_legacy_department_schema.sql",
+  "20260728013513_auth_rotation_mfa_hardening.sql",
+  "20260728030009_remove_mfa_2fa.sql",
+  "20260728031000_employee_search_cursor.sql",
+  "20260728032000_background_export_jobs.sql",
+  "20260728103000_reporting_rpc.sql",
+  "20260728104000_export_operations.sql",
+  "20260729022415_consolidate_roles_to_hr_and_employee.sql",
 ];
 
 export class ProductionApprovalError extends Error {
@@ -70,13 +82,65 @@ function parseWindow(value, now, requireActive, blockers) {
   }
   const start = new Date(match[1]);
   const end = new Date(match[2]);
-  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start || end - start < 60 * 60 * 1000) {
-    blockers.push("maintenance window must be valid and at least 60 minutes");
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start || end - start < 90 * 60 * 1000) {
+    blockers.push("maintenance window must be valid and at least 90 minutes");
     return null;
   }
   if (end <= now) blockers.push("maintenance window has expired");
   if (requireActive && (now < start || now >= end)) blockers.push("production deploy is outside the approved maintenance window");
   return { start: start.toISOString(), end: end.toISOString(), state: now < start ? "scheduled" : now < end ? "active" : "expired" };
+}
+
+function verifyCleanResetReadiness(root, input, blockers, options) {
+  if (!options.requireCleanResetReadiness) return null;
+  const roleAudit = readJson(root, "docs/audit-remediation/evidence/CLEAN_ROOM_ROLE_AUDIT.json", blockers, "clean-room role audit");
+  const rehearsal = readJson(root, "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_REHEARSAL.json", blockers, "production clean-reset rehearsal");
+  const allowlistSha256 = sha256(JSON.stringify([...PURGE_TABLES].sort()));
+
+  if (roleAudit) {
+    const canonicalRolesPass = JSON.stringify(roleAudit.canonicalRoles) === JSON.stringify(["hr", "employee"])
+      && roleAudit.trainerRoleCount === 0
+      && roleAudit.adminRoleCount === 0
+      && roleAudit.unknownRoleCount === 0;
+    const removedSurfacePass = roleAudit.activeApplicationRoleSurfaces?.trainerRoutes === 0
+      && roleAudit.activeApplicationRoleSurfaces?.adminRoleRoutes === 0
+      && roleAudit.activeApplicationRoleSurfaces?.trainerPolicies === 0
+      && roleAudit.activeApplicationRoleSurfaces?.adminRolePolicies === 0;
+    const rolesPass = ["employee", "hr"].every((role) => String(roleAudit.roles?.[role]?.status || "").toLowerCase() === "pass")
+      && String(roleAudit.invalidLegacyRoleAudit || "").toLowerCase() === "pass";
+    const migrationPass = roleAudit.migration?.cleanReplay === "PASS"
+      && roleAudit.migration?.legacyCleanReset === "PASS"
+      && roleAudit.migration?.schemaEquivalence === "PASS"
+      && roleAudit.migration?.rollbackRestoreRehearsal === "PASS";
+    if (!canonicalRolesPass || !removedSurfacePass || !rolesPass || !migrationPass) blockers.push("clean-room two-role audit is not a complete passing result");
+    if (roleAudit.remainingBlockers !== 0) blockers.push(`clean-room role audit has ${roleAudit.remainingBlockers ?? "unknown"} remaining blocker(s)`);
+  }
+
+  if (input.KIS_PRODUCTION_CLEAN_RESET_ALLOWLIST_APPROVED !== "true") blockers.push("clean-reset table allowlist is not owner-approved");
+  if (input.KIS_PRODUCTION_CLEAN_RESET_ALLOWLIST_SHA256 !== allowlistSha256) blockers.push("clean-reset table allowlist checksum is missing or stale");
+
+  if (rehearsal) {
+    const cleanResetPass = rehearsal.legacyCleanResetRehearsal?.status === "pass"
+      && rehearsal.schemaEquivalence?.status === "pass"
+      && rehearsal.idempotency?.status === "pass";
+    if (!cleanResetPass) blockers.push("disposable production clean-reset rehearsal did not pass");
+    if (rehearsal.legacyCleanResetRehearsal?.rollbackRestoreRehearsal !== "pass") blockers.push("clean-reset rollback rehearsal did not pass");
+    if (rehearsal.legacyCleanResetRehearsal?.bootstrapHrRecovery !== "pass") blockers.push("bootstrap HR recovery was not verified");
+    if (rehearsal.cleanResetAllowlist?.tableCount !== PURGE_TABLES.length || rehearsal.cleanResetAllowlist?.sha256 !== allowlistSha256 || rehearsal.cleanResetAllowlist?.forbiddenSchemasPresent !== false) {
+      blockers.push("clean-reset rehearsal allowlist does not match the approved implementation");
+    }
+    if (rehearsal.pendingMigrations?.expected !== 8 || rehearsal.pendingMigrations?.applied !== 8 || rehearsal.pendingMigrations?.status !== "pass") {
+      blockers.push("clean-reset rehearsal did not apply the 7 existing pending migrations plus the two-role migration");
+    }
+  }
+
+  return {
+    status: blockers.length ? "blocked" : "pass",
+    allowlistSha256,
+    purgeTableCount: PURGE_TABLES.length,
+    roleAuditSha256: roleAudit ? sha256(readFileSync(resolve(root, "docs/audit-remediation/evidence/CLEAN_ROOM_ROLE_AUDIT.json"))) : null,
+    rehearsalSha256: rehearsal ? sha256(readFileSync(resolve(root, "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_REHEARSAL.json"))) : null,
+  };
 }
 
 function liveSecretNames(root, workerName) {
@@ -90,6 +154,48 @@ function liveDeployment(root, workerName) {
   const deployments = JSON.parse(command(root, executable, ["deployments", "list", "--name", workerName, "--json"]));
   const current = deployments.at(-1);
   return current ? { deploymentId: current.id, versionId: current.versions?.find((item) => item.percentage === 100)?.version_id } : null;
+}
+
+function verifyMigrationReconciliation(root, input, head, blockers, options) {
+  if (!options.requireMigrationReconciliation) return null;
+  const evidencePath = options.migrationReconciliationEvidence || DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE;
+  let evidence;
+  try {
+    evidence = JSON.parse(readFileSync(resolve(root, evidencePath), "utf8"));
+  } catch {
+    blockers.push("migration-history reconciliation evidence is missing or invalid");
+    return null;
+  }
+  if (evidence.schemaVersion !== 1 || evidence.status !== "pass") {
+    blockers.push("migration-history reconciliation evidence is not a passing result");
+    return null;
+  }
+  if (evidence.projectRef !== String(input.KIS_PRODUCTION_SUPABASE_PROJECT_REF || "").toLowerCase()) blockers.push("migration reconciliation targets a different Supabase project");
+  if (evidence.releaseCommitSha && evidence.releaseCommitSha !== head) blockers.push("migration reconciliation evidence is for a different release commit");
+  if (evidence.approvedBaselineMapping?.status !== "approved") blockers.push("migration alias reconciliation is not approved");
+  if (evidence.schemaDiff?.status !== "approved") blockers.push("approved schema-diff evidence is missing");
+  if (evidence.disposableRehearsal?.status !== "pass") blockers.push("disposable migration reconciliation rehearsal did not pass");
+  if (!/^[a-f0-9]{64}$/.test(String(evidence.repairEvidenceChecksum || ""))) blockers.push("migration repair evidence checksum is missing or invalid");
+  const allowlist = Array.isArray(evidence.pendingProductionMigrations) ? [...new Set(evidence.pendingProductionMigrations)] : [];
+  if (JSON.stringify(allowlist.sort()) !== JSON.stringify([...requiredPendingMigrations].sort())) blockers.push("pending production migration allowlist must contain exactly the approved 7 existing migrations plus the two-role migration");
+
+  let live = options.providerMigrationReconciliation;
+  if (!live) {
+    try {
+      const list = command(root, "supabase", ["migration", "list", "--linked"]);
+      const remoteOnly = [...list.matchAll(/^\s*\|?\s*\|\s*(\d{3,14})\s*\|/gm)].map((match) => match[1]);
+      const dryRun = command(root, "supabase", ["db", "push", "--linked", "--include-all", "--dry-run"]);
+      const pending = [...dryRun.matchAll(/^\s*[•*]\s+(\d{3,14}_[A-Za-z0-9_]+\.sql)\s*$/gm)].map((match) => match[1]);
+      live = { remoteOnlyCount: remoteOnly.length, pendingProductionMigrations: pending, dryRunStatus: "pass" };
+    } catch {
+      blockers.push("live Supabase migration reconciliation verification failed");
+      return null;
+    }
+  }
+  if (live.remoteOnlyCount !== 0) blockers.push(`live Supabase migration history still has ${live.remoteOnlyCount} unexplained remote-only version(s)`);
+  if (JSON.stringify([...live.pendingProductionMigrations].sort()) !== JSON.stringify([...allowlist].sort())) blockers.push("live pending migrations do not match the approved allowlist");
+  if (live.dryRunStatus !== "pass") blockers.push("production migration dry-run did not pass");
+  return { status: evidence.status, evidenceSha256: sha256(readFileSync(resolve(root, evidencePath))), remoteOnlyCount: live.remoteOnlyCount, pendingProductionMigrations: live.pendingProductionMigrations, dryRunStatus: live.dryRunStatus };
 }
 
 export function verifyProductionApproval(input, options = {}) {
@@ -186,6 +292,8 @@ export function verifyProductionApproval(input, options = {}) {
     blockers.push("Cloudflare critical alerts require Alerting permission, configured policies, and a successful delivery test");
   }
 
+  const cleanResetReadiness = verifyCleanResetReadiness(root, input, blockers, options);
+
   let secretNames = options.providerSecretNames;
   try { secretNames ||= liveSecretNames(root, workerName); } catch { blockers.push("live production Worker secret-name inventory could not be verified"); }
   if (secretNames) {
@@ -232,8 +340,26 @@ export function verifyProductionApproval(input, options = {}) {
     if (gates && manifest.qualityGateEvidenceSha256 !== sha256(readFileSync(gatePath))) blockers.push("release manifest quality-gate checksum is stale");
     if (manifest.canonicalStagingVersion !== input.KIS_CANONICAL_STAGING_VERSION || manifest.productionBackupId !== input.KIS_PRODUCTION_BACKUP_ID || manifest.productionApprovalId !== input.KIS_PRODUCTION_APPROVAL_ID) blockers.push("release manifest is not bound to the approved staging/backup/approval package");
     if (staging && (manifest.packageLockSha256 !== staging.packageLockSha256 || manifest.migrationsSha256 !== staging.migrationListSha256)) blockers.push("release lockfile or migrations do not match the canonical staging rehearsal");
+    const allowlistSha256 = sha256(JSON.stringify([...PURGE_TABLES].sort()));
+    const ownerApprovalPath = resolve(root, "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_OWNER_APPROVAL.json");
+    const twoRoleContractPath = resolve(root, "docs/audit-remediation/evidence/TWO_ROLE_AUTHORIZATION_CONTRACT.json");
+    const backupEvidencePath = resolve(root, "docs/audit-remediation/evidence/PRODUCTION_BACKUP_RESTORE.json");
+    if (manifest.cleanResetAllowlistSha256 !== allowlistSha256) blockers.push("release manifest clean-reset allowlist checksum is stale");
+    try {
+      if (manifest.cleanResetOwnerApprovalSha256 !== sha256(readFileSync(ownerApprovalPath))) blockers.push("release manifest clean-reset owner approval checksum is stale");
+      if (manifest.twoRoleContractSha256 !== sha256(readFileSync(twoRoleContractPath))) blockers.push("release manifest two-role contract checksum is stale");
+      if (manifest.backupEvidenceSha256 !== sha256(readFileSync(backupEvidencePath))) blockers.push("release manifest backup evidence checksum is stale");
+      if (options.runtimeFile && manifest.productionRuntimeSha256 !== sha256(readFileSync(resolve(options.runtimeFile)))) blockers.push("release manifest production runtime checksum is stale");
+    } catch { blockers.push("release manifest required evidence checksum is missing"); }
+    try {
+      const reconciliation = JSON.parse(readFileSync(resolve(root, DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE), "utf8"));
+      if (JSON.stringify(manifest.pendingMigrationAllowlist || []) !== JSON.stringify(reconciliation.pendingProductionMigrations || [])) blockers.push("release manifest pending migration allowlist is stale");
+      if (manifest.rollbackWorkerVersion !== target?.cloudflare?.currentVersionId) blockers.push("release manifest rollback Worker version is stale");
+    } catch { blockers.push("release manifest migration reconciliation binding is missing"); }
   }
   if (!gates || gates.status !== "pass" || gates.releaseCommitSha !== head) blockers.push("all production quality gates have not passed for the release commit");
+
+  const migrationReconciliation = verifyMigrationReconciliation(root, input, head, blockers, options);
 
   const consumptionPath = options.consumptionFile || tokenConsumptionFile(options.runtimeFile);
   const approvalFingerprint = sha256(String(input.KIS_PRODUCTION_ONE_TIME_APPROVAL_TOKEN || ""));
@@ -265,6 +391,8 @@ export function verifyProductionApproval(input, options = {}) {
     maintenanceWindow,
     previousProductionVersionId: deployment.versionId,
     releaseManifest: manifest ? basename(manifestPath) : null,
+    migrationReconciliation,
+    cleanResetReadiness,
   };
 }
 

@@ -8,9 +8,9 @@ const read = (path) => readFileSync(new URL(path, root), "utf8");
 test("ARCH-ROUTE-004: priority course, training, quiz, record and attendance routes have split entries", () => {
   const registry = read("src/app/route-registry.js");
   const expected = [
-    ["/admin/courses", "courseManagement"], ["/dashboard/courses/:id", "coursePlayer"],
-    ["/admin/live-training", "liveTraining"], ["/admin/quizzes", "quizzes"],
-    ["/dashboard/quizzes", "quizzes"], ["/admin/learning-records", "learningRecords"],
+    ["/hr/courses", "courseManagement"], ["/dashboard/courses/:id", "coursePlayer"],
+    ["/hr/live-training", "liveTraining"], ["/hr/quizzes", "quizzes"],
+    ["/dashboard/quizzes", "quizzes"], ["/hr/learning-records", "learningRecords"],
     ["/dashboard/certificates", "learningRecords"], ["/attendance/scan", "attendance"],
   ];
   for (const [path, entry] of expected) {

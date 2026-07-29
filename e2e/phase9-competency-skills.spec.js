@@ -1,6 +1,6 @@
 import { test, expect } from "playwright/test";
 
-const BASE = "https://mykis-learning.nkhaduy.workers.dev";
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
 const HR_HEADERS = { "X-Account-Id": "acc-hr-001", "X-Account-Role": "hr" };
 const EMP_HEADERS = { "X-Account-Id": "emp-test-001", "X-Account-Role": "employee" };
 const EMP_ID = "emp-test-001";
@@ -176,11 +176,11 @@ test("Development plan workflow, resource anti-cheat sync, and ownership", async
 
 test("Browser HR and Employee Phase 9 pages render on desktop and mobile", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("mykis.session.v1", JSON.stringify({ accountId: "acc-hr-001", role: "hr", fullName: "HR Test", loginAt: new Date().toISOString() })));
-  await page.goto(`${BASE}/admin/competencies`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/hr/competencies`, { waitUntil: "domcontentloaded" });
   await expect(page.locator("h1")).toContainText(/Năng lực|Competency/);
-  await page.goto(`${BASE}/admin/skills-matrix`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/hr/skills-matrix`, { waitUntil: "domcontentloaded" });
   await expect(page.locator("body")).not.toContainText("Không thể tải trang");
-  await page.goto(`${BASE}/admin/development-plans`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/hr/development-plans`, { waitUntil: "domcontentloaded" });
   await expect(page.locator("body")).not.toContainText("Không thể tải trang");
 
   await page.addInitScript(() => localStorage.setItem("mykis.session.v1", JSON.stringify({ accountId: "emp-test-001", role: "employee", fullName: "Employee Test", loginAt: new Date().toISOString() })));

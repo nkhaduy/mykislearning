@@ -11,7 +11,7 @@ const WARNING_DAYS = [60, 30, 15, 7, 0];
 function clean(v) { return String(v ?? "").trim(); }
 function id(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 function todayIso() { return new Date().toISOString().slice(0, 10); }
-function isHr(acct) { return ["hr", "admin"].includes(acct?.role); }
+function isHr(acct) { return ["hr"].includes(acct?.role); }
 function pageParams(url) {
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
   const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("pageSize") || "25", 10)));

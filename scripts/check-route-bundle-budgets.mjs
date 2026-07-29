@@ -4,11 +4,11 @@ import { resolve } from "node:path";
 const evidencePath = resolve(process.env.BUNDLE_EVIDENCE_PATH || "docs/audit-remediation/evidence/route-bundles.json");
 const evidence = JSON.parse(readFileSync(evidencePath, "utf8"));
 const budgets = {
-  "/login": [35 * 1024, 60 * 1024], "/dashboard": [160 * 1024, 80 * 1024], "/admin/employees": [200 * 1024, 80 * 1024],
-  "/admin/courses": [220 * 1024, 80 * 1024], "/dashboard/courses/course-a": [220 * 1024, 80 * 1024],
-  "/admin/live-training": [220 * 1024, 80 * 1024], "/admin/quizzes": [220 * 1024, 80 * 1024], "/dashboard/quizzes": [220 * 1024, 80 * 1024],
-  "/admin/learning-records": [220 * 1024, 80 * 1024], "/dashboard/certificates": [220 * 1024, 80 * 1024], "/attendance/scan": [220 * 1024, 80 * 1024],
-  "/admin/reports": [220 * 1024, 80 * 1024],
+  "/login": [35 * 1024, 60 * 1024], "/dashboard": [160 * 1024, 80 * 1024], "/hr/employees": [200 * 1024, 80 * 1024],
+  "/hr/courses": [220 * 1024, 80 * 1024], "/dashboard/courses/course-a": [220 * 1024, 80 * 1024],
+  "/hr/live-training": [220 * 1024, 80 * 1024], "/hr/quizzes": [220 * 1024, 80 * 1024], "/dashboard/quizzes": [220 * 1024, 80 * 1024],
+  "/hr/learning-records": [220 * 1024, 80 * 1024], "/dashboard/certificates": [220 * 1024, 80 * 1024], "/attendance/scan": [220 * 1024, 80 * 1024],
+  "/hr/reports": [220 * 1024, 80 * 1024],
 };
 const byRoute = new Map(evidence.results.map((result) => [result.route, result]));
 const failures = [];

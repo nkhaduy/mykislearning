@@ -6,10 +6,10 @@ import { ROUTE_DEFINITIONS, matchRoute } from "../../src/app/route-registry.js";
 const secondaryPaths = [
   "/training", "/change-password", "/dashboard/learning-paths", "/dashboard/gallery", "/dashboard/resources",
   "/dashboard/calendar", "/dashboard/learning-history", "/dashboard/history", "/dashboard/compliance", "/dashboard/skills",
-  "/dashboard/development-plan", "/dashboard/notifications", "/admin/assign", "/admin/learning-paths", "/admin/sessions",
-  "/admin/training-tracking", "/admin/cchn-registrations", "/admin/accounts", "/admin/competencies", "/admin/skills-matrix",
-  "/admin/development-plans", "/admin/retraining", "/admin/compliance", "/admin/certificates", "/admin/certifications",
-  "/admin/gallery", "/admin/notifications", "/admin/audit-log",
+  "/dashboard/development-plan", "/dashboard/notifications", "/hr/assign", "/hr/learning-paths", "/hr/sessions",
+  "/hr/training-tracking", "/hr/cchn-registrations", "/hr/accounts", "/hr/competencies", "/hr/skills-matrix",
+  "/hr/development-plans", "/hr/retraining", "/hr/compliance", "/hr/certificates", "/hr/certifications",
+  "/hr/gallery", "/hr/notifications", "/hr/audit-log",
 ];
 
 const dynamicCases = [
@@ -19,9 +19,9 @@ const dynamicCases = [
   ["/dashboard/gallery/:id", "/dashboard/gallery/album-1", "id", "album-1"],
   ["/dashboard/compliance/:id", "/dashboard/compliance/cycle-1", "id", "cycle-1"],
   ["/dashboard/development-plan/:id", "/dashboard/development-plan/plan-1", "id", "plan-1"],
-  ["/admin/courses/:id", "/admin/courses/course-1", "id", "course-1"],
-  ["/admin/learning-paths/:id", "/admin/learning-paths/path-1", "id", "path-1"],
-  ["/admin/compliance/cycles/:id", "/admin/compliance/cycles/cycle-1", "id", "cycle-1"],
+  ["/hr/courses/:id", "/hr/courses/course-1", "id", "course-1"],
+  ["/hr/learning-paths/:id", "/hr/learning-paths/path-1", "id", "path-1"],
+  ["/hr/compliance/cycles/:id", "/hr/compliance/cycles/cycle-1", "id", "cycle-1"],
 ];
 
 test("ROUTE-ALL-001: every secondary route has an explicit split entry", () => {
@@ -39,19 +39,19 @@ test("ROUTE-ALL-002: dynamic routes decode safe identifiers and preserve route s
     assert.equal(route?.pattern, pattern);
     assert.equal(route.params[key], value);
   }
-  assert.equal(matchRoute("/admin/courses/course-1")?.pattern, "/admin/courses/:id");
-  assert.equal(matchRoute("/admin/compliance/cycles/cycle-1")?.pattern, "/admin/compliance/cycles/:id");
+  assert.equal(matchRoute("/hr/courses/course-1")?.pattern, "/hr/courses/:id");
+  assert.equal(matchRoute("/hr/compliance/cycles/cycle-1")?.pattern, "/hr/compliance/cycles/:id");
 });
 
 test("ROUTE-ALL-003: malformed IDs and traversal attempts are rejected", () => {
   for (const path of [
-    "/admin/courses/%2Fetc%2Fpasswd", "/admin/courses/..", "/admin/courses/%2e%2e", "/admin/courses/a%5Cb",
-    "/admin/courses/%00", "/admin/courses/a%2Fb", `/admin/courses/${"x".repeat(129)}`,
+    "/hr/courses/%2Fetc%2Fpasswd", "/hr/courses/..", "/hr/courses/%2e%2e", "/hr/courses/a%5Cb",
+    "/hr/courses/%00", "/hr/courses/a%2Fb", `/hr/courses/${"x".repeat(129)}`,
   ]) assert.equal(matchRoute(path), null, path);
 });
 
 test("ROUTE-ALL-004: aliases are explicit redirects instead of broad feature matches", () => {
   assert.equal(matchRoute("/dashboard/history")?.redirectTo, "/dashboard/learning-history");
-  assert.equal(matchRoute("/admin/certifications")?.redirectTo, "/admin/certificates");
-  assert.equal(matchRoute("/admin/courses/course-1")?.path, undefined);
+  assert.equal(matchRoute("/hr/certifications")?.redirectTo, "/hr/certificates");
+  assert.equal(matchRoute("/hr/courses/course-1")?.path, undefined);
 });

@@ -13,14 +13,14 @@ const commonColumns = [
 ];
 
 export const EXPORT_REGISTRY = Object.freeze({
-  employees: { rpcType: "employees", roles: ["hr", "admin"], columns: [...commonColumns, ["jobTitle", "Job title"], ["assigned", "Assigned"], ["completed", "Completed"], ["inProgress", "In progress"], ["notStarted", "Not started"], ["overdue", "Overdue"], ["completionRate", "Completion rate"], ["lastActivityAt", "Last activity"]] },
-  "course-completion": { rpcType: "course-completion", roles: ["hr", "admin"], columns: [...commonColumns, ["course", "Course"], ["status", "Status"], ["progress", "Progress"], ["dueAt", "Due date"], ["updatedAt", "Updated"]] },
-  enrollments: { rpcType: "enrollments", roles: ["hr", "admin"], columns: [...commonColumns, ["course", "Course"], ["status", "Status"], ["progress", "Progress"], ["dueAt", "Due date"], ["updatedAt", "Updated"]] },
-  attendance: { rpcType: "attendance", roles: ["hr", "admin"], columns: [...commonColumns, ["session", "Session"], ["status", "Status"], ["checkInAt", "Check in"], ["checkOutAt", "Check out"], ["startAt", "Session start"]] },
-  "quiz-results": { rpcType: "quiz-results", roles: ["hr", "admin"], columns: [...commonColumns, ["quiz", "Quiz"], ["score", "Score"], ["passed", "Passed"], ["submittedAt", "Submitted"]] },
-  "learning-records": { rpcType: "learning-records", roles: ["hr", "admin"], columns: [...commonColumns, ["title", "Title"], ["recordType", "Record type"], ["status", "Status"], ["completionDate", "Completion date"], ["durationHours", "Learning hours"]] },
-  certificates: { rpcType: "certificates", roles: ["hr", "admin"], columns: [...commonColumns, ["certificateType", "Certificate type"], ["status", "Status"], ["verificationStatus", "Verification"], ["issueDate", "Issue date"], ["expiresAt", "Expiry date"]] },
-  compliance: { rpcType: "compliance", roles: ["hr", "admin"], columns: [...commonColumns, ["program", "Program"], ["cycle", "Cycle"], ["status", "Status"], ["progress", "Progress"], ["dueAt", "Due date"], ["completedAt", "Completed"]] },
+  employees: { rpcType: "employees", roles: ["hr"], columns: [...commonColumns, ["jobTitle", "Job title"], ["assigned", "Assigned"], ["completed", "Completed"], ["inProgress", "In progress"], ["notStarted", "Not started"], ["overdue", "Overdue"], ["completionRate", "Completion rate"], ["lastActivityAt", "Last activity"]] },
+  "course-completion": { rpcType: "course-completion", roles: ["hr"], columns: [...commonColumns, ["course", "Course"], ["status", "Status"], ["progress", "Progress"], ["dueAt", "Due date"], ["updatedAt", "Updated"]] },
+  enrollments: { rpcType: "enrollments", roles: ["hr"], columns: [...commonColumns, ["course", "Course"], ["status", "Status"], ["progress", "Progress"], ["dueAt", "Due date"], ["updatedAt", "Updated"]] },
+  attendance: { rpcType: "attendance", roles: ["hr"], columns: [...commonColumns, ["session", "Session"], ["status", "Status"], ["checkInAt", "Check in"], ["checkOutAt", "Check out"], ["startAt", "Session start"]] },
+  "quiz-results": { rpcType: "quiz-results", roles: ["hr"], columns: [...commonColumns, ["quiz", "Quiz"], ["score", "Score"], ["passed", "Passed"], ["submittedAt", "Submitted"]] },
+  "learning-records": { rpcType: "learning-records", roles: ["hr"], columns: [...commonColumns, ["title", "Title"], ["recordType", "Record type"], ["status", "Status"], ["completionDate", "Completion date"], ["durationHours", "Learning hours"]] },
+  certificates: { rpcType: "certificates", roles: ["hr"], columns: [...commonColumns, ["certificateType", "Certificate type"], ["status", "Status"], ["verificationStatus", "Verification"], ["issueDate", "Issue date"], ["expiresAt", "Expiry date"]] },
+  compliance: { rpcType: "compliance", roles: ["hr"], columns: [...commonColumns, ["program", "Program"], ["cycle", "Cycle"], ["status", "Status"], ["progress", "Progress"], ["dueAt", "Due date"], ["completedAt", "Completed"]] },
 });
 
 export const EXPORT_FORMAT_LIMITS = Object.freeze({
@@ -90,13 +90,13 @@ export async function createExportJob({ supabase, queue, env, account, request, 
 }
 
 export async function getExportJob(supabase, account, jobId) {
-  const { data, error } = await rpc(supabase, "service_get_export_job", { p_job_id: jobId, p_requester_id: account.accountId, p_is_admin: account.role === "admin" });
+  const { data, error } = await rpc(supabase, "service_get_export_job", { p_job_id: jobId, p_requester_id: account.accountId, p_is_admin: account.role === "hr" });
   if (error) throw Object.assign(new Error("EXPORT_JOB_READ_FAILED"), { status: 503, code: "EXPORT_JOB_READ_FAILED" });
   return data || null;
 }
 
 export async function cancelExportJob({ supabase, account, request, jobId }) {
-  const { data, error } = await rpc(supabase, "service_cancel_export_job", { p_job_id: jobId, p_requester_id: account.accountId, p_is_admin: account.role === "admin" });
+  const { data, error } = await rpc(supabase, "service_cancel_export_job", { p_job_id: jobId, p_requester_id: account.accountId, p_is_admin: account.role === "hr" });
   if (error) throw Object.assign(new Error("EXPORT_JOB_CANCEL_FAILED"), { status: 503, code: "EXPORT_JOB_CANCEL_FAILED" });
   if (!data) return null;
   await writeAuditLog(supabase, request, { actor: account, action: "report.export_job_cancelled", entityType: "export_job", entityId: jobId }, { critical: true });
@@ -104,7 +104,7 @@ export async function cancelExportJob({ supabase, account, request, jobId }) {
 }
 
 export async function getExportDownload(supabase, account, jobId) {
-  const { data, error } = await rpc(supabase, "service_get_export_download", { p_job_id: jobId, p_requester_id: account.accountId, p_is_admin: account.role === "admin" });
+  const { data, error } = await rpc(supabase, "service_get_export_download", { p_job_id: jobId, p_requester_id: account.accountId, p_is_admin: account.role === "hr" });
   if (error) throw Object.assign(new Error("EXPORT_DOWNLOAD_LOOKUP_FAILED"), { status: 503, code: "EXPORT_DOWNLOAD_LOOKUP_FAILED" });
   return data || null;
 }

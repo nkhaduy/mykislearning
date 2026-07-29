@@ -50,16 +50,17 @@ const reset = await threshold("/api/auth", 3, {
 const setup = await threshold("/api/auth", 3, {
   method: "POST",
   headers: { "Content-Type": "application/json", "X-Setup-Key": "invalid-key", "cf-connecting-ip": "198.18.0.12" },
-  body: JSON.stringify({ action: "setup-admin-password", email: credentials.identities.bootstrapAdmin.email, password: credentials.identities.bootstrapAdmin.password }),
+  body: JSON.stringify({ action: "setup-admin-password", email: credentials.identities.bootstrapHr.email, password: credentials.identities.bootstrapHr.password }),
 });
 
-const hrCookie = await login(credentials.identities.hr, "198.18.0.13");
+const hrCookie = await login(credentials.identities.hrA, "198.18.0.13");
 const employeeSearch = await threshold("/api/employees?page=1&pageSize=1", 120, { headers: { Cookie: hrCookie, "cf-connecting-ip": "198.18.0.14" } });
 
-const adminCookie = await login(credentials.identities.admin, "198.18.0.15");
-const report = await threshold("/api/admin/reports", 20, { headers: { Cookie: adminCookie, "cf-connecting-ip": "198.18.0.16" } });
+const secondHrCookie = await login(credentials.identities.hrB, "198.18.0.15");
+const report = await threshold("/api/admin/reports", 20, { headers: { Cookie: secondHrCookie, "cf-connecting-ip": "198.18.0.16" } });
 
-const upload = await threshold("/api/certificates/my/upload", 10, { headers: { Cookie: adminCookie, "cf-connecting-ip": "198.18.0.17" } });
+const employeeCookie = await login(credentials.identities.employeeA, "198.18.0.17");
+const upload = await threshold("/api/certificates/my/upload", 10, { headers: { Cookie: employeeCookie, "cf-connecting-ip": "198.18.0.17" } });
 const attendance = await threshold("/api/attendance/scan", 60, { headers: { "cf-connecting-ip": "198.18.0.18" } });
 const publicJoin = await threshold("/api/public/live-training/join", 60, { method: "GET", headers: { "cf-connecting-ip": "198.18.0.19" } });
 

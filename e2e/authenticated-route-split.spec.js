@@ -119,19 +119,19 @@ test("PERF-005/I18N: learner course list is split, searchable, and localizes sta
   expect(bytes.css).toBeLessThanOrEqual(120 * 1024);
 });
 
-test("PERF-005/UX-001: admin dashboard split excludes learner and reporting chunks", async ({ page }) => {
+test("PERF-005/UX-001: HR dashboard split excludes learner and reporting chunks", async ({ page }) => {
   const requests = trackRequests(page);
   await mockSession(page, { id: adminId, role: "hr" });
   await page.route("**/api/admin/overview", (route) => route.fulfill({ json: {
     totalEmployees: 10000, visitedToday: 721, onlineNow: 42, learningNow: 18, pendingActions: 2,
     activeCourseCount: 35, completionRate: 84,
     tasks: [{ id: "task-a", title: "Reset mật khẩu", taskTypeLabel: "Reset mật khẩu", priority: "high", priorityLabel: "Cao", status: "new", statusLabel: "Mới", createdAt: "2026-07-27T01:00:00Z", requester: { fullName: "Synthetic Employee" } }],
-    onlineLearning: [{ accountId: employeeId, fullName: "Synthetic Learner", activityLabel: "Đang xem nội dung", pagePath: "/admin/training-tracking", lastSeenAt: "2026-07-27T01:05:00Z" }],
+    onlineLearning: [{ accountId: employeeId, fullName: "Synthetic Learner", activityLabel: "Đang xem nội dung", pagePath: "/hr/training-tracking", lastSeenAt: "2026-07-27T01:05:00Z" }],
     inactiveEmployeeRows: [{ id: "inactive-a", fullName: "Inactive Synthetic", department: "IT", status: "15-30 ngày", lastSeenAt: "2026-07-01T01:00:00Z" }],
     upcomingSessions: [{ id: "session-a", title: "Đào tạo tuân thủ", startAt: "2026-08-01T02:00:00Z", locationName: "Synthetic Room" }],
   } }));
 
-  await page.goto("/admin");
+  await page.goto("/hr");
   await expect(page.getByRole("heading", { level: 1, name: "Tổng quan quản trị" })).toBeVisible();
   await expect(page.getByRole("table")).toBeVisible();
   await expectLandingFont(page);
@@ -149,7 +149,7 @@ test("PERF-005/UX-001: admin dashboard split excludes learner and reporting chun
 
 test("PERF-005/A11Y: reporting split uses keyboard tabs and server-side exports without XLSX runtime", async ({ page }) => {
   const requests = trackRequests(page);
-  await mockSession(page, { id: adminId, role: "admin" });
+  await mockSession(page, { id: adminId, role: "hr" });
   await page.route("**/api/admin/reports/overview?*", (route) => route.fulfill({ json: {
     metrics: { totalEmployees: 10000, activeLearners: 6400, openCourses: 35, completionRate: 84, onTimeCompletionRate: 79, overdueLearners: 120 },
     departmentComparison: [{ department: "IT", completionRate: 92 }, { department: "HR", completionRate: 88 }],
@@ -160,12 +160,12 @@ test("PERF-005/A11Y: reporting split uses keyboard tabs and server-side exports 
     rows: [{ employee: "Synthetic Employee", employeeCode: "SYN-001", department: "IT", jobTitle: "Tester", assigned: 2, completed: 1, inProgress: 1, overdue: 0, completionRate: 50, lastActivityAt: "2026-07-27" }],
   } }));
 
-  await page.goto("/admin/reports");
+  await page.goto("/hr/reports");
   await expect(page.getByRole("heading", { level: 1, name: "Báo cáo đào tạo" })).toBeVisible();
   await expectLandingFont(page);
   expect(await page.locator("body").getAttribute("data-route-entry")).toBe("admin-reporting");
   expectForbiddenDependencies(requests);
-  expect(requests).not.toContain("/src/features/admin/dashboard.js");
+  expect(requests).not.toContain("/src/features/hr/dashboard.js");
   await expect(page.getByText(/IT: 92%/)).toBeAttached();
 
   const overviewTab = page.getByRole("tab", { name: "Tổng quan" });
@@ -198,8 +198,8 @@ test("ARCH-ROUTE-001: learner legacy pages hand overview navigation to the canon
   expect(await page.locator("body").getAttribute("data-route-entry")).toBe("learner-dashboard");
 });
 
-test("ARCH-ROUTE-002: admin legacy pages hand overview navigation to the canonical split shell", async ({ page }) => {
-  await mockSession(page, { id: adminId, role: "admin" });
+test("ARCH-ROUTE-002: HR legacy pages hand overview navigation to the canonical split shell", async ({ page }) => {
+  await mockSession(page, { id: adminId, role: "hr" });
   await page.route("**/api/employees**", (route) => route.fulfill({ json: { items: [], data: [] } }));
   await page.route("**/api/admin/overview", (route) => route.fulfill({ json: {
     totalEmployees: 0, visitedToday: 0, onlineNow: 0, learningNow: 0,
@@ -207,10 +207,10 @@ test("ARCH-ROUTE-002: admin legacy pages hand overview navigation to the canonic
     tasks: [], onlineLearning: [], inactiveEmployeeRows: [], upcomingSessions: [],
   } }));
 
-  await page.goto("/admin/employees");
-  await page.locator('a[href="/admin"]').first().click();
+  await page.goto("/hr/employees");
+  await page.locator('a[href="/hr"]').first().click();
 
-  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page).toHaveURL(/\/hr$/);
   await expect(page.getByRole("heading", { level: 1, name: "Tổng quan quản trị" })).toBeVisible();
   expect(await page.locator("body").getAttribute("data-route-entry")).toBe("admin-dashboard");
 });

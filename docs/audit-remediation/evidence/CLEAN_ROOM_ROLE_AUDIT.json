@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 2,
+  "capturedAt": "2026-07-29T10:15:00+07:00",
+  "owner": "Nguyễn Khả Duy",
+  "target": "local-disposable",
+  "canonicalRoles": ["hr", "employee"],
+  "trainerRoleCount": 0,
+  "adminRoleCount": 0,
+  "unknownRoleCount": 0,
+  "activeApplicationRoleSurfaces": {
+    "trainerRoutes": 0,
+    "adminRoleRoutes": 0,
+    "trainerPolicies": 0,
+    "adminRolePolicies": 0,
+    "legacyAdminBrowserRedirect": "/admin -> /hr",
+    "technicalAdminApiNamespaceRetained": true
+  },
+  "migration": {
+    "cleanReplay": "PASS",
+    "migrationCount": 42,
+    "schemaChecksum": "b2593542f87ed569303af0b1e31903a9b22bd12647f577c821ac98ef96ca4b33",
+    "legacyAdminToHr": "PASS",
+    "trainerRemoval": "PASS",
+    "legacyCleanReset": "PASS",
+    "aliasesReproduced": 13,
+    "pendingApplied": "8/8",
+    "schemaEquivalence": "PASS",
+    "rollbackRestoreRehearsal": "PASS",
+    "idempotencySecondRun": "PASS",
+    "bootstrapHrRecovery": "PASS"
+  },
+  "roles": {
+    "hr": {
+      "status": "PASS",
+      "highestApplicationRole": true,
+      "legacyAdminCapabilitiesMerged": true,
+      "reportsAndExports": "PASS"
+    },
+    "employee": {
+      "status": "PASS",
+      "crossUserIsolation": "PASS",
+      "hrWorkspaceDenied": true
+    }
+  },
+  "invalidLegacyRoleAudit": "PASS",
+  "invalidRoles": {
+    "admin": "DENIED",
+    "trainer": "DENIED",
+    "unknown": "DENIED",
+    "null": "DENIED",
+    "jwtProfileMismatch": "DENIED"
+  },
+  "validation": {
+    "migrationSuite": "PASS",
+    "unit": "PASS",
+    "security": "PASS",
+    "sessionSecurity": "PASS",
+    "publicE2E": "PASS",
+    "authenticatedE2E": "PASS",
+    "cleanResetRehearsal": "PASS",
+    "build": "PASS",
+    "artifactScan": "PASS",
+    "npmAuditHigh": "PASS"
+  },
+  "remainingBlockers": 0,
+  "productionMutation": "NONE",
+  "productionDeploy": "NONE"
+}

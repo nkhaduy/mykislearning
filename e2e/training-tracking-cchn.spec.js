@@ -1,6 +1,6 @@
 import { test, expect } from "playwright/test";
 
-const BASE = "https://mykis-learning.nkhaduy.workers.dev";
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
 const HR_HEADERS = { "X-Account-Id": "acc-hr-001", "X-Account-Role": "hr" };
 const EMP_HEADERS = { "X-Account-Id": "emp-test-001", "X-Account-Role": "employee" };
 
@@ -94,7 +94,7 @@ test("Navigation: employee cannot access HR APIs", async ({ page }) => {
 });
 
 test("Navigation: old Phase 9 direct routes still exist", async ({ page }) => {
-  const routes = ["/admin/competencies", "/admin/skills-matrix", "/admin/development-plans", "/admin/compliance", "/admin/retraining"];
+  const routes = ["/hr/competencies", "/hr/skills-matrix", "/hr/development-plans", "/hr/compliance", "/hr/retraining"];
   for (const r of routes) {
     const resp = await page.request.get(`${BASE}${r}`, { headers: HR_HEADERS });
     expect(resp.ok()).toBeTruthy();
@@ -262,7 +262,7 @@ test("CCHN: employee gets 403", async ({ page }) => {
 test("UI: training tracking page renders without console errors", async ({ page }) => {
   const errors = [];
   page.on("console", (msg) => { if (msg.type() === "error") errors.push(msg.text()); });
-  await page.goto(`${BASE}/admin/training-tracking`, { waitUntil: "networkidle" });
+  await page.goto(`${BASE}/hr/training-tracking`, { waitUntil: "networkidle" });
   await page.setViewportSize({ width: 1440, height: 900 });
   expect(errors.length).toBe(0);
 });
@@ -270,13 +270,13 @@ test("UI: training tracking page renders without console errors", async ({ page 
 test("UI: CCHN registration page renders without console errors", async ({ page }) => {
   const errors = [];
   page.on("console", (msg) => { if (msg.type() === "error") errors.push(msg.text()); });
-  await page.goto(`${BASE}/admin/cchn-registrations`, { waitUntil: "networkidle" });
+  await page.goto(`${BASE}/hr/cchn-registrations`, { waitUntil: "networkidle" });
   await page.setViewportSize({ width: 1440, height: 900 });
   expect(errors.length).toBe(0);
 });
 
 test("UI: mobile viewport no horizontal overflow", async ({ page }) => {
-  await page.goto(`${BASE}/admin/training-tracking`, { waitUntil: "networkidle" });
+  await page.goto(`${BASE}/hr/training-tracking`, { waitUntil: "networkidle" });
   await page.setViewportSize({ width: 390, height: 844 });
   const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
   const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
@@ -285,12 +285,12 @@ test("UI: mobile viewport no horizontal overflow", async ({ page }) => {
 
 test("UI: no raw i18n keys visible", async ({ page }) => {
   const rawKeys = ["trainingTracking.", "cchnRegistration.", "trainingTracking.title", "cchnRegistration.title"];
-  await page.goto(`${BASE}/admin/training-tracking`, { waitUntil: "networkidle" });
+  await page.goto(`${BASE}/hr/training-tracking`, { waitUntil: "networkidle" });
   let bodyText = await page.locator("body").innerText();
   for (const key of rawKeys) {
     expect(bodyText).not.toContain(key);
   }
-  await page.goto(`${BASE}/admin/cchn-registrations`, { waitUntil: "networkidle" });
+  await page.goto(`${BASE}/hr/cchn-registrations`, { waitUntil: "networkidle" });
   bodyText = await page.locator("body").innerText();
   for (const key of rawKeys) {
     expect(bodyText).not.toContain(key);

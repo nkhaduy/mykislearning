@@ -26,7 +26,7 @@ test("NEW-UX-RESTORE-001/003: restored home has no course discovery or private d
   expect(requests).not.toContain("/styles.css");
   expect(requests).not.toContain("/vendor/xlsx.full.min.js");
   expect(requests).not.toContain("/vendor/jsqr.min.js");
-  expect(requests.some((path) => path.includes("/src/features/admin/") || path.includes("/src/features/learner/") || path.includes("/src/features/reporting/"))).toBe(false);
+  expect(requests.some((path) => path.includes("/src/features/hr/") || path.includes("/src/features/learner/") || path.includes("/src/features/reporting/"))).toBe(false);
   expect(await page.locator(".hero-title--kis").evaluate((element) => getComputedStyle(element).fontFamily)).toContain("Be Vietnam Pro");
   await page.locator(".footer-v2").scrollIntoViewIfNeeded();
   await expect(page.getByText("Nguyễn Thị Cẩm Thanh", { exact: true })).toBeVisible();
@@ -55,7 +55,7 @@ test("NEW-UX-RESTORE-002: About route restores legacy sections and keeps split a
   expect(requests).not.toContain("/styles.css");
   expect(requests).not.toContain("/vendor/xlsx.full.min.js");
   expect(requests).not.toContain("/vendor/jsqr.min.js");
-  expect(requests.some((path) => path.includes("/src/features/admin/") || path.includes("/src/features/learner/") || path.includes("/src/features/reporting/"))).toBe(false);
+  expect(requests.some((path) => path.includes("/src/features/hr/") || path.includes("/src/features/learner/") || path.includes("/src/features/reporting/"))).toBe(false);
   await page.getByRole("tab", { name: "2020", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#timeline-panel")).toHaveAttribute("aria-labelledby", "timeline-year-2020");
@@ -145,11 +145,26 @@ test("public read-only: login rejects invalid and non-JSON responses safely", as
   expect(consoleErrors).toEqual([]);
 });
 
+test("public read-only: login reports rate limiting without claiming credentials are invalid", async ({ page }) => {
+  await page.route("**/api/auth?action=login", (route) => route.fulfill({
+    status: 429,
+    contentType: "application/json",
+    headers: { "Retry-After": "30" },
+    body: JSON.stringify({ error: "RATE_LIMITED", retryAfter: 30 }),
+  }));
+  await page.goto("/login");
+  await page.locator("#loginEmail").fill("employee@example.invalid");
+  await page.locator("#loginPassword").fill("SyntheticPassword!1");
+  await page.locator("#loginSubmitBtn").click();
+  await expect(page.getByRole("alert")).toContainText("Có quá nhiều lần đăng nhập");
+  await expect(page.getByRole("alert")).not.toContainText("không chính xác");
+});
+
 test("public read-only: protected deep links preserve only safe destinations", async ({ page }) => {
-  await page.goto("/admin/reports?range=30");
+  await page.goto("/hr/reports?range=30");
   await page.waitForURL(/\/login\?returnTo=/);
   await expect(page.locator(".auth-destination")).toContainText("khu vực quản trị");
-  expect(await page.evaluate(() => localStorage.getItem("mykis.postLoginRedirect.v1"))).toBe("/admin/reports?range=30");
+  expect(await page.evaluate(() => localStorage.getItem("mykis.postLoginRedirect.v1"))).toBe("/hr/reports?range=30");
 
   await page.goto("/login?returnTo=https%3A%2F%2Fattacker.example");
   await expect(page.locator(".auth-destination")).toHaveCount(0);
@@ -184,10 +199,10 @@ test("public read-only: synthetic successful login returns to the allowed destin
   await page.locator("#loginEmail").fill("synthetic@example.invalid");
   await page.locator("#loginPassword").fill("SyntheticPassword!1");
   await Promise.all([
-    page.waitForURL(/\/admin\/reports$/),
+    page.waitForURL(/\/hr\/reports$/),
     page.locator("#loginSubmitBtn").click(),
   ]);
-  expect(new URL(page.url()).pathname).toBe("/admin/reports");
+  expect(new URL(page.url()).pathname).toBe("/hr/reports");
   expect(await page.evaluate(() => localStorage.getItem("mykis.postLoginRedirect.v1"))).toBeNull();
 });
 

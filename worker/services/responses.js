@@ -77,7 +77,7 @@ export function addSecurityHeaders(response, request, env = {}) {
   headers.set("X-Frame-Options", "SAMEORIGIN");
   if (new URL(request.url).protocol === "https:") headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   const path = new URL(request.url).pathname;
-  if (/^(\/api|\/dashboard|\/admin|\/login(?:\/|$)|\/change-password|\/attendance|\/join)(?:\/|$)/.test(path)) {
+  if (/^(\/api|\/dashboard|\/hr|\/admin|\/login(?:\/|$)|\/change-password|\/attendance|\/join)(?:\/|$)/.test(path)) {
     headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
   }
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });

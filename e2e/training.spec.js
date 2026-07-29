@@ -2,10 +2,10 @@
 import { test, expect } from "playwright/test";
 import { writeFileSync, readFileSync, existsSync } from "fs";
 
-const HR_EMAIL = "thanh.ntc@kisvn.vn";
-const HR_PASSWORD = "Demo@123456";
-const EMP_EMAIL = "an.nguyen@kisvn.vn";
-const EMP_PASSWORD = "Training@2026";
+const HR_EMAIL = process.env.KIS_E2E_HR_EMAIL || "";
+const HR_PASSWORD = process.env.KIS_E2E_HR_PASSWORD || "";
+const EMP_EMAIL = process.env.KIS_E2E_EMPLOYEE_EMAIL || "";
+const EMP_PASSWORD = process.env.KIS_E2E_EMPLOYEE_PASSWORD || "";
 const STATE_FILE = "/tmp/e2e-session-state.json";
 
 // Shared title across all tests in this run
@@ -28,17 +28,17 @@ async function loginAs(page, email, password) {
 }
 
 test.describe.serial("Training Session — HR creates and manages", () => {
-  test("1. HR logs in and navigates to /admin/sessions", async ({ page }) => {
+  test("1. HR logs in and navigates to /hr/sessions", async ({ page }) => {
     await loginAs(page, HR_EMAIL, HR_PASSWORD);
-    await page.goto("/admin/sessions");
+    await page.goto("/hr/sessions");
     // At least one heading should appear
     await expect(page.locator("h1, h2").filter({ hasText: /Quản lý buổi học|Lớp trực tiếp/i }).first()).toBeVisible({ timeout: 8_000 });
-    console.log("✅ Test 1: HR landed on /admin/sessions");
+    console.log("✅ Test 1: HR landed on /hr/sessions");
   });
 
   test("2. HR creates session — appears in list immediately", async ({ page }) => {
     await loginAs(page, HR_EMAIL, HR_PASSWORD);
-    await page.goto("/admin/sessions");
+    await page.goto("/hr/sessions");
 
     await page.locator("button[data-create-session], button:has-text('Thêm buổi học')").first().click();
     await expect(page.locator("#offlineSessionForm, form[id*='session']").first()).toBeVisible({ timeout: 6_000 });
@@ -86,7 +86,7 @@ test.describe.serial("Training Session — HR creates and manages", () => {
   test("3. HR adds participant Nguyễn Văn An", async ({ page }) => {
     const { SESSION_TITLE: title } = loadState();
     await loginAs(page, HR_EMAIL, HR_PASSWORD);
-    await page.goto("/admin/sessions");
+    await page.goto("/hr/sessions");
     await expect(page.locator("body")).toContainText(title, { timeout: 12_000 });
 
     // Find the card and click manage participants
@@ -132,7 +132,7 @@ test.describe.serial("Training Session — HR creates and manages", () => {
   test("4. HR sees Nguyễn Văn An in participant list", async ({ page }) => {
     const { SESSION_TITLE: title } = loadState();
     await loginAs(page, HR_EMAIL, HR_PASSWORD);
-    await page.goto("/admin/sessions");
+    await page.goto("/hr/sessions");
     await expect(page.locator("body")).toContainText(title, { timeout: 12_000 });
 
     const card = page.locator(".session-admin-card, .session-card").filter({ hasText: title }).first();
@@ -157,7 +157,7 @@ test.describe.serial("Training Session — HR creates and manages", () => {
   test("5. Reload — session still appears", async ({ page }) => {
     const { SESSION_TITLE: title } = loadState();
     await loginAs(page, HR_EMAIL, HR_PASSWORD);
-    await page.goto("/admin/sessions");
+    await page.goto("/hr/sessions");
     await page.waitForTimeout(2000);
     await page.reload();
     await page.waitForTimeout(3000);
@@ -178,7 +178,7 @@ test.describe.serial("Training Session — HR creates and manages", () => {
   test("7. HR deletes session", async ({ page }) => {
     const { SESSION_TITLE: title } = loadState();
     await loginAs(page, HR_EMAIL, HR_PASSWORD);
-    await page.goto("/admin/sessions");
+    await page.goto("/hr/sessions");
     await expect(page.locator("body")).toContainText(title, { timeout: 12_000 });
 
     const card = page.locator(".session-admin-card, .session-card").filter({ hasText: title }).first();
@@ -208,7 +208,7 @@ test.describe.serial("Training Session — HR creates and manages", () => {
 test.describe("Courses — HR archive", () => {
   test("8. HR delete/archive course", async ({ page }) => {
     await loginAs(page, HR_EMAIL, HR_PASSWORD);
-    await page.goto("/admin/courses");
+    await page.goto("/hr/courses");
     await page.waitForTimeout(1000);
 
     // Try to click course delete button on first available course

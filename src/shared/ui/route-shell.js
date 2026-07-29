@@ -17,7 +17,7 @@ function activeNavigationPath(groups, pathname) {
 
 function roleLabel(role, i18n) {
   if (role === "employee") return i18n.pick({ vi: "Nhân viên", en: "Employee", kr: "직원" });
-  if (role === "admin") return i18n.pick({ vi: "Quản trị hệ thống", en: "System admin", kr: "시스템 관리자" });
+  if (role === "hr") return i18n.pick({ vi: "Nhân sự", en: "HR", kr: "HR" });
   return i18n.pick({ vi: "HR / L&D", en: "HR / L&D", kr: "HR / L&D" });
 }
 
@@ -31,7 +31,7 @@ export function createRouteShell({ account, i18n, title, eyebrow = "MyKIS Learni
   const groups = getNavigationGroups(role, i18n.language);
   const activePath = activeNavigationPath(groups, location.pathname);
   const currentRoute = matchRoute(location.pathname);
-  const notificationPath = role === "employee" ? "/dashboard/notifications" : "/admin/notifications";
+  const notificationPath = role === "employee" ? "/dashboard/notifications" : "/hr/notifications";
   const compactNavigation = matchMedia("(max-width: 1080px)");
   const openMenu = i18n.pick({ vi: "Mở menu", en: "Open menu", kr: "메뉴 열기" });
   const closeMenu = i18n.pick({ vi: "Đóng menu", en: "Close menu", kr: "메뉴 닫기" });

@@ -7,11 +7,11 @@
  */
 import { test, expect } from "playwright/test";
 
-const BASE = "https://mykis-learning.nkhaduy.workers.dev";
-const HR_EMAIL = "hr@kisvn.vn";
-const EMP_EMAIL = "employee.test@kisvn.vn";
-const HR_PASSWORD = process.env.HR_PASSWORD || "Training@2026";
-const EMP_PASSWORD = process.env.EMP_PASSWORD || "Test@123456";
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
+const HR_EMAIL = process.env.KIS_E2E_HR_EMAIL || "";
+const EMP_EMAIL = process.env.KIS_E2E_EMPLOYEE_EMAIL || "";
+const HR_PASSWORD = process.env.KIS_E2E_HR_PASSWORD || "";
+const EMP_PASSWORD = process.env.KIS_E2E_EMPLOYEE_PASSWORD || "";
 
 async function loginAs(page, email, password) {
   await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
@@ -105,7 +105,7 @@ test("Browser — HR and Employee Compliance routes render without console error
   const hrErrors = [];
   hr.on("pageerror", (e) => hrErrors.push(String(e)));
   await loginAs(hr, HR_EMAIL, HR_PASSWORD);
-  await hr.goto(`${BASE}/admin/compliance`, { waitUntil: "domcontentloaded" });
+  await hr.goto(`${BASE}/hr/compliance`, { waitUntil: "domcontentloaded" });
   await expect(hr.locator("text=Đào tạo bắt buộc").first()).toBeVisible({ timeout: 8000 });
   expect(hrErrors).toHaveLength(0);
   await hrCtx.close();

@@ -53,7 +53,7 @@ export async function handleNotifications(request, env) {
   if (method === "GET") {
     const accountId = url.searchParams.get("accountId") || acct.accountId;
     // Non-HR can only read their own
-    if (!["hr", "admin"].includes(acct.role) && accountId !== acct.accountId) {
+    if (!["hr"].includes(acct.role) && accountId !== acct.accountId) {
       return json({ error: "Forbidden" }, 403);
     }
 

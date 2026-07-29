@@ -1,9 +1,9 @@
 // @ts-check
 import { test, expect } from "playwright/test";
 
-const BASE = "https://mykis-learning.nkhaduy.workers.dev";
-const EMP_EMAIL = "employee.test@kisvn.vn";
-const EMP_PASSWORD = "Test@123456";
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
+const EMP_EMAIL = process.env.KIS_E2E_EMPLOYEE_EMAIL || "";
+const EMP_PASSWORD = process.env.KIS_E2E_EMPLOYEE_PASSWORD || "";
 
 // ─────────────────────────────────────────────────────────────
 // Test 1: Employee login -> /dashboard renders without error
@@ -135,9 +135,9 @@ test("T4 - Wrong password shows error, no redirect", async ({ browser }) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// Test 5: Employee cannot access /admin
+// Test 5: Employee cannot access /hr
 // ─────────────────────────────────────────────────────────────
-test("T5 - Employee cannot access /admin", async ({ browser }) => {
+test("T5 - Employee cannot access /hr", async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
 
@@ -147,8 +147,8 @@ test("T5 - Employee cannot access /admin", async ({ browser }) => {
   await page.click("#loginSubmitBtn");
   await page.waitForURL("**/dashboard**", { timeout: 15000 });
 
-  // Try to navigate to /admin
-  await page.goto(`${BASE}/admin`, { waitUntil: "domcontentloaded" });
+  // Try to navigate to /hr
+  await page.goto(`${BASE}/hr`, { waitUntil: "domcontentloaded" });
   await new Promise((r) => setTimeout(r, 1000));
 
   // Should see restricted page, not admin dashboard content

@@ -167,20 +167,20 @@ test("SEC-001: signed employee claim wins over conflicting forged HR headers", a
 test("SEC-001: server-side role resolution rejects a privileged JWT role claim for an employee", async () => {
   const token = await tokenForSubject("test-employee", "admin");
   const response = await handleApiRequest(employeeRequest({ Authorization: `Bearer ${token}` }), baseEnv);
-  assert.equal(response.status, 403);
+  assert.equal(response.status, 401);
 });
 
-test("AUTH-PRIVILEGED-002: privileged API uses the server-resolved HR role", async () => {
+test("AUTH-PRIVILEGED-002: privileged API rejects role mismatch and accepts a matching HR role", async () => {
   const employeeToken = await tokenForSubject("test-employee", "admin");
   const forbidden = await handleApiRequest(new Request("https://lms.example.test/api/auth?action=admin-revoke-sessions", {
     method: "POST",
     headers: { Authorization: `Bearer ${employeeToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({ targetAccountId: "test-other-employee" }),
   }), baseEnv);
-  assert.equal(forbidden.status, 403);
-  assert.equal((await forbidden.json()).error, "INSUFFICIENT_PERMISSIONS");
+  assert.equal(forbidden.status, 401);
+  assert.equal((await forbidden.json()).error, "UNAUTHORIZED");
 
-  const hrToken = await tokenForSubject("test-hr", "employee");
+  const hrToken = await tokenForSubject("test-hr", "hr");
   const allowed = await handleApiRequest(new Request("https://lms.example.test/api/auth?action=admin-revoke-sessions", {
     method: "POST",
     headers: { Authorization: `Bearer ${hrToken}`, "Content-Type": "application/json" },
@@ -277,7 +277,7 @@ test("SEO-001: Worker serves robots and sitemap contracts instead of the SPA she
 
   assert.equal(robots.status, 200);
   assert.match(robots.headers.get("content-type") || "", /^text\/plain/);
-  assert.match(await robots.text(), /Disallow: \/admin\//);
+  assert.match(await robots.text(), /Disallow: \/hr\//);
   assert.equal(sitemap.status, 200);
   assert.match(sitemap.headers.get("content-type") || "", /application\/xml/);
   assert.match(await sitemap.text(), /<urlset/);

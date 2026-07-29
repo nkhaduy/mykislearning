@@ -6,7 +6,7 @@ Production go-live is blocked while this status is `Pending` or `Rejected`.
 
 ## Decision in scope
 
-MFA/2FA has been removed intentionally and must not be reintroduced by the operational-readiness work. HR and Admin users authenticate with passwords only.
+MFA/2FA has been removed intentionally and must not be reintroduced by the operational-readiness work. HR users authenticate with passwords only.
 
 Refresh-token rotation, refresh-token reuse detection, session revocation, distributed rate limiting, account disable controls, and audit logging reduce risk but do not replace MFA.
 
@@ -20,7 +20,7 @@ Refresh-token rotation, refresh-token reuse detection, session revocation, distr
 ## Compensating controls
 
 - Enforce the approved password length, complexity, reset, and compromised-password policy.
-- Prohibit shared HR/Admin accounts and require individually attributable identities.
+- Prohibit shared HR accounts and require individually attributable identities.
 - Keep access tokens short lived and use atomic refresh rotation with family reuse detection.
 - Provide session review, current-device logout, logout-all, and administrative session revoke.
 - Disable accounts promptly during offboarding, suspected compromise, or role removal.
@@ -73,4 +73,4 @@ npm run security:accept-no-mfa -- \
 - Review date: 2027-01-28
 - Command executor Git identity: name=Nguyễn Khả Duy; email=91268374+nkhaduy@users.noreply.github.com
 - Commit SHA: 2b9c633fc607fe6ac232c2e152dfdda68396aedc
-- Confirmation: Tôi hiểu và chấp nhận rủi ro còn lại khi tài khoản HR và Admin vận hành không có MFA/2FA. Tôi xác nhận đây là quyết định có chủ đích của chủ dự án, đồng thời chấp nhận áp dụng các biện pháp bù trừ gồm mật khẩu mạnh, refresh-token rotation, session revocation, rate limiting, audit logging, giám sát sự cố và quy trình khóa tài khoản.
+- Confirmation: Tôi hiểu và chấp nhận rủi ro còn lại khi tài khoản HR vận hành không có MFA/2FA. Tôi xác nhận đây là quyết định có chủ đích của chủ dự án, đồng thời chấp nhận áp dụng các biện pháp bù trừ gồm mật khẩu mạnh, refresh-token rotation, session revocation, rate limiting, audit logging, giám sát sự cố và quy trình khóa tài khoản.

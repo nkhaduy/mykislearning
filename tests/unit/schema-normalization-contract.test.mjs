@@ -34,10 +34,9 @@ test("ARCH-007: current worker writers use canonical models and do not write leg
 });
 
 test("ARCH-007: browser session roles remain narrower than unresolved legacy role values", () => {
-  assert.deepEqual(contract.roles.runtime, ["employee", "hr", "admin"]);
+  assert.deepEqual(contract.roles.runtime, ["hr", "employee"]);
   const bootstrap = read("src/app/bootstrap.js");
-  assert.match(bootstrap, /\["employee", "hr", "admin"\]\.includes/);
-  for (const role of [...contract.roles.databaseLegacy, ...contract.roles.clientLegacy]) {
-    assert.doesNotMatch(bootstrap, new RegExp(`["']${role}["']`));
-  }
+  assert.match(bootstrap, /\["employee", "hr"\]\.includes/);
+  assert.doesNotMatch(bootstrap, /\["employee", "hr", "admin"\]\.includes/);
+  assert.doesNotMatch(bootstrap, /account\.role\s*===?\s*["'](?:admin|trainer|manager|superAdmin)["']/);
 });

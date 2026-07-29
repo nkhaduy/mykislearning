@@ -7,5 +7,5 @@ const copy = {
 };
 
 export async function mount({ account }) {
-  return mountCollectionRoute({ account, roles: ["hr", "admin"], entry: "live-training", endpoint: "/api/admin/live-training", itemKeys: ["flows", "items", "data"], copy, mapItem: (row) => ({ id: row.id, title: row.title || row.session_title || row.name || row.id, subtitle: row.description || row.location_name || row.public_slug || "", status: row.status || row.state || "draft", meta: row.start_at || row.created_at || "", href: `/admin/live-training/${encodeURIComponent(row.id)}` }) });
+  return mountCollectionRoute({ account, roles: ["hr"], entry: "live-training", endpoint: "/api/admin/live-training", itemKeys: ["flows", "items", "data"], copy, mapItem: (row) => ({ id: row.id, title: row.title || row.session_title || row.name || row.id, subtitle: row.description || row.location_name || row.public_slug || "", status: row.status || row.state || "draft", meta: row.start_at || row.created_at || "", href: `/hr/live-training/${encodeURIComponent(row.id)}` }) });
 }

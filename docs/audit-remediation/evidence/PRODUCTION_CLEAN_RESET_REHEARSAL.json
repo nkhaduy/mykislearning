@@ -1,0 +1,513 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-07-29T02:45:25.467Z",
+  "image": "public.ecr.aws/supabase/postgres:17.6.1.136",
+  "cleanMigrationReplay": {
+    "status": "pass",
+    "migrations": [
+      {
+        "name": "001_schema.sql",
+        "durationMs": 217.47,
+        "status": "pass"
+      },
+      {
+        "name": "002_rls.sql",
+        "durationMs": 141.22,
+        "status": "pass"
+      },
+      {
+        "name": "003_external_training_and_employee_audit.sql",
+        "durationMs": 129.52,
+        "status": "pass"
+      },
+      {
+        "name": "004_core_learning_workflows.sql",
+        "durationMs": 124.87,
+        "status": "pass"
+      },
+      {
+        "name": "005_cloudflare_missing_tables_patch.sql",
+        "durationMs": 343.37,
+        "status": "pass"
+      },
+      {
+        "name": "006_worker_compatible_schema.sql",
+        "durationMs": 242.42,
+        "status": "pass"
+      },
+      {
+        "name": "007_hr_operational_overview.sql",
+        "durationMs": 155.96,
+        "status": "pass"
+      },
+      {
+        "name": "008_learning_history_certificates.sql",
+        "durationMs": 138.07,
+        "status": "pass"
+      },
+      {
+        "name": "009_certification_reviewed_at.sql",
+        "durationMs": 99.74,
+        "status": "pass"
+      },
+      {
+        "name": "010_learning_paths.sql",
+        "durationMs": 121.72,
+        "status": "pass"
+      },
+      {
+        "name": "011_compliance_training.sql",
+        "durationMs": 156.04,
+        "status": "pass"
+      },
+      {
+        "name": "012_compliance_training_rls.sql",
+        "durationMs": 117.57,
+        "status": "pass"
+      },
+      {
+        "name": "013_certificate_management.sql",
+        "durationMs": 147.7,
+        "status": "pass"
+      },
+      {
+        "name": "014_certificate_management_rls.sql",
+        "durationMs": 98.28,
+        "status": "pass"
+      },
+      {
+        "name": "20260701085524_notification_reminder_engine.sql",
+        "durationMs": 168.9,
+        "status": "pass"
+      },
+      {
+        "name": "20260701093147_audit_log_system.sql",
+        "durationMs": 127.16,
+        "status": "pass"
+      },
+      {
+        "name": "20260702015612_audit_log_user_agent.sql",
+        "durationMs": 114.15,
+        "status": "pass"
+      },
+      {
+        "name": "20260702021718_content_versioning.sql",
+        "durationMs": 142.41,
+        "status": "pass"
+      },
+      {
+        "name": "20260702093000_competency_skills_matrix.sql",
+        "durationMs": 148.4,
+        "status": "pass"
+      },
+      {
+        "name": "20260702181722_training_tracking_and_cchn_registration.sql",
+        "durationMs": 201.64,
+        "status": "pass"
+      },
+      {
+        "name": "20260702183741_fix_created_by_type.sql",
+        "durationMs": 155.49,
+        "status": "pass"
+      },
+      {
+        "name": "20260703145900_cleanup_orphan_course_versions.sql",
+        "durationMs": 118.03,
+        "status": "pass"
+      },
+      {
+        "name": "20260703150000_course_hard_delete_cascade.sql",
+        "durationMs": 109.01,
+        "status": "pass"
+      },
+      {
+        "name": "20260705000000_allow_hard_delete_course_versions.sql",
+        "durationMs": 102.64,
+        "status": "pass"
+      },
+      {
+        "name": "20260707092048_public_training_external_links.sql",
+        "durationMs": 120.46,
+        "status": "pass"
+      },
+      {
+        "name": "20260707120000_public_training_roster.sql",
+        "durationMs": 115.95,
+        "status": "pass"
+      },
+      {
+        "name": "20260707130000_public_training_speaker.sql",
+        "durationMs": 100.68,
+        "status": "pass"
+      },
+      {
+        "name": "20260707140000_public_training_orientation.sql",
+        "durationMs": 96.18,
+        "status": "pass"
+      },
+      {
+        "name": "20260709000000_public_training_flex_steps.sql",
+        "durationMs": 112.64,
+        "status": "pass"
+      },
+      {
+        "name": "20260709010000_manual_participants_and_speaker_upload.sql",
+        "durationMs": 109.91,
+        "status": "pass"
+      },
+      {
+        "name": "20260709020000_roster_given_name_and_source.sql",
+        "durationMs": 124.17,
+        "status": "pass"
+      },
+      {
+        "name": "20260709023000_manual_roster_public_source.sql",
+        "durationMs": 111.04,
+        "status": "pass"
+      },
+      {
+        "name": "20260709024500_speaker_photo_position.sql",
+        "durationMs": 105.79,
+        "status": "pass"
+      },
+      {
+        "name": "20260726090000_security_containment.sql",
+        "durationMs": 245.17,
+        "status": "pass"
+      },
+      {
+        "name": "20260727172321_reconcile_legacy_department_schema.sql",
+        "durationMs": 241.31,
+        "status": "pass"
+      },
+      {
+        "name": "20260728013513_auth_rotation_mfa_hardening.sql",
+        "durationMs": 268.8,
+        "status": "pass"
+      },
+      {
+        "name": "20260728030009_remove_mfa_2fa.sql",
+        "durationMs": 172.24,
+        "status": "pass"
+      },
+      {
+        "name": "20260728031000_employee_search_cursor.sql",
+        "durationMs": 186.78,
+        "status": "pass"
+      },
+      {
+        "name": "20260728032000_background_export_jobs.sql",
+        "durationMs": 175.33,
+        "status": "pass"
+      },
+      {
+        "name": "20260728103000_reporting_rpc.sql",
+        "durationMs": 152.89,
+        "status": "pass"
+      },
+      {
+        "name": "20260728104000_export_operations.sql",
+        "durationMs": 130.72,
+        "status": "pass"
+      },
+      {
+        "name": "20260729022415_consolidate_roles_to_hr_and_employee.sql",
+        "durationMs": 151.56,
+        "status": "pass"
+      }
+    ],
+    "schemaChecksum": "b2593542f87ed569303af0b1e31903a9b22bd12647f577c821ac98ef96ca4b33"
+  },
+  "legacyCleanResetRehearsal": {
+    "status": "pass",
+    "source": "approved reconciliation evidence with synthetic legacy rows only",
+    "migrationHistoryRows": 34,
+    "aliasesReproduced": 13,
+    "blockersBefore": {
+      "orphanCourseVersions": 69,
+      "unvalidatedForeignKeys": 1,
+      "duplicateNormalizedEmails": 2,
+      "duplicateNormalizedEmployeeCodes": 4
+    },
+    "blockersAfterPurge": {
+      "orphanCourseVersions": 0,
+      "unvalidatedForeignKeys": 1,
+      "duplicateNormalizedEmails": 0,
+      "duplicateNormalizedEmployeeCodes": 0
+    },
+    "inventorySha256": "b17ceea3fc9e4f22414da895170a26cb398f51f9a685a69516a5a34ea8900adf",
+    "cleanStateSha256": "28a2ba20a0962f61ad6fe0fc260e6d38421afab582472cb32f41cd8d293343f9",
+    "rollbackRestoreRehearsal": "pass",
+    "bootstrapHrRecovery": "pass",
+    "canonicalization": {
+      "aliasesCanonicalized": 13,
+      "schemaBeforeSha256": "5db5eb1f67635d2c5f5d0e3c5c6b64e9b25a94e3d8b8b8b1a699329a8a71bf1d",
+      "schemaAfterSha256": "5db5eb1f67635d2c5f5d0e3c5c6b64e9b25a94e3d8b8b8b1a699329a8a71bf1d",
+      "schemaUnchanged": true
+    },
+    "migrationDryRun": {
+      "status": "pass",
+      "pending": [
+        "20260727172321_reconcile_legacy_department_schema.sql",
+        "20260728013513_auth_rotation_mfa_hardening.sql",
+        "20260728030009_remove_mfa_2fa.sql",
+        "20260728031000_employee_search_cursor.sql",
+        "20260728032000_background_export_jobs.sql",
+        "20260728103000_reporting_rpc.sql",
+        "20260728104000_export_operations.sql",
+        "20260729022415_consolidate_roles_to_hr_and_employee.sql"
+      ]
+    },
+    "migrationTimings": [
+      {
+        "name": "001_schema.sql",
+        "durationMs": 173.26,
+        "status": "pass"
+      },
+      {
+        "name": "002_rls.sql",
+        "durationMs": 144.56,
+        "status": "pass"
+      },
+      {
+        "name": "003_external_training_and_employee_audit.sql",
+        "durationMs": 131.56,
+        "status": "pass"
+      },
+      {
+        "name": "004_core_learning_workflows.sql",
+        "durationMs": 145.9,
+        "status": "pass"
+      },
+      {
+        "name": "005_cloudflare_missing_tables_patch.sql",
+        "durationMs": 318.41,
+        "status": "pass"
+      },
+      {
+        "name": "006_worker_compatible_schema.sql",
+        "durationMs": 121.15,
+        "status": "pass"
+      },
+      {
+        "name": "007_hr_operational_overview.sql",
+        "durationMs": 112.07,
+        "status": "pass"
+      },
+      {
+        "name": "008_learning_history_certificates.sql",
+        "durationMs": 162.63,
+        "status": "pass"
+      },
+      {
+        "name": "009_certification_reviewed_at.sql",
+        "durationMs": 136.79,
+        "status": "pass"
+      },
+      {
+        "name": "010_learning_paths.sql",
+        "durationMs": 143.03,
+        "status": "pass"
+      },
+      {
+        "name": "011_compliance_training.sql",
+        "durationMs": 140.94,
+        "status": "pass"
+      },
+      {
+        "name": "012_compliance_training_rls.sql",
+        "durationMs": 115.51,
+        "status": "pass"
+      },
+      {
+        "name": "013_certificate_management.sql",
+        "durationMs": 136.01,
+        "status": "pass"
+      },
+      {
+        "name": "014_certificate_management_rls.sql",
+        "durationMs": 118.39,
+        "status": "pass"
+      },
+      {
+        "name": "20260701085524_notification_reminder_engine.sql",
+        "durationMs": 206.91,
+        "status": "pass"
+      },
+      {
+        "name": "20260701093147_audit_log_system.sql",
+        "durationMs": 174.15,
+        "status": "pass"
+      },
+      {
+        "name": "20260702015612_audit_log_user_agent.sql",
+        "durationMs": 135.35,
+        "status": "pass"
+      },
+      {
+        "name": "20260702021718_content_versioning.sql",
+        "durationMs": 229.32,
+        "status": "pass"
+      },
+      {
+        "name": "20260702093000_competency_skills_matrix.sql",
+        "durationMs": 172.83,
+        "status": "pass"
+      },
+      {
+        "name": "20260702181722_training_tracking_and_cchn_registration.sql",
+        "durationMs": 148.4,
+        "status": "pass"
+      },
+      {
+        "name": "20260702183741_fix_created_by_type.sql",
+        "durationMs": 131.45,
+        "status": "pass"
+      },
+      {
+        "name": "20260703145900_cleanup_orphan_course_versions.sql",
+        "durationMs": 112.46,
+        "status": "pass"
+      },
+      {
+        "name": "20260703150000_course_hard_delete_cascade.sql",
+        "durationMs": 123.98,
+        "status": "pass"
+      },
+      {
+        "name": "20260705000000_allow_hard_delete_course_versions.sql",
+        "durationMs": 107.97,
+        "status": "pass"
+      },
+      {
+        "name": "20260707092048_public_training_external_links.sql",
+        "durationMs": 127.23,
+        "status": "pass"
+      },
+      {
+        "name": "20260707120000_public_training_roster.sql",
+        "durationMs": 107.5,
+        "status": "pass"
+      },
+      {
+        "name": "20260707130000_public_training_speaker.sql",
+        "durationMs": 102.81,
+        "status": "pass"
+      },
+      {
+        "name": "20260707140000_public_training_orientation.sql",
+        "durationMs": 124.46,
+        "status": "pass"
+      },
+      {
+        "name": "20260709000000_public_training_flex_steps.sql",
+        "durationMs": 122.27,
+        "status": "pass"
+      },
+      {
+        "name": "20260709010000_manual_participants_and_speaker_upload.sql",
+        "durationMs": 136.44,
+        "status": "pass"
+      },
+      {
+        "name": "20260709020000_roster_given_name_and_source.sql",
+        "durationMs": 125.4,
+        "status": "pass"
+      },
+      {
+        "name": "20260709023000_manual_roster_public_source.sql",
+        "durationMs": 108.31,
+        "status": "pass"
+      },
+      {
+        "name": "20260709024500_speaker_photo_position.sql",
+        "durationMs": 112.65,
+        "status": "pass"
+      },
+      {
+        "name": "20260726090000_security_containment.sql",
+        "durationMs": 165,
+        "status": "pass"
+      }
+    ]
+  },
+  "pendingMigrations": {
+    "expected": 8,
+    "applied": 8,
+    "status": "pass",
+    "migrations": [
+      {
+        "name": "20260727172321_reconcile_legacy_department_schema.sql",
+        "durationMs": 131.8,
+        "status": "pass"
+      },
+      {
+        "name": "20260728013513_auth_rotation_mfa_hardening.sql",
+        "durationMs": 142.94,
+        "status": "pass"
+      },
+      {
+        "name": "20260728030009_remove_mfa_2fa.sql",
+        "durationMs": 124.25,
+        "status": "pass"
+      },
+      {
+        "name": "20260728031000_employee_search_cursor.sql",
+        "durationMs": 131.55,
+        "status": "pass"
+      },
+      {
+        "name": "20260728032000_background_export_jobs.sql",
+        "durationMs": 86.77,
+        "status": "pass"
+      },
+      {
+        "name": "20260728103000_reporting_rpc.sql",
+        "durationMs": 88.61,
+        "status": "pass"
+      },
+      {
+        "name": "20260728104000_export_operations.sql",
+        "durationMs": 85.11,
+        "status": "pass"
+      },
+      {
+        "name": "20260729022415_consolidate_roles_to_hr_and_employee.sql",
+        "durationMs": 111.47,
+        "status": "pass"
+      }
+    ]
+  },
+  "schemaEquivalence": {
+    "status": "pass",
+    "cleanSha256": "e69ecfce9051f09a986cbfe2c7c03a9d78ae2f03edaf33ee45dbe0e4dc8809a2",
+    "legacySha256": "e69ecfce9051f09a986cbfe2c7c03a9d78ae2f03edaf33ee45dbe0e4dc8809a2"
+  },
+  "idempotency": {
+    "status": "pass",
+    "syntheticRolesSeeded": 4,
+    "secondCleanReset": "pass",
+    "secondMigrationPass": {
+      "status": "pass",
+      "applied": 0,
+      "skippedAlreadyApplied": 8
+    },
+    "blockersAfterSecondRun": {
+      "orphanCourseVersions": 0,
+      "unvalidatedForeignKeys": 0,
+      "duplicateNormalizedEmails": 0,
+      "duplicateNormalizedEmployeeCodes": 0
+    },
+    "purgeSha256": "42b8fe26f9db4cc77a8654775ee6616d2d097432aa83a4a95f8499da7ca4cc98",
+    "cleanStateSha256": "9aac4fb46bac5359187f2b0ceaf56a8c551a750ff0518f081250f0247d58133f",
+    "schemaChecksum": "b2593542f87ed569303af0b1e31903a9b22bd12647f577c821ac98ef96ca4b33"
+  },
+  "cleanResetAllowlist": {
+    "tableCount": 74,
+    "sha256": "ea81e890bb275c65edf51420556cce9bdfc5021a7ffe28eea809a768902e720b",
+    "forbiddenSchemasPresent": false
+  },
+  "secretLeakage": "pass",
+  "productionMutation": "NONE",
+  "cleanup": "pass"
+}

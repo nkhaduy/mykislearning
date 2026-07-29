@@ -21,12 +21,11 @@ function parseEnvFile(path) {
 const status = parseEnvFile(statusPath);
 const password = () => `${crypto.randomBytes(18).toString("base64url")}Aa1!`;
 const identities = {
-  employeeA: { id: "synthetic-employee-a", email: "employee-a@example.invalid", role: "employee", password: password(), mustChange: true },
+  employeeA: { id: "synthetic-employee-a", email: "employee-a@example.invalid", role: "employee", password: password(), mustChange: false },
   employeeB: { id: "synthetic-employee-b", email: "employee-b@example.invalid", role: "employee", password: password(), mustChange: false },
-  trainer: { id: "synthetic-trainer", email: "trainer@example.invalid", role: "trainer", password: password(), mustChange: false },
-  hr: { id: "synthetic-hr", email: "hr@example.invalid", role: "hr", password: password(), mustChange: false },
-  admin: { id: "synthetic-admin", email: "admin@example.invalid", role: "admin", password: password(), mustChange: false },
-  bootstrapAdmin: { id: "synthetic-bootstrap-admin", email: "bootstrap-admin@example.invalid", role: "admin", password: password(), mustChange: true },
+  hrA: { id: "synthetic-hr-a", email: "hr-a@example.invalid", role: "hr", password: password(), mustChange: false },
+  hrB: { id: "synthetic-hr-b", email: "hr-b@example.invalid", role: "hr", password: password(), mustChange: false },
+  bootstrapHr: { id: "synthetic-bootstrap-hr", email: "bootstrap-hr@example.invalid", role: "hr", password: password(), mustChange: true },
 };
 
 for (const identity of Object.values(identities)) identity.passwordHash = await hashPassword(identity.password);
@@ -50,7 +49,7 @@ fs.writeFileSync(workerEnvPath, [
 ].join("\n") + "\n", { mode: 0o600 });
 
 for (const [name, identity] of Object.entries(identities)) {
-  if (name === "bootstrapAdmin") continue;
+  if (name === "bootstrapHr") continue;
   const response = await fetch(`${status.REST_URL}/rpc/service_write_account_credential`, {
     method: "POST",
     headers: { apikey: status.SERVICE_ROLE_KEY, Authorization: `Bearer ${status.SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
@@ -68,13 +67,13 @@ const bootstrapProfile = await fetch(`${status.REST_URL}/profiles`, {
     Prefer: "return=minimal",
   },
   body: JSON.stringify({
-    id: identities.bootstrapAdmin.id,
-    employee_code: "SYN-BA",
-    full_name: "Synthetic Bootstrap Admin",
-    email: identities.bootstrapAdmin.email,
-    role: "admin",
+    id: identities.bootstrapHr.id,
+    employee_code: "SYN-BH",
+    full_name: "Synthetic Bootstrap HR",
+    email: identities.bootstrapHr.email,
+    role: "hr",
     department: "Platform",
-    position: "Bootstrap Administrator",
+    position: "Bootstrap HR",
     account_status: "active",
     password_status: "normal",
   }),

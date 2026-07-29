@@ -37,9 +37,10 @@ test("DEV-AUTH-002: local defaults and reserved profile stay server-side", () =>
   }
 });
 
-test("AUTHZ-ADMIN-001: admin and HR share administrative route privileges", () => {
+test("AUTHZ-HR-001: only HR has administrative route privileges", () => {
   assert.equal(hasAdministrativeAccess("hr"), true);
-  assert.equal(hasAdministrativeAccess("admin"), true);
+  assert.equal(hasAdministrativeAccess("admin"), false);
+  assert.equal(hasAdministrativeAccess("trainer"), false);
   assert.equal(hasAdministrativeAccess("employee"), false);
 
   const routeFiles = [
@@ -49,6 +50,6 @@ test("AUTHZ-ADMIN-001: admin and HR share administrative route privileges", () =
   ];
   for (const file of routeFiles) {
     const source = readFileSync(new URL(`../../${file}`, import.meta.url), "utf8");
-    assert.doesNotMatch(source, /acct\.role\s*(?:===|!==)\s*["']hr["']/, `${file} bypasses the shared admin-role helper`);
+    assert.doesNotMatch(source, /acct\.role\s*(?:===|!==)\s*["']hr["']/, `${file} bypasses the shared HR-role helper`);
   }
 });

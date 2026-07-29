@@ -7,7 +7,7 @@ begin
     '20000000-0000-4000-8000-000000000001',
     '30000000-0000-4000-8000-000000000001',
     repeat('a', 43),
-    'local-development-admin',
+    'local-development-hr',
     now() + interval '8 hours',
     now() + interval '8 hours',
     repeat('i', 43),

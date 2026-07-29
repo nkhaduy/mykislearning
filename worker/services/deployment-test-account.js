@@ -4,13 +4,13 @@ import { readCredential, writeCredential } from "./credentials.js";
 const DEPLOYMENT_RUNTIMES = new Set(["production", "prod", "staging", "stage"]);
 const TEST_PROFILE_PREFIX = "deployment-test:";
 const LEGACY_TEST_PROFILE_ID = "deployment-test-account";
-const ALLOWED_ROLES = new Set(["employee", "hr", "admin"]);
+const ALLOWED_ROLES = new Set(["employee", "hr"]);
 
 function normalizeAccount(candidate) {
   const username = String(candidate?.username || "").trim().toLowerCase();
   const password = String(candidate?.password || "");
-  const role = ALLOWED_ROLES.has(candidate?.role) ? candidate.role : "employee";
-  if (!username || !password) return null;
+  const role = candidate?.role;
+  if (!username || !password || !ALLOWED_ROLES.has(role)) return null;
   return { username, password, role };
 }
 
@@ -61,11 +61,11 @@ export async function ensureDeploymentTestAccount(supabase, account) {
   const profile = {
     id: profileId,
     employee_code: normalized.username,
-    full_name: normalized.role === "admin" ? "Deployment Test Administrator" : "Deployment Test Account",
+    full_name: normalized.role === "hr" ? "Deployment Test HR" : "Deployment Test Account",
     email: `${normalized.username}@deployment.invalid`,
     role: normalized.role,
     department: "Test",
-    position: normalized.role === "admin" ? "Test Administrator" : "Test Account",
+    position: normalized.role === "hr" ? "Test HR" : "Test Account",
     account_status: "active",
     password_status: "normal",
     failed_login_count: 0,

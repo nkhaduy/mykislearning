@@ -1,9 +1,9 @@
 // @ts-check
 import { test, expect } from "playwright/test";
 
-const BASE = "https://mykis-learning.nkhaduy.workers.dev";
-const HR_EMAIL = "hr@kisvn.vn";
-const HR_PASSWORD = process.env.HR_PASSWORD || "Training@2026";
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
+const HR_EMAIL = process.env.KIS_E2E_HR_EMAIL || "";
+const HR_PASSWORD = process.env.KIS_E2E_HR_PASSWORD || "";
 const HR_HEADERS = { "Content-Type": "application/json", "X-Account-Id": "acc-hr-001", "X-Account-Role": "hr" };
 const EMP_HEADERS = { "Content-Type": "application/json", "X-Account-Id": "emp-test-001", "X-Account-Role": "employee" };
 
@@ -26,7 +26,7 @@ async function loginHr(page) {
   await page.fill("#loginEmail", HR_EMAIL);
   await page.fill("#loginPassword", HR_PASSWORD);
   await page.click("#loginSubmitBtn");
-  await page.waitForURL(/\/admin/, { timeout: 15000 });
+  await page.waitForURL(/\/hr/, { timeout: 15000 });
 }
 
 test("API — reports validate role, filters, pagination, and safe payload", async ({ page }) => {
@@ -88,7 +88,7 @@ test("Export — CSV, XLSX, PDF endpoints return downloadable files and employee
 
 test("Browser — HR report hub loads, filters persist, and mobile layout is usable", async ({ page }) => {
   await loginHr(page);
-  await page.goto(`${BASE}/admin/reports?type=departments&range=30d`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/hr/reports?type=departments&range=30d`, { waitUntil: "domcontentloaded" });
   await expect(page.locator(".report-head h1")).toBeVisible();
   await expect(page.locator(".report-tabs")).toBeVisible();
   await page.locator("[data-report-dept]").fill("QA");
@@ -99,7 +99,7 @@ test("Browser — HR report hub loads, filters persist, and mobile layout is usa
   const errors = [];
   page.on("console", (msg) => { if (msg.type() === "error") errors.push(msg.text()); });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`${BASE}/admin/reports?type=overview&range=30d`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/hr/reports?type=overview&range=30d`, { waitUntil: "domcontentloaded" });
   await expect(page.locator(".report-head")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
   expect(overflow).toBeFalsy();

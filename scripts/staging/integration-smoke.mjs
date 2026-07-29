@@ -12,8 +12,8 @@ const requestTimeoutMs = Number(process.env.KIS_STAGING_REQUEST_TIMEOUT_MS || 20
 const reportPacingMs = Number(process.env.KIS_STAGING_REPORT_PACING_MS || 3500);
 const integrationDeadline = Date.now() + Number(process.env.KIS_STAGING_INTEGRATION_TIMEOUT_MS || 12 * 60 * 1000);
 const accounts = JSON.parse(runtime.secrets.DEPLOYMENT_TEST_ACCOUNTS || "[]");
-const admin = accounts.find((account) => account.role === "admin");
-if (!admin) throw new Error("staging admin synthetic account is missing");
+const admin = accounts.find((account) => account.role === "hr");
+if (!admin) throw new Error("staging HR synthetic account is missing");
 
 function cookies(response) {
   const setCookies = typeof response.headers.getSetCookie === "function" ? response.headers.getSetCookie() : [response.headers.get("set-cookie")].filter(Boolean);

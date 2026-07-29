@@ -1,9 +1,9 @@
 // @ts-check
 import { test, expect } from "playwright/test";
 
-const BASE = "https://mykis-learning.nkhaduy.workers.dev";
-const EMP_EMAIL = "employee.test@kisvn.vn";
-const EMP_PASSWORD = "Test@123456";
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
+const EMP_EMAIL = process.env.KIS_E2E_EMPLOYEE_EMAIL || "";
+const EMP_PASSWORD = process.env.KIS_E2E_EMPLOYEE_PASSWORD || "";
 
 /**
  * Reproduction harness for the two reported employee-login bugs:

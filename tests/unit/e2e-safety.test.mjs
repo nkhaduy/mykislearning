@@ -44,7 +44,7 @@ test("ARCH-005: authenticated synthetic read-only suite does not require mutatio
 test("UX-003: route policy distinguishes implemented and unknown routes", () => {
   assert.equal(isKnownAppRoute("/dashboard/courses/course-123"), true);
   assert.equal(isKnownAppRoute("/does-not-exist"), false);
-  assert.equal(isPrivateAppRoute("/admin/reports"), true);
+  assert.equal(isPrivateAppRoute("/hr/reports"), true);
   assert.equal(isPrivateAppRoute("/about-kis"), false);
 });
 

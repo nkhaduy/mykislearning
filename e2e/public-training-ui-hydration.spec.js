@@ -9,9 +9,9 @@
 import { test, expect } from "playwright/test";
 import * as fs from "fs";
 
-const BASE = "https://mykis-learning.nkhaduy.workers.dev";
-const HR_EMAIL = "hr@kisvn.vn";
-const HR_PASSWORD = process.env.HR_PASSWORD || "Training@2026";
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
+const HR_EMAIL = process.env.KIS_E2E_HR_EMAIL || "";
+const HR_PASSWORD = process.env.KIS_E2E_HR_PASSWORD || "";
 const RESULTS_DIR = "test-results/public-training-ui-hydration";
 const TEST_PREFIX = "[UI-HYD TEST]";
 
@@ -24,7 +24,7 @@ async function loginAs(page, email, password) {
   await page.fill("#loginEmail", email);
   await page.fill("#loginPassword", password);
   await page.click("#loginSubmitBtn");
-  await page.waitForURL(/\/(dashboard|admin)/, { timeout: 15000 });
+  await page.waitForURL(/\/(dashboard|hr)/, { timeout: 15000 });
 }
 
 async function hrApi(page, method, apiPath, body) {

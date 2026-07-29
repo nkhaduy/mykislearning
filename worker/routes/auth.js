@@ -39,6 +39,8 @@ import {
   isReservedDeploymentTestProfile,
 } from "../services/deployment-test-account.js";
 
+const CANONICAL_ROLES = new Set(["hr", "employee"]);
+
 /** Fire-and-forget audit log — never throws, doesn't block response. */
 function auditLog(supabase, row) {
   Promise.resolve(supabase.from("audit_logs").insert(row)).then(null, () => {});
@@ -80,6 +82,14 @@ export async function verifySession(request, env) {
   });
   if (error) throw Object.assign(new Error("Session validation failed"), { status: 503, code: "SESSION_STORE_UNAVAILABLE" });
   if (!data?.valid) return null;
+  if (!CANONICAL_ROLES.has(data.role) || payload.role !== data.role) {
+    await supabase.rpc("service_revoke_auth_session", {
+      p_session_id: payload.sid,
+      p_profile_id: payload.sub,
+      p_reason: "role_mismatch",
+    });
+    return null;
+  }
   return {
     accountId: data.profile_id,
     role: data.role,
@@ -93,14 +103,14 @@ export async function verifySession(request, env) {
 export async function requirePrivilegedSession(request, env) {
   const session = await verifySession(request, env);
   if (!session) return { error: json({ error: "UNAUTHORIZED" }, 401) };
-  if (!["hr", "admin"].includes(session.role)) return { error: json({ error: "INSUFFICIENT_PERMISSIONS" }, 403) };
+  if (!["hr"].includes(session.role)) return { error: json({ error: "INSUFFICIENT_PERMISSIONS" }, 403) };
   return { caller: session };
 }
 
 async function requireHrSession(request, env) {
   const acct = await verifySession(request, env);
   if (!acct) return { error: json({ error: "Unauthorized" }, 401) };
-  if (!["hr", "admin"].includes(acct.role)) return { error: json({ error: "Insufficient permissions" }, 403) };
+  if (!["hr"].includes(acct.role)) return { error: json({ error: "Insufficient permissions" }, 403) };
   return { caller: acct };
 }
 
@@ -109,7 +119,7 @@ function publicProfile(profile, mustChange = false) {
     id: profile.id,
     email: profile.email,
     fullName: profile.full_name,
-    role: profile.role || "employee",
+    role: profile.role,
     accountStatus: profile.account_status || "active",
     passwordStatus: mustChange ? "resetRequired" : "normal",
     employeeCode: profile.employee_code || "",
@@ -284,6 +294,19 @@ export async function handleAuth(request, env) {
         metadata: { reason: "PROFILE_NOT_FOUND" },
       });
       return json({ error: "INVALID_CREDENTIALS", message: "Tên đăng nhập hoặc mật khẩu không chính xác." }, 401);
+    }
+
+    if (!CANONICAL_ROLES.has(profile.role)) {
+      await supabase.rpc("service_revoke_all_auth_sessions", {
+        p_profile_id: profile.id,
+        p_reason: "invalid_role",
+        p_except_session_id: null,
+      });
+      auditLater(supabase, request, {
+        actor: { accountId: profile.id, role: profile.role }, action: "auth.login_failed", status: "failed",
+        entityType: "profile", entityId: profile.id, metadata: { reason: "INVALID_ROLE" },
+      });
+      return json({ error: "INVALID_ROLE", code: "REAUTHENTICATION_REQUIRED" }, 403);
     }
 
     const status = profile.account_status || "active";
@@ -528,7 +551,7 @@ export async function handleAuth(request, env) {
       .single();
 
     if (!profile) return json({ error: "Profile not found" }, 404);
-    if (profile.role !== "admin") return json({ error: "ADMIN_PROFILE_REQUIRED" }, 403);
+    if (profile.role !== "hr") return json({ error: "HR_PROFILE_REQUIRED" }, 403);
 
     // Claim the one-time bootstrap before writing credentials so concurrent
     // requests cannot initialize a second admin. A failed write stays consumed
@@ -563,8 +586,9 @@ export async function handleAuth(request, env) {
     const { error, caller } = await requireHrSession(request, env);
     if (error) return error;
 
-    const { email, password, fullName, employeeCode, department, position } = body;
+    const { email, password, fullName, employeeCode, department, position, role = "employee" } = body;
     if (!email || !password || !fullName) return json({ error: "email, password, fullName are required" }, 400);
+    if (!CANONICAL_ROLES.has(role)) return json({ error: "INVALID_ROLE" }, 400);
 
     const tempHash = await hashPassword(String(password));
     const newId = `emp-${crypto.randomUUID()}`;
@@ -574,7 +598,7 @@ export async function handleAuth(request, env) {
       full_name: fullName.trim(),
       email: String(email).trim().toLowerCase(),
       employee_code: employeeCode || null,
-      role: "employee",
+      role,
       department: department || null,
       position: position || null,
       account_status: "active",
@@ -591,7 +615,7 @@ export async function handleAuth(request, env) {
 
     auditLog(supabase, {
       actor_id: caller.accountId, action: "create_user", target_type: "profile",
-      target_id: newId, result: "success", details: { role: "employee" },
+      target_id: newId, result: "success", details: { role },
     });
 
     return json({ userId: newId }, 201);

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 2,
+  "capturedAt": "2026-07-29T10:20:00+07:00",
+  "target": "local-static-and-mocked-browser",
+  "roles": {
+    "hr": { "status": "pass", "canonicalWorkspace": "/hr", "authenticatedRouteE2E": "8/8" },
+    "employee": { "status": "pass", "crossWorkspaceRedirect": "pass", "authenticatedRouteE2E": "8/8" },
+    "invalidLegacyRole": { "status": "pass", "rolesDenied": ["admin", "trainer", "unknown", null] }
+  },
+  "legacyAdminRedirect": "/admin -> /hr",
+  "trainerNavigationCount": 0,
+  "adminRoleSelectorCount": 0,
+  "publicE2E": "9/9",
+  "routeBundleMeasurement": "pass",
+  "legacyMonolithCheck": "pass",
+  "dedicatedCleanRoomBrowserRuntime": {
+    "status": "not-rerun",
+    "reason": "local Supabase port 54322 was already allocated by another project; the existing project was not stopped or mutated"
+  },
+  "productionMutation": "NONE",
+  "productionDeploy": "NONE"
+}

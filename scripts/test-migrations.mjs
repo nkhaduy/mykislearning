@@ -169,6 +169,12 @@ function verifyCommon(database) {
     join pg_namespace namespace_row on namespace_row.oid = function_row.pronamespace
     where namespace_row.nspname = 'public' and function_row.prorettype = 0
   `), "0", "Public functions must have valid return types");
+
+  assertEqual(scalar(database, "select count(*) from public.profiles where role not in ('hr','employee')"), "0", "Profiles must use canonical roles only");
+  if (scalar(database, "select to_regclass('public.user_roles') is not null") === "t") {
+    assertEqual(scalar(database, "select count(*) from public.user_roles where role not in ('hr','employee')"), "0", "Role mappings must use canonical roles only");
+  }
+  assertEqual(scalar(database, "select public.is_hr_or_admin() is false"), "t", "Anonymous RLS role lookup must fail closed");
 }
 
 function verifyAuthHardening(database) {
@@ -182,7 +188,7 @@ async function verifyConcurrentRefresh(database) {
     select public.service_create_auth_session(
       '10000000-0000-4000-8000-000000000010', '${familyId}',
       '30000000-0000-4000-8000-000000000010', repeat('d', 43),
-      'local-development-admin', now() + interval '8 hours', now() + interval '8 hours',
+      'local-development-hr', now() + interval '8 hours', now() + interval '8 hours',
       repeat('i', 43), 'refresh-race-seed', 10
     );
   `, "Concurrent refresh seed");
@@ -250,7 +256,7 @@ async function scenarioFresh() {
   verifyAuthHardening(database);
   await verifyConcurrentRefresh(database);
   assertEqual(scalar(database, "select count(*) from public.profiles"), "4", "Fresh profile count");
-  assertEqual(scalar(database, "select count(*) from private.account_credentials where profile_id = 'local-development-admin'"), "1", "Local bootstrap credential store shape");
+  assertEqual(scalar(database, "select count(*) from private.account_credentials where profile_id = 'local-development-hr'"), "1", "Local bootstrap credential store shape");
   assertEqual(scalar(database, "select count(*) from public.enrollments where id = 'synthetic-enrollment'"), "1", "Fresh enrollment seed");
   return { scenario: "fresh", database, status: "pass" };
 }
@@ -267,6 +273,7 @@ function scenarioUpgrade() {
   assertEqual(scalar(database, `select auth_user_id::text from public.profiles where employee_code = 'LEG-E-001'`), canonicalEmployeeId, "Legacy Supabase Auth linkage");
   assertEqual(scalar(database, `select department from public.profiles where id = '${canonicalEmployeeId}'`), "Legacy Department", "Legacy department backfill");
   assertEqual(scalar(database, "select count(*) from public.profiles"), "3", "Legacy profile preservation");
+  assertEqual(scalar(database, "select role from public.profiles where employee_code = 'LEG-A-001'"), "hr", "Legacy Admin must retain its ID and migrate to HR");
   assertEqual(scalar(database, "select count(*) from public.courses where id = '44444444-4444-4444-4444-444444444444'"), "1", "Legacy course preservation");
   assertEqual(scalar(database, "select count(*) from public.enrollments where id = '66666666-6666-6666-6666-666666666666'"), "1", "Legacy enrollment backfill");
   assertEqual(scalar(database, "select count(*) from public.content_progress where id = '67676767-6767-6767-6767-676767676767'"), "1", "Legacy progress backfill");
@@ -283,7 +290,9 @@ function scenarioUpgrade() {
 
 function applyWorkerHistoryWithoutReconciliation(database) {
   applyMigrations(database, ({ name }) => {
-    return !/^(001|002|003|004)_/.test(name) && !name.includes("reconcile_legacy_department_schema");
+    return !/^(001|002|003|004)_/.test(name)
+      && !name.includes("reconcile_legacy_department_schema")
+      && !name.includes("consolidate_roles_to_hr_and_employee");
   });
 }
 
@@ -293,6 +302,8 @@ function scenarioPartial() {
   sqlFile(recoverableDatabase, join(fixtureDir, "partial-recoverable.sql"), "Recoverable partial state");
   const reconciliation = migrations().find(({ name }) => name.includes("reconcile_legacy_department_schema"));
   sqlFile(recoverableDatabase, reconciliation.path, "Recoverable reconciliation");
+  const roleConsolidation = migrations().find(({ name }) => name.includes("consolidate_roles_to_hr_and_employee"));
+  sqlFile(recoverableDatabase, roleConsolidation.path, "Two-role consolidation");
   verifyCommon(recoverableDatabase);
   assertEqual(scalar(recoverableDatabase, "select department from public.profiles where id = 'partial-employee'"), "Partial Engineering", "UUID-to-text partial backfill");
   assertEqual(scalar(recoverableDatabase, "select count(*) from public.profiles where department_id is null"), "0", "Text-to-UUID partial backfill");

@@ -19,15 +19,15 @@ select
   'normal'
 from (values
   ('synthetic-employee', 'SYN-E-001', 'Synthetic Employee', 'employee@example.test', 'employee', 'Synthetic Engineering', 'Analyst'),
-  ('synthetic-hr', 'SYN-H-001', 'Synthetic HR', 'hr@example.test', 'hr', 'Synthetic HR', 'HR'),
-  ('synthetic-admin', 'SYN-A-001', 'Synthetic Admin', 'admin@example.test', 'admin', 'Synthetic Engineering', 'Admin'),
-  ('local-development-admin', 'LOCAL-ADMIN', 'Local Development Admin', 'local-admin@example.test', 'admin', 'Synthetic Engineering', 'Admin')
+  ('synthetic-hr-a', 'SYN-H-001', 'Synthetic HR A', 'hr-a@example.test', 'hr', 'Synthetic HR', 'HR'),
+  ('synthetic-hr-b', 'SYN-H-002', 'Synthetic HR B', 'hr-b@example.test', 'hr', 'Synthetic HR', 'HR'),
+  ('local-development-hr', 'LOCAL-HR', 'Local Development HR', 'local-hr@example.test', 'hr', 'Synthetic HR', 'HR')
 ) source(id, employee_code, full_name, email, role, department_name, position)
 join public.departments department on department.name = source.department_name
 on conflict (id) do nothing;
 
 insert into public.courses(id, status, delivery_mode, created_by, data)
-values ('synthetic-course', 'published', 'online', 'synthetic-hr', '{"title":"Synthetic Course"}')
+values ('synthetic-course', 'published', 'online', 'synthetic-hr-a', '{"title":"Synthetic Course"}')
 on conflict (id) do nothing;
 
 insert into public.enrollments(id, course_id, account_id, status, data)
@@ -44,5 +44,5 @@ values (
 on conflict (id) do nothing;
 
 insert into private.account_credentials(profile_id, password_hash, must_change)
-values ('local-development-admin', 'pbkdf2$synthetic-test-only', false)
+values ('local-development-hr', 'pbkdf2$synthetic-test-only', false)
 on conflict (profile_id) do update set password_hash = excluded.password_hash;

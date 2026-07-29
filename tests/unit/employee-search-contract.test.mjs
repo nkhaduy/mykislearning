@@ -63,7 +63,7 @@ test("ARCH-ROUTE-003: employee management has an independent entry with no legac
   const registry = readFileSync(new URL("src/app/route-registry.js", root), "utf8");
   const bootstrap = readFileSync(new URL("src/app/bootstrap.js", root), "utf8");
   const feature = readFileSync(new URL("src/features/employees/employees.js", root), "utf8");
-  assert.match(registry, /path: "\/admin\/employees"[^\n]*splitEntry: "employees"/);
+  assert.match(registry, /path: "\/hr\/employees"[^\n]*splitEntry: "employees"/);
   assert.match(bootstrap, /employees:\s*\(\)\s*=>\s*import\("\.\.\/features\/employees\/employees\.js"\)/);
   assert.doesNotMatch(feature, /app\.js|mockDatabase|employeeService|xlsx\.full|jsqr|qrcode|window\._(?!_)/);
   assert.match(feature, /AbortController/);

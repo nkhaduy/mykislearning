@@ -13,9 +13,9 @@
 import { test, expect, request as playwrightRequest } from "@playwright/test";
 import crypto from "crypto";
 
-const BASE = "https://mykis-learning.nkhaduy.workers.dev";
-const HR_EMAIL = "hr@kisvn.vn";
-const HR_PASSWORD = "Training@2026";
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
+const HR_EMAIL = process.env.KIS_E2E_HR_EMAIL || "";
+const HR_PASSWORD = process.env.KIS_E2E_HR_PASSWORD || "";
 
 let hrHeaders;
 

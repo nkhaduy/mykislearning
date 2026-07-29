@@ -1,9 +1,9 @@
 # KIS LMS Production Deployment Report
 
-Date: 2026-07-28
+Date: 2026-07-29
 Scope: production bootstrap and release preparation only; final cutover was not run.
 
-Approved maintenance window: `2026-07-29T00:00:00+07:00/2026-07-29T02:00:00+07:00` (`Asia/Ho_Chi_Minh`). Change owner and rollback owner: Nguyễn Khả Duy.
+The previously recorded maintenance window has expired. A new active window of at least 90 minutes is required. Change owner and rollback owner: Nguyễn Khả Duy.
 
 ## 1. Approval and No-MFA acceptance
 
@@ -52,6 +52,8 @@ Approved maintenance window: `2026-07-29T00:00:00+07:00/2026-07-29T02:00:00+07:0
 ## 7. Migration preparation
 
 - Production migrations were not applied.
+- Disposable replay passes the 7 existing pending migrations plus `20260729022415_consolidate_roles_to_hr_and_employee.sql` (`8/8`).
+- The new migration maps legacy Admin profiles to HR, removes Trainer application data after reference/session safeguards, and enforces exactly `hr`/`employee`.
 - Restore evidence and the release manifest bind the migration list to the canonical staging rehearsal checksum.
 - `production:deploy-approved` reruns a linked Supabase migration dry-run inside the active maintenance window before consuming the approval token.
 
@@ -116,10 +118,25 @@ Approved maintenance window: `2026-07-29T00:00:00+07:00/2026-07-29T02:00:00+07:0
 
 ## 19. Remaining follow-ups
 
-- Generate the release manifest only after the literal plan success, rerun the plan with the manifest present, and invoke the guarded final command only while the approved window is active.
+- Record owner approval for the exact 74-table clean-reset allowlist checksum.
+- Create a new active maintenance window of at least 90 minutes; 120 minutes is recommended.
+- Generate a new exact release manifest after the final tracked source is committed and clean.
+- In the approved window, canonicalize migration aliases through the guarded history-only workflow and require the linked dry-run to list exactly the approved 8 files.
+
+Latest `npm run production:plan` blockers:
+
+1. Maintenance window expired.
+2. Deployment is outside an active approved maintenance window.
+3. Clean-reset table allowlist is not owner-approved.
+4. Clean-reset allowlist checksum is missing or stale.
+5. Tracked release worktree is not clean.
+6. Release manifest build checksum does not match `dist`.
+7. Live Supabase migration reconciliation verification failed.
 
 ## 20. Final decision
 
-**GO FOR PRODUCTION DEPLOYMENT (PLAN ONLY)**
+**PRODUCTION CLEAN RESET BLOCKED**
 
-`npm run production:plan` emitted the required literal GO result after the maintenance-window, Cloudflare credential, live Worker secret-name, rollback-version, notification destination, critical-policy, synthetic-delivery-test, and quality-gate checks passed. No production migration, application deploy, traffic cutover, DNS change, production-secret rotation, or feature-flag change was performed.
+The disposable clean-reset, two-role migration, rollback, idempotency and authorization rehearsals pass. Trainer is removed from scope and is no longer a product-decision blocker. `production:plan` still fails closed unless the exact allowlist is approved, the release manifest is refreshed, migration alias reconciliation and the 8-file production dry-run pass, and a new 90-minute-or-longer maintenance window is active.
+
+No production migration, clean reset, migration-history repair, application deploy, traffic cutover, DNS change, production-secret rotation or feature-flag change was performed.

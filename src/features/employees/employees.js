@@ -88,7 +88,7 @@ function renderRows(state, i18n, text) {
     <td><a href="mailto:${escapeAttribute(item.email)}">${escapeHtml(item.email || "—")}</a><small>${escapeHtml(item.location || "—")}</small></td>
     <td>${escapeHtml(item.department || "—")}<small>${escapeHtml(item.managerName || "—")}</small></td>
     <td><span class="employee-status employee-status--${escapeAttribute(item.accountStatus || "inactive")}">${escapeHtml(statusLabel(item.accountStatus, i18n))}</span></td>
-    <td><div class="employee-actions"><button type="button" data-employee-edit="${escapeAttribute(item.id)}">${escapeHtml(text.edit)}</button><a href="/admin/certificates?employeeId=${encodeURIComponent(item.id)}">${escapeHtml(text.records)}</a><a href="/admin/accounts?employeeId=${encodeURIComponent(item.id)}">${escapeHtml(text.security)}</a></div></td>
+    <td><div class="employee-actions"><button type="button" data-employee-edit="${escapeAttribute(item.id)}">${escapeHtml(text.edit)}</button><a href="/hr/certificates?employeeId=${encodeURIComponent(item.id)}">${escapeHtml(text.records)}</a><a href="/hr/accounts?employeeId=${encodeURIComponent(item.id)}">${escapeHtml(text.security)}</a></div></td>
   </tr>`).join("")}</tbody></table></div>`;
 }
 
@@ -126,7 +126,7 @@ export async function mount({ account }) {
   const i18n = createI18n();
   const text = copy[i18n.language] || copy.vi;
   const shell = createRouteShell({ account, i18n, title: text.title, eyebrow: text.eyebrow, entry: "employee-management" });
-  if (!["hr", "admin"].includes(account.role)) {
+  if (!["hr"].includes(account.role)) {
     shell.setContent(`<section class="route-card route-error"><h2 tabindex="-1">${escapeHtml(text.restricted)}</h2><a class="route-button" href="/dashboard">Dashboard</a></section>`, { focus: true });
     return;
   }

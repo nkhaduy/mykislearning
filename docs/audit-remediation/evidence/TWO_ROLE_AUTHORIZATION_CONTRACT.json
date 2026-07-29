@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "owner": "Nguyễn Khả Duy",
+  "ownerDecisionText": [
+    "HR is the highest application role.",
+    "Employee is the standard learner role.",
+    "Admin application role is removed and migrated to HR.",
+    "Trainer application role is removed.",
+    "Canonical roles are exactly HR and Employee."
+  ],
+  "ownerDecision": {
+    "hrIsHighestApplicationRole": true,
+    "employeeIsStandardLearnerRole": true,
+    "adminApplicationRoleRemovedAndMigratedToHr": true,
+    "trainerApplicationRoleRemoved": true,
+    "canonicalRoles": ["hr", "employee"]
+  },
+  "authorization": {
+    "unknownRoleFailsClosed": true,
+    "jwtProfileMismatchFailsClosed": true,
+    "employeeCrossUserIsolation": true,
+    "hrAdminWorkspaceMerged": true,
+    "trainerEndpointsMounted": false,
+    "canonicalWorkspace": "/hr",
+    "legacyWorkspaceRedirect": "/admin -> /hr",
+    "technicalApiNamespace": "/api/admin"
+  },
+  "productionMutation": "NONE",
+  "productionDeploy": "NONE"
+}

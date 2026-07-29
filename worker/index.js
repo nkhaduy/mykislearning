@@ -22,6 +22,7 @@ function seoFileResponse(request, pathname) {
       "Allow: /$",
       "Allow: /about-kis$",
       "Disallow: /dashboard/",
+      "Disallow: /hr/",
       "Disallow: /admin/",
       "Disallow: /login",
       "Disallow: /change-password",

@@ -6,11 +6,11 @@
  */
 import { test, expect } from "playwright/test";
 
-const BASE = "https://mykis-learning.nkhaduy.workers.dev";
-const HR_EMAIL = "hr@kisvn.vn";
-const EMP_EMAIL = "employee.test@kisvn.vn";
-const HR_PASSWORD = process.env.HR_PASSWORD || "Training@2026";
-const EMP_PASSWORD = process.env.EMP_PASSWORD || "Test@123456";
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787");
+const HR_EMAIL = process.env.KIS_E2E_HR_EMAIL || "";
+const EMP_EMAIL = process.env.KIS_E2E_EMPLOYEE_EMAIL || "";
+const HR_PASSWORD = process.env.KIS_E2E_HR_PASSWORD || "";
+const EMP_PASSWORD = process.env.KIS_E2E_EMPLOYEE_PASSWORD || "";
 const HR_HEADERS = { "Content-Type": "application/json", "X-Account-Id": "acc-hr-001", "X-Account-Role": "hr" };
 const EMP_HEADERS = { "Content-Type": "application/json", "X-Account-Id": "emp-test-001", "X-Account-Role": "employee" };
 
@@ -218,7 +218,7 @@ test("Browser routes render across HR and employee viewports", async ({ browser 
     const hrErrors = [];
     hr.on("pageerror", (e) => hrErrors.push(String(e)));
     await loginAs(hr, HR_EMAIL, HR_PASSWORD);
-    await hr.goto(`${BASE}/admin/certificates`, { waitUntil: "domcontentloaded" });
+    await hr.goto(`${BASE}/hr/certificates`, { waitUntil: "domcontentloaded" });
     await expect(hr.locator("text=Chứng chỉ hành nghề").first()).toBeVisible({ timeout: 10000 });
     expect(hrErrors).toHaveLength(0);
     const hrOverflow = await hr.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);

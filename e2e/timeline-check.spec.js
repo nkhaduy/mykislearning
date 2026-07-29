@@ -1,6 +1,6 @@
 import { test, expect } from "playwright/test";
 
-const URL = "https://mykis-learning.nkhaduy.workers.dev/about-kis";
+const URL = `${process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:8787"}/about-kis`;
 
 test("timeline desktop 1280", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });

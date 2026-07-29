@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-28T09:20:49.075Z",
+  "generatedAt": "2026-07-29T02:53:45.114Z",
   "environment": {
     "baseURL": "http://127.0.0.1:4183",
     "viewport": "390x844",
@@ -15,7 +15,7 @@
       "route": "/",
       "role": "public",
       "entry": "public",
-      "initialJsBytes": 23017,
+      "initialJsBytes": 23552,
       "initialCssBytes": 15501,
       "requestCount": 13,
       "scripts": [
@@ -36,7 +36,7 @@
       "route": "/login",
       "role": "public",
       "entry": "public",
-      "initialJsBytes": 29436,
+      "initialJsBytes": 30371,
       "initialCssBytes": 16444,
       "requestCount": 13,
       "scripts": [
@@ -58,7 +58,7 @@
       "route": "/about-kis",
       "role": "public",
       "entry": "public",
-      "initialJsBytes": 43268,
+      "initialJsBytes": 43803,
       "initialCssBytes": 34703,
       "requestCount": 15,
       "scripts": [
@@ -80,7 +80,7 @@
       "route": "/dashboard",
       "role": "employee",
       "entry": "learner-dashboard",
-      "initialJsBytes": 141063,
+      "initialJsBytes": 141439,
       "initialCssBytes": 18576,
       "requestCount": 25,
       "scripts": [
@@ -88,13 +88,13 @@
         "/src/app/bootstrap.js",
         "/src/app/route-registry.js",
         "/src/features/learner/dashboard.js",
-        "/src/shared/api/client.js",
         "/src/shared/i18n/runtime.js",
+        "/src/shared/api/client.js",
         "/src/shared/ui/route-shell.js",
         "/lib/i18n/index.js",
         "/lib/i18n/vi.js",
-        "/lib/i18n/en.js",
-        "/lib/i18n/kr.js"
+        "/lib/i18n/kr.js",
+        "/lib/i18n/en.js"
       ],
       "styles": [
         "/src/shared/ui/font.css",
@@ -110,7 +110,7 @@
       "route": "/dashboard/courses",
       "role": "employee",
       "entry": "learner-courses",
-      "initialJsBytes": 137614,
+      "initialJsBytes": 137993,
       "initialCssBytes": 18576,
       "requestCount": 24,
       "scripts": [
@@ -119,11 +119,11 @@
         "/src/app/route-registry.js",
         "/src/features/learner/courses.js",
         "/src/shared/api/client.js",
-        "/src/shared/ui/route-shell.js",
         "/src/shared/i18n/runtime.js",
+        "/src/shared/ui/route-shell.js",
         "/lib/i18n/index.js",
-        "/lib/i18n/en.js",
         "/lib/i18n/vi.js",
+        "/lib/i18n/en.js",
         "/lib/i18n/kr.js"
       ],
       "styles": [
@@ -140,7 +140,7 @@
       "route": "/dashboard/courses/course-a",
       "role": "employee",
       "entry": "course-player",
-      "initialJsBytes": 135053,
+      "initialJsBytes": 135432,
       "initialCssBytes": 13117,
       "requestCount": 24,
       "scripts": [
@@ -148,12 +148,12 @@
         "/src/app/bootstrap.js",
         "/src/app/route-registry.js",
         "/src/features/courses/course-player.js",
-        "/src/shared/api/client.js",
         "/src/shared/i18n/runtime.js",
+        "/src/shared/api/client.js",
         "/src/shared/ui/route-shell.js",
         "/lib/i18n/index.js",
-        "/lib/i18n/vi.js",
         "/lib/i18n/en.js",
+        "/lib/i18n/vi.js",
         "/lib/i18n/kr.js"
       ],
       "styles": [
@@ -167,10 +167,10 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin",
+      "route": "/hr",
       "role": "hr",
       "entry": "admin-dashboard",
-      "initialJsBytes": 141752,
+      "initialJsBytes": 142104,
       "initialCssBytes": 15758,
       "requestCount": 23,
       "scripts": [
@@ -179,12 +179,12 @@
         "/src/app/route-registry.js",
         "/src/features/admin/dashboard.js",
         "/src/shared/i18n/runtime.js",
-        "/src/shared/api/client.js",
         "/src/shared/ui/route-shell.js",
+        "/src/shared/api/client.js",
         "/lib/i18n/index.js",
         "/lib/i18n/vi.js",
-        "/lib/i18n/en.js",
-        "/lib/i18n/kr.js"
+        "/lib/i18n/kr.js",
+        "/lib/i18n/en.js"
       ],
       "styles": [
         "/src/shared/ui/font.css",
@@ -197,10 +197,10 @@
       "adminCodeLoaded": true
     },
     {
-      "route": "/admin/employees",
+      "route": "/hr/employees",
       "role": "hr",
       "entry": "employee-management",
-      "initialJsBytes": 147567,
+      "initialJsBytes": 147931,
       "initialCssBytes": 16004,
       "requestCount": 23,
       "scripts": [
@@ -208,9 +208,9 @@
         "/src/app/bootstrap.js",
         "/src/app/route-registry.js",
         "/src/features/employees/employees.js",
-        "/src/shared/api/client.js",
         "/src/shared/i18n/runtime.js",
         "/src/shared/ui/route-shell.js",
+        "/src/shared/api/client.js",
         "/lib/i18n/index.js",
         "/lib/i18n/vi.js",
         "/lib/i18n/en.js",
@@ -227,10 +227,10 @@
       "adminCodeLoaded": true
     },
     {
-      "route": "/admin/courses",
+      "route": "/hr/courses",
       "role": "hr",
       "entry": "course-management",
-      "initialJsBytes": 135622,
+      "initialJsBytes": 135989,
       "initialCssBytes": 13117,
       "requestCount": 23,
       "scripts": [
@@ -248,8 +248,8 @@
       ],
       "styles": [
         "/src/shared/ui/font.css",
-        "/src/features/courses/courses.css",
-        "/src/shared/ui/route-shell.css"
+        "/src/shared/ui/route-shell.css",
+        "/src/features/courses/courses.css"
       ],
       "xlsxLoaded": false,
       "qrLoaded": false,
@@ -257,10 +257,10 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin/reports",
-      "role": "admin",
+      "route": "/hr/reports",
+      "role": "hr",
       "entry": "admin-reporting",
-      "initialJsBytes": 155970,
+      "initialJsBytes": 156337,
       "initialCssBytes": 16748,
       "requestCount": 23,
       "scripts": [
@@ -269,11 +269,11 @@
         "/src/app/route-registry.js",
         "/src/features/reporting/reports.js",
         "/src/shared/i18n/runtime.js",
-        "/src/shared/ui/route-shell.js",
         "/src/shared/api/client.js",
+        "/src/shared/ui/route-shell.js",
         "/lib/i18n/index.js",
-        "/lib/i18n/en.js",
         "/lib/i18n/vi.js",
+        "/lib/i18n/en.js",
         "/lib/i18n/kr.js"
       ],
       "styles": [
@@ -287,10 +287,10 @@
       "adminCodeLoaded": true
     },
     {
-      "route": "/admin/live-training",
+      "route": "/hr/live-training",
       "role": "hr",
       "entry": "live-training",
-      "initialJsBytes": 135702,
+      "initialJsBytes": 136069,
       "initialCssBytes": 12317,
       "requestCount": 24,
       "scripts": [
@@ -300,11 +300,11 @@
         "/src/features/training/live-training.js",
         "/src/shared/ui/collection-route.js",
         "/src/shared/api/client.js",
-        "/src/shared/i18n/runtime.js",
         "/src/shared/ui/route-shell.js",
+        "/src/shared/i18n/runtime.js",
         "/lib/i18n/index.js",
-        "/lib/i18n/vi.js",
         "/lib/i18n/en.js",
+        "/lib/i18n/vi.js",
         "/lib/i18n/kr.js"
       ],
       "styles": [
@@ -318,10 +318,10 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin/quizzes",
+      "route": "/hr/quizzes",
       "role": "hr",
       "entry": "quiz-management",
-      "initialJsBytes": 135678,
+      "initialJsBytes": 136048,
       "initialCssBytes": 12317,
       "requestCount": 24,
       "scripts": [
@@ -334,8 +334,8 @@
         "/src/shared/api/client.js",
         "/src/shared/ui/route-shell.js",
         "/lib/i18n/index.js",
-        "/lib/i18n/en.js",
         "/lib/i18n/vi.js",
+        "/lib/i18n/en.js",
         "/lib/i18n/kr.js"
       ],
       "styles": [
@@ -352,7 +352,7 @@
       "route": "/dashboard/quizzes",
       "role": "employee",
       "entry": "quiz-player",
-      "initialJsBytes": 135678,
+      "initialJsBytes": 136048,
       "initialCssBytes": 12317,
       "requestCount": 24,
       "scripts": [
@@ -365,8 +365,8 @@
         "/src/shared/i18n/runtime.js",
         "/src/shared/ui/route-shell.js",
         "/lib/i18n/index.js",
-        "/lib/i18n/en.js",
         "/lib/i18n/vi.js",
+        "/lib/i18n/en.js",
         "/lib/i18n/kr.js"
       ],
       "styles": [
@@ -380,10 +380,10 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin/learning-records",
+      "route": "/hr/learning-records",
       "role": "hr",
       "entry": "learning-records",
-      "initialJsBytes": 135892,
+      "initialJsBytes": 136262,
       "initialCssBytes": 12317,
       "requestCount": 24,
       "scripts": [
@@ -414,7 +414,7 @@
       "route": "/dashboard/certificates",
       "role": "employee",
       "entry": "learner-certificates",
-      "initialJsBytes": 135892,
+      "initialJsBytes": 136262,
       "initialCssBytes": 12317,
       "requestCount": 24,
       "scripts": [
@@ -427,9 +427,9 @@
         "/src/shared/i18n/runtime.js",
         "/src/shared/ui/route-shell.js",
         "/lib/i18n/index.js",
-        "/lib/i18n/vi.js",
+        "/lib/i18n/kr.js",
         "/lib/i18n/en.js",
-        "/lib/i18n/kr.js"
+        "/lib/i18n/vi.js"
       ],
       "styles": [
         "/src/shared/ui/font.css",
@@ -445,7 +445,7 @@
       "route": "/attendance/scan",
       "role": "employee",
       "entry": "attendance-scanner",
-      "initialJsBytes": 137011,
+      "initialJsBytes": 137390,
       "initialCssBytes": 12009,
       "requestCount": 22,
       "scripts": [
@@ -454,11 +454,11 @@
         "/src/app/route-registry.js",
         "/src/features/attendance/scanner.js",
         "/src/shared/i18n/runtime.js",
-        "/src/shared/api/client.js",
         "/src/shared/ui/route-shell.js",
+        "/src/shared/api/client.js",
         "/lib/i18n/index.js",
-        "/lib/i18n/vi.js",
         "/lib/i18n/en.js",
+        "/lib/i18n/vi.js",
         "/lib/i18n/kr.js"
       ],
       "styles": [
@@ -475,7 +475,7 @@
       "route": "/training",
       "role": "public",
       "entry": "public",
-      "initialJsBytes": 43577,
+      "initialJsBytes": 43956,
       "initialCssBytes": 3045,
       "requestCount": 15,
       "scripts": [
@@ -483,8 +483,8 @@
         "/src/app/bootstrap.js",
         "/src/app/route-registry.js",
         "/src/features/public/training.js",
-        "/src/shared/api/client.js",
-        "/src/shared/ui/route-shell.js"
+        "/src/shared/ui/route-shell.js",
+        "/src/shared/api/client.js"
       ],
       "styles": [
         "/src/shared/ui/font.css",
@@ -499,7 +499,7 @@
       "route": "/join/synthetic-token",
       "role": "public",
       "entry": "public",
-      "initialJsBytes": 43577,
+      "initialJsBytes": 43956,
       "initialCssBytes": 3045,
       "requestCount": 15,
       "scripts": [
@@ -523,7 +523,7 @@
       "route": "/dashboard/learning-paths",
       "role": "employee",
       "entry": "learner-secondary:/dashboard/learning-paths",
-      "initialJsBytes": 143895,
+      "initialJsBytes": 144274,
       "initialCssBytes": 13204,
       "requestCount": 24,
       "scripts": [
@@ -532,8 +532,8 @@
         "/src/app/route-registry.js",
         "/src/features/secondary/learner.js",
         "/src/features/secondary/data-route.js",
-        "/src/shared/ui/route-shell.js",
         "/src/shared/i18n/runtime.js",
+        "/src/shared/ui/route-shell.js",
         "/src/shared/api/client.js",
         "/lib/i18n/index.js",
         "/lib/i18n/vi.js",
@@ -554,7 +554,7 @@
       "route": "/dashboard/learning-paths/path-a",
       "role": "employee",
       "entry": "learner-secondary:/dashboard/learning-paths/:id",
-      "initialJsBytes": 143895,
+      "initialJsBytes": 144274,
       "initialCssBytes": 13204,
       "requestCount": 24,
       "scripts": [
@@ -563,13 +563,13 @@
         "/src/app/route-registry.js",
         "/src/features/secondary/learner.js",
         "/src/features/secondary/data-route.js",
-        "/src/shared/ui/route-shell.js",
         "/src/shared/i18n/runtime.js",
         "/src/shared/api/client.js",
+        "/src/shared/ui/route-shell.js",
         "/lib/i18n/index.js",
         "/lib/i18n/vi.js",
-        "/lib/i18n/kr.js",
-        "/lib/i18n/en.js"
+        "/lib/i18n/en.js",
+        "/lib/i18n/kr.js"
       ],
       "styles": [
         "/src/shared/ui/font.css",
@@ -585,7 +585,7 @@
       "route": "/dashboard/gallery",
       "role": "employee",
       "entry": "learner-secondary:/dashboard/gallery",
-      "initialJsBytes": 143895,
+      "initialJsBytes": 144274,
       "initialCssBytes": 13204,
       "requestCount": 23,
       "scripts": [
@@ -594,12 +594,12 @@
         "/src/app/route-registry.js",
         "/src/features/secondary/learner.js",
         "/src/features/secondary/data-route.js",
-        "/src/shared/api/client.js",
         "/src/shared/i18n/runtime.js",
         "/src/shared/ui/route-shell.js",
+        "/src/shared/api/client.js",
         "/lib/i18n/index.js",
-        "/lib/i18n/en.js",
         "/lib/i18n/vi.js",
+        "/lib/i18n/en.js",
         "/lib/i18n/kr.js"
       ],
       "styles": [
@@ -616,133 +616,9 @@
       "route": "/dashboard/gallery/album-a",
       "role": "employee",
       "entry": "learner-secondary:/dashboard/gallery/:id",
-      "initialJsBytes": 143895,
+      "initialJsBytes": 144274,
       "initialCssBytes": 13204,
       "requestCount": 23,
-      "scripts": [
-        "/src/app/style-loader.js",
-        "/src/app/bootstrap.js",
-        "/src/app/route-registry.js",
-        "/src/features/secondary/learner.js",
-        "/src/features/secondary/data-route.js",
-        "/src/shared/api/client.js",
-        "/src/shared/i18n/runtime.js",
-        "/src/shared/ui/route-shell.js",
-        "/lib/i18n/index.js",
-        "/lib/i18n/vi.js",
-        "/lib/i18n/en.js",
-        "/lib/i18n/kr.js"
-      ],
-      "styles": [
-        "/src/shared/ui/font.css",
-        "/src/shared/ui/route-shell.css",
-        "/src/features/secondary/secondary.css"
-      ],
-      "xlsxLoaded": false,
-      "qrLoaded": false,
-      "monolithLoaded": false,
-      "adminCodeLoaded": false
-    },
-    {
-      "route": "/dashboard/resources",
-      "role": "employee",
-      "entry": "learner-secondary:/dashboard/resources",
-      "initialJsBytes": 143895,
-      "initialCssBytes": 13204,
-      "requestCount": 23,
-      "scripts": [
-        "/src/app/style-loader.js",
-        "/src/app/bootstrap.js",
-        "/src/app/route-registry.js",
-        "/src/features/secondary/learner.js",
-        "/src/features/secondary/data-route.js",
-        "/src/shared/api/client.js",
-        "/src/shared/i18n/runtime.js",
-        "/src/shared/ui/route-shell.js",
-        "/lib/i18n/index.js",
-        "/lib/i18n/vi.js",
-        "/lib/i18n/kr.js",
-        "/lib/i18n/en.js"
-      ],
-      "styles": [
-        "/src/shared/ui/font.css",
-        "/src/shared/ui/route-shell.css",
-        "/src/features/secondary/secondary.css"
-      ],
-      "xlsxLoaded": false,
-      "qrLoaded": false,
-      "monolithLoaded": false,
-      "adminCodeLoaded": false
-    },
-    {
-      "route": "/dashboard/calendar",
-      "role": "employee",
-      "entry": "learner-secondary:/dashboard/calendar",
-      "initialJsBytes": 143895,
-      "initialCssBytes": 13204,
-      "requestCount": 25,
-      "scripts": [
-        "/src/app/style-loader.js",
-        "/src/app/bootstrap.js",
-        "/src/app/route-registry.js",
-        "/src/features/secondary/learner.js",
-        "/src/features/secondary/data-route.js",
-        "/src/shared/i18n/runtime.js",
-        "/src/shared/api/client.js",
-        "/src/shared/ui/route-shell.js",
-        "/lib/i18n/index.js",
-        "/lib/i18n/vi.js",
-        "/lib/i18n/en.js",
-        "/lib/i18n/kr.js"
-      ],
-      "styles": [
-        "/src/shared/ui/font.css",
-        "/src/shared/ui/route-shell.css",
-        "/src/features/secondary/secondary.css"
-      ],
-      "xlsxLoaded": false,
-      "qrLoaded": false,
-      "monolithLoaded": false,
-      "adminCodeLoaded": false
-    },
-    {
-      "route": "/dashboard/learning-history",
-      "role": "employee",
-      "entry": "learner-secondary:/dashboard/learning-history",
-      "initialJsBytes": 143895,
-      "initialCssBytes": 13204,
-      "requestCount": 24,
-      "scripts": [
-        "/src/app/style-loader.js",
-        "/src/app/bootstrap.js",
-        "/src/app/route-registry.js",
-        "/src/features/secondary/learner.js",
-        "/src/features/secondary/data-route.js",
-        "/src/shared/i18n/runtime.js",
-        "/src/shared/api/client.js",
-        "/src/shared/ui/route-shell.js",
-        "/lib/i18n/index.js",
-        "/lib/i18n/en.js",
-        "/lib/i18n/vi.js",
-        "/lib/i18n/kr.js"
-      ],
-      "styles": [
-        "/src/shared/ui/font.css",
-        "/src/shared/ui/route-shell.css",
-        "/src/features/secondary/secondary.css"
-      ],
-      "xlsxLoaded": false,
-      "qrLoaded": false,
-      "monolithLoaded": false,
-      "adminCodeLoaded": false
-    },
-    {
-      "route": "/dashboard/history",
-      "role": "employee",
-      "entry": "learner-secondary:/dashboard/learning-history",
-      "initialJsBytes": 143895,
-      "initialCssBytes": 13204,
-      "requestCount": 25,
       "scripts": [
         "/src/app/style-loader.js",
         "/src/app/bootstrap.js",
@@ -768,12 +644,12 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/dashboard/compliance",
+      "route": "/dashboard/resources",
       "role": "employee",
-      "entry": "learner-secondary:/dashboard/compliance",
-      "initialJsBytes": 143895,
+      "entry": "learner-secondary:/dashboard/resources",
+      "initialJsBytes": 144274,
       "initialCssBytes": 13204,
-      "requestCount": 24,
+      "requestCount": 23,
       "scripts": [
         "/src/app/style-loader.js",
         "/src/app/bootstrap.js",
@@ -783,6 +659,37 @@
         "/src/shared/api/client.js",
         "/src/shared/ui/route-shell.js",
         "/src/shared/i18n/runtime.js",
+        "/lib/i18n/index.js",
+        "/lib/i18n/en.js",
+        "/lib/i18n/vi.js",
+        "/lib/i18n/kr.js"
+      ],
+      "styles": [
+        "/src/shared/ui/font.css",
+        "/src/features/secondary/secondary.css",
+        "/src/shared/ui/route-shell.css"
+      ],
+      "xlsxLoaded": false,
+      "qrLoaded": false,
+      "monolithLoaded": false,
+      "adminCodeLoaded": false
+    },
+    {
+      "route": "/dashboard/calendar",
+      "role": "employee",
+      "entry": "learner-secondary:/dashboard/calendar",
+      "initialJsBytes": 144274,
+      "initialCssBytes": 13204,
+      "requestCount": 25,
+      "scripts": [
+        "/src/app/style-loader.js",
+        "/src/app/bootstrap.js",
+        "/src/app/route-registry.js",
+        "/src/features/secondary/learner.js",
+        "/src/features/secondary/data-route.js",
+        "/src/shared/api/client.js",
+        "/src/shared/i18n/runtime.js",
+        "/src/shared/ui/route-shell.js",
         "/lib/i18n/index.js",
         "/lib/i18n/vi.js",
         "/lib/i18n/en.js",
@@ -799,10 +706,72 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/dashboard/compliance/cycle-a",
+      "route": "/dashboard/learning-history",
       "role": "employee",
-      "entry": "learner-secondary:/dashboard/compliance/:id",
-      "initialJsBytes": 143895,
+      "entry": "learner-secondary:/dashboard/learning-history",
+      "initialJsBytes": 144274,
+      "initialCssBytes": 13204,
+      "requestCount": 24,
+      "scripts": [
+        "/src/app/style-loader.js",
+        "/src/app/bootstrap.js",
+        "/src/app/route-registry.js",
+        "/src/features/secondary/learner.js",
+        "/src/features/secondary/data-route.js",
+        "/src/shared/api/client.js",
+        "/src/shared/ui/route-shell.js",
+        "/src/shared/i18n/runtime.js",
+        "/lib/i18n/index.js",
+        "/lib/i18n/en.js",
+        "/lib/i18n/kr.js",
+        "/lib/i18n/vi.js"
+      ],
+      "styles": [
+        "/src/shared/ui/font.css",
+        "/src/shared/ui/route-shell.css",
+        "/src/features/secondary/secondary.css"
+      ],
+      "xlsxLoaded": false,
+      "qrLoaded": false,
+      "monolithLoaded": false,
+      "adminCodeLoaded": false
+    },
+    {
+      "route": "/dashboard/history",
+      "role": "employee",
+      "entry": "learner-secondary:/dashboard/learning-history",
+      "initialJsBytes": 144274,
+      "initialCssBytes": 13204,
+      "requestCount": 25,
+      "scripts": [
+        "/src/app/style-loader.js",
+        "/src/app/bootstrap.js",
+        "/src/app/route-registry.js",
+        "/src/features/secondary/learner.js",
+        "/src/features/secondary/data-route.js",
+        "/src/shared/api/client.js",
+        "/src/shared/i18n/runtime.js",
+        "/src/shared/ui/route-shell.js",
+        "/lib/i18n/index.js",
+        "/lib/i18n/vi.js",
+        "/lib/i18n/en.js",
+        "/lib/i18n/kr.js"
+      ],
+      "styles": [
+        "/src/shared/ui/font.css",
+        "/src/shared/ui/route-shell.css",
+        "/src/features/secondary/secondary.css"
+      ],
+      "xlsxLoaded": false,
+      "qrLoaded": false,
+      "monolithLoaded": false,
+      "adminCodeLoaded": false
+    },
+    {
+      "route": "/dashboard/compliance",
+      "role": "employee",
+      "entry": "learner-secondary:/dashboard/compliance",
+      "initialJsBytes": 144274,
       "initialCssBytes": 13204,
       "requestCount": 24,
       "scripts": [
@@ -815,8 +784,39 @@
         "/src/shared/ui/route-shell.js",
         "/src/shared/api/client.js",
         "/lib/i18n/index.js",
-        "/lib/i18n/vi.js",
         "/lib/i18n/kr.js",
+        "/lib/i18n/vi.js",
+        "/lib/i18n/en.js"
+      ],
+      "styles": [
+        "/src/shared/ui/font.css",
+        "/src/shared/ui/route-shell.css",
+        "/src/features/secondary/secondary.css"
+      ],
+      "xlsxLoaded": false,
+      "qrLoaded": false,
+      "monolithLoaded": false,
+      "adminCodeLoaded": false
+    },
+    {
+      "route": "/dashboard/compliance/cycle-a",
+      "role": "employee",
+      "entry": "learner-secondary:/dashboard/compliance/:id",
+      "initialJsBytes": 144274,
+      "initialCssBytes": 13204,
+      "requestCount": 24,
+      "scripts": [
+        "/src/app/style-loader.js",
+        "/src/app/bootstrap.js",
+        "/src/app/route-registry.js",
+        "/src/features/secondary/learner.js",
+        "/src/features/secondary/data-route.js",
+        "/src/shared/i18n/runtime.js",
+        "/src/shared/ui/route-shell.js",
+        "/src/shared/api/client.js",
+        "/lib/i18n/index.js",
+        "/lib/i18n/kr.js",
+        "/lib/i18n/vi.js",
         "/lib/i18n/en.js"
       ],
       "styles": [
@@ -833,7 +833,7 @@
       "route": "/dashboard/skills",
       "role": "employee",
       "entry": "learner-secondary:/dashboard/skills",
-      "initialJsBytes": 143895,
+      "initialJsBytes": 144274,
       "initialCssBytes": 13204,
       "requestCount": 24,
       "scripts": [
@@ -864,7 +864,7 @@
       "route": "/dashboard/development-plan",
       "role": "employee",
       "entry": "learner-secondary:/dashboard/development-plan",
-      "initialJsBytes": 143895,
+      "initialJsBytes": 144274,
       "initialCssBytes": 13204,
       "requestCount": 24,
       "scripts": [
@@ -875,6 +875,68 @@
         "/src/features/secondary/data-route.js",
         "/src/shared/i18n/runtime.js",
         "/src/shared/ui/route-shell.js",
+        "/src/shared/api/client.js",
+        "/lib/i18n/index.js",
+        "/lib/i18n/en.js",
+        "/lib/i18n/vi.js",
+        "/lib/i18n/kr.js"
+      ],
+      "styles": [
+        "/src/shared/ui/font.css",
+        "/src/shared/ui/route-shell.css",
+        "/src/features/secondary/secondary.css"
+      ],
+      "xlsxLoaded": false,
+      "qrLoaded": false,
+      "monolithLoaded": false,
+      "adminCodeLoaded": false
+    },
+    {
+      "route": "/dashboard/development-plan/plan-a",
+      "role": "employee",
+      "entry": "learner-secondary:/dashboard/development-plan/:id",
+      "initialJsBytes": 144274,
+      "initialCssBytes": 13204,
+      "requestCount": 24,
+      "scripts": [
+        "/src/app/style-loader.js",
+        "/src/app/bootstrap.js",
+        "/src/app/route-registry.js",
+        "/src/features/secondary/learner.js",
+        "/src/features/secondary/data-route.js",
+        "/src/shared/i18n/runtime.js",
+        "/src/shared/api/client.js",
+        "/src/shared/ui/route-shell.js",
+        "/lib/i18n/index.js",
+        "/lib/i18n/vi.js",
+        "/lib/i18n/kr.js",
+        "/lib/i18n/en.js"
+      ],
+      "styles": [
+        "/src/shared/ui/font.css",
+        "/src/shared/ui/route-shell.css",
+        "/src/features/secondary/secondary.css"
+      ],
+      "xlsxLoaded": false,
+      "qrLoaded": false,
+      "monolithLoaded": false,
+      "adminCodeLoaded": false
+    },
+    {
+      "route": "/dashboard/notifications",
+      "role": "employee",
+      "entry": "learner-secondary:/dashboard/notifications",
+      "initialJsBytes": 144274,
+      "initialCssBytes": 13204,
+      "requestCount": 24,
+      "scripts": [
+        "/src/app/style-loader.js",
+        "/src/app/bootstrap.js",
+        "/src/app/route-registry.js",
+        "/src/features/secondary/learner.js",
+        "/src/features/secondary/data-route.js",
+        "/src/shared/ui/route-shell.js",
+        "/src/shared/i18n/runtime.js",
         "/src/shared/api/client.js",
         "/lib/i18n/index.js",
         "/lib/i18n/vi.js",
@@ -892,72 +954,10 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/dashboard/development-plan/plan-a",
-      "role": "employee",
-      "entry": "learner-secondary:/dashboard/development-plan/:id",
-      "initialJsBytes": 143895,
-      "initialCssBytes": 13204,
-      "requestCount": 24,
-      "scripts": [
-        "/src/app/style-loader.js",
-        "/src/app/bootstrap.js",
-        "/src/app/route-registry.js",
-        "/src/features/secondary/learner.js",
-        "/src/features/secondary/data-route.js",
-        "/src/shared/ui/route-shell.js",
-        "/src/shared/api/client.js",
-        "/src/shared/i18n/runtime.js",
-        "/lib/i18n/index.js",
-        "/lib/i18n/kr.js",
-        "/lib/i18n/en.js",
-        "/lib/i18n/vi.js"
-      ],
-      "styles": [
-        "/src/shared/ui/font.css",
-        "/src/shared/ui/route-shell.css",
-        "/src/features/secondary/secondary.css"
-      ],
-      "xlsxLoaded": false,
-      "qrLoaded": false,
-      "monolithLoaded": false,
-      "adminCodeLoaded": false
-    },
-    {
-      "route": "/dashboard/notifications",
-      "role": "employee",
-      "entry": "learner-secondary:/dashboard/notifications",
-      "initialJsBytes": 143895,
-      "initialCssBytes": 13204,
-      "requestCount": 24,
-      "scripts": [
-        "/src/app/style-loader.js",
-        "/src/app/bootstrap.js",
-        "/src/app/route-registry.js",
-        "/src/features/secondary/learner.js",
-        "/src/features/secondary/data-route.js",
-        "/src/shared/api/client.js",
-        "/src/shared/i18n/runtime.js",
-        "/src/shared/ui/route-shell.js",
-        "/lib/i18n/index.js",
-        "/lib/i18n/en.js",
-        "/lib/i18n/kr.js",
-        "/lib/i18n/vi.js"
-      ],
-      "styles": [
-        "/src/shared/ui/font.css",
-        "/src/shared/ui/route-shell.css",
-        "/src/features/secondary/secondary.css"
-      ],
-      "xlsxLoaded": false,
-      "qrLoaded": false,
-      "monolithLoaded": false,
-      "adminCodeLoaded": false
-    },
-    {
-      "route": "/admin/assign",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/assign",
-      "initialJsBytes": 146614,
+      "route": "/hr/assign",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/assign",
+      "initialJsBytes": 146936,
       "initialCssBytes": 13204,
       "requestCount": 25,
       "scripts": [
@@ -985,41 +985,10 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin/learning-paths",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/learning-paths",
-      "initialJsBytes": 146614,
-      "initialCssBytes": 13204,
-      "requestCount": 24,
-      "scripts": [
-        "/src/app/style-loader.js",
-        "/src/app/bootstrap.js",
-        "/src/app/route-registry.js",
-        "/src/features/secondary/admin.js",
-        "/src/shared/ui/route-shell.js",
-        "/src/features/secondary/data-route.js",
-        "/src/shared/api/client.js",
-        "/src/shared/i18n/runtime.js",
-        "/lib/i18n/index.js",
-        "/lib/i18n/en.js",
-        "/lib/i18n/vi.js",
-        "/lib/i18n/kr.js"
-      ],
-      "styles": [
-        "/src/shared/ui/font.css",
-        "/src/shared/ui/route-shell.css",
-        "/src/features/secondary/secondary.css"
-      ],
-      "xlsxLoaded": false,
-      "qrLoaded": false,
-      "monolithLoaded": false,
-      "adminCodeLoaded": false
-    },
-    {
-      "route": "/admin/learning-paths/path-a",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/learning-paths/:id",
-      "initialJsBytes": 146614,
+      "route": "/hr/learning-paths",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/learning-paths",
+      "initialJsBytes": 146936,
       "initialCssBytes": 13204,
       "requestCount": 24,
       "scripts": [
@@ -1047,10 +1016,72 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin/sessions",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/sessions",
-      "initialJsBytes": 146614,
+      "route": "/hr/learning-paths/path-a",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/learning-paths/:id",
+      "initialJsBytes": 146936,
+      "initialCssBytes": 13204,
+      "requestCount": 24,
+      "scripts": [
+        "/src/app/style-loader.js",
+        "/src/app/bootstrap.js",
+        "/src/app/route-registry.js",
+        "/src/features/secondary/admin.js",
+        "/src/features/secondary/data-route.js",
+        "/src/shared/ui/route-shell.js",
+        "/src/shared/i18n/runtime.js",
+        "/src/shared/api/client.js",
+        "/lib/i18n/index.js",
+        "/lib/i18n/en.js",
+        "/lib/i18n/vi.js",
+        "/lib/i18n/kr.js"
+      ],
+      "styles": [
+        "/src/shared/ui/font.css",
+        "/src/shared/ui/route-shell.css",
+        "/src/features/secondary/secondary.css"
+      ],
+      "xlsxLoaded": false,
+      "qrLoaded": false,
+      "monolithLoaded": false,
+      "adminCodeLoaded": false
+    },
+    {
+      "route": "/hr/sessions",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/sessions",
+      "initialJsBytes": 146936,
+      "initialCssBytes": 13204,
+      "requestCount": 24,
+      "scripts": [
+        "/src/app/style-loader.js",
+        "/src/app/bootstrap.js",
+        "/src/app/route-registry.js",
+        "/src/features/secondary/admin.js",
+        "/src/features/secondary/data-route.js",
+        "/src/shared/ui/route-shell.js",
+        "/src/shared/i18n/runtime.js",
+        "/src/shared/api/client.js",
+        "/lib/i18n/index.js",
+        "/lib/i18n/en.js",
+        "/lib/i18n/vi.js",
+        "/lib/i18n/kr.js"
+      ],
+      "styles": [
+        "/src/shared/ui/font.css",
+        "/src/shared/ui/route-shell.css",
+        "/src/features/secondary/secondary.css"
+      ],
+      "xlsxLoaded": false,
+      "qrLoaded": false,
+      "monolithLoaded": false,
+      "adminCodeLoaded": false
+    },
+    {
+      "route": "/hr/training-tracking",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/training-tracking",
+      "initialJsBytes": 146936,
       "initialCssBytes": 13204,
       "requestCount": 24,
       "scripts": [
@@ -1078,41 +1109,10 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin/training-tracking",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/training-tracking",
-      "initialJsBytes": 146614,
-      "initialCssBytes": 13204,
-      "requestCount": 24,
-      "scripts": [
-        "/src/app/style-loader.js",
-        "/src/app/bootstrap.js",
-        "/src/app/route-registry.js",
-        "/src/features/secondary/admin.js",
-        "/src/shared/ui/route-shell.js",
-        "/src/features/secondary/data-route.js",
-        "/src/shared/i18n/runtime.js",
-        "/src/shared/api/client.js",
-        "/lib/i18n/index.js",
-        "/lib/i18n/vi.js",
-        "/lib/i18n/en.js",
-        "/lib/i18n/kr.js"
-      ],
-      "styles": [
-        "/src/shared/ui/font.css",
-        "/src/shared/ui/route-shell.css",
-        "/src/features/secondary/secondary.css"
-      ],
-      "xlsxLoaded": false,
-      "qrLoaded": false,
-      "monolithLoaded": false,
-      "adminCodeLoaded": false
-    },
-    {
-      "route": "/admin/cchn-registrations",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/cchn-registrations",
-      "initialJsBytes": 146614,
+      "route": "/hr/cchn-registrations",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/cchn-registrations",
+      "initialJsBytes": 146936,
       "initialCssBytes": 13204,
       "requestCount": 24,
       "scripts": [
@@ -1122,70 +1122,8 @@
         "/src/features/secondary/admin.js",
         "/src/features/secondary/data-route.js",
         "/src/shared/ui/route-shell.js",
-        "/src/shared/api/client.js",
-        "/src/shared/i18n/runtime.js",
-        "/lib/i18n/index.js",
-        "/lib/i18n/vi.js",
-        "/lib/i18n/kr.js",
-        "/lib/i18n/en.js"
-      ],
-      "styles": [
-        "/src/shared/ui/font.css",
-        "/src/shared/ui/route-shell.css",
-        "/src/features/secondary/secondary.css"
-      ],
-      "xlsxLoaded": false,
-      "qrLoaded": false,
-      "monolithLoaded": false,
-      "adminCodeLoaded": false
-    },
-    {
-      "route": "/admin/accounts",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/accounts",
-      "initialJsBytes": 146614,
-      "initialCssBytes": 13204,
-      "requestCount": 24,
-      "scripts": [
-        "/src/app/style-loader.js",
-        "/src/app/bootstrap.js",
-        "/src/app/route-registry.js",
-        "/src/features/secondary/admin.js",
-        "/src/shared/ui/route-shell.js",
-        "/src/features/secondary/data-route.js",
         "/src/shared/i18n/runtime.js",
         "/src/shared/api/client.js",
-        "/lib/i18n/index.js",
-        "/lib/i18n/vi.js",
-        "/lib/i18n/kr.js",
-        "/lib/i18n/en.js"
-      ],
-      "styles": [
-        "/src/shared/ui/font.css",
-        "/src/features/secondary/secondary.css",
-        "/src/shared/ui/route-shell.css"
-      ],
-      "xlsxLoaded": false,
-      "qrLoaded": false,
-      "monolithLoaded": false,
-      "adminCodeLoaded": false
-    },
-    {
-      "route": "/admin/competencies",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/competencies",
-      "initialJsBytes": 146614,
-      "initialCssBytes": 13204,
-      "requestCount": 24,
-      "scripts": [
-        "/src/app/style-loader.js",
-        "/src/app/bootstrap.js",
-        "/src/app/route-registry.js",
-        "/src/features/secondary/admin.js",
-        "/src/features/secondary/data-route.js",
-        "/src/shared/ui/route-shell.js",
-        "/src/shared/api/client.js",
-        "/src/shared/i18n/runtime.js",
         "/lib/i18n/index.js",
         "/lib/i18n/en.js",
         "/lib/i18n/kr.js",
@@ -1202,41 +1140,10 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin/skills-matrix",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/skills-matrix",
-      "initialJsBytes": 146614,
-      "initialCssBytes": 13204,
-      "requestCount": 24,
-      "scripts": [
-        "/src/app/style-loader.js",
-        "/src/app/bootstrap.js",
-        "/src/app/route-registry.js",
-        "/src/features/secondary/admin.js",
-        "/src/shared/ui/route-shell.js",
-        "/src/features/secondary/data-route.js",
-        "/src/shared/api/client.js",
-        "/src/shared/i18n/runtime.js",
-        "/lib/i18n/index.js",
-        "/lib/i18n/en.js",
-        "/lib/i18n/vi.js",
-        "/lib/i18n/kr.js"
-      ],
-      "styles": [
-        "/src/shared/ui/font.css",
-        "/src/shared/ui/route-shell.css",
-        "/src/features/secondary/secondary.css"
-      ],
-      "xlsxLoaded": false,
-      "qrLoaded": false,
-      "monolithLoaded": false,
-      "adminCodeLoaded": false
-    },
-    {
-      "route": "/admin/development-plans",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/development-plans",
-      "initialJsBytes": 146614,
+      "route": "/hr/accounts",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/accounts",
+      "initialJsBytes": 146936,
       "initialCssBytes": 13204,
       "requestCount": 24,
       "scripts": [
@@ -1264,10 +1171,41 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin/retraining",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/retraining",
-      "initialJsBytes": 146614,
+      "route": "/hr/competencies",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/competencies",
+      "initialJsBytes": 146936,
+      "initialCssBytes": 13204,
+      "requestCount": 24,
+      "scripts": [
+        "/src/app/style-loader.js",
+        "/src/app/bootstrap.js",
+        "/src/app/route-registry.js",
+        "/src/features/secondary/admin.js",
+        "/src/shared/ui/route-shell.js",
+        "/src/features/secondary/data-route.js",
+        "/src/shared/api/client.js",
+        "/src/shared/i18n/runtime.js",
+        "/lib/i18n/index.js",
+        "/lib/i18n/en.js",
+        "/lib/i18n/vi.js",
+        "/lib/i18n/kr.js"
+      ],
+      "styles": [
+        "/src/shared/ui/font.css",
+        "/src/shared/ui/route-shell.css",
+        "/src/features/secondary/secondary.css"
+      ],
+      "xlsxLoaded": false,
+      "qrLoaded": false,
+      "monolithLoaded": false,
+      "adminCodeLoaded": false
+    },
+    {
+      "route": "/hr/skills-matrix",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/skills-matrix",
+      "initialJsBytes": 146936,
       "initialCssBytes": 13204,
       "requestCount": 24,
       "scripts": [
@@ -1277,12 +1215,12 @@
         "/src/features/secondary/admin.js",
         "/src/features/secondary/data-route.js",
         "/src/shared/ui/route-shell.js",
-        "/src/shared/api/client.js",
         "/src/shared/i18n/runtime.js",
+        "/src/shared/api/client.js",
         "/lib/i18n/index.js",
-        "/lib/i18n/en.js",
         "/lib/i18n/kr.js",
-        "/lib/i18n/vi.js"
+        "/lib/i18n/vi.js",
+        "/lib/i18n/en.js"
       ],
       "styles": [
         "/src/shared/ui/font.css",
@@ -1295,10 +1233,72 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin/compliance",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/compliance",
-      "initialJsBytes": 146614,
+      "route": "/hr/development-plans",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/development-plans",
+      "initialJsBytes": 146936,
+      "initialCssBytes": 13204,
+      "requestCount": 24,
+      "scripts": [
+        "/src/app/style-loader.js",
+        "/src/app/bootstrap.js",
+        "/src/app/route-registry.js",
+        "/src/features/secondary/admin.js",
+        "/src/features/secondary/data-route.js",
+        "/src/shared/ui/route-shell.js",
+        "/src/shared/api/client.js",
+        "/src/shared/i18n/runtime.js",
+        "/lib/i18n/index.js",
+        "/lib/i18n/en.js",
+        "/lib/i18n/vi.js",
+        "/lib/i18n/kr.js"
+      ],
+      "styles": [
+        "/src/shared/ui/font.css",
+        "/src/shared/ui/route-shell.css",
+        "/src/features/secondary/secondary.css"
+      ],
+      "xlsxLoaded": false,
+      "qrLoaded": false,
+      "monolithLoaded": false,
+      "adminCodeLoaded": false
+    },
+    {
+      "route": "/hr/retraining",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/retraining",
+      "initialJsBytes": 146936,
+      "initialCssBytes": 13204,
+      "requestCount": 24,
+      "scripts": [
+        "/src/app/style-loader.js",
+        "/src/app/bootstrap.js",
+        "/src/app/route-registry.js",
+        "/src/features/secondary/admin.js",
+        "/src/shared/ui/route-shell.js",
+        "/src/features/secondary/data-route.js",
+        "/src/shared/api/client.js",
+        "/src/shared/i18n/runtime.js",
+        "/lib/i18n/index.js",
+        "/lib/i18n/en.js",
+        "/lib/i18n/vi.js",
+        "/lib/i18n/kr.js"
+      ],
+      "styles": [
+        "/src/shared/ui/font.css",
+        "/src/shared/ui/route-shell.css",
+        "/src/features/secondary/secondary.css"
+      ],
+      "xlsxLoaded": false,
+      "qrLoaded": false,
+      "monolithLoaded": false,
+      "adminCodeLoaded": false
+    },
+    {
+      "route": "/hr/compliance",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/compliance",
+      "initialJsBytes": 146936,
       "initialCssBytes": 13204,
       "requestCount": 26,
       "scripts": [
@@ -1326,10 +1326,10 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin/compliance/cycles/cycle-a",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/compliance/cycles/:id",
-      "initialJsBytes": 146614,
+      "route": "/hr/compliance/cycles/cycle-a",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/compliance/cycles/:id",
+      "initialJsBytes": 146936,
       "initialCssBytes": 13204,
       "requestCount": 24,
       "scripts": [
@@ -1357,10 +1357,10 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin/certificates",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/certificates",
-      "initialJsBytes": 146614,
+      "route": "/hr/certificates",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/certificates",
+      "initialJsBytes": 146936,
       "initialCssBytes": 13204,
       "requestCount": 24,
       "scripts": [
@@ -1370,11 +1370,11 @@
         "/src/features/secondary/admin.js",
         "/src/features/secondary/data-route.js",
         "/src/shared/ui/route-shell.js",
-        "/src/shared/i18n/runtime.js",
         "/src/shared/api/client.js",
+        "/src/shared/i18n/runtime.js",
         "/lib/i18n/index.js",
-        "/lib/i18n/vi.js",
         "/lib/i18n/en.js",
+        "/lib/i18n/vi.js",
         "/lib/i18n/kr.js"
       ],
       "styles": [
@@ -1388,10 +1388,10 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin/certifications",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/certificates",
-      "initialJsBytes": 146614,
+      "route": "/hr/certifications",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/certificates",
+      "initialJsBytes": 146936,
       "initialCssBytes": 13204,
       "requestCount": 25,
       "scripts": [
@@ -1399,13 +1399,13 @@
         "/src/app/bootstrap.js",
         "/src/app/route-registry.js",
         "/src/features/secondary/admin.js",
-        "/src/shared/ui/route-shell.js",
         "/src/features/secondary/data-route.js",
-        "/src/shared/i18n/runtime.js",
+        "/src/shared/ui/route-shell.js",
         "/src/shared/api/client.js",
+        "/src/shared/i18n/runtime.js",
         "/lib/i18n/index.js",
-        "/lib/i18n/en.js",
         "/lib/i18n/vi.js",
+        "/lib/i18n/en.js",
         "/lib/i18n/kr.js"
       ],
       "styles": [
@@ -1419,10 +1419,10 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin/gallery",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/gallery",
-      "initialJsBytes": 146614,
+      "route": "/hr/gallery",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/gallery",
+      "initialJsBytes": 146936,
       "initialCssBytes": 13204,
       "requestCount": 23,
       "scripts": [
@@ -1432,17 +1432,17 @@
         "/src/features/secondary/admin.js",
         "/src/features/secondary/data-route.js",
         "/src/shared/ui/route-shell.js",
-        "/src/shared/api/client.js",
         "/src/shared/i18n/runtime.js",
+        "/src/shared/api/client.js",
         "/lib/i18n/index.js",
-        "/lib/i18n/en.js",
         "/lib/i18n/vi.js",
+        "/lib/i18n/en.js",
         "/lib/i18n/kr.js"
       ],
       "styles": [
         "/src/shared/ui/font.css",
-        "/src/shared/ui/route-shell.css",
-        "/src/features/secondary/secondary.css"
+        "/src/features/secondary/secondary.css",
+        "/src/shared/ui/route-shell.css"
       ],
       "xlsxLoaded": false,
       "qrLoaded": false,
@@ -1450,10 +1450,10 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin/notifications",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/notifications",
-      "initialJsBytes": 146614,
+      "route": "/hr/notifications",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/notifications",
+      "initialJsBytes": 146936,
       "initialCssBytes": 13204,
       "requestCount": 24,
       "scripts": [
@@ -1481,10 +1481,10 @@
       "adminCodeLoaded": false
     },
     {
-      "route": "/admin/audit-log",
-      "role": "admin",
-      "entry": "admin-secondary:/admin/audit-log",
-      "initialJsBytes": 146614,
+      "route": "/hr/audit-log",
+      "role": "hr",
+      "entry": "admin-secondary:/hr/audit-log",
+      "initialJsBytes": 146936,
       "initialCssBytes": 13204,
       "requestCount": 24,
       "scripts": [
@@ -1492,13 +1492,13 @@
         "/src/app/bootstrap.js",
         "/src/app/route-registry.js",
         "/src/features/secondary/admin.js",
-        "/src/features/secondary/data-route.js",
         "/src/shared/ui/route-shell.js",
+        "/src/features/secondary/data-route.js",
         "/src/shared/api/client.js",
         "/src/shared/i18n/runtime.js",
         "/lib/i18n/index.js",
-        "/lib/i18n/en.js",
         "/lib/i18n/vi.js",
+        "/lib/i18n/en.js",
         "/lib/i18n/kr.js"
       ],
       "styles": [
