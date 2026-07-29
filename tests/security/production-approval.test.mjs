@@ -75,6 +75,28 @@ function fixture({ alertsVerified = true } = {}) {
     cleanResetAllowlist: { tableCount: PURGE_TABLES.length, sha256: cleanResetAllowlistSha256, forbiddenSchemasPresent: false },
     pendingMigrations: { expected: 8, applied: 8, status: "pass" },
   });
+  const pendingMigrations = [
+    "20260727172321_reconcile_legacy_department_schema.sql",
+    "20260728013513_auth_rotation_mfa_hardening.sql",
+    "20260728030009_remove_mfa_2fa.sql",
+    "20260728031000_employee_search_cursor.sql",
+    "20260728032000_background_export_jobs.sql",
+    "20260728103000_reporting_rpc.sql",
+    "20260728104000_export_operations.sql",
+    "20260729022415_consolidate_roles_to_hr_and_employee.sql",
+  ];
+  write(root, "docs/audit-remediation/evidence/PRODUCTION_MIGRATION_HISTORY_RECONCILIATION.json", {
+    schemaVersion: 1,
+    status: "pass",
+    projectRef: "mooqdtiedfamnlpitqtq",
+    approvedBaselineMapping: { status: "approved" },
+    schemaDiff: { status: "approved" },
+    disposableRehearsal: { status: "pass" },
+    repairEvidenceChecksum: "a".repeat(64),
+    pendingProductionMigrations: pendingMigrations,
+  });
+  write(root, "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_OWNER_APPROVAL.json", { decision: "APPROVED" });
+  write(root, "docs/audit-remediation/evidence/TWO_ROLE_AUTHORIZATION_CONTRACT.json", { canonicalRoles: ["hr", "employee"] });
   git(root, "init", "-q");
   git(root, "config", "user.name", "Verifier Test");
   git(root, "config", "user.email", "verifier@example.invalid");
@@ -108,6 +130,12 @@ function fixture({ alertsVerified = true } = {}) {
     canonicalStagingEvidenceSha256: sha256(readFileSync(join(root, "docs/audit-remediation/evidence/CANONICAL_STAGING_RELEASE.json"))), build: { sha256: sha256(buildLine), files: 1 },
     canonicalStagingVersion: canonical.versionId, productionBackupId: contract.KIS_PRODUCTION_BACKUP_ID = "LOGICAL-TEST-BACKUP", productionApprovalId: contract.KIS_PRODUCTION_APPROVAL_ID,
     qualityGateEvidenceSha256: sha256(readFileSync(gatesPath)),
+    cleanResetAllowlistSha256,
+    cleanResetOwnerApprovalSha256: sha256(readFileSync(join(root, "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_OWNER_APPROVAL.json"))),
+    pendingMigrationAllowlist: pendingMigrations,
+    rollbackWorkerVersion: "version-current",
+    backupEvidenceSha256: sha256(readFileSync(join(root, "docs/audit-remediation/evidence/PRODUCTION_BACKUP_RESTORE.json"))),
+    twoRoleContractSha256: sha256(readFileSync(join(root, "docs/audit-remediation/evidence/TWO_ROLE_AUTHORIZATION_CONTRACT.json"))),
   })}\n`);
   contract.KIS_PRODUCTION_RELEASE_MANIFEST = manifestPath;
   contract.KIS_PRODUCTION_GATE_EVIDENCE = gatesPath;
