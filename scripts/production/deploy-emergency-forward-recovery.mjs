@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { loadSecureRuntime, tokenConsumptionFile } from "./runtime-contract.mjs";
@@ -145,9 +145,13 @@ try {
 
   const tempDirectory = mkdtempSync(join(tmpdir(), "kisvn-emergency-recovery-"));
   const secretsPath = join(tempDirectory, "worker-secrets.json");
-  writeFileSync(secretsPath, `${JSON.stringify({ ...loaded.secrets, SUPABASE_URL: contract.KIS_PRODUCTION_SUPABASE_URL })}\n`, { mode: 0o600 });
-  chmodSync(secretsPath, 0o600);
-  run(resolve(root, "node_modules/.bin/wrangler"), ["deploy", "--name", contract.KIS_PRODUCTION_WORKER_NAME, "--secrets-file", secretsPath, "--message", `Emergency report recovery ${plan.head.slice(0, 12)}`]);
+  try {
+    writeFileSync(secretsPath, `${JSON.stringify({ ...loaded.secrets, SUPABASE_URL: contract.KIS_PRODUCTION_SUPABASE_URL })}\n`, { mode: 0o600 });
+    chmodSync(secretsPath, 0o600);
+    run(resolve(root, "node_modules/.bin/wrangler"), ["deploy", "--name", contract.KIS_PRODUCTION_WORKER_NAME, "--secrets-file", secretsPath, "--message", `Emergency report recovery ${plan.head.slice(0, 12)}`]);
+  } finally {
+    rmSync(tempDirectory, { recursive: true, force: true });
+  }
   const deployed = JSON.parse(command(resolve(root, "node_modules/.bin/wrangler"), ["deployments", "status", "--name", contract.KIS_PRODUCTION_WORKER_NAME, "--json"]));
   console.log(JSON.stringify({ status: "EMERGENCY_FORWARD_RECOVERY_DEPLOYED", deploymentId: deployed.id, versionId: deployed.versions?.[0]?.version_id, reportRpc: "pass" }, null, 2));
 } catch (error) {
