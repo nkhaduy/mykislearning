@@ -21,6 +21,12 @@ test("PERF-EMP-001: employee list input is bounded and never creates an empty wi
   assert.equal(noisy.pageSize, 10);
 });
 
+test("PERF-EMP-001: legacy employee search keeps profiles with null notes", () => {
+  const source = readFileSync(new URL("../../worker/routes/employees.js", import.meta.url), "utf8");
+  assert.match(source, /notes\.is\.null,notes\.not\.ilike\.\*"soft_deleted":true\*/);
+  assert.match(source, /notes\.is\.null,notes\.not\.ilike\.\*"is_demo":true\*/);
+});
+
 test("PERF-EMP-002: employee cursors are requester- and filter-bound", async () => {
   const token = await createPaginationCursor(env, {
     requesterId: "hr-1",

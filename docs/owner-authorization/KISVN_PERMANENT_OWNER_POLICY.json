@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "policyId": "KISVN-PERMANENT-OWNER-POLICY-20260729",
+  "owner": "Nguyễn Khả Duy",
+  "status": "APPROVED",
+  "effectiveFrom": "2026-07-29T15:20:00+07:00",
+  "expiration": "NONE",
+  "revocation": "only by a newer owner policy explicitly marked REVOKED or SUPERSEDED",
+  "scopeStatement": "KISVN source code, CI, Cloudflare production resources, Supabase production resources, migrations, database business data, releases, deployments, rollbacks and production incident recovery",
+  "production": {
+    "projectPath": "/Users/khaduy/Documents/KISVN",
+    "domain": "https://kislms.site",
+    "cloudflareWorker": "mykis-learning",
+    "supabaseProject": "repository-verified-production-project",
+    "canonicalRoles": [
+      "hr",
+      "employee"
+    ]
+  },
+  "authorization": {
+    "ownerReapprovalRequiredPerCommit": false,
+    "ownerReapprovalRequiredPerRelease": false,
+    "providerAuthenticationAnd2FARequiredWhenEnforced": true,
+    "protectedPipelineRequired": true,
+    "allowedOperations": [
+      "source-code-and-ci",
+      "branch-commit-push",
+      "build-test-browser-automation",
+      "cloudflare-worker-resources-secrets-deployments-rollbacks",
+      "supabase-schema-migrations-functions-rls-grants-auth-users",
+      "backup-restore-test-production-data-remediation",
+      "feature-flags-production-deployment-rollback-forward-fix",
+      "smoke-security-alert-audit-evidence-and-incident-recovery"
+    ]
+  },
+  "releaseIntegrity": {
+    "freshRuntimeRequired": true,
+    "freshManifestRequired": true,
+    "bindings": [
+      "exact-git-commit-and-tree",
+      "exact-build-checksum",
+      "exact-migration-allowlist-and-live-state",
+      "exact-production-target",
+      "exact-worker-bindings",
+      "rollback-worker-version",
+      "validation-evidence",
+      "owner-policy-checksum"
+    ]
+  },
+  "maintenance": {
+    "timezone": "Asia/Ho_Chi_Minh",
+    "defaultDurationMinutes": 180,
+    "defaultStartDelayMinutes": 5,
+    "activeOperationExtensionMinutes": 120,
+    "mutationRequiresActiveWindow": true,
+    "auditRequired": true
+  },
+  "safety": {
+    "exactTargetVerification": true,
+    "backupBeforeDestructiveDatabaseMutation": true,
+    "restoreRehearsalForMajorMigration": true,
+    "releaseManifest": true,
+    "migrationDryRun": true,
+    "secretScanner": true,
+    "roleRlsSecurityTests": true,
+    "postDeploySmoke": true,
+    "workerRollbackVersion": true,
+    "databaseRecoveryPlan": true,
+    "alertDelivery": true,
+    "auditEvidence": true,
+    "secretsInRepositoryLogsOrReports": false
+  }
+}
+

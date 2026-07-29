@@ -6,12 +6,13 @@ import { fileURLToPath } from "node:url";
 import { loadSecureRuntime, sha256, tokenConsumptionFile } from "./runtime-contract.mjs";
 import { verifyProductionApproval } from "./verify-production-approval.mjs";
 
-const root = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+const root = resolve(process.env.KIS_PRODUCTION_RELEASE_SOURCE_ROOT || fileURLToPath(new URL("../..", import.meta.url)));
 const apply = process.argv.includes("--apply");
 const loaded = loadSecureRuntime();
 let target;
 try {
   target = verifyProductionApproval(loaded.contract, {
+    root,
     runtimeFile: loaded.path,
     requireActiveWindow: true,
     requireMigrationReconciliation: true,

@@ -1,11 +1,12 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { basename, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   DEFAULT_GATE_EVIDENCE_FILE,
   DEFAULT_MANIFEST_FILE,
   DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE,
+  DEFAULT_OWNER_POLICY_FILE,
   loadSecureRuntime,
   sha256,
   tokenConsumptionFile,
@@ -24,7 +25,7 @@ const requiredSecretNames = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "SUPABASE_URL",
 ];
-const requiredPendingMigrations = [
+const requiredMigrationNames = [
   "20260727172321_reconcile_legacy_department_schema.sql",
   "20260728013513_auth_rotation_mfa_hardening.sql",
   "20260728030009_remove_mfa_2fa.sql",
@@ -33,6 +34,7 @@ const requiredPendingMigrations = [
   "20260728103000_reporting_rpc.sql",
   "20260728104000_export_operations.sql",
   "20260729022415_consolidate_roles_to_hr_and_employee.sql",
+  "20260729121500_fix_reporting_rpc_enrollment_compatibility.sql",
 ];
 
 export class ProductionApprovalError extends Error {
@@ -95,6 +97,31 @@ function parseWindow(value, now, requireActive, blockers) {
   if (end <= now) blockers.push("maintenance window has expired");
   if (requireActive && (now < start || now >= end)) blockers.push("production deploy is outside the approved maintenance window");
   return { start: start.toISOString(), end: end.toISOString(), state: now < start ? "scheduled" : now < end ? "active" : "expired" };
+}
+
+function verifyOwnerPolicy(root, input, blockers) {
+  const policyPath = input.KIS_PRODUCTION_OWNER_POLICY_FILE || DEFAULT_OWNER_POLICY_FILE;
+  let policy;
+  try {
+    policy = JSON.parse(readFileSync(resolve(root, policyPath), "utf8"));
+  } catch {
+    blockers.push("permanent owner policy is missing or invalid");
+    return null;
+  }
+  const absolutePolicyPath = resolve(root, policyPath);
+  const policyBytes = readFileSync(absolutePolicyPath);
+  const policySha256 = sha256(policyBytes);
+  const checksumPath = resolve(dirname(absolutePolicyPath), "KISVN_PERMANENT_OWNER_POLICY.sha256");
+  let sidecarChecksum = "";
+  try { sidecarChecksum = readFileSync(checksumPath, "utf8").trim().split(/\s+/)[0]; } catch { /* checked below */ }
+  if (policy.schemaVersion !== 1 || policy.status !== "APPROVED" || policy.owner !== "Nguyễn Khả Duy" || policy.expiration !== "NONE") {
+    blockers.push("permanent owner policy is not an active APPROVED non-expiring policy");
+  }
+  if (policy.effectiveFrom && new Date(policy.effectiveFrom) > new Date()) blockers.push("permanent owner policy is not yet effective");
+  if (sidecarChecksum !== policySha256) blockers.push("permanent owner policy checksum sidecar is stale or missing");
+  if (String(input.KIS_PRODUCTION_OWNER_POLICY_SHA256 || "") !== policySha256) blockers.push("runtime owner-policy checksum does not match the policy file");
+  if (policy.scopeStatement !== "KISVN source code, CI, Cloudflare production resources, Supabase production resources, migrations, database business data, releases, deployments, rollbacks and production incident recovery") blockers.push("permanent owner policy scope is incomplete");
+  return { policyId: policy.policyId, sha256: policySha256, path: policyPath };
 }
 
 function verifyCleanResetReadiness(root, input, blockers, options) {
@@ -164,7 +191,7 @@ function liveDeployment(root, workerName) {
 
 function verifyMigrationReconciliation(root, input, head, blockers, options) {
   if (!options.requireMigrationReconciliation) return null;
-  const evidencePath = options.migrationReconciliationEvidence || DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE;
+  const evidencePath = options.migrationReconciliationEvidence || input.KIS_PRODUCTION_MIGRATION_RECONCILIATION_EVIDENCE || DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE;
   let evidence;
   try {
     evidence = JSON.parse(readFileSync(resolve(root, evidencePath), "utf8"));
@@ -183,7 +210,12 @@ function verifyMigrationReconciliation(root, input, head, blockers, options) {
   if (evidence.disposableRehearsal?.status !== "pass") blockers.push("disposable migration reconciliation rehearsal did not pass");
   if (!/^[a-f0-9]{64}$/.test(String(evidence.repairEvidenceChecksum || ""))) blockers.push("migration repair evidence checksum is missing or invalid");
   const allowlist = Array.isArray(evidence.pendingProductionMigrations) ? [...new Set(evidence.pendingProductionMigrations)] : [];
-  if (JSON.stringify(allowlist.sort()) !== JSON.stringify([...requiredPendingMigrations].sort())) blockers.push("pending production migration allowlist must contain exactly the approved 7 existing migrations plus the two-role migration");
+  const releaseMigrations = command(root, "git", ["ls-files", "supabase/migrations/*.sql"]).split("\n").filter(Boolean).map((path) => basename(path));
+  const requiredPresent = requiredMigrationNames.filter((name) => releaseMigrations.includes(name));
+  if (requiredPresent.length === 0) blockers.push("release source has no migration for the production reconciliation contract");
+  const applied = Array.isArray(evidence.appliedProductionMigrations) ? [...new Set(evidence.appliedProductionMigrations)] : [];
+  const represented = new Set([...allowlist, ...applied]);
+  for (const name of requiredPresent) if (!represented.has(name)) blockers.push(`migration reconciliation does not account for ${name}`);
 
   let live = options.providerMigrationReconciliation;
   if (!live) {
@@ -199,7 +231,7 @@ function verifyMigrationReconciliation(root, input, head, blockers, options) {
     }
   }
   if (live.remoteOnlyCount !== 0) blockers.push(`live Supabase migration history still has ${live.remoteOnlyCount} unexplained remote-only version(s)`);
-  if (JSON.stringify([...live.pendingProductionMigrations].sort()) !== JSON.stringify([...allowlist].sort())) blockers.push("live pending migrations do not match the approved allowlist");
+  if (JSON.stringify([...live.pendingProductionMigrations].sort()) !== JSON.stringify([...allowlist].sort())) blockers.push("live pending migrations do not match the reconciled evidence");
   if (live.dryRunStatus !== "pass") blockers.push("production migration dry-run did not pass");
   return { status: evidence.status, evidenceSha256: sha256(readFileSync(resolve(root, evidencePath))), remoteOnlyCount: live.remoteOnlyCount, pendingProductionMigrations: live.pendingProductionMigrations, dryRunStatus: live.dryRunStatus };
 }
@@ -214,6 +246,7 @@ export function verifyProductionApproval(input, options = {}) {
     "KIS_PRODUCTION_TARGET_ALLOWLIST", "KIS_PRODUCTION_ONE_TIME_APPROVAL_TOKEN", "KIS_PRODUCTION_APPROVAL_ID",
     "KIS_PRODUCTION_APPROVED_BY", "KIS_PRODUCTION_CHANGE_OWNER", "KIS_PRODUCTION_ROLLBACK_OWNER",
     "KIS_CANONICAL_STAGING_VERSION", "KIS_RELEASE_COMMIT_SHA",
+    "KIS_PRODUCTION_OWNER_POLICY_SHA256",
   ];
   for (const name of required) if (!String(input[name] || "").trim()) blockers.push(`${name} is missing`);
   if (input.KIS_ALLOW_PRODUCTION_MUTATION !== "true" || input.APP_ENV !== "production" || input.KIS_ALLOW_PRODUCTION_DEPLOYMENT !== "true") {
@@ -259,6 +292,7 @@ export function verifyProductionApproval(input, options = {}) {
   if (!noMfa.includes(`- Confirmation: ${exactRiskConfirmation}`)) blockers.push("No-MFA residual-risk confirmation is incomplete");
 
   const now = options.now ? new Date(options.now) : new Date();
+  const ownerPolicy = verifyOwnerPolicy(root, input, blockers);
   const maintenanceWindow = parseWindow(input.KIS_PRODUCTION_MAINTENANCE_WINDOW, now, Boolean(options.requireActiveWindow), blockers);
   const staging = readJson(root, "docs/audit-remediation/evidence/CANONICAL_STAGING_RELEASE.json", blockers, "canonical staging release");
   if (staging) {
@@ -266,7 +300,8 @@ export function verifyProductionApproval(input, options = {}) {
     if (staging.supabaseProjectRef === projectRef || staging.queueName === queueName || staging.r2BucketName === r2Name) blockers.push("production target reuses a staging resource");
   }
 
-  const target = readJson(root, "docs/audit-remediation/evidence/PRODUCTION_TARGET_DISCOVERY.json", blockers, "production target discovery");
+  const targetEvidencePath = input.KIS_PRODUCTION_TARGET_EVIDENCE || "docs/audit-remediation/evidence/PRODUCTION_TARGET_DISCOVERY.json";
+  const target = readJson(root, targetEvidencePath, blockers, "production target discovery");
   if (target) {
     if (target.cloudflare?.accountId !== accountId || target.cloudflare?.workerName !== workerName || target.cloudflare?.hostname !== hostname || !target.cloudflare?.customDomainVerified) blockers.push("Cloudflare production identity does not match discovery evidence");
     if (target.supabase?.projectRef !== projectRef || target.supabase?.status !== "ACTIVE_HEALTHY" || !Array.isArray(target.supabase?.evidence) || target.supabase.evidence.length < 2) blockers.push("Supabase production identity is not independently verified");
@@ -345,8 +380,12 @@ export function verifyProductionApproval(input, options = {}) {
     } catch { blockers.push("release build artifact is missing"); }
     if (gates && manifest.qualityGateEvidenceSha256 !== sha256(readFileSync(gatePath))) blockers.push("release manifest quality-gate checksum is stale");
     if (manifest.canonicalStagingVersion !== input.KIS_CANONICAL_STAGING_VERSION || manifest.productionBackupId !== input.KIS_PRODUCTION_BACKUP_ID || manifest.productionApprovalId !== input.KIS_PRODUCTION_APPROVAL_ID) blockers.push("release manifest is not bound to the approved staging/backup/approval package");
+    if (ownerPolicy && (manifest.ownerPolicySha256 !== ownerPolicy.sha256 || manifest.ownerPolicyId !== ownerPolicy.policyId)) blockers.push("release manifest owner-policy binding is stale");
     if (staging) {
-      const approvedPostStagingMigrationNames = new Set(["20260729022415_consolidate_roles_to_hr_and_employee.sql"]);
+      const approvedPostStagingMigrationNames = new Set([
+        "20260729022415_consolidate_roles_to_hr_and_employee.sql",
+        "20260729121500_fix_reporting_rpc_enrollment_compatibility.sql",
+      ]);
       const postStagingMigrationFiles = migrationFiles.filter((path) => approvedPostStagingMigrationNames.has(basename(path)));
       const stagingMigrationLines = migrationFiles
         .filter((path) => !approvedPostStagingMigrationNames.has(basename(path)))
@@ -366,7 +405,8 @@ export function verifyProductionApproval(input, options = {}) {
       if (options.runtimeFile && manifest.productionRuntimeSha256 !== sha256(readFileSync(resolve(options.runtimeFile)))) blockers.push("release manifest production runtime checksum is stale");
     } catch { blockers.push("release manifest required evidence checksum is missing"); }
     try {
-      const reconciliation = JSON.parse(readFileSync(resolve(root, DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE), "utf8"));
+      const reconciliationPath = input.KIS_PRODUCTION_MIGRATION_RECONCILIATION_EVIDENCE || DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE;
+      const reconciliation = JSON.parse(readFileSync(resolve(root, reconciliationPath), "utf8"));
       if (JSON.stringify(manifest.pendingMigrationAllowlist || []) !== JSON.stringify(reconciliation.pendingProductionMigrations || [])) blockers.push("release manifest pending migration allowlist is stale");
       if (manifest.rollbackWorkerVersion !== target?.cloudflare?.currentVersionId) blockers.push("release manifest rollback Worker version is stale");
     } catch { blockers.push("release manifest migration reconciliation binding is missing"); }
@@ -405,6 +445,7 @@ export function verifyProductionApproval(input, options = {}) {
     maintenanceWindow,
     previousProductionVersionId: deployment.versionId,
     releaseManifest: manifest ? basename(manifestPath) : null,
+    ownerPolicy,
     migrationReconciliation,
     cleanResetReadiness,
   };

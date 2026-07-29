@@ -6,6 +6,7 @@ export const DEFAULT_RUNTIME_FILE = "/tmp/kisvn-production-runtime.json";
 export const DEFAULT_MANIFEST_FILE = "/tmp/kisvn-production-release-manifest.json";
 export const DEFAULT_GATE_EVIDENCE_FILE = "/tmp/kisvn-production-quality-gates.json";
 export const DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE = "docs/audit-remediation/evidence/PRODUCTION_MIGRATION_HISTORY_RECONCILIATION.json";
+export const DEFAULT_OWNER_POLICY_FILE = "docs/owner-authorization/KISVN_PERMANENT_OWNER_POLICY.json";
 
 export function sha256(value) {
   return createHash("sha256").update(value).digest("hex");

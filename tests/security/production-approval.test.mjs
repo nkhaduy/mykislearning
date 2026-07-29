@@ -18,6 +18,8 @@ const git = (root, ...args) => execFileSync("git", args, { cwd: root, encoding: 
 
 function fixture({ alertsVerified = true } = {}) {
   const root = mkdtempSync(join(tmpdir(), "kis-production-verifier-test-"));
+  const ownerPolicyPath = new URL("../../docs/owner-authorization/KISVN_PERMANENT_OWNER_POLICY.json", import.meta.url).pathname;
+  const ownerPolicySha256 = sha256(readFileSync(ownerPolicyPath));
   const canonical = {
     versionId: "1c8d06e9-393e-4eff-917c-5761a23ddc89",
     workerName: "mykis-learning-staging",
@@ -118,6 +120,8 @@ function fixture({ alertsVerified = true } = {}) {
     KIS_PRODUCTION_MAINTENANCE_WINDOW: "2026-07-28T20:00:00+07:00/2026-07-28T23:00:00+07:00",
     KIS_PRODUCTION_CLEAN_RESET_ALLOWLIST_APPROVED: "true",
     KIS_PRODUCTION_CLEAN_RESET_ALLOWLIST_SHA256: cleanResetAllowlistSha256,
+    KIS_PRODUCTION_OWNER_POLICY_FILE: ownerPolicyPath,
+    KIS_PRODUCTION_OWNER_POLICY_SHA256: ownerPolicySha256,
     KIS_CANONICAL_STAGING_VERSION: canonical.versionId, KIS_RELEASE_COMMIT_SHA: head,
   };
   const gatesPath = join(root, "quality-gates.json");
@@ -129,6 +133,7 @@ function fixture({ alertsVerified = true } = {}) {
     wranglerSha256: sha256(readFileSync(join(root, "wrangler.jsonc"))), stagingReportSha256: sha256(readFileSync(join(root, "docs/audit-remediation/STAGING_OPERATIONAL_READINESS_REPORT.md"))),
     canonicalStagingEvidenceSha256: sha256(readFileSync(join(root, "docs/audit-remediation/evidence/CANONICAL_STAGING_RELEASE.json"))), build: { sha256: sha256(buildLine), files: 1 },
     canonicalStagingVersion: canonical.versionId, productionBackupId: contract.KIS_PRODUCTION_BACKUP_ID = "LOGICAL-TEST-BACKUP", productionApprovalId: contract.KIS_PRODUCTION_APPROVAL_ID,
+    ownerPolicyId: "KISVN-PERMANENT-OWNER-POLICY-20260729", ownerPolicySha256,
     qualityGateEvidenceSha256: sha256(readFileSync(gatesPath)),
     cleanResetAllowlistSha256,
     approvedPostStagingMigrations: [],

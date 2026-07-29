@@ -126,8 +126,8 @@ export function employeeSearchOnlineEnabled(env = {}) {
 async function legacyProfileSearch(supabase, params, cursorPosition) {
   let query = supabase.from("profiles")
     .select("id, employee_code, full_name, email, role, department, position, account_status, location, manager_name, updated_at")
-    .not("notes", "ilike", '%"soft_deleted":true%')
-    .not("notes", "ilike", '%"is_demo":true%')
+    .or('notes.is.null,notes.not.ilike.*"soft_deleted":true*')
+    .or('notes.is.null,notes.not.ilike.*"is_demo":true*')
     .order("full_name", { ascending: params.direction !== "desc" })
     .order("id", { ascending: params.direction !== "desc" })
     .limit(params.pageSize + 1);

@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_GATE_EVIDENCE_FILE, loadSecureRuntime } from "./runtime-contract.mjs";
 
-const root = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+const root = resolve(process.env.KIS_PRODUCTION_RELEASE_SOURCE_ROOT || fileURLToPath(new URL("../..", import.meta.url)));
 const { contract } = loadSecureRuntime();
 const evidencePath = resolve(contract.KIS_PRODUCTION_GATE_EVIDENCE || DEFAULT_GATE_EVIDENCE_FILE);
 const releaseCommitSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();

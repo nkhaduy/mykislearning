@@ -5,15 +5,21 @@ import { fileURLToPath } from "node:url";
 import {
   DEFAULT_GATE_EVIDENCE_FILE,
   DEFAULT_MANIFEST_FILE,
+  DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE,
+  DEFAULT_OWNER_POLICY_FILE,
   loadSecureRuntime,
   sha256,
 } from "./runtime-contract.mjs";
 import { PURGE_TABLES } from "./clean-reset/production-clean-reset-common.mjs";
 
-const root = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+const root = resolve(process.env.KIS_PRODUCTION_RELEASE_SOURCE_ROOT || fileURLToPath(new URL("../..", import.meta.url)));
 const runtimeFile = process.env.KIS_PRODUCTION_RUNTIME_FILE;
 const loaded = loadSecureRuntime(runtimeFile);
 const { contract } = loaded;
+const ownerPolicyPath = contract.KIS_PRODUCTION_OWNER_POLICY_FILE
+  ? resolve(contract.KIS_PRODUCTION_OWNER_POLICY_FILE)
+  : resolve(fileURLToPath(new URL("../..", import.meta.url)), DEFAULT_OWNER_POLICY_FILE);
+const ownerPolicy = JSON.parse(readFileSync(ownerPolicyPath, "utf8"));
 const manifestPath = resolve(contract.KIS_PRODUCTION_RELEASE_MANIFEST || DEFAULT_MANIFEST_FILE);
 const gateEvidencePath = resolve(contract.KIS_PRODUCTION_GATE_EVIDENCE || DEFAULT_GATE_EVIDENCE_FILE);
 
@@ -50,7 +56,10 @@ if (gateEvidence.status !== "pass" || gateEvidence.releaseCommitSha !== releaseC
 const canonicalStaging = JSON.parse(readFileSync(resolve(root, "docs/audit-remediation/evidence/CANONICAL_STAGING_RELEASE.json"), "utf8"));
 const packageLockSha256 = fileSha256("package-lock.json");
 const migrationsSha256 = sha256(migrationLines.join(""));
-const approvedPostStagingMigrationNames = new Set(["20260729022415_consolidate_roles_to_hr_and_employee.sql"]);
+const approvedPostStagingMigrationNames = new Set([
+  "20260729022415_consolidate_roles_to_hr_and_employee.sql",
+  "20260729121500_fix_reporting_rpc_enrollment_compatibility.sql",
+]);
 const postStagingMigrationFiles = migrationFiles.filter((path) => approvedPostStagingMigrationNames.has(basename(path)));
 const stagingMigrationLines = migrationFiles
   .filter((path) => !approvedPostStagingMigrationNames.has(basename(path)))
@@ -58,8 +67,10 @@ const stagingMigrationLines = migrationFiles
 if (canonicalStaging.packageLockSha256 !== packageLockSha256 || canonicalStaging.migrationListSha256 !== sha256(stagingMigrationLines.join(""))) {
   throw new Error("release lockfile or migrations do not match the canonical staging rehearsal");
 }
-const target = JSON.parse(readFileSync(resolve(root, "docs/audit-remediation/evidence/PRODUCTION_TARGET_DISCOVERY.json"), "utf8"));
-const reconciliation = JSON.parse(readFileSync(resolve(root, "docs/audit-remediation/evidence/PRODUCTION_MIGRATION_HISTORY_RECONCILIATION.json"), "utf8"));
+const targetPath = resolve(root, contract.KIS_PRODUCTION_TARGET_EVIDENCE || "docs/audit-remediation/evidence/PRODUCTION_TARGET_DISCOVERY.json");
+const reconciliationPath = resolve(root, contract.KIS_PRODUCTION_MIGRATION_RECONCILIATION_EVIDENCE || DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE);
+const target = JSON.parse(readFileSync(targetPath, "utf8"));
+const reconciliation = JSON.parse(readFileSync(reconciliationPath, "utf8"));
 const runtimeSha256 = sha256(readFileSync(loaded.path));
 const allowlistSha256 = sha256(JSON.stringify([...PURGE_TABLES].sort()));
 const ownerApprovalPath = "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_OWNER_APPROVAL.json";
@@ -68,7 +79,7 @@ const backupEvidencePath = "docs/audit-remediation/evidence/PRODUCTION_BACKUP_RE
 const testEvidencePaths = [
   "docs/audit-remediation/evidence/CLEAN_ROOM_ROLE_AUDIT.json",
   "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_REHEARSAL.json",
-  "docs/audit-remediation/evidence/PRODUCTION_MIGRATION_HISTORY_RECONCILIATION.json",
+  reconciliationPath,
   twoRoleContractPath,
 ];
 const testEvidenceSha256 = sha256(testEvidencePaths.map((path) => `${fileSha256(path)}  ${path}\n`).join(""));
@@ -88,6 +99,8 @@ const manifest = {
   build: directoryDigest("dist"),
   canonicalStagingVersion: canonicalStaging.versionId,
   productionApprovalId: contract.KIS_PRODUCTION_APPROVAL_ID,
+  ownerPolicyId: ownerPolicy.policyId,
+  ownerPolicySha256: sha256(readFileSync(ownerPolicyPath)),
   productionBackupId: contract.KIS_PRODUCTION_BACKUP_ID,
   previousProductionDeploymentId: target.cloudflare.currentDeploymentId,
   previousProductionVersionId: target.cloudflare.currentVersionId,

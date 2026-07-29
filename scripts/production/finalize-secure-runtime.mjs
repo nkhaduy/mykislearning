@@ -2,13 +2,13 @@ import { randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { chmodSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { loadSecureRuntime } from "./runtime-contract.mjs";
+import { DEFAULT_OWNER_POLICY_FILE, loadSecureRuntime, sha256 } from "./runtime-contract.mjs";
 
 const value = (name) => {
   const index = process.argv.indexOf(name);
   return index >= 0 ? String(process.argv[index + 1] || "").trim() : "";
 };
-const root = resolve(new URL("../..", import.meta.url).pathname);
+const root = resolve(process.env.KIS_PRODUCTION_RELEASE_SOURCE_ROOT || new URL("../..", import.meta.url).pathname);
 const loaded = loadSecureRuntime(value("--runtime-file") || undefined);
 const releaseSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
 const backup = JSON.parse(readFileSync(resolve(root, "docs/audit-remediation/evidence/PRODUCTION_BACKUP_RESTORE.json"), "utf8"));
@@ -20,6 +20,16 @@ loaded.contract.KIS_PRODUCTION_BACKUP_ID = backup.backupId;
 loaded.contract.KIS_PRODUCTION_MAINTENANCE_WINDOW = maintenanceWindow;
 loaded.contract.KIS_PRODUCTION_RELEASE_MANIFEST ||= "/tmp/kisvn-production-release-manifest.json";
 loaded.contract.KIS_PRODUCTION_GATE_EVIDENCE ||= "/tmp/kisvn-production-quality-gates.json";
+const ownerPolicyPath = process.env.KIS_PRODUCTION_OWNER_POLICY_FILE
+  ? resolve(process.env.KIS_PRODUCTION_OWNER_POLICY_FILE)
+  : resolve(new URL("../..", import.meta.url).pathname, DEFAULT_OWNER_POLICY_FILE);
+const ownerPolicy = JSON.parse(readFileSync(ownerPolicyPath, "utf8"));
+loaded.contract.KIS_PRODUCTION_OWNER_POLICY_FILE = ownerPolicyPath;
+loaded.contract.KIS_PRODUCTION_OWNER_POLICY_SHA256 = sha256(readFileSync(ownerPolicyPath));
+loaded.contract.KIS_PRODUCTION_OWNER_POLICY_ID = ownerPolicy.policyId;
+const controlRoot = resolve(new URL("../..", import.meta.url).pathname);
+loaded.contract.KIS_PRODUCTION_TARGET_EVIDENCE = resolve(controlRoot, "docs/audit-remediation/evidence/PRODUCTION_TARGET_DISCOVERY.json");
+loaded.contract.KIS_PRODUCTION_MIGRATION_RECONCILIATION_EVIDENCE = resolve(controlRoot, "docs/audit-remediation/evidence/PRODUCTION_MIGRATION_HISTORY_RECONCILIATION.json");
 loaded.secrets.SUPABASE_URL = loaded.contract.KIS_PRODUCTION_SUPABASE_URL;
 if (releaseChanged) {
   loaded.contract.KIS_PRODUCTION_APPROVAL_ID = `OWNER-PRODUCTION-${utc}-${releaseSha.slice(0, 8)}`;
