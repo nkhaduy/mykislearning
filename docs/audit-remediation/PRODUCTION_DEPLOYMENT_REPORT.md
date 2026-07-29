@@ -1,9 +1,17 @@
 # KIS LMS Production Deployment Report
 
 Date: 2026-07-29
-Scope: production bootstrap and release preparation only; final cutover was not run.
+Scope: production release attempt, automatic rollback, and recovery evidence.
 
-The previously recorded maintenance window has expired. A new active window of at least 90 minutes is required. Change owner and rollback owner: Nguyễn Khả Duy.
+## 0. Release attempt outcome
+
+- Release commit: `7c50027d67690ba18bb9ac306a87dd42453d970b`.
+- New Worker deployment: `be4cb405-9dc6-41f9-8045-1c1cce7d343e` (`eefcc2f7-f45d-4694-8c5d-bb17ed78dc3f`).
+- Automatic rollback: **PASS** to Worker `49c5cb16-2ca1-49ac-9b8c-ecaf117e59ca` (`a55e8c5d-15b4-4034-a8a5-3ae44cbb0b5c`).
+- Critical failure: `service_report_overview` returned `503`; direct RPC evidence identified SQLSTATE `42703` (`column e.created_at does not exist`).
+- Production remains **BLOCKED**. No second deploy was attempted after rollback.
+
+The approved maintenance window was `2026-07-29T10:15:00+07:00/2026-07-29T13:15:00+07:00`. Change owner and rollback owner: Nguyễn Khả Duy.
 
 ## 1. Approval and No-MFA acceptance
 
@@ -51,7 +59,7 @@ The previously recorded maintenance window has expired. A new active window of a
 
 ## 7. Migration preparation
 
-- Production migrations were not applied.
+- Production migrations were applied and the linked migration history is canonical/current; the final dry-run reports `Remote database is up to date.`
 - Disposable replay passes the 7 existing pending migrations plus `20260729022415_consolidate_roles_to_hr_and_employee.sql` (`8/8`).
 - The new migration maps legacy Admin profiles to HR, removes Trainer application data after reference/session safeguards, and enforces exactly `hr`/`employee`.
 - Restore evidence and the release manifest bind the migration list to the canonical staging rehearsal checksum.
@@ -70,19 +78,20 @@ The previously recorded maintenance window has expired. A new active window of a
 
 ## 10. Deployment IDs
 
-- Current rollback checkpoint after read-only refresh/secret-name preparation: deployment `c81496f8-dbb4-462c-bb75-28e5f7baae30`, version `49c5cb16-2ca1-49ac-9b8c-ecaf117e59ca`.
-- Previous application deployment version: `47ec00e8-561e-444e-aa29-0e1596aa8420`.
-- No release Worker/frontend/Queue/cron deployment was run.
+- Current rollback deployment: `a55e8c5d-15b4-4034-a8a5-3ae44cbb0b5c`, version `49c5cb16-2ca1-49ac-9b8c-ecaf117e59ca`.
+- Failed release deployment: `eefcc2f7-f45d-4694-8c5d-bb17ed78dc3f`, version `be4cb405-9dc6-41f9-8045-1c1cce7d343e`.
+- The approved release Worker/frontend deployment ran, then was automatically rolled back after the critical report failure.
 
 ## 11. Authentication and session smoke tests
 
 - No-MFA removal contract passed; sign-off validation remains explicit-owner-only.
-- Production authentication/session mutation smoke tests are deferred until an approved cutover.
+- Synthetic HR provisioning, HR session restore, Employee provisioning, disable/re-enable, and invalid-role fail-closed checks passed before the report blocker.
+- After rollback, the previous Worker returned `MFA_STORE_UNAVAILABLE` during login because its code expects MFA state removed by the new schema; this proves the old Worker/schema pair is incompatible.
 
 ## 12. Route smoke tests
 
 - Canonical staging smoke passed 22 checks on the active stable staging version.
-- Production route smoke was not run because cutover did not occur.
+- API smoke stopped at the first critical `503`; browser visual/network smoke was not run after the automatic rollback.
 
 ## 13. Reports and search results
 
@@ -113,30 +122,22 @@ The previously recorded maintenance window has expired. A new active window of a
 
 ## 18. Synthetic cleanup
 
-- No production synthetic user data, export jobs, Queue messages, or R2 objects were created during bootstrap.
+- Temporary HR/Employee profiles, course, content, enrollment, quiz, quiz question/attempt, notification, and audit rows were removed by exact-ID service-role cleanup.
+- Bootstrap HR was preserved; final role counts are `hr=1`, `admin=0`, `trainer=0`.
+- Cleanup evidence: `/tmp/kisvn-production-smoke-cleanup.json` (mode `0600`).
 - Logical dump files and disposable restore database were removed after validation.
 
 ## 19. Remaining follow-ups
 
-- Record owner approval for the exact 74-table clean-reset allowlist checksum.
-- Create a new active maintenance window of at least 90 minutes; 120 minutes is recommended.
-- Generate a new exact release manifest after the final tracked source is committed and clean.
-- In the approved window, canonicalize migration aliases through the guarded history-only workflow and require the linked dry-run to list exactly the approved 8 files.
-
-Latest `npm run production:plan` blockers:
-
-1. Maintenance window expired.
-2. Deployment is outside an active approved maintenance window.
-3. Clean-reset table allowlist is not owner-approved.
-4. Clean-reset allowlist checksum is missing or stale.
-5. Tracked release worktree is not clean.
-6. Release manifest build checksum does not match `dist`.
-7. Live Supabase migration reconciliation verification failed.
+- Add a reviewed migration that removes the invalid `enrollments.created_at` dependency from `service_report_overview` or adds/backfills the expected column with an explicit compatibility contract.
+- Rehearse the new migration against a restored production-shaped database and exercise report overview/detail/export before another production plan.
+- Establish a real production recovery mechanism (PITR or retained encrypted logical dumps) and prove Worker/schema rollback compatibility.
+- Create a new maintenance window and new release manifest only after the fix and recovery rehearsal pass.
 
 ## 20. Final decision
 
-**PRODUCTION CLEAN RESET BLOCKED**
+**PRODUCTION DEPLOYMENT ROLLED BACK**
 
-The disposable clean-reset, two-role migration, rollback, idempotency and authorization rehearsals pass. Trainer is removed from scope and is no longer a product-decision blocker. `production:plan` still fails closed unless the exact allowlist is approved, the release manifest is refreshed, migration alias reconciliation and the 8-file production dry-run pass, and a new 90-minute-or-longer maintenance window is active.
+The release reached production, but the post-deploy report smoke found a schema/function mismatch. Worker rollback passed. A live database restore was not available (`pitr_enabled=false`); no untested in-place reconstruction was attempted. Further deployment is blocked until the reporting RPC is corrected by an approved migration and a compatible Worker/database recovery path is rehearsed.
 
-No production migration, clean reset, migration-history repair, application deploy, traffic cutover, DNS change, production-secret rotation or feature-flag change was performed.
+The rollback report is `docs/audit-remediation/PRODUCTION_TWO_ROLE_GO_LIVE_REPORT.md`; structured evidence is `docs/audit-remediation/evidence/PRODUCTION_TWO_ROLE_GO_LIVE.json`.

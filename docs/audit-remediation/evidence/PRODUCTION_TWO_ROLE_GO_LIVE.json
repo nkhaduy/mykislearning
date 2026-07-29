@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-07-29T11:26:35+07:00",
+  "status": "ROLLED_BACK",
+  "furtherDeployment": "BLOCKED",
+  "target": {
+    "worker": "mykis-learning",
+    "domain": "kislms.site",
+    "supabaseProjectRef": "mooqdtiedfamnlpitqtq"
+  },
+  "release": {
+    "commit": "7c50027d67690ba18bb9ac306a87dd42453d970b",
+    "deployedWorkerVersion": "be4cb405-9dc6-41f9-8045-1c1cce7d343e",
+    "rollbackWorkerVersion": "49c5cb16-2ca1-49ac-9b8c-ecaf117e59ca",
+    "rollbackDeploymentId": "a55e8c5d-15b4-4034-a8a5-3ae44cbb0b5c",
+    "manifestSha256": "d1673ff1d1e9b813d2d31393a00cf5b4c3b39cd321e3fa1c7e14b4e862716942"
+  },
+  "database": {
+    "migrationReconciliation": "PASS",
+    "migrationsApplied": "PASS",
+    "finalDryRun": "Remote database is up to date.",
+    "cleanReset": "PASS",
+    "roleCounts": { "hr": 1, "admin": 0, "trainer": 0 },
+    "bootstrapHrPreserved": true,
+    "backupRestore": "NOT_AVAILABLE_PITR_DISABLED"
+  },
+  "smoke": {
+    "apiChecksPassedBeforeStop": 18,
+    "criticalFailure": {
+      "phase": "post-deploy HR report smoke",
+      "endpoint": "/api/admin/reports/overview",
+      "status": 503,
+      "rootCause": "SQLSTATE 42703: column e.created_at does not exist in service_report_overview"
+    },
+    "browserVisualNetwork": "NOT_RUN_AFTER_CRITICAL_FAILURE"
+  },
+  "rollback": {
+    "worker": "PASS",
+    "domainHttpStatus": 200,
+    "rolledBackWorkerLogin": "FAIL_MFA_STORE_UNAVAILABLE",
+    "productionHealth": "FAIL",
+    "databaseRecovery": "FAIL_NOT_AVAILABLE",
+    "temporarySmokeDataCleanup": "PASS",
+    "cleanupEvidenceSha256": "0eb4849df42be5a52bd4d28b4aad339e65b1e24717f066a8aa9a9aaaf868e27e",
+    "alertDestination": "nkhaduy@gmail.com",
+    "alerting": "CRITICAL_ROLLBACK_RECORDED"
+  }
+}
