@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -49,6 +49,12 @@ const redact = (value) => {
 
 function command(root, executable, args) {
   return execFileSync(executable, args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+}
+
+function commandWithDiagnostics(root, executable, args) {
+  const result = spawnSync(executable, args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  if (result.error || result.status !== 0) throw result.error || new Error(`${executable} failed`);
+  return [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
 }
 
 function readJson(root, path, blockers, label) {
@@ -184,7 +190,7 @@ function verifyMigrationReconciliation(root, input, head, blockers, options) {
     try {
       const list = command(root, "supabase", ["migration", "list", "--linked"]);
       const remoteOnly = [...list.matchAll(/^\s*\|?\s*\|\s*(\d{3,14})\s*\|/gm)].map((match) => match[1]);
-      const dryRun = command(root, "supabase", ["db", "push", "--linked", "--include-all", "--dry-run"]);
+      const dryRun = commandWithDiagnostics(root, "supabase", ["db", "push", "--linked", "--include-all", "--dry-run"]);
       const pending = [...dryRun.matchAll(/^\s*[•*]\s+(\d{3,14}_[A-Za-z0-9_]+\.sql)\s*$/gm)].map((match) => match[1]);
       live = { remoteOnlyCount: remoteOnly.length, pendingProductionMigrations: pending, dryRunStatus: "pass" };
     } catch {
