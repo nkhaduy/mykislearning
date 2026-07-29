@@ -2,6 +2,7 @@ import { json, readJson, methodNotAllowed, corsPreflight } from "../services/res
 import { getSupabase } from "../services/supabase.js";
 import { hasAdministrativeAccess, requireAuth, requireHr } from "../middleware/auth.js";
 import { auditLater } from "../services/audit-service.js";
+import { requireCourseAccess } from "../services/course-access.js";
 
 const STORAGE_BUCKET = "course-content";
 const SIGNED_URL_EXPIRES = 3600;
@@ -118,7 +119,7 @@ async function attachSignedUrls(supabase, items) {
       const { data, error } = await supabase.storage
         .from(item.storageBucket || STORAGE_BUCKET)
         .createSignedUrl(item.storagePath, SIGNED_URL_EXPIRES);
-      if (error || !data?.signedUrl) return { ...item, sourceUrl: null, signedUrlError: error?.message };
+      if (error || !data?.signedUrl) return { ...item, sourceUrl: null, signedUrlError: "SIGNED_URL_UNAVAILABLE" };
       return { ...item, sourceUrl: data.signedUrl };
     })
   );
@@ -140,6 +141,7 @@ export async function handleCourses(request, env) {
 
       const courseId = url.searchParams.get("courseId");
       if (!courseId) return json({ error: "courseId required" }, 400);
+      await requireCourseAccess(supabase, acct, courseId);
 
       const { data, error } = await supabase
         .from("course_content")

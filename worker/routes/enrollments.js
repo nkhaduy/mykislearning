@@ -86,17 +86,26 @@ export async function handleEnrollments(request, env) {
     if ((!id && (!courseId || !accountId)) || !patch) return json({ error: "id (or courseId+accountId) and patch required" }, 400);
     if (!hasAdministrativeAccess(acct) && accountId && accountId !== acct.accountId) return json({ error: "Forbidden" }, 403);
 
-    let query = supabase.from("enrollments").select("id, data").limit(1);
+    let query = supabase.from("enrollments").select("id, account_id, course_id, status, data").limit(1);
     if (id) query = query.eq("id", id);
     else query = query.eq("course_id", courseId).eq("account_id", accountId);
+    if (!hasAdministrativeAccess(acct)) query = query.eq("account_id", acct.accountId);
     const { data: existing, error: findErr } = await query;
     if (findErr) return json({ error: findErr.message }, 500);
     if (!existing?.length) return json({ error: "Enrollment not found" }, 404);
 
     const row = existing[0];
-    const merged = { ...row.data, ...patch };
+    const employeePatch = {
+      lastAccessedAt: patch.lastAccessedAt,
+      lastContentId: patch.lastContentId,
+    };
+    const cleanPatch = hasAdministrativeAccess(acct)
+      ? patch
+      : Object.fromEntries(Object.entries(employeePatch).filter(([, value]) => value !== undefined));
+    const merged = { ...row.data, ...cleanPatch, accountId: row.account_id, courseId: row.course_id };
+    const nextStatus = hasAdministrativeAccess(acct) ? (cleanPatch.status || row.status) : row.status;
     const { error } = await supabase.from("enrollments").update({
-      data: merged, status: merged.status || row.data?.status, updated_at: new Date().toISOString(),
+      data: merged, status: nextStatus, updated_at: new Date().toISOString(),
     }).eq("id", row.id);
     if (error) return json({ error: error.message }, 500);
     return json({ ok: true, enrollment: merged });

@@ -47,12 +47,27 @@ function canonicalHostRedirect(url) {
   return Response.redirect(target, 301);
 }
 
+function healthResponse(request, env) {
+  return addSecurityHeaders(new Response(JSON.stringify({
+    ok: true,
+    status: "healthy",
+    service: "mykis-learning",
+  }), {
+    status: 200,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+  }), request, env);
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     const redirectResponse = canonicalHostRedirect(url);
     if (redirectResponse) return redirectResponse;
+
+    if ((url.pathname === "/health" || url.pathname === "/api/health") && request.method === "GET") {
+      return healthResponse(request, env);
+    }
 
     const seoResponse = seoFileResponse(request, url.pathname);
     if (seoResponse) return addSecurityHeaders(seoResponse, request, env);

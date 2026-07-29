@@ -1,6 +1,10 @@
 import { json, readJson, methodNotAllowed, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
 import { hasAdministrativeAccess, requireAuth, requireHr } from "../middleware/auth.js";
+import { requireCourseAccess } from "../services/course-access.js";
+import { gradeQuizAttempt, sanitizeQuestionForLearner, sanitizeQuizForLearner } from "../services/quiz-security.js";
+import { recalculateEnrollmentProgress } from "../services/learning-progress.js";
+import { auditLater } from "../services/audit-service.js";
 
 export async function handleQuizzes(request, env) {
   const method = request.method.toUpperCase();
@@ -32,32 +36,94 @@ export async function handleQuizzes(request, env) {
 
     if (method === "POST") {
       const body = await readJson(request);
-      const attempt = body;
+      const attempt = body?.attempt && typeof body.attempt === "object" ? body.attempt : body;
       if (!attempt.quizId && !attempt.quiz_id) return json({ error: "quizId required" }, 400);
 
       const quizId = attempt.quizId || attempt.quiz_id;
-      const { data: quiz } = await supabase.from("quizzes").select("current_version_id").eq("id", quizId).maybeSingle();
+      const { data: quiz, error: quizError } = await supabase.from("quizzes")
+        .select("id, course_id, status, data, current_version_id, max_attempts").eq("id", quizId).maybeSingle();
+      if (quizError) return json({ error: "QUIZ_LOOKUP_FAILED" }, 503);
+      if (!quiz) return json({ error: "QUIZ_NOT_FOUND" }, 404);
+      const courseId = quiz.course_id || quiz.data?.courseId || quiz.data?.course_id || null;
+      const requestedId = attempt.id ? String(attempt.id).slice(0, 180) : `attempt-${crypto.randomUUID()}`;
+      const targetAccountId = hasAdministrativeAccess(acct)
+        ? (attempt.accountId || attempt.account_id || acct.accountId)
+        : acct.accountId;
+      const { data: existingAttempt, error: existingError } = await supabase.from("quiz_attempts")
+        .select("id, account_id, quiz_id, submitted_at, score_percent, passed, data").eq("id", requestedId).maybeSingle();
+      if (existingError) return json({ error: "QUIZ_ATTEMPT_LOOKUP_FAILED" }, 503);
+      if (existingAttempt) {
+        if (existingAttempt.account_id !== targetAccountId || existingAttempt.quiz_id !== quizId) {
+          return json({ error: "QUIZ_ATTEMPT_CONFLICT" }, 409);
+        }
+        if (existingAttempt.submitted_at) {
+          return json({
+            ok: true,
+            id: existingAttempt.id,
+            scorePercent: existingAttempt.score_percent,
+            passed: existingAttempt.passed,
+            gradingStatus: existingAttempt.data?.gradingStatus,
+            idempotent: true,
+          });
+        }
+      }
+      if (!hasAdministrativeAccess(acct)) {
+        if (quiz.status !== "published") return json({ error: "QUIZ_NOT_AVAILABLE" }, 404);
+        const { enrollment } = await requireCourseAccess(supabase, acct, courseId);
+        if (quiz.data?.requireCourseCompletion && enrollment.status !== "completed") {
+          return json({ error: "QUIZ_COURSE_PREREQUISITE_NOT_MET" }, 409);
+        }
+        const prerequisiteQuizId = quiz.data?.prerequisiteQuizId || quiz.data?.prerequisite_quiz_id;
+        if (prerequisiteQuizId) {
+          const prerequisite = await supabase.from("quiz_attempts").select("id").eq("account_id", acct.accountId)
+            .eq("quiz_id", prerequisiteQuizId).eq("passed", true).limit(1);
+          if (prerequisite.error) return json({ error: "QUIZ_PREREQUISITE_LOOKUP_FAILED" }, 503);
+          if (!prerequisite.data?.length) return json({ error: "QUIZ_PREREQUISITE_NOT_MET" }, 409);
+        }
+        const maxAttempts = Number(quiz.max_attempts ?? quiz.data?.maxAttempts ?? quiz.data?.max_attempts ?? quiz.data?.attemptsAllowed);
+        if (Number.isFinite(maxAttempts) && maxAttempts > 0) {
+          const submitted = await supabase.from("quiz_attempts").select("id").eq("account_id", acct.accountId)
+            .eq("quiz_id", quizId).not("submitted_at", "is", null).limit(maxAttempts);
+          if (submitted.error) return json({ error: "QUIZ_ATTEMPT_LIMIT_LOOKUP_FAILED" }, 503);
+          if ((submitted.data || []).length >= maxAttempts) return json({ error: "QUIZ_ATTEMPT_LIMIT_REACHED" }, 409);
+        }
+      }
+
+      const { data: questionRows, error: questionError } = await supabase.from("quiz_questions")
+        .select("id, quiz_id, sort_order, data").eq("quiz_id", quizId).order("sort_order", { ascending: true });
+      if (questionError) return json({ error: "QUIZ_QUESTIONS_LOOKUP_FAILED" }, 503);
+      const questions = (questionRows || []).map((question) => ({ ...question.data, id: question.id }));
+      if (!questions.length) return json({ error: "QUIZ_HAS_NO_QUESTIONS" }, 409);
+
+      const grading = gradeQuizAttempt({
+        questions,
+        answers: attempt.answers,
+        passingScore: quiz.data?.passingScore ?? quiz.data?.passing_score ?? 70,
+      });
       const row = {
-        id: attempt.id || `attempt-${crypto.randomUUID()}`,
+        id: requestedId,
         quiz_id: quizId,
-        account_id: attempt.accountId || attempt.account_id || acct.accountId,
-        course_id: attempt.courseId || attempt.course_id || null,
-        quiz_version_id: attempt.quizVersionId || attempt.quiz_version_id || quiz?.current_version_id || null,
-        score_percent: attempt.scorePercent ?? attempt.score_percent ?? null,
-        passed: attempt.passed ?? null,
-        submitted_at: attempt.submittedAt || attempt.submitted_at || (attempt.scorePercent != null ? new Date().toISOString() : null),
-        data: attempt,
+        account_id: targetAccountId,
+        course_id: courseId,
+        quiz_version_id: quiz.current_version_id || null,
+        score_percent: grading.scorePercent,
+        passed: grading.passed,
+        submitted_at: new Date().toISOString(),
+        data: { ...attempt, ...grading, accountId: targetAccountId, courseId, quizId },
         updated_at: new Date().toISOString(),
       };
 
-      // Non-HR can only submit for themselves
-      if (!hasAdministrativeAccess(acct) && row.account_id !== acct.accountId) {
-        return json({ error: "Forbidden" }, 403);
-      }
-
       const { error } = await supabase.from("quiz_attempts").upsert(row, { onConflict: "id" });
-      if (error) return json({ error: error.message }, 500);
-      return json({ ok: true, id: row.id });
+      if (error) return json({ error: "QUIZ_ATTEMPT_SAVE_FAILED" }, 503);
+      if (courseId && !hasAdministrativeAccess(acct)) await recalculateEnrollmentProgress(supabase, targetAccountId, courseId);
+      auditLater(supabase, request, {
+        actor: acct,
+        action: "quiz.attempt_submitted",
+        entityType: "quiz_attempt",
+        entityId: row.id,
+        metadata: { quiz_id: quizId, course_id: courseId, grading_status: grading.gradingStatus },
+      });
+      return json({ ok: true, id: row.id, scorePercent: grading.scorePercent, passed: grading.passed, gradingStatus: grading.gradingStatus });
     }
 
     return methodNotAllowed();
@@ -69,13 +135,22 @@ export async function handleQuizzes(request, env) {
     const quizId = qMatch[1];
 
     if (method === "GET") {
+      const { data: quiz, error: quizError } = await supabase.from("quizzes")
+        .select("id, course_id, status, data").eq("id", quizId).maybeSingle();
+      if (quizError) return json({ error: "QUIZ_LOOKUP_FAILED" }, 503);
+      if (!quiz) return json({ error: "QUIZ_NOT_FOUND" }, 404);
+      if (!hasAdministrativeAccess(acct)) {
+        if (quiz.status !== "published") return json({ error: "QUIZ_NOT_AVAILABLE" }, 404);
+        await requireCourseAccess(supabase, acct, quiz.course_id || quiz.data?.courseId || quiz.data?.course_id);
+      }
       const { data, error } = await supabase
         .from("quiz_questions")
         .select("id, quiz_id, sort_order, data")
         .eq("quiz_id", quizId)
         .order("sort_order", { ascending: true });
-      if (error) return json({ error: error.message }, 500);
-      return json((data || []).map((row) => ({ ...row.data, id: row.id, quizId: row.quiz_id, order: row.sort_order })));
+      if (error) return json({ error: "QUIZ_QUESTIONS_LOOKUP_FAILED" }, 503);
+      const questions = (data || []).map((row) => ({ ...row.data, id: row.id, quizId: row.quiz_id, order: row.sort_order }));
+      return json(hasAdministrativeAccess(acct) ? questions : questions.map(sanitizeQuestionForLearner));
     }
 
     if (method === "POST") {
@@ -113,8 +188,18 @@ export async function handleQuizzes(request, env) {
     query = query.order("updated_at", { ascending: false });
 
     const { data, error } = await query;
-    if (error) return json({ error: error.message }, 500);
-    return json((data || []).map((row) => ({ ...row.data, id: row.id, courseId: row.course_id, status: row.status, createdAt: row.created_at })));
+    if (error) return json({ error: "QUIZ_LIST_FAILED" }, 503);
+    let visible = data || [];
+    if (!hasAdministrativeAccess(acct)) {
+      const enrollmentResult = await supabase.from("enrollments").select("course_id").eq("account_id", acct.accountId);
+      if (enrollmentResult.error) return json({ error: "QUIZ_ACCESS_LOOKUP_FAILED" }, 503);
+      const assigned = new Set((enrollmentResult.data || []).map((row) => row.course_id));
+      visible = visible.filter((row) => assigned.has(row.course_id || row.data?.courseId || row.data?.course_id));
+    }
+    return json(visible.map((row) => {
+      const quiz = { ...row.data, id: row.id, courseId: row.course_id, status: row.status, createdAt: row.created_at };
+      return hasAdministrativeAccess(acct) ? quiz : sanitizeQuizForLearner(quiz);
+    }));
   }
 
   if (method === "POST") {
