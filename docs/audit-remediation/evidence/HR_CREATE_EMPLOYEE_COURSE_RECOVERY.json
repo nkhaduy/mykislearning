@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-29T15:00:00+07:00",
+  "branch": "hotfix/hr-create-employee-course-20260729",
+  "hotfixCommit": "185f6ddc6df5a86551fa2013a58e632bf9e0e54b",
+  "status": "production_blocked",
+  "productionBaseline": {
+    "domain": "https://kislms.site",
+    "health": "pass",
+    "worker": "mykis-learning",
+    "activeVersion": "24431b46-51b4-4784-9e83-348e7fe9bf0d",
+    "activeDeployment": "e3c7084a-62f6-4871-856d-6a722820d845",
+    "releaseCommit": "ddd9b6141eba573ff675441744a67957bfd31a9c",
+    "rollbackVersion": "49c5cb16-2ca1-49ac-9b8c-ecaf117e59ca",
+    "bootstrapHr": {
+      "id": "acc-hr-001",
+      "role": "hr",
+      "status": "pass"
+    }
+  },
+  "localApi": {
+    "hrLogin": "pass",
+    "employeeCreate": "pass",
+    "courseCreate": "pass",
+    "employeeIsolation": "pass",
+    "duplicateEmail": "pass",
+    "duplicateEmployeeCode": "pass",
+    "authFailureLeavesNoProfile": "pass",
+    "profileFailureCleansAuth": "pass",
+    "doubleSubmitSingleCourse": "pass",
+    "initialVersionExactlyOne": "pass",
+    "refreshVisibility": "pass",
+    "cleanup": "pass"
+  },
+  "browser": {
+    "employeeCreateDialog": "pass",
+    "employeeCreateSubmit": "pass",
+    "courseCreateDialog": "pass",
+    "courseCreateSubmit": "pass",
+    "courseNavigation": "pass",
+    "consoleErrors": 0,
+    "consoleWarnings": 0,
+    "horizontalOverflow": false,
+    "viewports": [
+      "1440x900",
+      "1024x768",
+      "768x1024",
+      "390x844",
+      "360x800"
+    ],
+    "artifactDirectory": "output/playwright/hr-recovery-local/.playwright-cli"
+  },
+  "validation": {
+    "lint": "pass",
+    "typecheck": "pass",
+    "migrations": "pass",
+    "unit": {
+      "status": "pass",
+      "passed": 103,
+      "failed": 0,
+      "skipped": 0
+    },
+    "security": "pass",
+    "sessionSecurity": "pass",
+    "e2ePublic": {
+      "status": "pass",
+      "passed": 9,
+      "failed": 0
+    },
+    "e2eAuthenticated": {
+      "status": "pass",
+      "passed": 8,
+      "failed": 0
+    },
+    "routesAll": "pass",
+    "reports": "pass",
+    "exportJobs": "pass",
+    "build": "pass",
+    "artifactScan": "pass",
+    "bundleBudget": "pass",
+    "wranglerCheck": "pass",
+    "npmAuditHigh": "pass",
+    "diffCheck": "pass"
+  },
+  "production": {
+    "deployment": "not_deployed",
+    "authenticatedReproduction": "blocked",
+    "employeeSmoke": "not_run",
+    "courseSmoke": "not_run",
+    "temporarySmokeCleanup": "not_run",
+    "workerUnchanged": true,
+    "blockers": [
+      "fresh protected runtime and active maintenance window required for the hotfix commit",
+      "existing one-time approval is stale and consumed",
+      "current bootstrap HR login or in-app authenticated session is unavailable"
+    ]
+  },
+  "uxPhase": {
+    "frappeResearch": "not_started",
+    "reason": "Part B is gated on a passing production employee/course smoke"
+  }
+}
