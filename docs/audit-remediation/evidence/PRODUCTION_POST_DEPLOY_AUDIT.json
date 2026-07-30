@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-07-30T01:35:00+07:00",
+  "capturedAt": "2026-07-30T10:24:04+07:00",
   "status": "not_deployed",
   "productionHealth": "pass",
   "activeDeploymentId": "4c1c33d2-b226-4402-9023-87486ed7750f",
@@ -10,7 +10,21 @@
   "syntheticSmokeCreated": false,
   "cleanupRequired": false,
   "rollbackRequired": false,
-  "protectedPlan": "blocked",
+  "releaseBranch": "release/kis-lms-autonomous-audit-20260730",
+  "releaseCommitSha": "bff45256a3729173e0056b9e9082d227b9b7da47",
+  "qualityGates": "30/30_PASS",
+  "isolatedAuthRuntime": "PASS",
+  "isolatedBrowserRoleAudit": "5/5_PASS",
+  "isolatedBrowserFindings": 0,
+  "freshBackupRestore": "PASS",
+  "credentialRotationVerification": "BLOCKED",
+  "oldExposedCredentialsRevoked": "BLOCKED",
+  "activeExposedProductionCredentials": 1,
+  "liveAlertReadiness": "BLOCKED_403",
+  "protectedPlan": "blocked_branch_guard",
+  "protectedPlanBlockers": [
+    "HEAD is not on the approved production release branch"
+  ],
   "containsSecrets": false,
   "containsRawPii": false
 }

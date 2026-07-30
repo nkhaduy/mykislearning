@@ -150,3 +150,15 @@ The rollback report is `docs/audit-remediation/PRODUCTION_TWO_ROLE_GO_LIVE_REPOR
 - `production:plan` remained blocked by stale runtime/manifest/rollback/migration/approval bindings and unverified credential rotation completion.
 - No production mutation, deployment, synthetic smoke, cleanup, or rollback occurred in this session.
 - Current report: `docs/audit-remediation/AUTONOMOUS_MEGA_AUDIT_REPORT.md`.
+
+## 22. Operational release attempt - 2026-07-30
+
+- Required release: `release/kis-lms-autonomous-audit-20260730` at `bff45256a3729173e0056b9e9082d227b9b7da47`.
+- Maintenance window: `2026-07-30T09:30:00+07:00/2026-07-30T12:30:00+07:00`.
+- Quality gates: `30/30 PASS`; isolated browser role audit: `5/5 PASS`; fresh production backup/restore: `PASS`.
+- Live rollback Worker: `7f2abc31-45ef-4da5-aa82-880fcf91c988`; production root/login health remained HTTP 200.
+- Credential rotation is incomplete: new Supabase keys passed provider tests, but the exposed legacy service-role key remains active until a protected deployment switches the Worker.
+- Live Cloudflare alert readiness refresh is blocked because current OAuth receives HTTP 403 from Alerting.
+- After refreshing the one-time approval runtime, `npm run production:plan` returned only `HEAD is not on the approved production release branch`.
+- The verifier hardcodes `release/kis-lms-production-20260728`; it was not changed and no branch bypass was used.
+- `npm run production:deploy-approved` was not executed. Production mutation, smoke data creation, cleanup, and rollback were not required.

@@ -85,3 +85,16 @@ Credential rotation completion and revocation evidence are also absent. Therefor
 3. Re-run the protected plan inside an active runtime-bound maintenance window; deploy only after the literal GO line.
 4. Run authenticated HR/Employee production smoke with `AUTOAUDIT_20260730_` data and exact cleanup only after deployment.
 5. Run authenticated visual journeys on WebKit/Firefox when those engines and protected credentials are available.
+
+## Operational release update - 2026-07-30T10:24:04+07:00
+
+- Release protection passed on branch `release/kis-lms-autonomous-audit-20260730`, exact HEAD `bff45256a3729173e0056b9e9082d227b9b7da47`.
+- Final production quality gates passed `30/30`; build checksum is bound in the mode-0600 release manifest.
+- Isolated production-shaped auth/session tests passed, followed by clean-room browser role audit `5/5` with HR/Employee journeys, negative authorization checks, invalid-role fail-closed checks, responsive viewports, and zero findings.
+- Fresh production backup/restore passed row-count, catalog, integrity, source-preflight, and application-contract checks.
+- New Supabase publishable and secret credentials were created and tested, but legacy Supabase keys remain enabled because no protected deployment occurred. The exposed legacy service-role credential is therefore still active.
+- Exact current replacement credential values do not occur in repository files, Git history, `dist`, reports/evidence, or Playwright artifacts.
+- Live Cloudflare target and rollback version were refreshed. Alert policy/delivery refresh is blocked because current encrypted OAuth receives HTTP 403 from Alerting and no authenticated controllable browser is available.
+- A fresh runtime removed the stale approval-consumption blocker. The final `npm run production:plan` result is blocked only by the source guard that accepts `release/kis-lms-production-20260728`; it does not accept the required autonomous release branch.
+- The verifier was not edited, no artificial branch was used, and `npm run production:deploy-approved` was not executed.
+- Production remains healthy and unchanged on Worker version `7f2abc31-45ef-4da5-aa82-880fcf91c988`.
