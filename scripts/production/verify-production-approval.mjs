@@ -142,7 +142,7 @@ function verifyReleaseApproval(root, input, options, blockers, currentBranch, he
   const artifactSha256 = sha256(artifactBytes);
   if (String(input.KIS_PRODUCTION_RELEASE_APPROVAL_SHA256 || "") !== artifactSha256) blockers.push("owner-approved release artifact checksum does not match the secure runtime binding");
   if (artifact.schemaVersion !== 1 || artifact.status !== "APPROVED" || artifact.owner !== "Nguyễn Khả Duy") blockers.push("owner-approved release artifact is not active and owner-approved");
-  if (!artifact.approvedBranch || /[*?\[\]]/.test(String(artifact.approvedBranch)) || artifact.approvedBranch !== currentBranch) blockers.push("owner-approved release artifact branch does not exactly match the current branch");
+  if (!artifact.approvedBranch || /[*?[\]]/.test(String(artifact.approvedBranch)) || artifact.approvedBranch !== currentBranch) blockers.push("owner-approved release artifact branch does not exactly match the current branch");
   if (!/^[a-f0-9]{40}$/.test(String(artifact.approvedCommitSha || "")) || artifact.approvedCommitSha !== head || artifact.approvedCommitSha !== input.KIS_RELEASE_COMMIT_SHA) blockers.push("owner-approved release artifact commit does not exactly match HEAD");
   if (!artifact.approvalId || input.KIS_PRODUCTION_APPROVAL_ID && artifact.approvalId !== input.KIS_PRODUCTION_APPROVAL_ID) blockers.push("owner-approved release artifact approval ID is not bound to the runtime");
   if (artifact.checksumAlgorithm !== "sha256" || artifact.checksum !== releaseApprovalChecksum(artifact)) blockers.push("owner-approved release artifact internal checksum is invalid or stale");
@@ -405,7 +405,7 @@ export function verifyProductionApproval(input, options = {}) {
     tree = command(root, "git", ["rev-parse", "HEAD^{tree}"]);
     if (command(root, "git", ["status", "--porcelain", "--untracked-files=no"])) blockers.push("tracked release worktree is not clean");
     currentBranch = command(root, "git", ["branch", "--show-current"]);
-    if (!currentBranch || !currentBranch.startsWith("release/") || /[*?\[\]]/.test(currentBranch)) blockers.push("HEAD is not on an exact approved release branch");
+    if (!currentBranch || !currentBranch.startsWith("release/") || /[*?[\]]/.test(currentBranch)) blockers.push("HEAD is not on an exact approved release branch");
   } catch { blockers.push("Git release identity could not be verified"); }
   if (head && head !== input.KIS_RELEASE_COMMIT_SHA) blockers.push("runtime release SHA does not match HEAD");
   const releaseApproval = head && currentBranch ? verifyReleaseApproval(root, input, options, blockers, currentBranch, head, target, now) : null;

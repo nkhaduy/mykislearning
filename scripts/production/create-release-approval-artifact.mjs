@@ -17,7 +17,7 @@ const readJson = (path) => JSON.parse(readFileSync(resolve(root, path), "utf8"))
 const releaseCommitSha = git("rev-parse", "HEAD");
 const approvedBranch = git("branch", "--show-current");
 
-if (!approvedBranch.startsWith("release/") || /[*?\[\]]/.test(approvedBranch)) {
+if (!approvedBranch.startsWith("release/") || /[*?[\]]/.test(approvedBranch)) {
   throw new Error("release approval requires one exact release branch");
 }
 if (loaded.contract.KIS_RELEASE_COMMIT_SHA !== releaseCommitSha) {
