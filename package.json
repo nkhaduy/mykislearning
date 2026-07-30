@@ -53,6 +53,7 @@
     "staging:readiness": "node scripts/staging/staging-command.mjs readiness",
     "security:accept-no-mfa": "node scripts/security/accept-no-mfa.mjs",
     "production:gates": "node scripts/production/run-production-gates.mjs",
+    "production:approval": "node scripts/production/create-release-approval-artifact.mjs",
     "production:manifest": "node scripts/production/create-release-manifest.mjs",
     "production:runtime:finalize": "node scripts/production/finalize-secure-runtime.mjs",
     "production:plan": "node scripts/production/deploy-production.mjs",

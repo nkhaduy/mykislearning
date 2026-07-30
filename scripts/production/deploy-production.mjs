@@ -9,6 +9,9 @@ import { verifyProductionApproval } from "./verify-production-approval.mjs";
 const root = resolve(process.env.KIS_PRODUCTION_RELEASE_SOURCE_ROOT || fileURLToPath(new URL("../..", import.meta.url)));
 const apply = process.argv.includes("--apply");
 const loaded = loadSecureRuntime();
+const { CLOUDFLARE_API_TOKEN: cloudflareApiToken, ...workerRuntimeSecrets } = loaded.secrets;
+if (!cloudflareApiToken) throw new Error("secure production runtime is missing CLOUDFLARE_API_TOKEN");
+process.env.CLOUDFLARE_API_TOKEN = cloudflareApiToken;
 let target;
 try {
   target = verifyProductionApproval(loaded.contract, {
@@ -72,7 +75,7 @@ const tempDirectory = mkdtempSync(join(tmpdir(), "kisvn-production-deploy-"));
 const secretsPath = join(tempDirectory, "worker-secrets.json");
 try {
   const secrets = {
-    ...loaded.secrets,
+    ...workerRuntimeSecrets,
     SUPABASE_URL: loaded.contract.KIS_PRODUCTION_SUPABASE_URL,
   };
   writeFileSync(secretsPath, `${JSON.stringify(secrets)}\n`, { mode: 0o600 });

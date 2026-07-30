@@ -34,6 +34,10 @@ loaded.secrets.SUPABASE_URL = loaded.contract.KIS_PRODUCTION_SUPABASE_URL;
 if (releaseChanged) {
   loaded.contract.KIS_PRODUCTION_APPROVAL_ID = `OWNER-PRODUCTION-${utc}-${releaseSha.slice(0, 8)}`;
   loaded.contract.KIS_PRODUCTION_ONE_TIME_APPROVAL_TOKEN = randomBytes(48).toString("base64url");
+  delete loaded.contract.KIS_PRODUCTION_RELEASE_APPROVAL_FILE;
+  delete loaded.contract.KIS_PRODUCTION_RELEASE_APPROVAL_SHA256;
+  delete loaded.contract.KIS_PRODUCTION_RELEASE_APPROVAL_ID;
+  delete loaded.contract.KIS_PRODUCTION_RELEASE_APPROVAL_CHECKSUM;
 }
 loaded.runtime.updatedAt = new Date().toISOString();
 writeFileSync(loaded.path, `${JSON.stringify(loaded.runtime, null, 2)}\n`, { mode: 0o600 });

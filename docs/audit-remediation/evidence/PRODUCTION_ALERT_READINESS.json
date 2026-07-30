@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "checkedAt": "2026-07-28T15:27:31Z",
+  "checkedAt": "2026-07-30T04:33:25Z",
   "accountId": "b9ae472cee29c5729ee90ccbb3533f33",
   "verifiedDestination": "Cloudflare account email nkhaduy@gmail.com",
   "destination": {
@@ -17,7 +17,7 @@
     "tokenStatus": "active",
     "notificationsEdit": {
       "verified": true,
-      "evidence": "Four notification policies created with HTTP 201"
+        "evidence": "Existing critical policies and account alerting access rechecked with HTTP 200"
     },
     "workersScriptsEdit": {
       "verified": true,
@@ -84,7 +84,7 @@
     "apiResult": true,
     "sensitiveDataIncluded": false
   },
-  "apiResult": "Alerting discovery succeeded; four policies were created and the synthetic policy test returned success=true/result=true",
+  "apiResult": "Alerting discovery succeeded; four enabled critical policies were rechecked and the synthetic Worker policy test returned success=true/result=true",
   "deliveryTested": true,
   "criticalPoliciesConfigured": true,
   "status": "verified"

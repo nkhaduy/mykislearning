@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { loadSecureRuntime, sha256 } from "../../scripts/production/runtime-contract.mjs";
+import { loadSecureRuntime, releaseApprovalChecksum, sha256 } from "../../scripts/production/runtime-contract.mjs";
 import { ProductionApprovalError, verifyProductionApproval } from "../../scripts/production/verify-production-approval.mjs";
 import { PURGE_TABLES } from "../../scripts/production/clean-reset/production-clean-reset-common.mjs";
 
@@ -104,7 +104,7 @@ function fixture({ alertsVerified = true } = {}) {
   git(root, "config", "user.email", "verifier@example.invalid");
   git(root, "add", ".");
   git(root, "commit", "-qm", "fixture");
-  git(root, "branch", "-M", "release/kis-lms-production-20260728-test");
+  git(root, "branch", "-M", "release/kis-lms-autonomous-audit-20260730");
   const head = git(root, "rev-parse", "HEAD");
   const tree = git(root, "rev-parse", "HEAD^{tree}");
   const contract = {
@@ -124,6 +124,39 @@ function fixture({ alertsVerified = true } = {}) {
     KIS_PRODUCTION_OWNER_POLICY_SHA256: ownerPolicySha256,
     KIS_CANONICAL_STAGING_VERSION: canonical.versionId, KIS_RELEASE_COMMIT_SHA: head,
   };
+  const releaseApprovalPath = join(root, "release-approval.json");
+  const releaseApproval = {
+    schemaVersion: 1,
+    status: "APPROVED",
+    approvalId: contract.KIS_PRODUCTION_APPROVAL_ID,
+    owner: "Nguyễn Khả Duy",
+    approvedBranch: "release/kis-lms-autonomous-audit-20260730",
+    approvedCommitSha: head,
+    approvedAt: "2026-07-28T14:00:00.000Z",
+    validUntil: "2026-07-28T17:00:00.000Z",
+    auditResults: {
+      qualityGates: "PASS",
+      cleanRoomRoleAudit: "PASS",
+      backupRestore: "PASS",
+      migrationReconciliation: "PASS",
+      alertPolicyVerification: "PASS",
+      alertDeliveryTest: "PASS",
+      securityRegression: "PASS",
+    },
+    credentialRotationResult: {
+      newCredentialVerified: "PASS",
+      oldExposedCredentialRevoked: "PASS",
+      activeExposedCloudflareCredentials: 0,
+      credentialFingerprint: "sha256:test-only",
+    },
+    rollbackWorkerVersion: "version-current",
+    checksumAlgorithm: "sha256",
+  };
+  releaseApproval.checksum = releaseApprovalChecksum(releaseApproval);
+  writeFileSync(releaseApprovalPath, `${JSON.stringify(releaseApproval, null, 2)}\n`, { mode: 0o600 });
+  chmodSync(releaseApprovalPath, 0o600);
+  contract.KIS_PRODUCTION_RELEASE_APPROVAL_FILE = releaseApprovalPath;
+  contract.KIS_PRODUCTION_RELEASE_APPROVAL_SHA256 = sha256(readFileSync(releaseApprovalPath));
   const gatesPath = join(root, "quality-gates.json");
   writeFileSync(gatesPath, `${JSON.stringify({ status: "pass", releaseCommitSha: head })}\n`);
   const manifestPath = join(root, "release-manifest.json");
@@ -133,6 +166,7 @@ function fixture({ alertsVerified = true } = {}) {
     wranglerSha256: sha256(readFileSync(join(root, "wrangler.jsonc"))), stagingReportSha256: sha256(readFileSync(join(root, "docs/audit-remediation/STAGING_OPERATIONAL_READINESS_REPORT.md"))),
     canonicalStagingEvidenceSha256: sha256(readFileSync(join(root, "docs/audit-remediation/evidence/CANONICAL_STAGING_RELEASE.json"))), build: { sha256: sha256(buildLine), files: 1 },
     canonicalStagingVersion: canonical.versionId, productionBackupId: contract.KIS_PRODUCTION_BACKUP_ID = "LOGICAL-TEST-BACKUP", productionApprovalId: contract.KIS_PRODUCTION_APPROVAL_ID,
+    releaseApprovalId: releaseApproval.approvalId, releaseApprovalSha256: contract.KIS_PRODUCTION_RELEASE_APPROVAL_SHA256, releaseApprovalChecksum: releaseApproval.checksum,
     ownerPolicyId: "KISVN-PERMANENT-OWNER-POLICY-20260729", ownerPolicySha256,
     qualityGateEvidenceSha256: sha256(readFileSync(gatesPath)),
     cleanResetAllowlistSha256,
@@ -145,7 +179,25 @@ function fixture({ alertsVerified = true } = {}) {
   })}\n`);
   contract.KIS_PRODUCTION_RELEASE_MANIFEST = manifestPath;
   contract.KIS_PRODUCTION_GATE_EVIDENCE = gatesPath;
-  return { root, contract, consumptionFile: join(root, "unused-consumption.json") };
+  return { root, contract, releaseApprovalPath, consumptionFile: join(root, "unused-consumption.json") };
+}
+
+const verifierOptions = (state, extra = {}) => ({
+  root: state.root,
+  now: "2026-07-28T14:30:00.000Z",
+  consumptionFile: state.consumptionFile,
+  providerSecretNames: ["AUDIT_IP_HASH_SALT", "CURSOR_SIGNING_SECRET", "JWT_SECRET", "RATE_LIMIT_KEY_SECRET", "REFRESH_TOKEN_HASH_SECRET", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"],
+  providerDeployment: { deploymentId: "deployment-current", versionId: "version-current" },
+  ...extra,
+});
+
+function updateApproval(state, mutate, { rechecksum = true } = {}) {
+  const artifact = JSON.parse(readFileSync(state.releaseApprovalPath, "utf8"));
+  mutate(artifact);
+  if (rechecksum) artifact.checksum = releaseApprovalChecksum(artifact);
+  writeFileSync(state.releaseApprovalPath, `${JSON.stringify(artifact, null, 2)}\n`, { mode: 0o600 });
+  chmodSync(state.releaseApprovalPath, 0o600);
+  state.contract.KIS_PRODUCTION_RELEASE_APPROVAL_SHA256 = sha256(readFileSync(state.releaseApprovalPath));
 }
 
 test("production verifier accepts the complete canonical contract without exposing secrets", () => {
@@ -169,6 +221,44 @@ test("production verifier reports only the real alert blocker when alert deliver
       providerSecretNames: ["AUDIT_IP_HASH_SALT", "CURSOR_SIGNING_SECRET", "JWT_SECRET", "RATE_LIMIT_KEY_SECRET", "REFRESH_TOKEN_HASH_SECRET", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"],
       providerDeployment: { deploymentId: "deployment-current", versionId: "version-current" },
     }), (error) => error instanceof ProductionApprovalError && error.blockers.length === 1 && /critical alerts/.test(error.blockers[0]));
+  } finally { rmSync(state.root, { recursive: true, force: true }); }
+});
+
+test("production verifier requires the exact approved branch and commit", () => {
+  const state = fixture();
+  try {
+    assert.doesNotThrow(() => verifyProductionApproval(state.contract, verifierOptions(state)));
+
+    updateApproval(state, (artifact) => { artifact.approvedCommitSha = "a".repeat(40); });
+    assert.throws(() => verifyProductionApproval(state.contract, verifierOptions(state)), /artifact commit does not exactly match HEAD/);
+
+    const branch = git(state.root, "branch", "--show-current");
+    assert.equal(branch, "release/kis-lms-autonomous-audit-20260730");
+    git(state.root, "branch", "-M", "release/kis-lms-wrong-branch");
+    updateApproval(state, (artifact) => { artifact.approvedCommitSha = git(state.root, "rev-parse", "HEAD"); });
+    assert.throws(() => verifyProductionApproval(state.contract, verifierOptions(state)), /artifact branch does not exactly match the current branch/);
+  } finally { rmSync(state.root, { recursive: true, force: true }); }
+});
+
+test("production verifier rejects missing or stale approval artifacts", () => {
+  const state = fixture();
+  try {
+    rmSync(state.releaseApprovalPath);
+    assert.throws(() => verifyProductionApproval(state.contract, verifierOptions(state)), /owner-approved release artifact is missing/);
+  } finally { rmSync(state.root, { recursive: true, force: true }); }
+
+  const stale = fixture();
+  try {
+    updateApproval(stale, (artifact) => { artifact.validUntil = "2026-07-28T13:00:00.000Z"; });
+    assert.throws(() => verifyProductionApproval(stale.contract, verifierOptions(stale)), /missing a current validity window/);
+  } finally { rmSync(stale.root, { recursive: true, force: true }); }
+});
+
+test("production verifier rejects a tampered approval artifact checksum", () => {
+  const state = fixture();
+  try {
+    updateApproval(state, (artifact) => { artifact.auditResults.securityRegression = "FAIL"; }, { rechecksum: false });
+    assert.throws(() => verifyProductionApproval(state.contract, verifierOptions(state)), /internal checksum is invalid or stale/);
   } finally { rmSync(state.root, { recursive: true, force: true }); }
 });
 
@@ -264,6 +354,10 @@ test("production plan requires active clean-reset gates, an exact manifest, and 
   assert.match(source, /requireActiveWindow:\s*true/);
   assert.match(source, /requireCleanResetReadiness:\s*true/);
   assert.match(source, /allowMissingManifest:\s*false/);
+  assert.match(source, /CLOUDFLARE_API_TOKEN:\s*cloudflareApiToken/);
+  assert.match(source, /secure production runtime is missing CLOUDFLARE_API_TOKEN/);
+  assert.match(source, /\.\.\.workerRuntimeSecrets/);
+  assert.doesNotMatch(source, /const secrets = \{\s*\.\.\.loaded\.secrets/);
 
   const state = fixture();
   try {

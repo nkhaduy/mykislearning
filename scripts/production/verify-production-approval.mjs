@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -7,7 +7,9 @@ import {
   DEFAULT_MANIFEST_FILE,
   DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE,
   DEFAULT_OWNER_POLICY_FILE,
+  DEFAULT_RELEASE_APPROVAL_FILE,
   loadSecureRuntime,
+  releaseApprovalChecksum,
   sha256,
   tokenConsumptionFile,
 } from "./runtime-contract.mjs";
@@ -122,6 +124,49 @@ function verifyOwnerPolicy(root, input, blockers) {
   if (String(input.KIS_PRODUCTION_OWNER_POLICY_SHA256 || "") !== policySha256) blockers.push("runtime owner-policy checksum does not match the policy file");
   if (policy.scopeStatement !== "KISVN source code, CI, Cloudflare production resources, Supabase production resources, migrations, database business data, releases, deployments, rollbacks and production incident recovery") blockers.push("permanent owner policy scope is incomplete");
   return { policyId: policy.policyId, sha256: policySha256, path: policyPath };
+}
+
+function verifyReleaseApproval(root, input, options, blockers, currentBranch, head, target, now) {
+  const approvalPath = resolve(input.KIS_PRODUCTION_RELEASE_APPROVAL_FILE || DEFAULT_RELEASE_APPROVAL_FILE);
+  let stat;
+  let artifact;
+  try {
+    stat = lstatSync(approvalPath);
+    if (!stat.isFile() || stat.isSymbolicLink() || (stat.mode & 0o777) !== 0o600) throw new Error("invalid mode");
+    artifact = JSON.parse(readFileSync(approvalPath, "utf8"));
+  } catch {
+    blockers.push("owner-approved release artifact is missing, invalid, or not mode 0600");
+    return null;
+  }
+  const artifactBytes = readFileSync(approvalPath);
+  const artifactSha256 = sha256(artifactBytes);
+  if (String(input.KIS_PRODUCTION_RELEASE_APPROVAL_SHA256 || "") !== artifactSha256) blockers.push("owner-approved release artifact checksum does not match the secure runtime binding");
+  if (artifact.schemaVersion !== 1 || artifact.status !== "APPROVED" || artifact.owner !== "Nguyễn Khả Duy") blockers.push("owner-approved release artifact is not active and owner-approved");
+  if (!artifact.approvedBranch || /[*?\[\]]/.test(String(artifact.approvedBranch)) || artifact.approvedBranch !== currentBranch) blockers.push("owner-approved release artifact branch does not exactly match the current branch");
+  if (!/^[a-f0-9]{40}$/.test(String(artifact.approvedCommitSha || "")) || artifact.approvedCommitSha !== head || artifact.approvedCommitSha !== input.KIS_RELEASE_COMMIT_SHA) blockers.push("owner-approved release artifact commit does not exactly match HEAD");
+  if (!artifact.approvalId || input.KIS_PRODUCTION_APPROVAL_ID && artifact.approvalId !== input.KIS_PRODUCTION_APPROVAL_ID) blockers.push("owner-approved release artifact approval ID is not bound to the runtime");
+  if (artifact.checksumAlgorithm !== "sha256" || artifact.checksum !== releaseApprovalChecksum(artifact)) blockers.push("owner-approved release artifact internal checksum is invalid or stale");
+  const approvedAt = new Date(artifact.approvedAt);
+  const validUntil = new Date(artifact.validUntil);
+  if (!Number.isFinite(approvedAt.getTime()) || !Number.isFinite(validUntil.getTime()) || validUntil <= approvedAt || approvedAt > now || validUntil <= now) blockers.push("owner-approved release artifact is missing a current validity window");
+  if (target?.cloudflare?.currentVersionId && artifact.rollbackWorkerVersion !== target.cloudflare.currentVersionId) blockers.push("owner-approved release artifact rollback Worker version is stale");
+  const audits = artifact.auditResults || {};
+  for (const name of ["qualityGates", "cleanRoomRoleAudit", "backupRestore", "migrationReconciliation", "alertPolicyVerification", "alertDeliveryTest", "securityRegression"]) {
+    if (audits[name] !== "PASS") blockers.push(`owner-approved release artifact audit result ${name} is not PASS`);
+  }
+  const rotation = artifact.credentialRotationResult || {};
+  if (rotation.newCredentialVerified !== "PASS" || rotation.oldExposedCredentialRevoked !== "PASS" || rotation.activeExposedCloudflareCredentials !== 0) blockers.push("owner-approved release artifact credential rotation is incomplete");
+  return {
+    path: approvalPath,
+    sha256: artifactSha256,
+    approvalId: artifact.approvalId,
+    checksum: artifact.checksum,
+    approvedBranch: artifact.approvedBranch,
+    approvedCommitSha: artifact.approvedCommitSha,
+    approvedAt: artifact.approvedAt,
+    validUntil: artifact.validUntil,
+    rollbackWorkerVersion: artifact.rollbackWorkerVersion,
+  };
 }
 
 function verifyCleanResetReadiness(root, input, blockers, options) {
@@ -246,7 +291,7 @@ export function verifyProductionApproval(input, options = {}) {
     "KIS_PRODUCTION_TARGET_ALLOWLIST", "KIS_PRODUCTION_ONE_TIME_APPROVAL_TOKEN", "KIS_PRODUCTION_APPROVAL_ID",
     "KIS_PRODUCTION_APPROVED_BY", "KIS_PRODUCTION_CHANGE_OWNER", "KIS_PRODUCTION_ROLLBACK_OWNER",
     "KIS_CANONICAL_STAGING_VERSION", "KIS_RELEASE_COMMIT_SHA",
-    "KIS_PRODUCTION_OWNER_POLICY_SHA256",
+    "KIS_PRODUCTION_OWNER_POLICY_SHA256", "KIS_PRODUCTION_RELEASE_APPROVAL_FILE", "KIS_PRODUCTION_RELEASE_APPROVAL_SHA256",
   ];
   for (const name of required) if (!String(input[name] || "").trim()) blockers.push(`${name} is missing`);
   if (input.KIS_ALLOW_PRODUCTION_MUTATION !== "true" || input.APP_ENV !== "production" || input.KIS_ALLOW_PRODUCTION_DEPLOYMENT !== "true") {
@@ -354,13 +399,16 @@ export function verifyProductionApproval(input, options = {}) {
 
   let head = "";
   let tree = "";
+  let currentBranch = "";
   try {
     head = command(root, "git", ["rev-parse", "HEAD"]);
     tree = command(root, "git", ["rev-parse", "HEAD^{tree}"]);
     if (command(root, "git", ["status", "--porcelain", "--untracked-files=no"])) blockers.push("tracked release worktree is not clean");
-    if (!command(root, "git", ["branch", "--show-current"]).startsWith("release/kis-lms-production-20260728")) blockers.push("HEAD is not on the approved production release branch");
+    currentBranch = command(root, "git", ["branch", "--show-current"]);
+    if (!currentBranch || !currentBranch.startsWith("release/") || /[*?\[\]]/.test(currentBranch)) blockers.push("HEAD is not on an exact approved release branch");
   } catch { blockers.push("Git release identity could not be verified"); }
   if (head && head !== input.KIS_RELEASE_COMMIT_SHA) blockers.push("runtime release SHA does not match HEAD");
+  const releaseApproval = head && currentBranch ? verifyReleaseApproval(root, input, options, blockers, currentBranch, head, target, now) : null;
   if (manifest) {
     const migrationFiles = command(root, "git", ["ls-files", "supabase/migrations/*.sql"]).split("\n").filter(Boolean).sort();
     const migrationLines = migrationFiles.map((path) => `${sha256(readFileSync(resolve(root, path)))}  ${path}\n`);
@@ -380,6 +428,7 @@ export function verifyProductionApproval(input, options = {}) {
     } catch { blockers.push("release build artifact is missing"); }
     if (gates && manifest.qualityGateEvidenceSha256 !== sha256(readFileSync(gatePath))) blockers.push("release manifest quality-gate checksum is stale");
     if (manifest.canonicalStagingVersion !== input.KIS_CANONICAL_STAGING_VERSION || manifest.productionBackupId !== input.KIS_PRODUCTION_BACKUP_ID || manifest.productionApprovalId !== input.KIS_PRODUCTION_APPROVAL_ID) blockers.push("release manifest is not bound to the approved staging/backup/approval package");
+    if (!releaseApproval || manifest.releaseApprovalId !== releaseApproval.approvalId || manifest.releaseApprovalSha256 !== releaseApproval.sha256 || manifest.releaseApprovalChecksum !== releaseApproval.checksum) blockers.push("release manifest owner-approved release artifact binding is stale");
     if (ownerPolicy && (manifest.ownerPolicySha256 !== ownerPolicy.sha256 || manifest.ownerPolicyId !== ownerPolicy.policyId)) blockers.push("release manifest owner-policy binding is stale");
     if (staging) {
       const approvedPostStagingMigrationNames = new Set([
@@ -446,6 +495,7 @@ export function verifyProductionApproval(input, options = {}) {
     previousProductionVersionId: deployment.versionId,
     releaseManifest: manifest ? basename(manifestPath) : null,
     ownerPolicy,
+    releaseApproval,
     migrationReconciliation,
     cleanResetReadiness,
   };

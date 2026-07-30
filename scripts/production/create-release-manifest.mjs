@@ -7,6 +7,7 @@ import {
   DEFAULT_MANIFEST_FILE,
   DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE,
   DEFAULT_OWNER_POLICY_FILE,
+  DEFAULT_RELEASE_APPROVAL_FILE,
   loadSecureRuntime,
   sha256,
 } from "./runtime-contract.mjs";
@@ -71,6 +72,14 @@ const targetPath = resolve(root, contract.KIS_PRODUCTION_TARGET_EVIDENCE || "doc
 const reconciliationPath = resolve(root, contract.KIS_PRODUCTION_MIGRATION_RECONCILIATION_EVIDENCE || DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE);
 const target = JSON.parse(readFileSync(targetPath, "utf8"));
 const reconciliation = JSON.parse(readFileSync(reconciliationPath, "utf8"));
+const releaseApprovalPath = resolve(contract.KIS_PRODUCTION_RELEASE_APPROVAL_FILE || DEFAULT_RELEASE_APPROVAL_FILE);
+const releaseApproval = JSON.parse(readFileSync(releaseApprovalPath, "utf8"));
+const releaseApprovalSha256 = sha256(readFileSync(releaseApprovalPath));
+if (releaseApprovalSha256 !== contract.KIS_PRODUCTION_RELEASE_APPROVAL_SHA256
+  || releaseApproval.approvedCommitSha !== releaseCommitSha
+  || releaseApproval.approvedBranch !== git("branch", "--show-current")) {
+  throw new Error("owner-approved release artifact is stale or targets another release");
+}
 const runtimeSha256 = sha256(readFileSync(loaded.path));
 const allowlistSha256 = sha256(JSON.stringify([...PURGE_TABLES].sort()));
 const ownerApprovalPath = "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_OWNER_APPROVAL.json";
@@ -99,6 +108,9 @@ const manifest = {
   build: directoryDigest("dist"),
   canonicalStagingVersion: canonicalStaging.versionId,
   productionApprovalId: contract.KIS_PRODUCTION_APPROVAL_ID,
+  releaseApprovalId: releaseApproval.approvalId,
+  releaseApprovalSha256,
+  releaseApprovalChecksum: releaseApproval.checksum,
   ownerPolicyId: ownerPolicy.policyId,
   ownerPolicySha256: sha256(readFileSync(ownerPolicyPath)),
   productionBackupId: contract.KIS_PRODUCTION_BACKUP_ID,
