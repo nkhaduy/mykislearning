@@ -58,10 +58,7 @@ export function validateEmployeeCreationInput(body = {}) {
   if (!EMPLOYEE_EMAIL_PATTERN.test(email)) {
     throw Object.assign(new Error("email is invalid"), { status: 422, code: "INVALID_EMAIL" });
   }
-  const password = String(body.password ?? "");
-  if (password.length < 12 || password.length > 256) {
-    throw Object.assign(new Error("password must be between 12 and 256 characters"), { status: 422, code: "INVALID_PASSWORD" });
-  }
+  const password = validatePasswordInput(body.password);
   const fullName = boundedText(body.fullName, "fullName", { required: true, max: 200 });
   const employeeCode = boundedText(body.employeeCode, "employeeCode", { required: true, max: 80 });
   const department = boundedText(body.department, "department", { required: true, max: 200 });
@@ -70,6 +67,30 @@ export function validateEmployeeCreationInput(body = {}) {
     throw Object.assign(new Error("new employees must use the employee role"), { status: 422, code: "INVALID_ROLE" });
   }
   return { email, password, fullName, employeeCode, department, position, role: "employee" };
+}
+
+export function validatePasswordInput(password, { currentPassword = null } = {}) {
+  const value = String(password ?? "");
+  if (value.length < 6 || value.length > 256) {
+    throw Object.assign(new Error("INVALID_PASSWORD"), { status: 422, code: "INVALID_PASSWORD" });
+  }
+  if (currentPassword !== null && value === String(currentPassword)) {
+    throw Object.assign(new Error("PASSWORD_REUSED"), { status: 422, code: "PASSWORD_REUSED" });
+  }
+  return value;
+}
+
+export function selectEffectiveRole(allowedRoles, requestedRole) {
+  const allowed = [...new Set((allowedRoles || []).filter((role) => CANONICAL_ROLES.has(role)))];
+  const requested = String(requestedRole || "").trim().toLowerCase();
+  if (requested) {
+    if (!allowed.includes(requested)) {
+      throw Object.assign(new Error("INVALID_CREDENTIALS"), { status: 401, code: "INVALID_CREDENTIALS" });
+    }
+    return requested;
+  }
+  if (allowed.length === 1) return allowed[0];
+  throw Object.assign(new Error("ROLE_SELECTION_REQUIRED"), { status: 422, code: "ROLE_SELECTION_REQUIRED" });
 }
 
 function taskStatusForResolution(status) {
@@ -303,11 +324,23 @@ export async function handleAuth(request, env) {
         ? `${deploymentAccount.username}@deployment.invalid`
         : normalizedIdentifier;
 
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("id, full_name, email, role, account_status, employee_code, department, position, failed_login_count, locked_until")
-      .eq("email", lookupEmail)
-      .single();
+    let profile = null;
+    let profileErr = null;
+    if (isLocalAdminLogin || isDeploymentTestLogin) {
+      const result = await supabase
+        .from("profiles")
+        .select("id, full_name, email, role, account_status, employee_code, department, position, failed_login_count, locked_until")
+        .eq("email", lookupEmail)
+        .single();
+      profile = result.data ? { ...result.data, allowed_roles: [result.data.role] } : null;
+      profileErr = result.error;
+    } else {
+      const result = await supabase.rpc("service_resolve_login_identity", {
+        p_identifier: normalizedIdentifier,
+      });
+      profile = result.data?.status === "found" ? result.data : null;
+      profileErr = result.error || (result.data?.status !== "found" ? { code: result.data?.status || "not_found" } : null);
+    }
 
     if (profileErr || !profile
       || (isReservedLocalAdminProfile(profile) && !isLocalAdminLogin)
@@ -322,14 +355,15 @@ export async function handleAuth(request, env) {
       return json({ error: "INVALID_CREDENTIALS", message: "Tên đăng nhập hoặc mật khẩu không chính xác." }, 401);
     }
 
-    if (!CANONICAL_ROLES.has(profile.role)) {
+    const allowedRoles = Array.isArray(profile.allowed_roles) ? profile.allowed_roles : [profile.role];
+    if (!allowedRoles.some((role) => CANONICAL_ROLES.has(role))) {
       await supabase.rpc("service_revoke_all_auth_sessions", {
         p_profile_id: profile.id,
         p_reason: "invalid_role",
         p_except_session_id: null,
       });
       auditLater(supabase, request, {
-        actor: { accountId: profile.id, role: profile.role }, action: "auth.login_failed", status: "failed",
+        actor: { accountId: profile.id, role: profile.role || "employee" }, action: "auth.login_failed", status: "failed",
         entityType: "profile", entityId: profile.id, metadata: { reason: "INVALID_ROLE" },
       });
       return json({ error: "INVALID_ROLE", code: "REAUTHENTICATION_REQUIRED" }, 403);
@@ -338,7 +372,7 @@ export async function handleAuth(request, env) {
     const status = profile.account_status || "active";
     if (["disabled", "inactive", "suspended"].includes(status)) {
       auditLater(supabase, request, {
-        actor: { accountId: profile.id, role: profile.role }, action: "auth.login_failed", status: "failed",
+        actor: { accountId: profile.id, role: profile.role || allowedRoles[0] }, action: "auth.login_failed", status: "failed",
         entityType: "profile", entityId: profile.id, metadata: { reason: "ACCOUNT_INACTIVE" },
       });
       return json({ error: "INVALID_CREDENTIALS", message: "Tên đăng nhập hoặc mật khẩu không chính xác." }, 401);
@@ -347,7 +381,7 @@ export async function handleAuth(request, env) {
     // Privileged accounts use the same bounded lockout policy as employees.
     if (profile.locked_until && new Date(profile.locked_until) > new Date()) {
       auditLater(supabase, request, {
-        actor: { accountId: profile.id, role: profile.role }, action: "auth.login_failed", status: "failed",
+        actor: { accountId: profile.id, role: profile.role || allowedRoles[0] }, action: "auth.login_failed", status: "failed",
         entityType: "profile", entityId: profile.id, metadata: { reason: "ACCOUNT_LOCKED" },
       });
       return json({ error: "INVALID_CREDENTIALS", message: "Tên đăng nhập hoặc mật khẩu không chính xác." }, 401);
@@ -378,7 +412,7 @@ export async function handleAuth(request, env) {
       await supabase.from("profiles").update(profilePatch).eq("id", profile.id);
 
       auditLater(supabase, request, {
-        actor: { accountId: profile.id, role: profile.role, fullName: profile.full_name },
+        actor: { accountId: profile.id, role: profile.role || allowedRoles[0], fullName: profile.full_name },
         action: autoLocked ? "account.locked" : "auth.login_failed",
         status: "failed",
         entityType: "profile",
@@ -401,14 +435,24 @@ export async function handleAuth(request, env) {
       await writeCredential(supabase, profile.id, await hashPassword(String(password)), { mustChange });
     }
     const rememberMe = body.rememberMe === true;
+    let effectiveRole;
+    try {
+      effectiveRole = selectEffectiveRole(allowedRoles, body.requestedRole);
+    } catch (error) {
+      if (error.code === "ROLE_SELECTION_REQUIRED") {
+        return json({ error: error.code, allowedRoles }, error.status);
+      }
+      throw error;
+    }
+    profile = { ...profile, role: effectiveRole };
 
     auditLater(supabase, request, {
-      actor: { accountId: profile.id, role: profile.role, fullName: profile.full_name },
+      actor: { accountId: profile.id, role: effectiveRole, fullName: profile.full_name },
       action: "auth.login_succeeded",
       entityType: "profile",
       entityId: profile.id,
       entityDisplayName: profile.full_name,
-      metadata: { must_change_password: mustChange },
+      metadata: { must_change_password: mustChange, effective_role: effectiveRole },
     });
     // Reset failed count and lock on successful login
     Promise.resolve(supabase.from("profiles").update({
@@ -467,6 +511,7 @@ export async function handleAuth(request, env) {
 
     const { targetUserId, targetEmail, newPassword, requireChange = true, unlock = true } = body;
     if (!newPassword) return json({ error: "newPassword required" }, 400);
+    const passwordValue = validatePasswordInput(newPassword);
     if (!targetUserId && !targetEmail) return json({ error: "ACCOUNT_NOT_FOUND — provide targetUserId or targetEmail" }, 400);
 
     let query = supabase.from("profiles").select("id, full_name, account_status");
@@ -477,7 +522,7 @@ export async function handleAuth(request, env) {
     if (lookupErr || !target) return json({ error: "ACCOUNT_NOT_FOUND" }, 404);
     if (target.account_status === "disabled") return json({ error: "ACCOUNT_INACTIVE" }, 403);
 
-    const rawHash = await hashPassword(String(newPassword));
+    const rawHash = await hashPassword(passwordValue);
     await writeCredential(supabase, target.id, rawHash, { mustChange: requireChange });
     await supabase.rpc("service_revoke_all_auth_sessions", {
       p_profile_id: target.id,
@@ -532,7 +577,8 @@ export async function handleAuth(request, env) {
     const valid = await verifyPassword(String(currentPassword), storedHash);
     if (!valid) return json({ error: "WRONG_CURRENT_PASSWORD", message: "Mật khẩu hiện tại không đúng." }, 401);
 
-    const newHash = await hashPassword(String(newPassword));
+    const passwordValue = validatePasswordInput(newPassword, { currentPassword });
+    const newHash = await hashPassword(passwordValue);
     await writeCredential(supabase, acct.accountId, newHash, { mustChange: false });
     const { error: revokeError } = await supabase.rpc("service_revoke_all_auth_sessions", {
       p_profile_id: acct.accountId,
@@ -569,6 +615,7 @@ export async function handleAuth(request, env) {
 
     const { email, password } = body;
     if (!email || !password) return json({ error: "email and password required" }, 400);
+    const passwordValue = validatePasswordInput(password);
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -593,7 +640,7 @@ export async function handleAuth(request, env) {
     const existing = await readCredential(supabase, profile.id);
     if (existing) return json({ error: "Password already set. Use reset-password." }, 409);
 
-    const hash = await hashPassword(String(password));
+    const hash = await hashPassword(passwordValue);
     await writeCredential(supabase, profile.id, hash, { mustChange: true });
     await writeAuditLog(supabase, request, {
       actorType: "service",

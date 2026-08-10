@@ -122,14 +122,18 @@ export async function createAuthSession(request, env, profile, {
     p_refresh_expires_at: refreshExpiresAt,
     p_ip_hash: ipHash,
     p_user_agent: boundedUserAgent(request),
+    p_effective_role: profile.role,
     p_max_sessions: Number(env.MAX_CONCURRENT_SESSIONS || 10),
   });
   if (error || data?.status !== "created") {
     throw Object.assign(new Error("Session creation failed"), { status: 503, code: "SESSION_STORE_UNAVAILABLE" });
   }
+  if (!CANONICAL_ROLES.has(data.role) || data.role !== profile.role) {
+    throw Object.assign(new Error("Session role mismatch"), { status: 503, code: "SESSION_STORE_UNAVAILABLE" });
+  }
   const access = await accessToken(env, {
     profileId: profile.id,
-    role: data.role || profile.role,
+    role: data.role,
     sessionId,
   });
   return {

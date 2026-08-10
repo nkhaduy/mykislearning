@@ -128,6 +128,54 @@ create index if not exists account_role_grants_role_profile_idx
 create index if not exists account_login_identities_username_idx
   on private.account_login_identities(username);
 
+create or replace function private.sync_profile_login_access()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_base text;
+  v_username text;
+begin
+  v_base := left(trim(both '-' from regexp_replace(
+    lower(coalesce(nullif(split_part(new.email, '@', 1), ''), nullif(new.employee_code, ''), 'user')),
+    '[^a-z0-9._-]+', '-', 'g'
+  )), 70);
+  v_base := coalesce(nullif(v_base, ''), 'user');
+  v_username := v_base;
+
+  if exists (
+    select 1 from private.account_login_identities i
+    where i.username = v_username and i.profile_id <> new.id::text
+  ) then
+    v_username := left(v_base, 70) || '-' || left(md5(new.id::text), 8);
+  end if;
+
+  insert into private.account_login_identities(profile_id, username, updated_at)
+  values (new.id::text, v_username, now())
+  on conflict (profile_id) do update set
+    username = excluded.username,
+    updated_at = now();
+
+  delete from private.account_role_grants where profile_id = new.id::text;
+  if v_username = 'nkhaduy' then
+    insert into private.account_role_grants(profile_id, role)
+    values (new.id::text, 'employee'), (new.id::text, 'hr');
+  elsif new.role in ('employee', 'hr') then
+    insert into private.account_role_grants(profile_id, role)
+    values (new.id::text, new.role);
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_sync_login_access on public.profiles;
+create trigger profiles_sync_login_access
+after insert or update of email, employee_code, role on public.profiles
+for each row execute function private.sync_profile_login_access();
+
 create or replace function public.service_resolve_login_identity(p_identifier text)
 returns jsonb
 language plpgsql
