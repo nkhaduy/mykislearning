@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "status": "pass",
-  "capturedAt": "2026-08-10T11:04:02Z",
+  "capturedAt": "2026-08-10T11:32:22Z",
   "projectRef": "mooqdtiedfamnlpitqtq",
   "releaseCommitSha": null,
   "releaseManifestSha256": null,
   "backupEvidenceSha256": "426d981933ebee5de414e6ad758ee4a8412758cb9c3f9968a234fa803594a5c1",
   "historyBeforeSha256": "61a148a79e008b63d85dd355823cffde8903f4411f0c593615ba6ff297ecad0d",
   "historyCurrentSha256": "a1e744938fddb1d6647154061872316e625031c20e1dc6d824526d5bf0d27bb8",
-  "localAndRemoteCount": 43,
+  "localAndRemoteCount": 45,
   "localOnlyCount": 1,
   "remoteOnlyCount": 0,
   "approvedBaselineMapping": {
@@ -64,20 +64,20 @@
   },
   "releaseCandidateValidation": {
     "status": "pass",
-    "sourceCommitSha": "f8ce956ce338dd4878b4165839bee5a0ef579b68",
-    "migration": "20260810061944_employee_account_auth.sql",
-    "migrationSha256": "ed053d77513eb01bf8e8ae5822f651c707c1f53698bc5d223315b6f49186d697",
+    "sourceCommitSha": "c143dba55b2e679777f53cf61796820ac5931920",
+    "migration": "20260810112750_restrict_employee_account_list_to_employee_profiles.sql",
+    "migrationSha256": "c924c42226d531001b94cd7b2eb8a9759a40b896c1d41e35fcd55a21717da23f",
     "linkedMigrationHistory": {
       "status": "pass",
-      "localCount": 44,
-      "remoteMatchedCount": 43,
+      "localCount": 45,
+      "remoteMatchedCount": 44,
       "remoteOnlyCount": 0,
       "pendingCount": 1
     },
     "linkedDryRun": {
       "status": "pass",
       "pending": [
-        "20260810061944_employee_account_auth.sql"
+        "20260810112750_restrict_employee_account_list_to_employee_profiles.sql"
       ]
     },
     "migrationRehearsal": {
@@ -228,7 +228,7 @@
     }
   ],
   "pendingProductionMigrations": [
-    "20260810061944_employee_account_auth.sql"
+    "20260810112750_restrict_employee_account_list_to_employee_profiles.sql"
   ],
   "maintenanceWindow": {
     "timezone": "Asia/Ho_Chi_Minh",
@@ -246,6 +246,7 @@
     "20260728103000_reporting_rpc.sql",
     "20260728104000_export_operations.sql",
     "20260729022415_consolidate_roles_to_hr_and_employee.sql",
-    "20260729121500_fix_reporting_rpc_enrollment_compatibility.sql"
+    "20260729121500_fix_reporting_rpc_enrollment_compatibility.sql",
+    "20260810061944_employee_account_auth.sql"
   ]
 }
