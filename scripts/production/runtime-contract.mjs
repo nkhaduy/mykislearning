@@ -18,6 +18,14 @@ export function releaseApprovalChecksum(artifact) {
   return sha256(JSON.stringify(payload));
 }
 
+export function isApprovedPostStagingToolchain(evidence, packageLockSha256) {
+  const toolchain = evidence?.releaseCandidateValidation?.toolchain;
+  return toolchain?.status === "pass"
+    && toolchain.packageLockSha256 === packageLockSha256
+    && toolchain.npmAuditStatus === "pass"
+    && toolchain.wranglerDryRunStatus === "pass";
+}
+
 export function tokenConsumptionFile(runtimeFile = DEFAULT_RUNTIME_FILE) {
   return `${resolve(runtimeFile)}.approval-consumed.json`;
 }

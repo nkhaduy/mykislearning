@@ -8,6 +8,7 @@ import {
   DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE,
   DEFAULT_OWNER_POLICY_FILE,
   DEFAULT_RELEASE_APPROVAL_FILE,
+  isApprovedPostStagingToolchain,
   loadSecureRuntime,
   sha256,
 } from "./runtime-contract.mjs";
@@ -57,6 +58,10 @@ if (gateEvidence.status !== "pass" || gateEvidence.releaseCommitSha !== releaseC
 const canonicalStaging = JSON.parse(readFileSync(resolve(root, "docs/audit-remediation/evidence/CANONICAL_STAGING_RELEASE.json"), "utf8"));
 const packageLockSha256 = fileSha256("package-lock.json");
 const migrationsSha256 = sha256(migrationLines.join(""));
+const targetPath = resolve(root, contract.KIS_PRODUCTION_TARGET_EVIDENCE || "docs/audit-remediation/evidence/PRODUCTION_TARGET_DISCOVERY.json");
+const reconciliationPath = resolve(root, contract.KIS_PRODUCTION_MIGRATION_RECONCILIATION_EVIDENCE || DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE);
+const target = JSON.parse(readFileSync(targetPath, "utf8"));
+const reconciliation = JSON.parse(readFileSync(reconciliationPath, "utf8"));
 const approvedPostStagingMigrationNames = new Set([
   "20260729022415_consolidate_roles_to_hr_and_employee.sql",
   "20260729121500_fix_reporting_rpc_enrollment_compatibility.sql",
@@ -66,13 +71,11 @@ const postStagingMigrationFiles = migrationFiles.filter((path) => approvedPostSt
 const stagingMigrationLines = migrationFiles
   .filter((path) => !approvedPostStagingMigrationNames.has(basename(path)))
   .map((path) => `${sha256(readFileSync(path))}  ${relative(root, path)}\n`);
-if (canonicalStaging.packageLockSha256 !== packageLockSha256 || canonicalStaging.migrationListSha256 !== sha256(stagingMigrationLines.join(""))) {
+const packageLockMatchesStaging = canonicalStaging.packageLockSha256 === packageLockSha256
+  || isApprovedPostStagingToolchain(reconciliation, packageLockSha256);
+if (!packageLockMatchesStaging || canonicalStaging.migrationListSha256 !== sha256(stagingMigrationLines.join(""))) {
   throw new Error("release lockfile or migrations do not match the canonical staging rehearsal");
 }
-const targetPath = resolve(root, contract.KIS_PRODUCTION_TARGET_EVIDENCE || "docs/audit-remediation/evidence/PRODUCTION_TARGET_DISCOVERY.json");
-const reconciliationPath = resolve(root, contract.KIS_PRODUCTION_MIGRATION_RECONCILIATION_EVIDENCE || DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE);
-const target = JSON.parse(readFileSync(targetPath, "utf8"));
-const reconciliation = JSON.parse(readFileSync(reconciliationPath, "utf8"));
 const releaseApprovalPath = resolve(contract.KIS_PRODUCTION_RELEASE_APPROVAL_FILE || DEFAULT_RELEASE_APPROVAL_FILE);
 const releaseApproval = JSON.parse(readFileSync(releaseApprovalPath, "utf8"));
 const releaseApprovalSha256 = sha256(readFileSync(releaseApprovalPath));

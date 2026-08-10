@@ -8,6 +8,7 @@ import {
   DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE,
   DEFAULT_OWNER_POLICY_FILE,
   DEFAULT_RELEASE_APPROVAL_FILE,
+  isApprovedPostStagingToolchain,
   loadSecureRuntime,
   releaseApprovalChecksum,
   sha256,
@@ -442,7 +443,14 @@ export function verifyProductionApproval(input, options = {}) {
       const stagingMigrationLines = migrationFiles
         .filter((path) => !approvedPostStagingMigrationNames.has(basename(path)))
         .map((path) => `${sha256(readFileSync(resolve(root, path)))}  ${path}\n`);
-      if (manifest.packageLockSha256 !== staging.packageLockSha256 || sha256(stagingMigrationLines.join("")) !== staging.migrationListSha256) blockers.push("release lockfile or migrations do not match the canonical staging rehearsal");
+      let postStagingToolchainApproved = false;
+      try {
+        const reconciliationPath = input.KIS_PRODUCTION_MIGRATION_RECONCILIATION_EVIDENCE || DEFAULT_MIGRATION_RECONCILIATION_EVIDENCE;
+        const reconciliation = JSON.parse(readFileSync(resolve(root, reconciliationPath), "utf8"));
+        postStagingToolchainApproved = isApprovedPostStagingToolchain(reconciliation, manifest.packageLockSha256);
+      } catch { /* reported by the reconciliation binding check below */ }
+      const packageLockMatchesStaging = manifest.packageLockSha256 === staging.packageLockSha256 || postStagingToolchainApproved;
+      if (!packageLockMatchesStaging || sha256(stagingMigrationLines.join("")) !== staging.migrationListSha256) blockers.push("release lockfile or migrations do not match the canonical staging rehearsal");
       if (JSON.stringify(manifest.approvedPostStagingMigrations || []) !== JSON.stringify(postStagingMigrationFiles)) blockers.push("release manifest post-staging migration delta is stale");
     }
     const allowlistSha256 = sha256(JSON.stringify([...PURGE_TABLES].sort()));

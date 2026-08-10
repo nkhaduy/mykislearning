@@ -27,7 +27,7 @@ const write = (root, path, value) => {
 };
 const git = (root, ...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
 
-function fixture({ alertsVerified = true } = {}) {
+function fixture({ alertsVerified = true, postStagingToolchain = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), "kis-production-verifier-test-"));
   const ownerPolicyPath = new URL("../../docs/owner-authorization/KISVN_PERMANENT_OWNER_POLICY.json", import.meta.url).pathname;
   const ownerPolicySha256 = sha256(readFileSync(ownerPolicyPath));
@@ -50,6 +50,8 @@ function fixture({ alertsVerified = true } = {}) {
   canonical.packageLockSha256 = sha256(readFileSync(join(root, "package-lock.json")));
   canonical.migrationListSha256 = sha256(migrationLine);
   write(root, "docs/audit-remediation/evidence/CANONICAL_STAGING_RELEASE.json", canonical);
+  if (postStagingToolchain) write(root, "package-lock.json", "{\"toolchain\":\"security-update\"}\n");
+  const releasePackageLockSha256 = sha256(readFileSync(join(root, "package-lock.json")));
   write(root, "docs/audit-remediation/STAGING_OPERATIONAL_READINESS_REPORT.md", "STAGING READY WITH OPERATIONAL FOLLOW-UP\n");
   write(root, "docs/audit-remediation/NO_MFA_SECURITY_ACCEPTANCE.md", `Status: **Accepted**\n- Incident response owner: Nguyễn Khả Duy\n- Approved by: Nguyễn Khả Duy\n- Confirmation: ${confirmation}\n`);
   write(root, "docs/audit-remediation/evidence/PRODUCTION_TARGET_DISCOVERY.json", {
@@ -111,6 +113,16 @@ function fixture({ alertsVerified = true } = {}) {
     disposableRehearsal: { status: "pass" },
     repairEvidenceChecksum: "a".repeat(64),
     pendingProductionMigrations: pendingMigrations,
+    ...(postStagingToolchain ? {
+      releaseCandidateValidation: {
+        toolchain: {
+          status: "pass",
+          packageLockSha256: releasePackageLockSha256,
+          npmAuditStatus: "pass",
+          wranglerDryRunStatus: "pass",
+        },
+      },
+    } : {}),
   });
   write(root, "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_OWNER_APPROVAL.json", { decision: "APPROVED" });
   write(root, "docs/audit-remediation/evidence/TWO_ROLE_AUTHORIZATION_CONTRACT.json", { canonicalRoles: ["hr", "employee"] });
@@ -177,7 +189,7 @@ function fixture({ alertsVerified = true } = {}) {
   const manifestPath = join(root, "release-manifest.json");
   const buildLine = `${sha256(readFileSync(join(root, "dist/index.html")))}  dist/index.html\n`;
   writeFileSync(manifestPath, `${JSON.stringify({
-    releaseCommitSha: head, releaseTreeSha: tree, packageLockSha256: canonical.packageLockSha256, migrationsSha256: releaseMigrationsSha256,
+    releaseCommitSha: head, releaseTreeSha: tree, packageLockSha256: releasePackageLockSha256, migrationsSha256: releaseMigrationsSha256,
     wranglerSha256: sha256(readFileSync(join(root, "wrangler.jsonc"))), stagingReportSha256: sha256(readFileSync(join(root, "docs/audit-remediation/STAGING_OPERATIONAL_READINESS_REPORT.md"))),
     canonicalStagingEvidenceSha256: sha256(readFileSync(join(root, "docs/audit-remediation/evidence/CANONICAL_STAGING_RELEASE.json"))), build: { sha256: sha256(buildLine), files: 1 },
     canonicalStagingVersion: canonical.versionId, productionBackupId: contract.KIS_PRODUCTION_BACKUP_ID = "LOGICAL-TEST-BACKUP", productionApprovalId: contract.KIS_PRODUCTION_APPROVAL_ID,
@@ -225,6 +237,13 @@ test("production verifier accepts the complete canonical contract without exposi
     });
     assert.equal(result.environment, "production");
     assert.doesNotMatch(JSON.stringify(result), /x{16}/);
+  } finally { rmSync(state.root, { recursive: true, force: true }); }
+});
+
+test("production verifier accepts an audited post-staging toolchain lock delta", () => {
+  const state = fixture({ postStagingToolchain: true });
+  try {
+    assert.doesNotThrow(() => verifyProductionApproval(state.contract, verifierOptions(state)));
   } finally { rmSync(state.root, { recursive: true, force: true }); }
 });
 
