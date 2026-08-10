@@ -44,9 +44,11 @@ function fixture({ alertsVerified = true, postStagingToolchain = false } = {}) {
   write(root, "dist/index.html", "ready\n");
   write(root, "supabase/migrations/20260727172321_reconcile_legacy_department_schema.sql", "alter table public.course_versions validate constraint course_versions_course_id_fkey;\n");
   write(root, "supabase/migrations/20260810061944_employee_account_auth.sql", "create table private.password_escrow (profile_id text primary key);\n");
+  write(root, "supabase/migrations/20260810112750_restrict_employee_account_list_to_employee_profiles.sql", "create or replace function public.service_list_employee_accounts() returns void language sql as 'select';\n");
   const migrationLine = `${sha256(readFileSync(join(root, "supabase/migrations/20260727172321_reconcile_legacy_department_schema.sql")))}  supabase/migrations/20260727172321_reconcile_legacy_department_schema.sql\n`;
   const employeeAuthMigrationLine = `${sha256(readFileSync(join(root, "supabase/migrations/20260810061944_employee_account_auth.sql")))}  supabase/migrations/20260810061944_employee_account_auth.sql\n`;
-  const releaseMigrationsSha256 = sha256(`${migrationLine}${employeeAuthMigrationLine}`);
+  const employeeAccountScopeMigrationLine = `${sha256(readFileSync(join(root, "supabase/migrations/20260810112750_restrict_employee_account_list_to_employee_profiles.sql")))}  supabase/migrations/20260810112750_restrict_employee_account_list_to_employee_profiles.sql\n`;
+  const releaseMigrationsSha256 = sha256(`${migrationLine}${employeeAuthMigrationLine}${employeeAccountScopeMigrationLine}`);
   canonical.packageLockSha256 = sha256(readFileSync(join(root, "package-lock.json")));
   canonical.migrationListSha256 = sha256(migrationLine);
   write(root, "docs/audit-remediation/evidence/CANONICAL_STAGING_RELEASE.json", canonical);
@@ -103,6 +105,7 @@ function fixture({ alertsVerified = true, postStagingToolchain = false } = {}) {
     "20260728104000_export_operations.sql",
     "20260729022415_consolidate_roles_to_hr_and_employee.sql",
     "20260810061944_employee_account_auth.sql",
+    "20260810112750_restrict_employee_account_list_to_employee_profiles.sql",
   ];
   write(root, "docs/audit-remediation/evidence/PRODUCTION_MIGRATION_HISTORY_RECONCILIATION.json", {
     schemaVersion: 1,
@@ -197,7 +200,10 @@ function fixture({ alertsVerified = true, postStagingToolchain = false } = {}) {
     ownerPolicyId: "KISVN-PERMANENT-OWNER-POLICY-20260729", ownerPolicySha256,
     qualityGateEvidenceSha256: sha256(readFileSync(gatesPath)),
     cleanResetAllowlistSha256,
-    approvedPostStagingMigrations: ["supabase/migrations/20260810061944_employee_account_auth.sql"],
+    approvedPostStagingMigrations: [
+      "supabase/migrations/20260810061944_employee_account_auth.sql",
+      "supabase/migrations/20260810112750_restrict_employee_account_list_to_employee_profiles.sql",
+    ],
     cleanResetOwnerApprovalSha256: sha256(readFileSync(join(root, "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_OWNER_APPROVAL.json"))),
     pendingMigrationAllowlist: pendingMigrations,
     rollbackWorkerVersion: "version-current",
@@ -332,6 +338,7 @@ test("production verifier requires passing migration reconciliation evidence and
     "20260728104000_export_operations.sql",
     "20260729022415_consolidate_roles_to_hr_and_employee.sql",
     "20260810061944_employee_account_auth.sql",
+    "20260810112750_restrict_employee_account_list_to_employee_profiles.sql",
   ];
   const evidencePath = join(state.root, "migration-reconciliation.json");
   try {

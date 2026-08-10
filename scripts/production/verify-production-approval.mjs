@@ -40,6 +40,7 @@ const requiredMigrationNames = [
   "20260729022415_consolidate_roles_to_hr_and_employee.sql",
   "20260729121500_fix_reporting_rpc_enrollment_compatibility.sql",
   "20260810061944_employee_account_auth.sql",
+  "20260810112750_restrict_employee_account_list_to_employee_profiles.sql",
 ];
 
 export class ProductionApprovalError extends Error {
@@ -438,6 +439,7 @@ export function verifyProductionApproval(input, options = {}) {
         "20260729022415_consolidate_roles_to_hr_and_employee.sql",
         "20260729121500_fix_reporting_rpc_enrollment_compatibility.sql",
         "20260810061944_employee_account_auth.sql",
+        "20260810112750_restrict_employee_account_list_to_employee_profiles.sql",
       ]);
       const postStagingMigrationFiles = migrationFiles.filter((path) => approvedPostStagingMigrationNames.has(basename(path)));
       const stagingMigrationLines = migrationFiles

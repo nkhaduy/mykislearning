@@ -255,6 +255,16 @@ async function scenarioFresh() {
   verifyCommon(database);
   verifyAuthHardening(database);
   await verifyConcurrentRefresh(database);
+  sql(database, `
+    insert into private.account_role_grants(profile_id, role)
+    values ('local-development-hr', 'employee')
+    on conflict do nothing;
+  `, "Dual-role HR account fixture");
+  assertEqual(scalar(database, `
+    select count(*)
+    from public.service_list_employee_accounts('', '', 100, 0)
+    where id = 'local-development-hr'
+  `), "0", "Employee account management must exclude dual-role HR profiles");
   assertEqual(scalar(database, "select count(*) from public.profiles"), "4", "Fresh profile count");
   assertEqual(scalar(database, "select count(*) from private.account_credentials where profile_id = 'local-development-hr'"), "1", "Local bootstrap credential store shape");
   assertEqual(scalar(database, "select count(*) from public.enrollments where id = 'synthetic-enrollment'"), "1", "Fresh enrollment seed");
