@@ -18,12 +18,17 @@ const serviceRoleKey = key("service_role", "legacy");
 if (!anonKey || !serviceRoleKey) throw new Error("production Supabase legacy anon/service_role keys are unavailable");
 
 const secret = () => randomBytes(48).toString("base64url");
+const passwordEscrowKey = JSON.stringify({
+  active: "v1",
+  keys: { v1: randomBytes(32).toString("base64url") },
+});
 const generated = {
   JWT_SECRET: secret(),
   REFRESH_TOKEN_HASH_SECRET: secret(),
   CURSOR_SIGNING_SECRET: secret(),
   RATE_LIMIT_KEY_SECRET: secret(),
   AUDIT_IP_HASH_SALT: secret(),
+  PASSWORD_ESCROW_KEY: passwordEscrowKey,
 };
 if (new Set(Object.values(generated)).size !== Object.keys(generated).length) throw new Error("generated secrets are not unique");
 

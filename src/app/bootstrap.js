@@ -52,6 +52,7 @@ const splitEntries = {
   learningRecords: () => import("../features/records/records.js"),
   attendance: () => import("../features/attendance/scanner.js"),
   reporting: () => import("../features/reporting/reports.js"),
+  accounts: () => import("../features/accounts/accounts.js?v=20260810-account-auth1"),
   security: () => import("../features/auth/security.js"),
   changePassword: () => import("../features/auth/change-password.js"),
   publicTraining: () => import("../features/public/training.js"),

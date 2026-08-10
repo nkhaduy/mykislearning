@@ -33,6 +33,9 @@ if (isHome) {
 } else if ((location.pathname.replace(/\/+$/, "") || "/") === "/hr/employees") {
   document.write('<link rel="stylesheet" href="/src/shared/ui/route-shell.css?v=20260727-shared-type2">');
   document.write('<link rel="stylesheet" href="/src/features/employees/employees.css?v=20260729-hr-create1">');
+} else if ((location.pathname.replace(/\/+$/, "") || "/") === "/hr/accounts") {
+  document.write('<link rel="stylesheet" href="/src/shared/ui/route-shell.css?v=20260727-shared-type2">');
+  document.write('<link rel="stylesheet" href="/src/features/accounts/accounts.css?v=20260810-account-auth1">');
 } else if (/^\/hr\/courses(?:\/[^/]+)?$/.test(location.pathname.replace(/\/+$/, "") || "/") || /^\/dashboard\/courses\/[^/]+$/.test(location.pathname.replace(/\/+$/, "") || "/")) {
   document.write('<link rel="stylesheet" href="/src/shared/ui/route-shell.css?v=20260727-shared-type2">');
   document.write('<link rel="stylesheet" href="/src/features/courses/courses.css?v=20260729-hr-create1">');

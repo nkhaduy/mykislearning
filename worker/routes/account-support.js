@@ -7,10 +7,11 @@
 import { json, readJson, corsPreflight } from "../services/responses.js";
 import { getSupabase } from "../services/supabase.js";
 import { requireHr } from "../middleware/auth.js";
-import { requirePrivilegedSession } from "./auth.js";
+import { requirePrivilegedSession, validatePasswordInput } from "./auth.js";
 import { trustedClientIp } from "../services/client-ip.js";
 import { hashPassword } from "../services/crypto.js";
-import { writeCredential } from "../services/credentials.js";
+import { writeCredentialBundle } from "../services/credentials.js";
+import { encryptEscrowPassword } from "../services/password-escrow.js";
 
 const SUPPORT_TYPES = ["forgot_password", "unlock_account", "reactivate_account", "login_issue", "account_access"];
 
@@ -351,20 +352,23 @@ export async function handleAccountSupport(request, env) {
       if (task.status === "done") return json({ error: "REQUEST_ALREADY_RESOLVED" }, 409);
 
       const body = await readJson(request);
-      const newPassword = String(body.newPassword || "");
-      if (newPassword.length < 6) return json({ error: "PASSWORD_TOO_SHORT" }, 400);
+      const newPassword = validatePasswordInput(body.newPassword);
       const requireChange = body.requireChange !== false;
 
       const { data: profile, error: profileErr } = await supabase
         .from("profiles")
-        .select("id, full_name, account_status")
+        .select("id, full_name, account_status, role")
         .eq("id", task.requester_account_id)
         .single();
 
       if (profileErr || !profile) return json({ error: "ACCOUNT_NOT_FOUND" }, 404);
+      if (profile.role !== "employee") return json({ error: "EMPLOYEE_ACCOUNT_REQUIRED" }, 403);
 
-      const rawHash = await hashPassword(newPassword);
-      await writeCredential(supabase, profile.id, rawHash, { mustChange: requireChange });
+      const [rawHash, escrow] = await Promise.all([
+        hashPassword(newPassword),
+        encryptEscrowPassword(newPassword, profile.id, env),
+      ]);
+      await writeCredentialBundle(supabase, profile.id, rawHash, escrow, { mustChange: requireChange });
       await supabase.rpc("service_revoke_all_auth_sessions", {
         p_profile_id: profile.id, p_reason: "password_reset", p_except_session_id: null,
       });
@@ -507,6 +511,7 @@ export async function handleHrAccountActions(request, env) {
 
   if (fetchErr) return json({ error: "ACCOUNT_LOOKUP_FAILED", message: fetchErr.message }, 500);
   if (!target) return json({ error: "ACCOUNT_NOT_FOUND", message: "Employee profile không tồn tại." }, 404);
+  if (target.role !== "employee") return json({ error: "EMPLOYEE_ACCOUNT_REQUIRED" }, 403);
 
   function auditAction(act, result, details = {}) {
     auditLog(supabase, {
@@ -566,12 +571,14 @@ export async function handleHrAccountActions(request, env) {
   }
 
   if (action === "reset-password") {
-    const newPassword = String(body.newPassword || "");
-    if (newPassword.length < 6) return json({ error: "PASSWORD_TOO_SHORT" }, 400);
+    const newPassword = validatePasswordInput(body.newPassword);
     const requireChange = body.requireChange !== false;
 
-    const rawHash = await hashPassword(newPassword);
-    await writeCredential(supabase, targetId, rawHash, { mustChange: requireChange });
+    const [rawHash, escrow] = await Promise.all([
+      hashPassword(newPassword),
+      encryptEscrowPassword(newPassword, targetId, env),
+    ]);
+    await writeCredentialBundle(supabase, targetId, rawHash, escrow, { mustChange: requireChange });
     await supabase.rpc("service_revoke_all_auth_sessions", {
       p_profile_id: targetId, p_reason: "password_reset", p_except_session_id: null,
     });
@@ -587,6 +594,32 @@ export async function handleHrAccountActions(request, env) {
 
     auditAction("password_reset_by_hr", "success", { requireChange });
     return json({ ok: true, targetId, targetName: target.full_name });
+  }
+
+  if (action === "revoke-sessions") {
+    const { error } = await supabase.rpc("service_revoke_all_auth_sessions", {
+      p_profile_id: targetId,
+      p_reason: "hr_revoked",
+      p_except_session_id: null,
+    });
+    if (error) return json({ error: "SESSION_REVOCATION_FAILED" }, 503);
+    auditAction("account.sessions_revoked", "success");
+    return json({ ok: true });
+  }
+
+  if (action === "set-username") {
+    const username = String(body.username || "").trim().toLowerCase();
+    if (!/^[a-z0-9._-]{1,80}$/.test(username)) return json({ error: "INVALID_USERNAME" }, 422);
+    const { error } = await supabase.rpc("service_write_login_username", {
+      p_profile_id: targetId,
+      p_username: username,
+    });
+    if (error) {
+      const duplicate = error.code === "23505" || /unique|duplicate/i.test(error.message || "");
+      return json({ error: duplicate ? "USERNAME_ALREADY_EXISTS" : "USERNAME_UPDATE_FAILED" }, duplicate ? 409 : 503);
+    }
+    auditAction("account.username_changed", "success");
+    return json({ ok: true, username });
   }
 
   return json({ error: "INVALID_ACTION" }, 400);

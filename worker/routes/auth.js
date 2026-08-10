@@ -12,7 +12,8 @@ import {
   verifyToken,
 } from "../services/crypto.js";
 import { auditLater, writeAuditLog } from "../services/audit-service.js";
-import { readCredential, writeCredential } from "../services/credentials.js";
+import { readCredential, writeCredentialBundle } from "../services/credentials.js";
+import { encryptEscrowPassword } from "../services/password-escrow.js";
 import { enforceRateLimit } from "../services/rate-limit.js";
 import {
   ACCESS_COOKIE,
@@ -324,8 +325,8 @@ export async function handleAuth(request, env) {
         ? `${deploymentAccount.username}@deployment.invalid`
         : normalizedIdentifier;
 
-    let profile = null;
-    let profileErr = null;
+    let profile;
+    let profileErr;
     if (isLocalAdminLogin || isDeploymentTestLogin) {
       const result = await supabase
         .from("profiles")
@@ -432,7 +433,11 @@ export async function handleAuth(request, env) {
 
     const mustChange = credential?.must_change === true || isMustChange(storedHash);
     if (storedHash.startsWith("pbkdf2$")) {
-      await writeCredential(supabase, profile.id, await hashPassword(String(password)), { mustChange });
+      const [passwordHash, escrow] = await Promise.all([
+        hashPassword(String(password)),
+        encryptEscrowPassword(String(password), profile.id, env),
+      ]);
+      await writeCredentialBundle(supabase, profile.id, passwordHash, escrow, { mustChange });
     }
     const rememberMe = body.rememberMe === true;
     let effectiveRole;
@@ -514,16 +519,20 @@ export async function handleAuth(request, env) {
     const passwordValue = validatePasswordInput(newPassword);
     if (!targetUserId && !targetEmail) return json({ error: "ACCOUNT_NOT_FOUND — provide targetUserId or targetEmail" }, 400);
 
-    let query = supabase.from("profiles").select("id, full_name, account_status");
+    let query = supabase.from("profiles").select("id, full_name, account_status, role");
     if (targetUserId) query = query.eq("id", String(targetUserId));
     else query = query.eq("email", String(targetEmail).trim().toLowerCase());
     const { data: target, error: lookupErr } = await query.single();
 
     if (lookupErr || !target) return json({ error: "ACCOUNT_NOT_FOUND" }, 404);
+    if (target.role !== "employee") return json({ error: "EMPLOYEE_ACCOUNT_REQUIRED" }, 403);
     if (target.account_status === "disabled") return json({ error: "ACCOUNT_INACTIVE" }, 403);
 
-    const rawHash = await hashPassword(passwordValue);
-    await writeCredential(supabase, target.id, rawHash, { mustChange: requireChange });
+    const [rawHash, escrow] = await Promise.all([
+      hashPassword(passwordValue),
+      encryptEscrowPassword(passwordValue, target.id, env),
+    ]);
+    await writeCredentialBundle(supabase, target.id, rawHash, escrow, { mustChange: requireChange });
     await supabase.rpc("service_revoke_all_auth_sessions", {
       p_profile_id: target.id,
       p_reason: "password_reset",
@@ -578,8 +587,11 @@ export async function handleAuth(request, env) {
     if (!valid) return json({ error: "WRONG_CURRENT_PASSWORD", message: "Mật khẩu hiện tại không đúng." }, 401);
 
     const passwordValue = validatePasswordInput(newPassword, { currentPassword });
-    const newHash = await hashPassword(passwordValue);
-    await writeCredential(supabase, acct.accountId, newHash, { mustChange: false });
+    const [newHash, escrow] = await Promise.all([
+      hashPassword(passwordValue),
+      encryptEscrowPassword(passwordValue, acct.accountId, env),
+    ]);
+    await writeCredentialBundle(supabase, acct.accountId, newHash, escrow, { mustChange: false });
     const { error: revokeError } = await supabase.rpc("service_revoke_all_auth_sessions", {
       p_profile_id: acct.accountId,
       p_reason: "password_changed",
@@ -640,8 +652,11 @@ export async function handleAuth(request, env) {
     const existing = await readCredential(supabase, profile.id);
     if (existing) return json({ error: "Password already set. Use reset-password." }, 409);
 
-    const hash = await hashPassword(passwordValue);
-    await writeCredential(supabase, profile.id, hash, { mustChange: true });
+    const [hash, escrow] = await Promise.all([
+      hashPassword(passwordValue),
+      encryptEscrowPassword(passwordValue, profile.id, env),
+    ]);
+    await writeCredentialBundle(supabase, profile.id, hash, escrow, { mustChange: true });
     await writeAuditLog(supabase, request, {
       actorType: "service",
       actorRole: "bootstrap",
@@ -668,8 +683,11 @@ export async function handleAuth(request, env) {
     const { data: duplicateCode } = await supabase.from("profiles").select("id").eq("employee_code", input.employeeCode).maybeSingle();
     if (duplicateCode) return json({ error: "DUPLICATE_EMPLOYEE_CODE", message: "Mã nhân viên đã tồn tại." }, 409);
 
-    const tempHash = await hashPassword(input.password);
     const newId = `emp-${crypto.randomUUID()}`;
+    const [tempHash, escrow] = await Promise.all([
+      hashPassword(input.password),
+      encryptEscrowPassword(input.password, newId, env),
+    ]);
     const authResult = await supabase.auth.admin.createUser({
       email: input.email,
       password: input.password,
@@ -708,7 +726,7 @@ export async function handleAuth(request, env) {
     }
 
     try {
-      await writeCredential(supabase, newId, tempHash, { mustChange: true });
+      await writeCredentialBundle(supabase, newId, tempHash, escrow, { mustChange: true });
     } catch (error) {
       const cleanup = await supabase.from("profiles").delete().eq("id", newId);
       const authCleanup = await supabase.auth.admin.deleteUser(authUserId).catch(() => ({ error: true }));

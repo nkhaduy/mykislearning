@@ -59,7 +59,7 @@ export const ROUTE_DEFINITIONS = [
   { path: "/hr/training-tracking", roles: adminRoles, classification: "nav", navGroup: "training", label: labels("Theo dõi đào tạo", "Training tracking", "교육 추적"), splitEntry: "adminSecondary" },
   { path: "/hr/cchn-registrations", roles: adminRoles, classification: "nav", navGroup: "training", label: labels("Đăng ký học CCHN", "Certification registration", "자격 교육 등록"), splitEntry: "adminSecondary" },
   { path: "/hr/employees", roles: adminRoles, classification: "nav", navGroup: "people", label: labels("Nhân viên", "Employees", "직원"), splitEntry: "employees" },
-  { path: "/hr/accounts", roles: adminRoles, classification: "nav", navGroup: "people", label: labels("Tài khoản", "Accounts", "계정"), splitEntry: "adminSecondary" },
+  { path: "/hr/accounts", roles: adminRoles, classification: "nav", navGroup: "people", label: labels("Tài khoản nhân viên", "Employee accounts", "직원 계정"), splitEntry: "accounts" },
   { path: "/hr/competencies", roles: adminRoles, classification: "nav", navGroup: "development", label: labels("Khung năng lực", "Competencies", "역량 체계"), splitEntry: "adminSecondary" },
   { path: "/hr/skills-matrix", roles: adminRoles, classification: "nav", navGroup: "development", label: labels("Ma trận kỹ năng", "Skills matrix", "역량 매트릭스"), splitEntry: "adminSecondary" },
   { path: "/hr/development-plans", roles: adminRoles, classification: "nav", navGroup: "development", label: labels("Kế hoạch phát triển", "Development plans", "개발 계획"), splitEntry: "adminSecondary" },

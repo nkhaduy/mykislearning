@@ -49,6 +49,8 @@ copy("src/features/admin/dashboard.js");
 copy("src/features/admin/admin.css");
 copy("src/features/employees/employees.js");
 copy("src/features/employees/employees.css");
+copy("src/features/accounts/accounts.js");
+copy("src/features/accounts/accounts.css");
 copy("src/features/courses/admin-courses.js");
 copy("src/features/courses/course-player.js");
 copy("src/features/courses/courses.css");

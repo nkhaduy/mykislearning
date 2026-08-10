@@ -68,7 +68,7 @@ test("Double employee submit creates at most one profile", () => {
 });
 
 test("Failed credential creation removes the just-created profile", () => {
-  assert.match(authSource, /writeCredential\(supabase, newId/);
+  assert.match(authSource, /writeCredentialBundle\(supabase, newId/);
   assert.match(authSource, /from\("profiles"\)\.delete\(\)\.eq\("id", newId\)/);
   assert.match(authSource, /auth\.admin\.deleteUser\(authUserId\)/);
 });
@@ -76,7 +76,7 @@ test("Failed credential creation removes the just-created profile", () => {
 test("Failed profile creation never writes a credential", () => {
   const insertAt = authSource.indexOf('from("profiles").insert');
   const failureAt = authSource.indexOf('if (profileErr)', insertAt);
-  const credentialAt = authSource.indexOf("writeCredential(supabase, newId", insertAt);
+  const credentialAt = authSource.indexOf("writeCredentialBundle(supabase, newId", insertAt);
   assert.ok(insertAt >= 0 && failureAt > insertAt && credentialAt > failureAt);
   assert.match(authSource, /if \(profileErr\) \{[^]*auth\.admin\.deleteUser\(authUserId\)/);
 });

@@ -14,6 +14,7 @@ import { handleQuizzes } from "./routes/quizzes.js";
 import { handleActivity } from "./routes/activity.js";
 import { handleAdminOverview } from "./routes/admin-overview.js";
 import { handleAccountSupport, handleHrAccountActions } from "./routes/account-support.js";
+import { handleEmployeeAccounts } from "./routes/employee-accounts.js";
 import { handleLearningRecords } from "./routes/learning-records.js";
 import { handleLearningPaths } from "./routes/learning-paths.js";
 import { handleCompliance } from "./routes/compliance.js";
@@ -109,6 +110,9 @@ export async function handleApiRequest(request, env) {
         path.startsWith("/api/admin/account-support/requests/")) return await handleAccountSupport(request, env);
 
     if (path === "/api/admin/hr-account-actions") return await handleHrAccountActions(request, env);
+
+    if (path === "/api/admin/employee-accounts" ||
+        path.match(/^\/api\/admin\/employee-accounts\/[^/]+\/reveal-password$/)) return await handleEmployeeAccounts(request, env);
 
     if (
       path === "/api/notifications" ||
