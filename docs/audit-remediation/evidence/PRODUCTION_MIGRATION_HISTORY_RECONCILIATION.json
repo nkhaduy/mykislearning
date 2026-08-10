@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "pass",
-  "capturedAt": "2026-08-10T08:33:56Z",
+  "capturedAt": "2026-08-10T11:04:02Z",
   "projectRef": "mooqdtiedfamnlpitqtq",
   "releaseCommitSha": null,
   "releaseManifestSha256": null,
@@ -64,7 +64,7 @@
   },
   "releaseCandidateValidation": {
     "status": "pass",
-    "sourceCommitSha": "274bf07cde79a26da8d9b5cf4acc042c281c3fa3",
+    "sourceCommitSha": "f8ce956ce338dd4878b4165839bee5a0ef579b68",
     "migration": "20260810061944_employee_account_auth.sql",
     "migrationSha256": "ed053d77513eb01bf8e8ae5822f651c707c1f53698bc5d223315b6f49186d697",
     "linkedMigrationHistory": {
@@ -89,6 +89,22 @@
         "partial_recoverable",
         "partial_conflict"
       ]
+    },
+    "toolchain": {
+      "status": "pass",
+      "sourceCommitSha": "f8ce956ce338dd4878b4165839bee5a0ef579b68",
+      "packageLockSha256": "084550c340e5dc5644042e86ba3f77ad8bc86da89ad341f0b4dfee67a071411c",
+      "devDependencyOnly": true,
+      "runtimeDependenciesChanged": false,
+      "versions": {
+        "wrangler": "4.120.0",
+        "miniflare": "5.20260801.1-alpha",
+        "undici": "7.29.0",
+        "braceExpansion": "5.0.9"
+      },
+      "npmAuditStatus": "pass",
+      "npmAuditVulnerabilityCount": 0,
+      "wranglerDryRunStatus": "pass"
     }
   },
   "repairEvidenceChecksum": "00b04bfa78e27329449dcf3b6ce8d3c945b128c3f42f9d4d1d5110319e00d915",
@@ -216,8 +232,8 @@
   ],
   "maintenanceWindow": {
     "timezone": "Asia/Ho_Chi_Minh",
-    "start": "2026-08-10T14:28:38+07:00",
-    "end": "2026-08-10T15:58:38+07:00",
+    "start": "2026-08-10T18:00:00+07:00",
+    "end": "2026-08-10T21:00:00+07:00",
     "statusAtCapture": "active"
   },
   "goNoGo": "LIVE PRODUCTION MIGRATION HISTORY RECONCILIATION PASS; remote migration history is canonical and the exact release source has exactly one approved pending migration",
