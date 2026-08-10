@@ -60,6 +60,7 @@ const migrationsSha256 = sha256(migrationLines.join(""));
 const approvedPostStagingMigrationNames = new Set([
   "20260729022415_consolidate_roles_to_hr_and_employee.sql",
   "20260729121500_fix_reporting_rpc_enrollment_compatibility.sql",
+  "20260810061944_employee_account_auth.sql",
 ]);
 const postStagingMigrationFiles = migrationFiles.filter((path) => approvedPostStagingMigrationNames.has(basename(path)));
 const stagingMigrationLines = migrationFiles

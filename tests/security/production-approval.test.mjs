@@ -9,6 +9,17 @@ import { ProductionApprovalError, verifyProductionApproval } from "../../scripts
 import { PURGE_TABLES } from "../../scripts/production/clean-reset/production-clean-reset-common.mjs";
 
 const confirmation = "Tôi hiểu và chấp nhận rủi ro còn lại khi tài khoản HR vận hành không có MFA/2FA. Tôi xác nhận đây là quyết định có chủ đích của chủ dự án, đồng thời chấp nhận áp dụng các biện pháp bù trừ gồm mật khẩu mạnh, refresh-token rotation, session revocation, rate limiting, audit logging, giám sát sự cố và quy trình khóa tài khoản.";
+const providerSecretNames = [
+  "AUDIT_IP_HASH_SALT",
+  "CURSOR_SIGNING_SECRET",
+  "JWT_SECRET",
+  "PASSWORD_ESCROW_KEY",
+  "RATE_LIMIT_KEY_SECRET",
+  "REFRESH_TOKEN_HASH_SECRET",
+  "SUPABASE_ANON_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "SUPABASE_URL",
+];
 const write = (root, path, value) => {
   const target = join(root, path);
   mkdirSync(dirname(target), { recursive: true });
@@ -32,7 +43,10 @@ function fixture({ alertsVerified = true } = {}) {
   write(root, "wrangler.jsonc", "{}\n");
   write(root, "dist/index.html", "ready\n");
   write(root, "supabase/migrations/20260727172321_reconcile_legacy_department_schema.sql", "alter table public.course_versions validate constraint course_versions_course_id_fkey;\n");
+  write(root, "supabase/migrations/20260810061944_employee_account_auth.sql", "create table private.password_escrow (profile_id text primary key);\n");
   const migrationLine = `${sha256(readFileSync(join(root, "supabase/migrations/20260727172321_reconcile_legacy_department_schema.sql")))}  supabase/migrations/20260727172321_reconcile_legacy_department_schema.sql\n`;
+  const employeeAuthMigrationLine = `${sha256(readFileSync(join(root, "supabase/migrations/20260810061944_employee_account_auth.sql")))}  supabase/migrations/20260810061944_employee_account_auth.sql\n`;
+  const releaseMigrationsSha256 = sha256(`${migrationLine}${employeeAuthMigrationLine}`);
   canonical.packageLockSha256 = sha256(readFileSync(join(root, "package-lock.json")));
   canonical.migrationListSha256 = sha256(migrationLine);
   write(root, "docs/audit-remediation/evidence/CANONICAL_STAGING_RELEASE.json", canonical);
@@ -86,6 +100,7 @@ function fixture({ alertsVerified = true } = {}) {
     "20260728103000_reporting_rpc.sql",
     "20260728104000_export_operations.sql",
     "20260729022415_consolidate_roles_to_hr_and_employee.sql",
+    "20260810061944_employee_account_auth.sql",
   ];
   write(root, "docs/audit-remediation/evidence/PRODUCTION_MIGRATION_HISTORY_RECONCILIATION.json", {
     schemaVersion: 1,
@@ -162,7 +177,7 @@ function fixture({ alertsVerified = true } = {}) {
   const manifestPath = join(root, "release-manifest.json");
   const buildLine = `${sha256(readFileSync(join(root, "dist/index.html")))}  dist/index.html\n`;
   writeFileSync(manifestPath, `${JSON.stringify({
-    releaseCommitSha: head, releaseTreeSha: tree, packageLockSha256: canonical.packageLockSha256, migrationsSha256: canonical.migrationListSha256,
+    releaseCommitSha: head, releaseTreeSha: tree, packageLockSha256: canonical.packageLockSha256, migrationsSha256: releaseMigrationsSha256,
     wranglerSha256: sha256(readFileSync(join(root, "wrangler.jsonc"))), stagingReportSha256: sha256(readFileSync(join(root, "docs/audit-remediation/STAGING_OPERATIONAL_READINESS_REPORT.md"))),
     canonicalStagingEvidenceSha256: sha256(readFileSync(join(root, "docs/audit-remediation/evidence/CANONICAL_STAGING_RELEASE.json"))), build: { sha256: sha256(buildLine), files: 1 },
     canonicalStagingVersion: canonical.versionId, productionBackupId: contract.KIS_PRODUCTION_BACKUP_ID = "LOGICAL-TEST-BACKUP", productionApprovalId: contract.KIS_PRODUCTION_APPROVAL_ID,
@@ -170,7 +185,7 @@ function fixture({ alertsVerified = true } = {}) {
     ownerPolicyId: "KISVN-PERMANENT-OWNER-POLICY-20260729", ownerPolicySha256,
     qualityGateEvidenceSha256: sha256(readFileSync(gatesPath)),
     cleanResetAllowlistSha256,
-    approvedPostStagingMigrations: [],
+    approvedPostStagingMigrations: ["supabase/migrations/20260810061944_employee_account_auth.sql"],
     cleanResetOwnerApprovalSha256: sha256(readFileSync(join(root, "docs/audit-remediation/evidence/PRODUCTION_CLEAN_RESET_OWNER_APPROVAL.json"))),
     pendingMigrationAllowlist: pendingMigrations,
     rollbackWorkerVersion: "version-current",
@@ -186,7 +201,7 @@ const verifierOptions = (state, extra = {}) => ({
   root: state.root,
   now: "2026-07-28T14:30:00.000Z",
   consumptionFile: state.consumptionFile,
-  providerSecretNames: ["AUDIT_IP_HASH_SALT", "CURSOR_SIGNING_SECRET", "JWT_SECRET", "RATE_LIMIT_KEY_SECRET", "REFRESH_TOKEN_HASH_SECRET", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"],
+  providerSecretNames,
   providerDeployment: { deploymentId: "deployment-current", versionId: "version-current" },
   ...extra,
 });
@@ -205,11 +220,20 @@ test("production verifier accepts the complete canonical contract without exposi
   try {
     const result = verifyProductionApproval(state.contract, {
       root: state.root, now: "2026-07-28T14:30:00.000Z", consumptionFile: state.consumptionFile,
-      providerSecretNames: ["AUDIT_IP_HASH_SALT", "CURSOR_SIGNING_SECRET", "JWT_SECRET", "RATE_LIMIT_KEY_SECRET", "REFRESH_TOKEN_HASH_SECRET", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"],
+      providerSecretNames,
       providerDeployment: { deploymentId: "deployment-current", versionId: "version-current" },
     });
     assert.equal(result.environment, "production");
     assert.doesNotMatch(JSON.stringify(result), /x{16}/);
+  } finally { rmSync(state.root, { recursive: true, force: true }); }
+});
+
+test("production verifier refuses deployment when password escrow secret is missing", () => {
+  const state = fixture();
+  try {
+    assert.throws(() => verifyProductionApproval(state.contract, verifierOptions(state, {
+      providerSecretNames: providerSecretNames.filter((name) => name !== "PASSWORD_ESCROW_KEY"),
+    })), /PASSWORD_ESCROW_KEY/);
   } finally { rmSync(state.root, { recursive: true, force: true }); }
 });
 
@@ -218,7 +242,7 @@ test("production verifier reports only the real alert blocker when alert deliver
   try {
     assert.throws(() => verifyProductionApproval(state.contract, {
       root: state.root, now: "2026-07-28T14:30:00.000Z", consumptionFile: state.consumptionFile,
-      providerSecretNames: ["AUDIT_IP_HASH_SALT", "CURSOR_SIGNING_SECRET", "JWT_SECRET", "RATE_LIMIT_KEY_SECRET", "REFRESH_TOKEN_HASH_SECRET", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"],
+      providerSecretNames,
       providerDeployment: { deploymentId: "deployment-current", versionId: "version-current" },
     }), (error) => error instanceof ProductionApprovalError && error.blockers.length === 1 && /critical alerts/.test(error.blockers[0]));
   } finally { rmSync(state.root, { recursive: true, force: true }); }
@@ -268,7 +292,7 @@ test("plan verification can precede manifest generation while apply verification
     rmSync(state.contract.KIS_PRODUCTION_RELEASE_MANIFEST);
     const options = {
       root: state.root, now: "2026-07-28T14:30:00.000Z", consumptionFile: state.consumptionFile,
-      providerSecretNames: ["AUDIT_IP_HASH_SALT", "CURSOR_SIGNING_SECRET", "JWT_SECRET", "RATE_LIMIT_KEY_SECRET", "REFRESH_TOKEN_HASH_SECRET", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"],
+      providerSecretNames,
       providerDeployment: { deploymentId: "deployment-current", versionId: "version-current" },
     };
     const plan = verifyProductionApproval(state.contract, { ...options, allowMissingManifest: true });
@@ -288,6 +312,7 @@ test("production verifier requires passing migration reconciliation evidence and
     "20260728103000_reporting_rpc.sql",
     "20260728104000_export_operations.sql",
     "20260729022415_consolidate_roles_to_hr_and_employee.sql",
+    "20260810061944_employee_account_auth.sql",
   ];
   const evidencePath = join(state.root, "migration-reconciliation.json");
   try {
@@ -310,7 +335,7 @@ test("production verifier requires passing migration reconciliation evidence and
       requireMigrationReconciliation: true,
       migrationReconciliationEvidence: evidencePath,
       providerMigrationReconciliation: { remoteOnlyCount: 0, pendingProductionMigrations: pending, dryRunStatus: "pass" },
-      providerSecretNames: ["AUDIT_IP_HASH_SALT", "CURSOR_SIGNING_SECRET", "JWT_SECRET", "RATE_LIMIT_KEY_SECRET", "REFRESH_TOKEN_HASH_SECRET", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"],
+      providerSecretNames,
       providerDeployment: { deploymentId: "deployment-current", versionId: "version-current" },
     });
     assert.equal(result.migrationReconciliation.status, "pass");
@@ -322,7 +347,7 @@ test("production verifier requires passing migration reconciliation evidence and
       requireMigrationReconciliation: true,
       migrationReconciliationEvidence: evidencePath,
       providerMigrationReconciliation: { remoteOnlyCount: 1, pendingProductionMigrations: pending, dryRunStatus: "pass" },
-      providerSecretNames: ["AUDIT_IP_HASH_SALT", "CURSOR_SIGNING_SECRET", "JWT_SECRET", "RATE_LIMIT_KEY_SECRET", "REFRESH_TOKEN_HASH_SECRET", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"],
+      providerSecretNames,
       providerDeployment: { deploymentId: "deployment-current", versionId: "version-current" },
     }), /unexplained remote-only/);
   } finally { rmSync(state.root, { recursive: true, force: true }); }
@@ -336,7 +361,7 @@ test("production verifier requires clean-reset readiness and zero role-audit blo
       now: "2026-07-28T14:30:00.000Z",
       consumptionFile: state.consumptionFile,
       requireCleanResetReadiness: true,
-      providerSecretNames: ["AUDIT_IP_HASH_SALT", "CURSOR_SIGNING_SECRET", "JWT_SECRET", "RATE_LIMIT_KEY_SECRET", "REFRESH_TOKEN_HASH_SECRET", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"],
+      providerSecretNames,
       providerDeployment: { deploymentId: "deployment-current", versionId: "version-current" },
     };
     const result = verifyProductionApproval(state.contract, options);
@@ -367,7 +392,7 @@ test("production plan requires active clean-reset gates, an exact manifest, and 
       now: "2026-07-28T13:30:00.000Z",
       consumptionFile: state.consumptionFile,
       requireActiveWindow: true,
-      providerSecretNames: ["AUDIT_IP_HASH_SALT", "CURSOR_SIGNING_SECRET", "JWT_SECRET", "RATE_LIMIT_KEY_SECRET", "REFRESH_TOKEN_HASH_SECRET", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"],
+      providerSecretNames,
       providerDeployment: { deploymentId: "deployment-current", versionId: "version-current" },
     }), /at least 90 minutes/);
   } finally { rmSync(state.root, { recursive: true, force: true }); }

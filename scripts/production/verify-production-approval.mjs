@@ -21,6 +21,7 @@ const requiredSecretNames = [
   "AUDIT_IP_HASH_SALT",
   "CURSOR_SIGNING_SECRET",
   "JWT_SECRET",
+  "PASSWORD_ESCROW_KEY",
   "RATE_LIMIT_KEY_SECRET",
   "REFRESH_TOKEN_HASH_SECRET",
   "SUPABASE_ANON_KEY",
@@ -37,6 +38,7 @@ const requiredMigrationNames = [
   "20260728104000_export_operations.sql",
   "20260729022415_consolidate_roles_to_hr_and_employee.sql",
   "20260729121500_fix_reporting_rpc_enrollment_compatibility.sql",
+  "20260810061944_employee_account_auth.sql",
 ];
 
 export class ProductionApprovalError extends Error {
@@ -434,6 +436,7 @@ export function verifyProductionApproval(input, options = {}) {
       const approvedPostStagingMigrationNames = new Set([
         "20260729022415_consolidate_roles_to_hr_and_employee.sql",
         "20260729121500_fix_reporting_rpc_enrollment_compatibility.sql",
+        "20260810061944_employee_account_auth.sql",
       ]);
       const postStagingMigrationFiles = migrationFiles.filter((path) => approvedPostStagingMigrationNames.has(basename(path)));
       const stagingMigrationLines = migrationFiles
