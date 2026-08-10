@@ -51,6 +51,8 @@ test("ROUTE-E2E-ALL: HR secondary routes render forbidden for employee and autho
   for (const path of adminRoutes) {
     await page.goto(path);
     await expect(page.locator("main").first()).toBeVisible();
-    expect(await page.locator("body").getAttribute("data-route-entry")).toMatch(/^admin-secondary/);
+    const routeEntry = await page.locator("body").getAttribute("data-route-entry");
+    if (path === "/hr/accounts") expect(routeEntry).toBe("employee-accounts");
+    else expect(routeEntry).toMatch(/^admin-secondary/);
   }
 });
