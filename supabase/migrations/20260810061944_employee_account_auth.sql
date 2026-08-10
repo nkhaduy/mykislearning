@@ -111,14 +111,13 @@ where p.id = s.profile_id
 
 update private.auth_sessions s
 set effective_role = g.role
-from lateral (
-  select role
+from (
+  select distinct on (profile_id) profile_id, role
   from private.account_role_grants candidate
-  where candidate.profile_id = s.profile_id
-  order by case candidate.role when 'employee' then 1 else 2 end
-  limit 1
+  order by profile_id, case candidate.role when 'employee' then 1 else 2 end
 ) g
-where s.effective_role is null;
+where g.profile_id = s.profile_id
+  and s.effective_role is null;
 
 alter table private.auth_sessions
   alter column effective_role set not null;
@@ -271,7 +270,7 @@ returns table (
   email text,
   username text,
   department text,
-  position text,
+  "position" text,
   account_status text,
   password_status text,
   must_change boolean,
@@ -478,6 +477,55 @@ begin
 end;
 $$;
 
+-- Keep the pre-release signature usable while the Worker deployment rolls
+-- forward, selecting only a role already granted by the server-side tables.
+create or replace function public.service_create_auth_session(
+  p_session_id uuid,
+  p_family_id uuid,
+  p_refresh_token_id uuid,
+  p_refresh_token_hash text,
+  p_profile_id text,
+  p_session_expires_at timestamptz,
+  p_refresh_expires_at timestamptz,
+  p_ip_hash text,
+  p_user_agent text,
+  p_max_sessions integer default 10
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_effective_role text;
+begin
+  select g.role into v_effective_role
+  from private.account_role_grants g
+  join public.profiles p on p.id = g.profile_id
+  where g.profile_id = p_profile_id
+  order by case when g.role = p.role then 0 when g.role = 'employee' then 1 else 2 end
+  limit 1;
+
+  if v_effective_role is null then
+    return jsonb_build_object('status', 'role_not_granted');
+  end if;
+
+  return public.service_create_auth_session(
+    p_session_id,
+    p_family_id,
+    p_refresh_token_id,
+    p_refresh_token_hash,
+    p_profile_id,
+    p_session_expires_at,
+    p_refresh_expires_at,
+    p_ip_hash,
+    p_user_agent,
+    v_effective_role,
+    p_max_sessions
+  );
+end;
+$$;
+
 create or replace function public.service_get_auth_session(p_session_id uuid, p_profile_id text)
 returns jsonb
 language plpgsql
@@ -640,6 +688,7 @@ revoke all on function public.service_read_password_escrow(text) from public, an
 revoke all on function public.service_write_credential_bundle(text, text, boolean, text, text, text) from public, anon, authenticated;
 revoke all on function public.service_write_login_username(text, text) from public, anon, authenticated;
 revoke all on function public.service_create_auth_session(uuid, uuid, uuid, text, text, timestamptz, timestamptz, text, text, text, integer) from public, anon, authenticated;
+revoke all on function public.service_create_auth_session(uuid, uuid, uuid, text, text, timestamptz, timestamptz, text, text, integer) from public, anon, authenticated;
 revoke all on function public.service_get_auth_session(uuid, text) from public, anon, authenticated;
 revoke all on function public.service_rotate_refresh_token(text, uuid, text, timestamptz, text, text) from public, anon, authenticated;
 
@@ -649,6 +698,7 @@ grant execute on function public.service_read_password_escrow(text) to service_r
 grant execute on function public.service_write_credential_bundle(text, text, boolean, text, text, text) to service_role;
 grant execute on function public.service_write_login_username(text, text) to service_role;
 grant execute on function public.service_create_auth_session(uuid, uuid, uuid, text, text, timestamptz, timestamptz, text, text, text, integer) to service_role;
+grant execute on function public.service_create_auth_session(uuid, uuid, uuid, text, text, timestamptz, timestamptz, text, text, integer) to service_role;
 grant execute on function public.service_get_auth_session(uuid, text) to service_role;
 grant execute on function public.service_rotate_refresh_token(text, uuid, text, timestamptz, text, text) to service_role;
 
