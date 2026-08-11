@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "pass",
-  "capturedAt": "2026-08-10T11:32:22Z",
+  "capturedAt": "2026-08-11T02:26:28Z",
   "projectRef": "mooqdtiedfamnlpitqtq",
   "releaseCommitSha": null,
   "releaseManifestSha256": null,
@@ -9,7 +9,7 @@
   "historyBeforeSha256": "61a148a79e008b63d85dd355823cffde8903f4411f0c593615ba6ff297ecad0d",
   "historyCurrentSha256": "a1e744938fddb1d6647154061872316e625031c20e1dc6d824526d5bf0d27bb8",
   "localAndRemoteCount": 45,
-  "localOnlyCount": 1,
+  "localOnlyCount": 0,
   "remoteOnlyCount": 0,
   "approvedBaselineMapping": {
     "status": "approved",
@@ -64,21 +64,19 @@
   },
   "releaseCandidateValidation": {
     "status": "pass",
-    "sourceCommitSha": "c143dba55b2e679777f53cf61796820ac5931920",
+    "sourceCommitSha": "cd72164cf142332281a188097597a37f92e5aa79",
     "migration": "20260810112750_restrict_employee_account_list_to_employee_profiles.sql",
     "migrationSha256": "c924c42226d531001b94cd7b2eb8a9759a40b896c1d41e35fcd55a21717da23f",
     "linkedMigrationHistory": {
       "status": "pass",
       "localCount": 45,
-      "remoteMatchedCount": 44,
+      "remoteMatchedCount": 45,
       "remoteOnlyCount": 0,
-      "pendingCount": 1
+      "pendingCount": 0
     },
     "linkedDryRun": {
       "status": "pass",
-      "pending": [
-        "20260810112750_restrict_employee_account_list_to_employee_profiles.sql"
-      ]
+      "pending": []
     },
     "migrationRehearsal": {
       "status": "pass",
@@ -227,16 +225,14 @@
       "schemaChanged": false
     }
   ],
-  "pendingProductionMigrations": [
-    "20260810112750_restrict_employee_account_list_to_employee_profiles.sql"
-  ],
+  "pendingProductionMigrations": [],
   "maintenanceWindow": {
     "timezone": "Asia/Ho_Chi_Minh",
-    "start": "2026-08-10T18:00:00+07:00",
-    "end": "2026-08-10T21:00:00+07:00",
+    "start": "2026-08-11T09:20:00+07:00",
+    "end": "2026-08-11T12:20:00+07:00",
     "statusAtCapture": "active"
   },
-  "goNoGo": "LIVE PRODUCTION MIGRATION HISTORY RECONCILIATION PASS; remote migration history is canonical and the exact release source has exactly one approved pending migration",
+  "goNoGo": "LIVE PRODUCTION MIGRATION HISTORY RECONCILIATION PASS; remote migration history is canonical and the exact release source has no pending migrations",
   "appliedProductionMigrations": [
     "20260727172321_reconcile_legacy_department_schema.sql",
     "20260728013513_auth_rotation_mfa_hardening.sql",
@@ -247,6 +243,7 @@
     "20260728104000_export_operations.sql",
     "20260729022415_consolidate_roles_to_hr_and_employee.sql",
     "20260729121500_fix_reporting_rpc_enrollment_compatibility.sql",
-    "20260810061944_employee_account_auth.sql"
+    "20260810061944_employee_account_auth.sql",
+    "20260810112750_restrict_employee_account_list_to_employee_profiles.sql"
   ]
 }
