@@ -7,6 +7,7 @@ const localTarget = new URL(baseURL).hostname === "127.0.0.1" || new URL(baseURL
 const suiteMatch = {
   "public-readonly": /public-readonly\.spec\.js/,
   "authenticated-readonly": /(?:authenticated-route-split|secondary-route-parity)\.spec\.js/,
+  "app-like-navigation": /app-like-navigation\.spec\.js/,
   "clean-room-role-audit": /clean-room-role-audit\.spec\.js/,
 }[suite] || /.*\.spec\.js/;
 

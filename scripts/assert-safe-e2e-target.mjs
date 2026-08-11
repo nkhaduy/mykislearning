@@ -14,7 +14,7 @@ export function isProductionTarget(baseURL, additionalHosts = "") {
 
 export function assertSafeE2ETarget({ baseURL, suite, mutationAllowed, productionHosts = "" }) {
   if (!baseURL) throw new Error("PLAYWRIGHT_BASE_URL is required");
-  const mutationSuite = !["public-readonly", "authenticated-readonly"].includes(suite);
+  const mutationSuite = !["public-readonly", "authenticated-readonly", "app-like-navigation"].includes(suite);
   if (mutationSuite && !mutationAllowed) {
     throw new Error("Mutation E2E is disabled. Set PLAYWRIGHT_ALLOW_MUTATION=true only for local/ephemeral staging.");
   }
