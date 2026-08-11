@@ -4,14 +4,14 @@ import { ROUTE_DEFINITIONS } from "../src/app/route-registry.js";
 
 const root = new URL("../", import.meta.url).pathname;
 const read = (path) => readFileSync(join(root, path), "utf8");
-const bootstrap = read("src/app/bootstrap.js");
+const routeAssets = read("src/app/route-assets.js");
 const failures = [];
 const runtimeRoutes = ROUTE_DEFINITIONS.filter((route) => !["/", "/login", "/about-kis"].includes(route.path || ""));
-const entries = new Set([...bootstrap.matchAll(/^(\s*)([A-Za-z0-9]+): \(\) => import\(/gm)].map((match) => match[2]));
+const entries = new Set([...routeAssets.matchAll(/^(\s*)([A-Za-z0-9]+): \(\) => import\(/gm)].map((match) => match[2]));
 
 for (const route of runtimeRoutes) {
   if (!route.splitEntry) failures.push(`missing splitEntry: ${route.path || route.pattern}`);
-  else if (!entries.has(route.splitEntry)) failures.push(`missing bootstrap entry ${route.splitEntry}: ${route.path || route.pattern}`);
+  else if (!entries.has(route.splitEntry)) failures.push(`missing route asset entry ${route.splitEntry}: ${route.path || route.pattern}`);
 }
 
 function walk(directory, output = []) {
