@@ -25,6 +25,8 @@ test("PERF-003/ARCH-004: build copies explicit assets and browser modules", () =
   assert.doesNotMatch(build, /copy\("lib"\)/);
   assert.doesNotMatch(build, /lib\/auth\/mockAuth/);
   assert.match(build, /assets\/about\/about-kis\.png/);
+  assert.match(build, /src\/app\/router\.js/);
+  assert.match(build, /src\/app\/route-assets\.js/);
   assert.doesNotMatch(build, /lib\/services\/sessionService\.js/);
 });
 

@@ -30,7 +30,7 @@ test("UX-002: non-JSON auth responses become a localized system error", () => {
 
 test("UX-004: post-login redirect remains internal and modal keyboard handling is present", () => {
   const login = read("src/features/auth/login.js");
-  const bootstrap = read("src/app/bootstrap.js");
+  const router = read("src/app/router.js");
   const session = read("lib/services/sessionService.js");
   assert.match(session, /route\.startsWith\("\/\/"\)/);
   assert.match(session, /consumePostLoginRedirect\(fallback = "\/dashboard"\)/);
@@ -40,8 +40,8 @@ test("UX-004: post-login redirect remains internal and modal keyboard handling i
   assert.doesNotMatch(login, /profile\.role === "hr" \? profile\.role : "employee"/);
   assert.match(login, /isReturnToAllowedForRole\(state\.returnTo, role\)/);
   assert.match(login, /auth-destination/);
-  assert.match(bootstrap, /fetch\("\/api\/auth\?action=session"/);
-  assert.match(bootstrap, /location\.replace\(`\/login\?returnTo=/);
+  assert.match(router, /fetch\("\/api\/auth\?action=session"/);
+  assert.match(router, /location\.replace\(`\/login\?returnTo=/);
   assert.match(login, /event\.key === "Escape"/);
   assert.match(login, /event\.key !== "Tab"/);
   assert.match(login, /supportReturnFocus[\s\S]*querySelector\("\[data-support-open\]"\)\?\.focus/);

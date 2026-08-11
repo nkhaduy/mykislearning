@@ -8,6 +8,8 @@ export function escapeHtml(value) {
 
 export const escapeAttribute = escapeHtml;
 
+let persistentShell = null;
+
 function activeNavigationPath(groups, pathname) {
   return groups.flatMap((group) => group.items).reduce((best, item) => {
     const active = pathname === item.path || pathname.startsWith(`${item.path}/`);
@@ -23,6 +25,58 @@ function roleLabel(role, i18n) {
 
 function initials(value) {
   return String(value || "KIS").split(/\s+/).filter(Boolean).slice(-2).map((part) => part[0]).join("").toUpperCase();
+}
+
+function setActiveNavigation(pathname) {
+  if (!persistentShell?.nav) return;
+  const groups = getNavigationGroups(persistentShell.role, persistentShell.i18n.language);
+  const activePath = activeNavigationPath(groups, pathname);
+  persistentShell.nav.querySelectorAll("a[href]").forEach((link) => {
+    const active = new URL(link.href, location.href).pathname === activePath;
+    link.classList.toggle("active", active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+}
+
+function shellApi(generation) {
+  const detachedContent = document.createElement("div");
+  const api = {
+    account: persistentShell.account,
+    i18n: persistentShell.i18n,
+    content: persistentShell.content,
+    announce(message) {
+      if (generation !== window.__mykisRouteGeneration) return;
+      persistentShell.liveRegion.textContent = "";
+      requestAnimationFrame(() => { persistentShell.liveRegion.textContent = message; });
+    },
+    setContent(html, { focus = false } = {}) {
+      if (generation !== window.__mykisRouteGeneration) {
+        api.content = detachedContent;
+        detachedContent.innerHTML = html;
+        return;
+      }
+      api.content = persistentShell.content;
+      persistentShell.content.innerHTML = html;
+      persistentShell.content.removeAttribute("aria-busy");
+      persistentShell.main.classList.remove("route-main--pending");
+      if (focus) persistentShell.content.querySelector("h2, h1, [tabindex='-1']")?.focus();
+    },
+  };
+  return api;
+}
+
+export function prepareRouteTransition({ route, generation }) {
+  if (!persistentShell || !persistentShell.app.isConnected) return;
+  window.__mykisRouteGeneration = generation;
+  const label = route?.label?.[persistentShell.i18n.language] || route?.label?.vi || "MyKIS Learning";
+  persistentShell.title.textContent = label;
+  document.title = `${label} | MyKIS Learning`;
+  document.body.dataset.route = location.pathname;
+  setActiveNavigation(location.pathname);
+  persistentShell.content.setAttribute("aria-busy", "true");
+  persistentShell.main.classList.add("route-main--pending");
+  persistentShell.closeDrawer?.({ restoreFocus: false });
 }
 
 export function createRouteShell({ account, i18n, title, eyebrow = "MyKIS Learning", entry }) {
@@ -45,6 +99,24 @@ export function createRouteShell({ account, i18n, title, eyebrow = "MyKIS Learni
       ${group.items.map((item) => `<a href="${escapeAttribute(item.path)}" ${activePath === item.path ? 'class="active" aria-current="page"' : ""}>${escapeHtml(item.labelText)}</a>`).join("")}
     </section>`).join("");
   const displayName = account.fullName || roleLabel(role, i18n);
+  const generation = window.__mykisRouteGeneration || 0;
+
+  if (persistentShell?.app === app && app.querySelector(".route-shell") && persistentShell.role === role && persistentShell.account.id === account.id) {
+    const languageChanged = persistentShell.i18n.language !== i18n.language;
+    persistentShell.account = account;
+    persistentShell.i18n = i18n;
+    if (languageChanged) persistentShell.nav.innerHTML = navHtml;
+    persistentShell.eyebrow.textContent = eyebrow;
+    persistentShell.title.textContent = title || currentRoute?.label?.[i18n.language] || "MyKIS Learning";
+    persistentShell.languageSelect.value = i18n.language;
+    persistentShell.accountName.textContent = displayName;
+    persistentShell.accountRole.textContent = roleLabel(role, i18n);
+    document.title = `${title} | MyKIS Learning`;
+    document.body.dataset.route = location.pathname;
+    document.body.dataset.routeEntry = entry;
+    setActiveNavigation(location.pathname);
+    return shellApi(generation);
+  }
 
   document.title = `${title} | MyKIS Learning`;
   document.body.dataset.route = location.pathname;
@@ -132,9 +204,11 @@ export function createRouteShell({ account, i18n, title, eyebrow = "MyKIS Learni
       first.focus();
     }
   });
-  app.querySelector("[data-route-language]").addEventListener("change", (event) => i18n.setLanguage(event.currentTarget.value));
+  app.querySelector("[data-route-language]").addEventListener("change", (event) => persistentShell.i18n.setLanguage(event.currentTarget.value));
   app.querySelector("[data-route-logout]").addEventListener("click", async () => {
     await fetch("/api/auth?action=logout", { method: "POST", credentials: "same-origin" }).catch(() => {});
+    const { clearApiCache } = await import("../api/client.js");
+    clearApiCache();
     localStorage.removeItem("mykis.session.v1");
     localStorage.removeItem("mykis.postLoginRedirect.v1");
     location.replace("/login");
@@ -142,17 +216,21 @@ export function createRouteShell({ account, i18n, title, eyebrow = "MyKIS Learni
 
   const content = app.querySelector("[data-route-content]");
   const liveRegion = app.querySelector(".route-live-region");
-  return {
+  persistentShell = {
+    app,
     account,
     i18n,
+    role,
     content,
-    announce(message) {
-      liveRegion.textContent = "";
-      requestAnimationFrame(() => { liveRegion.textContent = message; });
-    },
-    setContent(html, { focus = false } = {}) {
-      content.innerHTML = html;
-      if (focus) content.querySelector("h2, h1, [tabindex='-1']")?.focus();
-    },
+    liveRegion,
+    main: app.querySelector(".route-main"),
+    nav: app.querySelector(".route-nav"),
+    title: app.querySelector("#route-main-title"),
+    eyebrow: app.querySelector(".route-topbar__heading p"),
+    languageSelect: app.querySelector("[data-route-language]"),
+    accountName: app.querySelector(".route-account strong"),
+    accountRole: app.querySelector(".route-account small"),
+    closeDrawer,
   };
+  return shellApi(generation);
 }

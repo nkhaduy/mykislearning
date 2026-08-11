@@ -22,12 +22,12 @@ test("change-password UI documents and enforces the six-character minimum", () =
 });
 
 test("HR accounts has a dedicated lazy-loaded employee-account module", () => {
-  const bootstrap = read("src/app/bootstrap.js");
+  const routeAssets = read("src/app/route-assets.js");
   const registry = read("src/app/route-registry.js");
   const build = read("scripts/build-static.mjs");
   const styleLoader = read("src/app/style-loader.js");
   assert.match(registry, /path: "\/hr\/accounts"[\s\S]*splitEntry: "accounts"/);
-  assert.match(bootstrap, /accounts:\s*\(\) => import\("\.\.\/features\/accounts\/accounts\.js/);
+  assert.match(routeAssets, /accounts:\s*\(\) => import\("\.\.\/features\/accounts\/accounts\.js/);
   assert.match(build, /src\/features\/accounts\/accounts\.js/);
   assert.match(build, /src\/features\/accounts\/accounts\.css/);
   assert.match(styleLoader, /\/hr\/accounts[\s\S]*accounts\.css/);

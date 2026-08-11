@@ -24,6 +24,8 @@ copy("index.html");
 copy("robots.txt");
 copy("sitemap.xml");
 copy("src/app/bootstrap.js");
+copy("src/app/router.js");
+copy("src/app/route-assets.js");
 copy("src/app/style-loader.js");
 copy("src/app/route-registry.js");
 copy("src/features/public/home.js");

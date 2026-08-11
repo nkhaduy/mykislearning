@@ -39,6 +39,8 @@ a{color:inherit}
 .route-account strong,.route-account small{display:block;max-width:12rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .route-account strong{font-size:.78rem}.route-account small{color:var(--route-muted);font-size:.67rem}
 .route-content{width:min(100%,94rem);margin:0 auto;padding:clamp(1rem,3vw,2.5rem)}
+.route-main--pending .route-content{position:relative}
+.route-main--pending .route-content::before{content:"";position:fixed;z-index:25;top:0;left:17.5rem;right:0;height:3px;background:linear-gradient(90deg,var(--route-blue),var(--route-cyan),var(--route-blue));background-size:200% 100%;animation:route-progress 1s linear infinite}
 .route-live-region{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .route-loading{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;min-height:12rem}
 .route-loading span{border-radius:1rem;background:linear-gradient(100deg,#e8eef2 20%,#f8fafb 40%,#e8eef2 60%);background-size:200% 100%;animation:route-shimmer 1.3s infinite}
@@ -50,7 +52,8 @@ a{color:inherit}
 .route-empty,.route-error{padding:2rem;text-align:center}.route-error{border-color:#f2b8b5;color:var(--route-danger)}
 .route-drawer-backdrop{position:fixed;inset:0;z-index:35;background:rgba(3,15,28,.56);backdrop-filter:blur(2px)}
 @keyframes route-shimmer{to{background-position:-200% 0}}
-@media (max-width:1080px){.route-sidebar{width:16rem;transform:translateX(-105%);transition:transform .22s ease}.route-nav-open .route-sidebar{transform:none}.route-sidebar__close,.route-menu-button{display:inline-flex}.route-main{margin-left:0}.route-account div{display:none}.route-sidebar[aria-hidden="false"]{visibility:visible}}
+@keyframes route-progress{to{background-position:-200% 0}}
+@media (max-width:1080px){.route-sidebar{width:16rem;transform:translateX(-105%);transition:transform .22s ease}.route-nav-open .route-sidebar{transform:none}.route-sidebar__close,.route-menu-button{display:inline-flex}.route-main{margin-left:0}.route-main--pending .route-content::before{left:0}.route-account div{display:none}.route-sidebar[aria-hidden="false"]{visibility:visible}}
 @media (min-width:1081px){.route-sidebar{transform:none!important}.route-sidebar[aria-hidden="true"]{visibility:visible}.route-drawer-backdrop{display:none!important}}
 @media (max-width:680px){.route-topbar{min-height:4.5rem;padding:.65rem .8rem}.route-language span,.route-notification,.route-account{display:none}.route-content{padding:1rem}.route-loading{grid-template-columns:1fr}.route-brand span{display:none}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}

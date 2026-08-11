@@ -20,17 +20,18 @@ export async function mountCollectionRoute({ account, roles, entry, endpoint, it
     return `<section class="ops-hero"><div><p>${escapeHtml(text.eyebrow)}</p><h2 tabindex="-1">${escapeHtml(text.title)}</h2><span>${escapeHtml(text.intro)}</span></div><button class="route-button" data-ops-refresh>${escapeHtml(text.refresh)}</button></section><section class="route-card route-panel ops-tools"><label><span>${escapeHtml(text.search)}</span><input type="search" data-ops-search value="${escapeAttribute(state.search)}" maxlength="100"></label></section><section class="ops-grid" aria-busy="${state.loading}">${state.loading ? `<div class="route-loading"><span></span><span></span><span></span></div>` : state.error ? `<article class="route-card route-error"><p>${escapeHtml(text.error)}</p><button class="route-button" data-ops-retry>${escapeHtml(text.retry)}</button></article>` : rows.length ? rows.map((item) => `<article class="route-card ops-card"><header><span>${escapeHtml(item.status || "—")}</span><small>${escapeHtml(item.meta || "")}</small></header><h2>${escapeHtml(item.title || "—")}</h2><p>${escapeHtml(item.subtitle || "")}</p>${item.href ? `<a class="route-button route-button--secondary" href="${escapeAttribute(item.href)}">${escapeHtml(text.open)}</a>` : ""}</article>`).join("") : `<article class="route-card ops-empty"><p>${escapeHtml(text.empty)}</p></article>`}</section>`;
   };
   const bind = () => {
-    shell.content.querySelector("[data-ops-refresh]")?.addEventListener("click", load);
-    shell.content.querySelector("[data-ops-retry]")?.addEventListener("click", load, { once: true });
+    shell.content.querySelector("[data-ops-refresh]")?.addEventListener("click", () => load(true));
+    shell.content.querySelector("[data-ops-retry]")?.addEventListener("click", () => load(true), { once: true });
     shell.content.querySelector("[data-ops-search]")?.addEventListener("input", (event) => {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => { state.search = event.target.value.trim(); shell.setContent(render()); bind(); }, 250);
     });
   };
-  const load = async () => {
+  const load = async (forceRefresh = false) => {
     state.loading = true; state.error = ""; shell.setContent(render()); bind();
     try {
-      const data = typeof endpoint === "function" ? await endpoint(apiJson, account) : await apiJson(endpoint);
+      const requestApi = (path, options = {}) => apiJson(path, { ...options, forceRefresh });
+      const data = typeof endpoint === "function" ? await endpoint(requestApi, account) : await requestApi(endpoint);
       state.items = asItems(data, itemKeys).map(mapItem);
     } catch (error) { state.error = error.code || "COLLECTION_LOAD_FAILED"; }
     state.loading = false; shell.setContent(render(), { focus: true }); bind();

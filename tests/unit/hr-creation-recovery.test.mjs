@@ -29,7 +29,7 @@ test("HR can create employee through a visible locked-submit flow", () => {
 test("HR can create course and navigate to the created draft", () => {
   assert.match(courseUi, /data-course-add/);
   assert.match(courseUi, /data\.status = "draft"/);
-  assert.match(courseUi, /location\.href = `\/hr\/courses\//);
+  assert.match(courseUi, /await navigate\(`\/hr\/courses\//);
   assert.match(courseSource, /initialVersion:/);
 });
 
