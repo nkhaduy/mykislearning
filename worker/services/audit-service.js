@@ -79,5 +79,7 @@ export async function writeAuditLog(supabase, request, event = {}, options = {})
 }
 
 export function auditLater(supabase, request, event) {
-  Promise.resolve(writeAuditLog(supabase, request, event)).then(null, () => {});
+  const write = Promise.resolve(writeAuditLog(supabase, request, event)).catch(() => {});
+  const ctx = request ? getRequestContext(request) : null;
+  if (ctx?.waitUntil) ctx.waitUntil(write);
 }

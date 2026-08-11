@@ -24,7 +24,7 @@ function trim(value, max) {
   return text.length > max ? text.slice(0, max) : text;
 }
 
-export async function withRequestContext(request, env, handler) {
+export async function withRequestContext(request, env, handler, executionContext = null) {
   const requestId = validId(request.headers.get("x-request-id")) || makeId("req");
   const correlationId = validId(request.headers.get("x-correlation-id")) || requestId;
   const userAgent = trim(request.headers.get("user-agent") || "", 512);
@@ -32,7 +32,10 @@ export async function withRequestContext(request, env, handler) {
   const ip = trustedClientIp(request, env);
   const salt = env?.AUDIT_IP_HASH_SALT || env?.JWT_SECRET || "";
   const ipAddressHash = ip && salt ? await sha256Hex(`${salt}:${ip}`) : null;
-  const context = { requestId, correlationId, userAgent, countryCode, ipAddressHash, source: "api" };
+  const waitUntil = typeof executionContext?.waitUntil === "function"
+    ? executionContext.waitUntil.bind(executionContext)
+    : null;
+  const context = { requestId, correlationId, userAgent, countryCode, ipAddressHash, source: "api", waitUntil };
   contexts.set(request, context);
   const response = await handler(request, context);
   const securedResponse = addSecurityHeaders(response, request, env);

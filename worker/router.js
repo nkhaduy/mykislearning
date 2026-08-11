@@ -32,7 +32,7 @@ import { handlePublicStats } from "./routes/public-stats.js";
 import { withRequestContext, getRequestContext } from "./middleware/request-context.js";
 import { enforceApiRateLimit, validateRateLimitBinding } from "./services/rate-limit.js";
 
-export async function handleApiRequest(request, env) {
+export async function handleApiRequest(request, env, executionContext = null) {
   return withRequestContext(request, env, async () => {
     const url = new URL(request.url);
     const path = url.pathname;
@@ -208,5 +208,5 @@ export async function handleApiRequest(request, env) {
         requestId: ctx.requestId,
       }, status);
     }
-  });
+  }, executionContext);
 }
