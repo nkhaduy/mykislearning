@@ -63,8 +63,8 @@ export async function mountDataRoute({ account, route, entry, config }) {
   };
 
   const bind = () => {
-    shell.content.querySelector("[data-secondary-refresh]")?.addEventListener("click", load);
-    shell.content.querySelector("[data-secondary-retry]")?.addEventListener("click", load, { once: true });
+    shell.content.querySelector("[data-secondary-refresh]")?.addEventListener("click", () => load(true));
+    shell.content.querySelector("[data-secondary-retry]")?.addEventListener("click", () => load(true), { once: true });
     shell.content.querySelector("[data-secondary-search]")?.addEventListener("input", (event) => {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => { state.search = event.currentTarget.value.trim(); shell.setContent(render()); bind(); }, 200);
@@ -72,13 +72,14 @@ export async function mountDataRoute({ account, route, entry, config }) {
     if (config.form) config.form.bind({ root: shell.content, data: state.data, text, apiJson, reload: load, announce: shell.announce });
   };
 
-  async function load() {
+  async function load(forceRefresh = false) {
     state.loading = true;
     state.error = "";
     shell.setContent(render());
     bind();
     try {
-      state.data = config.load ? await config.load(apiJson, route.params, controller.signal) : config.data;
+      const requestApi = (path, options = {}) => apiJson(path, { ...options, forceRefresh });
+      state.data = config.load ? await config.load(requestApi, route.params, controller.signal) : config.data;
     } catch (error) {
       state.error = error.status === 403 ? text.forbidden : (error.code || error.message || "LOAD_FAILED");
     }

@@ -261,7 +261,7 @@ export async function mount({ account }) {
     bind();
     const endpoint = `/api/employees?${requestQuery(state)}`;
     try {
-      const data = await apiJson(endpoint, { signal: controller.signal });
+      const data = await apiJson(endpoint, { signal: controller.signal, forceRefresh: announce });
       state.items = Array.isArray(data.items) ? data.items : [];
       state.nextCursor = data.nextCursor || null;
       state.hasMore = Boolean(data.hasMore);

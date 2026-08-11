@@ -89,7 +89,7 @@ export async function mount({ account }) {
   };
   const load = async (announce = false) => {
     try {
-      state = await apiJson("/api/admin/overview");
+      state = await apiJson("/api/admin/overview", { forceRefresh: announce });
       shell.setContent(renderOverview(state, text, i18n.locale), { focus: !announce });
       bind();
       if (announce) shell.announce(text.refreshed);

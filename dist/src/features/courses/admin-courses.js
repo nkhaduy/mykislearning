@@ -32,8 +32,8 @@ export async function mount({ account }) {
   let debounceTimer;
   const bind = () => {
     shell.content.querySelector("[data-course-add]")?.addEventListener("click", openCreator);
-    shell.content.querySelector("[data-course-refresh]")?.addEventListener("click", load);
-    shell.content.querySelector("[data-course-retry]")?.addEventListener("click", load, { once: true });
+    shell.content.querySelector("[data-course-refresh]")?.addEventListener("click", () => load(true));
+    shell.content.querySelector("[data-course-retry]")?.addEventListener("click", () => load(true), { once: true });
     shell.content.querySelector("[data-course-search]")?.addEventListener("input", (event) => {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => { state.search = event.target.value.trim(); shell.setContent(render(state, copy)); bind(); }, 250);
@@ -62,7 +62,10 @@ export async function mount({ account }) {
         dialog.close();
         shell.announce(copy.created);
         const id = response.course?.id || data.id;
-        if (id) location.href = `/hr/courses/${encodeURIComponent(id)}`;
+        if (id) {
+          const { navigate } = await import("../../app/router.js");
+          await navigate(`/hr/courses/${encodeURIComponent(id)}`);
+        }
       } catch (error) {
         submit.disabled = false;
         submit.textContent = copy.create;
@@ -72,9 +75,9 @@ export async function mount({ account }) {
     dialog.showModal();
     form?.querySelector("input")?.focus();
   };
-  const load = async () => {
+  const load = async (forceRefresh = false) => {
     state.loading = true; state.error = ""; shell.setContent(render(state, copy)); bind();
-    try { const data = await apiJson("/api/courses"); state.items = (Array.isArray(data) ? data : data.items || []).map(normalizedCourse); }
+    try { const data = await apiJson("/api/courses", { forceRefresh }); state.items = (Array.isArray(data) ? data : data.items || []).map(normalizedCourse); }
     catch (error) { state.error = error.code || "COURSE_LOAD_FAILED"; }
     state.loading = false; shell.setContent(render(state, copy), { focus: true }); bind();
   };

@@ -26,7 +26,8 @@ export function createI18n() {
     setLanguage(nextLanguage) {
       if (!["vi", "en", "kr"].includes(nextLanguage)) return false;
       saveLanguage(nextLanguage);
-      location.reload();
+      document.documentElement.lang = nextLanguage === "kr" ? "ko" : nextLanguage;
+      dispatchEvent(new CustomEvent("mykis:language-change"));
       return true;
     },
   };

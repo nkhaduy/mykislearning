@@ -1,4 +1,9 @@
 let refreshPromise = null;
+const responseCache = new Map();
+const inFlightGets = new Map();
+let cacheEpoch = 0;
+const DEFAULT_STALE_TIME = 60_000;
+const DEFAULT_GC_TIME = 5 * 60_000;
 
 async function refreshSession() {
   if (!refreshPromise) {
@@ -27,7 +32,7 @@ async function authenticatedFetch(path, options = {}, retried = false) {
   return response;
 }
 
-export async function apiJson(path, options = {}) {
+async function requestJson(path, options) {
   const response = await authenticatedFetch(path, options);
   const contentType = response.headers.get("content-type") || "";
   if (!/\bjson\b/i.test(contentType)) {
@@ -41,6 +46,69 @@ export async function apiJson(path, options = {}) {
     });
   }
   return body;
+}
+
+function cacheKey(path, options) {
+  const headers = new Headers(options.headers || {});
+  return `${String(path)}|${headers.get("Accept-Language") || ""}`;
+}
+
+function fetchAndCache(path, options, key, gcTime) {
+  if (inFlightGets.has(key)) return inFlightGets.get(key);
+  const epoch = cacheEpoch;
+  const promise = requestJson(path, options).then((body) => {
+    if (epoch === cacheEpoch) responseCache.set(key, { body, updatedAt: Date.now(), gcTime });
+    return body;
+  }).finally(() => {
+    if (inFlightGets.get(key) === promise) inFlightGets.delete(key);
+  });
+  inFlightGets.set(key, promise);
+  return promise;
+}
+
+export function invalidateApiCache(match) {
+  cacheEpoch += 1;
+  inFlightGets.clear();
+  if (!match) {
+    responseCache.clear();
+    return;
+  }
+  for (const key of responseCache.keys()) {
+    const path = key.split("|")[0];
+    const matches = typeof match === "function" ? match(path) : match instanceof RegExp ? match.test(path) : path.startsWith(String(match));
+    if (matches) responseCache.delete(key);
+  }
+}
+
+export function clearApiCache() {
+  invalidateApiCache();
+}
+
+export async function apiJson(path, options = {}) {
+  const {
+    staleTime = DEFAULT_STALE_TIME,
+    gcTime = DEFAULT_GC_TIME,
+    forceRefresh = false,
+    ...fetchOptions
+  } = options;
+  const method = String(fetchOptions.method || "GET").toUpperCase();
+  const cacheable = method === "GET" && fetchOptions.cache !== "no-store";
+  if (!cacheable) {
+    const body = await requestJson(path, fetchOptions);
+    if (method !== "GET") invalidateApiCache();
+    return body;
+  }
+
+  const key = cacheKey(path, fetchOptions);
+  const cached = responseCache.get(key);
+  const age = cached ? Date.now() - cached.updatedAt : Infinity;
+  if (!forceRefresh && cached && age <= staleTime) return cached.body;
+  if (!forceRefresh && cached && age <= Math.max(gcTime, cached.gcTime || 0)) {
+    void fetchAndCache(path, fetchOptions, key, gcTime).catch(() => {});
+    return cached.body;
+  }
+  if (cached) responseCache.delete(key);
+  return fetchAndCache(path, fetchOptions, key, gcTime);
 }
 
 export async function downloadFile(path, filename) {
