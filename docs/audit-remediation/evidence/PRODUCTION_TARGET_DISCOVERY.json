@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "discoveredAt": "2026-07-30T04:33:25Z",
-  "refreshedAt": "2026-08-11T04:29:01Z",
+  "refreshedAt": "2026-08-11T04:53:50Z",
   "cloudflare": {
     "accountId": "b9ae472cee29c5729ee90ccbb3533f33",
     "workerName": "mykis-learning",
@@ -9,10 +9,10 @@
     "hostname": "kislms.site",
     "redirectHostname": "www.kislms.site",
     "workersDevHostname": "mykis-learning.nkhaduy.workers.dev",
-    "currentDeploymentId": "3a7cc930-a199-419b-acaf-fc424f11f90f",
-    "currentVersionId": "3ee65804-17f6-4ef6-9fc3-3946ed7c05b8",
-    "rollbackVersionVerifiedAt": "2026-08-11T04:29:01Z",
-    "previousVersionId": "0f40e808-4494-443d-a482-7672f827733e",
+    "currentDeploymentId": "09ae3f96-9d71-425b-984b-93d6e2944973",
+    "currentVersionId": "b7c2c3a2-af8c-4881-834c-a96bd75d8c1c",
+    "rollbackVersionVerifiedAt": "2026-08-11T04:53:50Z",
+    "previousVersionId": "3ee65804-17f6-4ef6-9fc3-3946ed7c05b8",
     "customDomainVerified": true,
     "cron": "0 * * * *",
     "durableObjectBinding": "RATE_LIMITER_DO",

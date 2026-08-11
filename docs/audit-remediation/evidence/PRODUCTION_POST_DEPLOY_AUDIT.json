@@ -1,30 +1,61 @@
 {
-  "schemaVersion": 1,
-  "capturedAt": "2026-07-30T10:24:04+07:00",
-  "status": "not_deployed",
-  "productionHealth": "pass",
-  "activeDeploymentId": "4c1c33d2-b226-4402-9023-87486ed7750f",
-  "activeWorkerVersion": "7f2abc31-45ef-4da5-aa82-880fcf91c988",
-  "databaseMutation": false,
-  "workerDeployment": false,
-  "syntheticSmokeCreated": false,
-  "cleanupRequired": false,
-  "rollbackRequired": false,
-  "releaseBranch": "release/kis-lms-autonomous-audit-20260730",
-  "releaseCommitSha": "bff45256a3729173e0056b9e9082d227b9b7da47",
-  "qualityGates": "30/30_PASS",
-  "isolatedAuthRuntime": "PASS",
-  "isolatedBrowserRoleAudit": "5/5_PASS",
-  "isolatedBrowserFindings": 0,
-  "freshBackupRestore": "PASS",
-  "credentialRotationVerification": "BLOCKED",
-  "oldExposedCredentialsRevoked": "BLOCKED",
-  "activeExposedProductionCredentials": 1,
-  "liveAlertReadiness": "BLOCKED_403",
-  "protectedPlan": "blocked_branch_guard",
-  "protectedPlanBlockers": [
-    "HEAD is not on the approved production release branch"
-  ],
+  "schemaVersion": 2,
+  "capturedAt": "2026-08-11T04:53:50Z",
+  "status": "deployed_navigation_verified_auth_smoke_blocked",
+  "productionUrl": "https://kislms.site",
+  "releaseBranch": "release/kislms-employee-account-auth",
+  "releaseCommitSha": "1fe33aa6fccea4a2584329b41c6eafdccf83aa9e",
+  "deploymentId": "09ae3f96-9d71-425b-984b-93d6e2944973",
+  "workerVersionId": "b7c2c3a2-af8c-4881-834c-a96bd75d8c1c",
+  "trafficPercentage": 100,
+  "rollbackVersionId": "3ee65804-17f6-4ef6-9fc3-3946ed7c05b8",
+  "protectedPlan": "GO FOR PRODUCTION DEPLOYMENT",
+  "qualityGates": {
+    "status": "pass",
+    "checksCompleted": 30,
+    "unit": "137/137",
+    "security": "50/50",
+    "publicE2e": "9/9",
+    "authenticatedE2e": "8/8"
+  },
+  "productionTests": {
+    "publicReadonly": "9/9_PASS",
+    "authenticatedRouteContracts": "8/8_PASS_SYNTHETIC_READONLY",
+    "appLikeNavigation": "6/6_PASS_SYNTHETIC_READONLY"
+  },
+  "navigation": {
+    "internalDocumentRequests": 0,
+    "blankSampledFrames": 0,
+    "appShellRemounts": 0,
+    "sessionGetsDuringInternalNavigation": 0,
+    "employeeGetsOnFreshRevisit": 1,
+    "consoleOrPageErrors": 0,
+    "maxCls": 0.01,
+    "synchronousActiveState": true,
+    "backForward": "pass",
+    "rapidNavigation": "pass",
+    "mobileSlowNetwork": "pass",
+    "directDeepUrl": "pass_synthetic_readonly"
+  },
+  "baseline": {
+    "internalDocumentRequestOnDashboardToEmployees": 1,
+    "employeeGetsOnRevisit": 2,
+    "shellIdentityReplaced": true
+  },
+  "realCredentialSmoke": {
+    "status": "blocked",
+    "reason": "secure Keychain credential is stale and the active dual-role account has no password escrow or existing browser session",
+    "identityActive": true,
+    "identityUnlocked": true,
+    "allowedRoles": [
+      "employee",
+      "hr"
+    ],
+    "failedAttemptsObserved": 3,
+    "passwordResetPerformed": false,
+    "authBypassPerformed": false
+  },
   "containsSecrets": false,
-  "containsRawPii": false
+  "containsRawPii": false,
+  "finalStatus": "MYKIS APP-LIKE NAVIGATION: AUTH SMOKE BLOCKED"
 }
