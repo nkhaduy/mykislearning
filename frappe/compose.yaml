@@ -1,0 +1,146 @@
+name: mykis-learning-frappe
+
+x-lms-image: &lms_image mykis/frappe-lms:v2.61.0-d3bfe97d
+x-lms-service: &lms_service
+  image: *lms_image
+  build:
+    context: https://github.com/frappe/frappe_docker.git#600744eb07e86584a7fdf3f9d5e4336c08f30f39
+    dockerfile: images/layered/Containerfile
+    args:
+      FRAPPE_BRANCH: version-16
+    secrets:
+      - apps_json
+  platform: ${FRAPPE_PLATFORM:-linux/amd64}
+  restart: unless-stopped
+  volumes:
+    - sites:/home/frappe/frappe-bench/sites
+    - logs:/home/frappe/frappe-bench/logs
+
+services:
+  mariadb:
+    image: mariadb:10.11
+    restart: unless-stopped
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    environment:
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/db_root
+    secrets: [db_root]
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis-cache:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis-queue:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-queue-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  configurator:
+    <<: *lms_service
+    restart: "no"
+    entrypoint: ["bash", "-lc"]
+    command:
+      - >-
+        bench set-config -g db_host mariadb &&
+        bench set-config -gp db_port 3306 &&
+        bench set-config -g redis_cache redis://redis-cache:6379 &&
+        bench set-config -g redis_queue redis://redis-queue:6379 &&
+        bench set-config -g redis_socketio redis://redis-queue:6379 &&
+        bench set-config -gp socketio_port 9000
+    depends_on:
+      mariadb: {condition: service_healthy}
+      redis-cache: {condition: service_healthy}
+      redis-queue: {condition: service_healthy}
+
+  create-site:
+    <<: *lms_service
+    restart: "no"
+    entrypoint: ["bash", "/opt/mykis/bootstrap-site.sh"]
+    environment:
+      SITE_NAME: ${SITE_NAME:-lms.localhost}
+    secrets: [db_root, site_admin]
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - logs:/home/frappe/frappe-bench/logs
+      - ./scripts/bootstrap-site.sh:/opt/mykis/bootstrap-site.sh:ro
+    depends_on:
+      configurator: {condition: service_completed_successfully}
+
+  backend:
+    <<: *lms_service
+    command: ["/home/frappe/frappe-bench/env/bin/gunicorn", "--chdir=/home/frappe/frappe-bench/sites", "--bind=0.0.0.0:8000", "--threads=4", "--workers=2", "frappe.app:application"]
+    depends_on:
+      create-site: {condition: service_completed_successfully}
+
+  frontend:
+    <<: *lms_service
+    command: ["nginx-entrypoint.sh"]
+    environment:
+      BACKEND: backend:8000
+      SOCKETIO: websocket:9000
+      FRAPPE_SITE_NAME_HEADER: ${SITE_NAME:-lms.localhost}
+      UPSTREAM_REAL_IP_ADDRESS: 127.0.0.1
+      UPSTREAM_REAL_IP_HEADER: X-Forwarded-For
+      UPSTREAM_REAL_IP_RECURSIVE: "off"
+      PROXY_READ_TIMEOUT: 120
+      CLIENT_MAX_BODY_SIZE: 50m
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+    depends_on: [backend, websocket]
+
+  websocket:
+    <<: *lms_service
+    command: ["node", "/home/frappe/frappe-bench/apps/frappe/socketio.js"]
+    ports:
+      - "${WS_PORT:-9000}:9000"
+    depends_on:
+      create-site: {condition: service_completed_successfully}
+
+  queue-short:
+    <<: *lms_service
+    command: ["bench", "worker", "--queue", "short,default"]
+    depends_on:
+      create-site: {condition: service_completed_successfully}
+
+  queue-long:
+    <<: *lms_service
+    command: ["bench", "worker", "--queue", "long,default,short"]
+    depends_on:
+      create-site: {condition: service_completed_successfully}
+
+  scheduler:
+    <<: *lms_service
+    command: ["bench", "schedule"]
+    depends_on:
+      create-site: {condition: service_completed_successfully}
+
+volumes:
+  db-data:
+  sites:
+  logs:
+  redis-queue-data:
+
+secrets:
+  apps_json:
+    file: ./apps.json
+  db_root:
+    file: ${DB_ROOT_SECRET_FILE:-./secrets/db-root.txt}
+  site_admin:
+    file: ${SITE_ADMIN_SECRET_FILE:-./secrets/site-admin.txt}
