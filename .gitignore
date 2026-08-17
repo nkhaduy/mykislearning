@@ -14,6 +14,7 @@ playwright-report/
 dist-frappe/
 output/
 supabase/.temp/
+**/supabase/.temp/
 .claude/worktrees/
 .claude/skills/
 .agents/
