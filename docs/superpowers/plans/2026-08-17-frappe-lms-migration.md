@@ -1,124 +1,105 @@
-# Frappe Learning Migration Implementation Plan
+# Frappe LMS Frontend on Supabase Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the production KIS LMS with native Frappe Learning while preserving legacy data and rollback capability.
+**Goal:** Deploy the official Frappe Learning Vue UI at `kislms.site` with Supabase Auth, PostgreSQL, Storage, and RLS replacing the native Frappe backend.
 
-**Architecture:** Deploy pinned Frappe Learning on Frappe's native MariaDB/Redis/process stack behind Cloudflare. Export and normalize legacy Supabase records, import them idempotently through Frappe APIs, and retain Supabase plus the old Worker as read-only rollback infrastructure.
+**Architecture:** Pin upstream as a submodule, preserve its Vue/Frappe UI pages, and route its resource contracts through a KIS compatibility adapter. Use additive Supabase migrations and Cloudflare static SPA hosting.
 
-**Tech Stack:** Frappe Framework, Frappe Learning v2.61.0, Python 3.10+, MariaDB, Redis, Docker Compose, Playwright, Cloudflare DNS/proxy.
+**Tech Stack:** Vue 3, Frappe UI, Vite, TypeScript, Vitest, Supabase JS/PostgreSQL/Auth/Storage, Playwright, Cloudflare Workers assets.
 
 **Spec:** `docs/superpowers/specs/2026-08-17-frappe-lms-migration-design.md`
 
 ## Global Constraints
 
-- Pin Frappe Learning to `d3bfe97d178eb076310dffd7407106bcdec15d67`.
-- Do not copy Frappe UI into the legacy Worker application.
-- Do not migrate password hashes, tokens, MFA secrets or service credentials.
-- Missing KIS-only features remain backlog items.
-- Never cut over before staging Employee and HR E2E pass.
-- Keep Worker version `b7c2c3a2-af8c-4881-834c-a96bd75d8c1c` available for rollback.
+- Pin Frappe Learning to `d3bfe97d178eb076310dffd7407106bcdec15d67` (`v2.61.0`).
+- Do not deploy Frappe Framework, MariaDB, Redis, workers, scheduler, websocket backend, Docker Frappe, OCI VM, or Frappe Cloud.
+- Keep Supabase service-role credentials out of browser bundles and git.
+- Preserve upstream UI and AGPL notices; direct upstream patches stay minimal and documented.
+- Defer KIS-specific and advanced upstream features until the core Employee and HR flows pass.
 
 ---
 
-### Task 1: Native deployment package
+### Task 1: Pin and build upstream frontend
 
-**Files:**
-- Create: `frappe/compose.yaml`
-- Create: `frappe/.env.example`
-- Create: `frappe/scripts/bootstrap-site.sh`
-- Test: `tests/frappe/test_deployment_config.py`
+**Files:** `.gitmodules`, `upstream/frappe-lms`, `frontend/package.json`, `frontend/vite.config.ts`, `frontend/src/main.ts`, `tests/upstream.test.ts`
 
-**Interfaces:**
-- Produces: a pinned, persistent Frappe stack exposing HTTP through one ingress port.
+**Interfaces:** Produces a standalone Vite entry that imports upstream `App.vue`, router, CSS, and Frappe UI at the pinned commit.
 
-- [ ] Write tests that parse Compose and assert pinned LMS image/commit, MariaDB/Redis health checks, persistent volumes and no embedded secrets.
-- [ ] Run `python3 -m unittest tests.frappe.test_deployment_config` and verify failure because files do not exist.
-- [ ] Add the minimal Compose/bootstrap configuration.
-- [ ] Rerun the test and `docker compose -f frappe/compose.yaml config`.
-- [ ] Commit the deployment package.
+- [ ] Write a failing test that asserts the submodule commit, upstream license, Vue entry, and absence of native Frappe runtime imports from the KIS entry.
+- [ ] Run the focused test and confirm it fails before the standalone entry exists.
+- [ ] Add the pinned submodule and minimal wrapper build.
+- [ ] Run Vitest and `npm run build` until both pass.
+- [ ] Commit the upstream baseline and build wrapper.
 
-### Task 2: Legacy normalization library
+### Task 2: Supabase schema and RLS
 
-**Files:**
-- Create: `migration/kis_frappe_migration/normalize.py`
-- Create: `migration/kis_frappe_migration/models.py`
-- Test: `tests/migration/test_normalize.py`
+**Files:** `supabase/migrations/*_frappe_lms_core.sql`, `tests/database/frappe_lms_rls.test.ts`
 
-**Interfaces:**
-- Consumes: versioned JSON objects keyed by legacy table name.
-- Produces: normalized users, courses, chapters, lessons, enrollments, progress and quizzes with stable legacy IDs.
+**Interfaces:** Produces tables/views/RPCs for profiles, courses, chapters, lessons, enrollments, lesson progress, role checks, ordering, and atomic completion.
 
-- [ ] Write failing tests for role mapping, generated chapters, lesson types, duplicate emails and unmapped records.
-- [ ] Run the focused test and verify expected failures.
-- [ ] Implement the typed normalizer without credential fields.
-- [ ] Rerun focused and full migration tests.
-- [ ] Commit the normalizer.
+- [ ] Write database tests proving Employee ownership boundaries and HR authoring permissions.
+- [ ] Run tests against local Supabase and observe missing-table/policy failures.
+- [ ] Add an idempotent additive migration, explicit grants, RLS, indexes, triggers, and atomic progress RPC.
+- [ ] Run database tests and Supabase advisors; fix every security finding in scope.
+- [ ] Commit schema and RLS.
 
-### Task 3: Idempotent Frappe importer
+### Task 3: Auth and resource compatibility core
 
-**Files:**
-- Create: `migration/kis_frappe_migration/importer.py`
-- Create: `migration/kis_frappe_migration/frappe_client.py`
-- Create: `migration/import_legacy.py`
-- Test: `tests/migration/test_importer.py`
+**Files:** `frontend/src/data/client.ts`, `frontend/src/data/auth.ts`, `frontend/src/data/resource-fetcher.ts`, `frontend/src/data/types.ts`, `frontend/src/stores/session.ts`, `frontend/src/router.ts`, `frontend/src/data/*.test.ts`
 
-**Interfaces:**
-- Consumes: normalized bundle from Task 2 and a Frappe REST client.
-- Produces: upserted Frappe documents plus reconciliation JSON.
+**Interfaces:** Produces `resourceFetcher(options): Promise<unknown>`, `login(email,password)`, `logout()`, `getSession()`, and protected/HR route guards.
 
-- [ ] Write failing tests using an in-memory fake client for dependency order, rerun idempotency, count mismatch and dry-run behavior.
-- [ ] Verify the test fails for missing importer behavior.
-- [ ] Implement minimal upsert and reconciliation logic.
-- [ ] Run tests twice against the same fake dataset.
-- [ ] Commit the importer.
+- [ ] Write failing tests for login persistence, refresh, expiry redirect, role guard, and Frappe response unwrapping.
+- [ ] Confirm failures are caused by missing adapter behavior.
+- [ ] Implement the minimal Supabase-backed session and resource dispatcher.
+- [ ] Run focused and full unit tests.
+- [ ] Commit auth and compatibility core.
 
-### Task 4: Staging bootstrap and migration rehearsal
+### Task 4: Catalogue, course, lesson, enrollment, and progress adapters
 
-**Files:**
-- Create: `frappe/scripts/rehearse-migration.sh`
-- Create: `docs/frappe-migration-rehearsal.md`
+**Files:** `frontend/src/data/courses.ts`, `frontend/src/data/lessons.ts`, `frontend/src/data/progress.ts`, `frontend/src/data/frappe-shapes.ts`, related tests
 
-**Interfaces:**
-- Consumes: Docker stack and sanitized source export.
-- Produces: disposable native Frappe site and reconciliation evidence.
+**Interfaces:** Produces Frappe-shaped course lists/details, ordered outlines, lesson content, enrollment state, and atomic persisted completion percentage.
 
-- [ ] Start the pinned stack and wait for health checks.
-- [ ] Create Employee and HR fixtures, run the importer twice and compare counts.
-- [ ] Run Frappe migrations and upstream smoke tests.
-- [ ] Record exact commands, versions and results.
-- [ ] Commit rehearsal evidence.
+- [ ] Write failing contract tests using literal upstream-shaped fixtures.
+- [ ] Verify failures for missing queries/mappers.
+- [ ] Implement Supabase queries and compatibility mappers without changing upstream card/player markup.
+- [ ] Run tests including concurrent/repeated progress upserts.
+- [ ] Commit learner data adapters.
 
-### Task 5: Native browser journeys
+### Task 5: Profile, HR authoring, and Storage
 
-**Files:**
-- Create: `e2e/frappe-employee.spec.js`
-- Create: `e2e/frappe-hr.spec.js`
-- Modify: `playwright.config.js`
+**Files:** `frontend/src/data/profile.ts`, `frontend/src/data/admin.ts`, `frontend/src/data/storage.ts`, adapter tests, storage policy migration
 
-**Interfaces:**
-- Consumes: seeded native Frappe staging URL and test users.
-- Produces: desktop/mobile evidence for authentication, learning and administration.
+**Interfaces:** Produces profile reads/updates, course/chapter/lesson CRUD/reorder/publish, instructor assignment, and safe media upload URLs.
 
-- [ ] Write failing Employee and HR journeys against the unseeded staging site.
-- [ ] Seed course, lesson, quiz, enrollment and roles.
-- [ ] Run desktop and mobile tests until clean.
-- [ ] Add direct refresh, back/forward, unauthorized route and session persistence assertions.
-- [ ] Commit E2E coverage.
+- [ ] Write failing tests for HR-only writes, ordering, publish visibility, upload type/size/path validation, and Employee denial.
+- [ ] Implement minimal adapters and Storage policies.
+- [ ] Run unit, database, and negative authorization tests.
+- [ ] Wire upstream editor resources to these adapter methods with the smallest patch set.
+- [ ] Commit HR and Storage support.
 
-### Task 6: Production cutover and rollback verification
+### Task 6: Legacy migration and reconciliation
 
-**Files:**
-- Create: `frappe/scripts/cutover.sh`
-- Create: `frappe/scripts/rollback.sh`
-- Create: `docs/frappe-production-runbook.md`
+**Files:** `scripts/migrate-frappe-supabase.mjs`, `tests/migration/frappe-supabase.test.ts`, `docs/frappe-data-migration.md`
 
-**Interfaces:**
-- Consumes: a ready Frappe-compatible host, Cloudflare zone access and successful staging evidence.
-- Produces: `kislms.site` routed to Frappe with tested rollback.
+**Interfaces:** Produces a dry-run/default idempotent migration for users, courses, lessons, enrollments, progress, and media plus count/unmapped reports.
 
-- [ ] Snapshot Frappe and legacy stores; capture current DNS and Worker version.
-- [ ] Update Cloudflare origin/DNS only after all release gates pass.
-- [ ] Run real-domain Employee/HR desktop/mobile smoke tests and inspect browser console/network plus server logs.
-- [ ] Exercise rollback in a controlled window, then reapply cutover and repeat smoke tests.
-- [ ] Commit final production evidence and retire legacy routes from the active deployment path.
+- [ ] Write failing tests for stable IDs, rerun idempotency, missing foreign keys, and non-destructive dry run.
+- [ ] Implement normalization and upsert batches using legacy tables as source.
+- [ ] Run twice against staging/local data and compare counts.
+- [ ] Back up production, apply the reviewed migration, and record reconciliation without secrets.
+- [ ] Commit migration tooling and evidence.
+
+### Task 7: Production E2E, visual regression, and cutover
+
+**Files:** `e2e/frappe-supabase-employee.spec.ts`, `e2e/frappe-supabase-hr.spec.ts`, `e2e/frappe-supabase-security.spec.ts`, `wrangler.jsonc`, `docs/frappe-ui-upstream.md`, `docs/frappe-lms-gap-analysis.md`
+
+**Interfaces:** Produces a deployed Cloudflare SPA and production evidence for Employee, HR, security, desktop, mobile, console, and network health.
+
+- [ ] Capture upstream reference screenshots and write failing Employee/HR/security journeys against the pre-cutover site.
+- [ ] Build, deploy, wait for readiness, and run tests on a staging/preview URL.
+- [ ] Apply production Supabase migration only after backup and staging PASS.
+- [ ] Deploy to `kislms.site`, verify desktop/mobile authenticated flows, console, network, refresh, and persistence.
+- [ ] Record deployed commit, retire legacy UI routes from the active deployment, and commit final evidence.
