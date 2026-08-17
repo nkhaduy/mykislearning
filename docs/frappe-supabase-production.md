@@ -23,3 +23,15 @@ Production verification uses dedicated HR and Employee identities whose credenti
 - Supabase Auth Site URL is `https://kislms.site`; the redirect allow list is `https://kislms.site/**`.
 
 Rollback restores the `kislms.site` custom domain on `mykis-learning` from the Worker's Domains tab. Cloudflare then recreates the managed Worker DNS record. Remove the Pages custom-domain binding first if Cloudflare reports an ownership conflict; do not delete the Worker or legacy Supabase data.
+
+## Legacy public shell release (2026-08-17)
+
+- Source commit: `b57c6deb35978e773edbcdba75f7f53d86125b14`.
+- Preview deployment: `240f2a46-8600-4e80-90af-b2b69069668f` (`public-shell-preview`).
+- Production deployment: `2105d5a8-70cb-4b90-96bf-6fc0bd667fc4` (`main`).
+- Previous production deployment: `76fb25b0-3d83-4d4c-a648-e366abe9065e` at source commit `53f7ded3e6c74ddc5d6d977369947a9bf035a99d`.
+- Public routes `/`, `/about-kis`, `/about`, and `/login` use the isolated legacy KIS public presentation. Protected routes remain `/courses`, `/courses/:id`, `/courses/:courseId/lessons/:lessonId`, and `/admin`.
+- Login, refresh persistence, logout, Employee lesson progress, HR authoring, mobile layouts, direct SPA refresh, console, and network checks passed on `https://kislms.site`.
+- `nkhaduy@gmail.com` is linked to an active Supabase profile with role `hr`; production login, refresh, `/admin`, and logout passed.
+
+Rollback promotes Pages deployment `76fb25b0-3d83-4d4c-a648-e366abe9065e`. No Supabase schema or LMS data rollback is required.
