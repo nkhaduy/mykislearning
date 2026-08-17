@@ -1,5 +1,7 @@
 # Frappe LMS Gap Analysis
 
+Phase-one preview now passes Employee login/enroll/lesson/progress persistence, HR course/chapter/lesson publishing, negative Employee authoring checks, mobile course navigation, and console/network checks. Advanced upstream modules remain deferred as listed below.
+
 Baseline: Frappe Learning `v2.61.0` (`d3bfe97d178eb076310dffd7407106bcdec15d67`).
 
 | Capability | Status | Decision |

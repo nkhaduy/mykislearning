@@ -11,6 +11,8 @@ node_modules/
 .wrangler/
 test-results/
 playwright-report/
+dist-frappe/
+output/
 supabase/.temp/
 .claude/worktrees/
 .claude/skills/
