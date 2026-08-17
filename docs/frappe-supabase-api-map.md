@@ -1,5 +1,9 @@
 # Frappe Frontend to Supabase API Map
 
+## Phase-one implementation
+
+Login/logout/session/profile, catalogue, course detail, ordered chapters/lessons, self-enrollment, lesson completion, and HR course/chapter/lesson authoring are implemented in `frontend/src/data/supabase/`. The browser uses only the public Supabase key; RLS is the authority for every operation.
+
 Baseline: Frappe Learning `v2.61.0` at `d3bfe97d178eb076310dffd7407106bcdec15d67`. Audit scope: 403 Vue/TypeScript/JavaScript files under `frontend/src`.
 
 | Frappe frontend call | Purpose | Supabase replacement | Status |

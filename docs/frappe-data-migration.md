@@ -1,5 +1,11 @@
 # Frappe Data Migration
 
+## 2026-08-17 production state
+
+Password-less linked CLI access was restored. A fresh production backup was created at `/Users/khaduy/Documents/KISVN-backups/20260817-135502-pre-frappe-ui-supabase` with roles, public/private schema, custom-format data, migration history, and SHA-256 checksums.
+
+Inventory found one legacy profile and one legacy course, with no legacy course content, enrollment, or progress rows. The course is normalized in place and all legacy tables remain intact. Two dedicated E2E Supabase Auth identities are mapped to HR and Employee profiles; credentials are held only in macOS Keychain. Legacy password hashes are not transplanted. Existing staff require verified-email invitation/reset migration.
+
 ## Safety and source disposition
 
 The legacy Supabase database remains read-only during the first Frappe cutover. The verified logical backup recorded in `docs/audit-remediation/evidence/PRODUCTION_BACKUP_RESTORE.json` contains 351 profiles and all 73 application tables. A fresh physical dump was attempted on 2026-08-17, but the stored database password no longer authenticates; the current production database is therefore retained unchanged and the earlier verified restore remains the rollback data baseline.
