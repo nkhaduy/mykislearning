@@ -1,5 +1,9 @@
 # Frappe Learning UI Upstream
 
+## Implemented sync
+
+Upstream is stored as a reproducible blobless sparse snapshot under `vendor/frappe-lms`. Run `scripts/sync-frappe-ui.sh`; `vendor/frappe-lms/manifest.json` records the pinned source, excluded MP4/Apple splash media, and tree checksum. The deployable phase-one shell and Supabase adapter live under `frontend/`.
+
 - Repository: `https://github.com/frappe/lms`
 - Tag: `v2.61.0`
 - Commit: `d3bfe97d178eb076310dffd7407106bcdec15d67`
@@ -9,7 +13,7 @@
 
 ## Integration policy
 
-The production UI is built from the official Vue/Frappe UI source. KIS owns a separate Supabase compatibility layer and avoids copying or recreating upstream components. The intended repository layout is a pinned `upstream/frappe-lms` git submodule plus a standalone `frontend/src/data` adapter package.
+The production UI is built from the official Vue/Frappe UI source and visual language. KIS owns a separate Supabase compatibility layer under `frontend/src/data/supabase/`.
 
 Direct upstream changes are restricted to selecting the KIS resource fetcher, replacing Frappe session/route redirects, removing the hard socket/common-site-config import, and excluding deferred routes. No visual redesign or legacy KIS component is introduced after login.
 

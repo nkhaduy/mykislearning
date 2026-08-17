@@ -1,0 +1,20 @@
+{
+  "upstream": {
+    "repo": "https://github.com/frappe/lms.git",
+    "tag": "v2.61.0",
+    "commit": "d3bfe97d178eb076310dffd7407106bcdec15d67"
+  },
+  "strategy": "blobless sparse vendor snapshot",
+  "fetchedPaths": [
+    "frontend",
+    "license.txt"
+  ],
+  "excludedPaths": [
+    "frontend/public/*.mp4",
+    "frontend/public/manifest/apple-splash-*.jpg"
+  ],
+  "checksum": {
+    "algorithm": "sha256",
+    "tree": "b9c23d2d2efdaa0db81177c13d0a0983d4785d663e2716fdfe824fc7d7da727d"
+  }
+}
