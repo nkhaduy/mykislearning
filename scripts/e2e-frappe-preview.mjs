@@ -51,10 +51,10 @@ async function login(page, account) {
       if (attempt === 1) throw error
     }
   }
-  await page.getByLabel('Email').waitFor()
-  await page.getByLabel('Email').fill(account.email)
-  await page.getByLabel('Password').fill(account.password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.locator('input[type="email"]').waitFor()
+  await page.locator('input[type="email"]').fill(account.email)
+  await page.locator('input[autocomplete="current-password"]').fill(account.password)
+  await page.locator('button[type="submit"]').click()
   try {
     await page.waitForURL('**/courses')
   } catch (error) {

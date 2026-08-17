@@ -1,5 +1,6 @@
 <template>
-  <div class="app-shell">
+  <RouterView v-if="route.meta.public" />
+  <div v-else class="app-shell lms-shell">
     <aside v-if="session.session" class="sidebar">
       <RouterLink class="brand" to="/courses">
         <span class="brand-mark">K</span>
@@ -21,10 +22,11 @@
 <script setup>
 import { BookOpen, LogOut, SquarePen } from 'lucide-vue-next'
 import Button from '@frappe/Button'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useSessionStore } from './stores/session'
 
 const session = useSessionStore()
+const route = useRoute()
 const router = useRouter()
 async function leave() { await session.signOut(); router.replace('/login') }
 </script>
