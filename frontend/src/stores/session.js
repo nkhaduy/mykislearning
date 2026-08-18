@@ -1,41 +1,43 @@
+import { computed, reactive, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
-import { getSession, login, logout, onAuthStateChange } from '../data/supabase/auth'
-import { getMyProfile } from '../data/supabase/profiles'
+import { createResource } from 'frappe-ui'
+import { supabase } from '@/data/supabase/client'
+import { syncFrappeSessionCookie } from '@/backend/auth'
 
-export const useSessionStore = defineStore('session', () => {
-  const session = ref(null)
-  const profile = ref(null)
-  const ready = ref(false)
-  const isHr = computed(() => profile.value?.role?.toLowerCase() === 'hr')
+export const sessionStore = defineStore('lms-session', () => {
+	const user = ref(null)
+	const isLoggedIn = computed(() => Boolean(user.value))
+	const brand = reactive({ name: 'KIS Learning', logo: '/legacy-public/assets/kis-logo-horizontal.png', favicon: '/favicon.ico' })
 
-  async function refreshProfile() {
-    profile.value = session.value ? await getMyProfile() : null
-  }
+	async function initialize() {
+		const { data } = await supabase.auth.getSession()
+		user.value = data.session?.user?.email || null
+		syncFrappeSessionCookie(user.value)
+		supabase.auth.onAuthStateChange((_event, session) => {
+			user.value = session?.user?.email || null
+			syncFrappeSessionCookie(user.value)
+		})
+	}
 
-  async function initialize() {
-    const { data } = await getSession()
-    session.value = data.session
-    if (session.value) await refreshProfile()
-    onAuthStateChange(async (_event, nextSession) => {
-      session.value = nextSession
-      await refreshProfile()
-    })
-    ready.value = true
-  }
+	async function signIn(email, password) {
+		const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+		if (error) throw error
+		user.value = data.session?.user?.email || null
+		syncFrappeSessionCookie(user.value)
+		return data.session
+	}
 
-  async function signIn(email, password) {
-    const { data, error } = await login(email, password)
-    if (error) throw error
-    session.value = data.session
-    await refreshProfile()
-  }
+	const logout = createResource({
+		url: 'logout',
+		async onSuccess() {
+			user.value = null
+			syncFrappeSessionCookie(null)
+			window.location.assign('/login')
+		},
+	})
+	const branding = createResource({ url: 'lms.lms.api.get_branding', auto: true, onSuccess(data) { Object.assign(brand, { name: data.app_name, logo: data.app_logo, favicon: data.favicon?.file_url || '/favicon.ico' }) } })
 
-  async function signOut() {
-    await logout()
-    session.value = null
-    profile.value = null
-  }
-
-  return { session, profile, ready, isHr, initialize, signIn, signOut }
+	return { user, isLoggedIn, logout, brand, branding, initialize, signIn }
 })
+
+export const useSessionStore = sessionStore

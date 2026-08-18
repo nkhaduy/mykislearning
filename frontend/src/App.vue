@@ -1,32 +1,24 @@
 <template>
-  <RouterView v-if="route.meta.public" />
-  <div v-else class="app-shell lms-shell">
-    <aside v-if="session.session" class="sidebar">
-      <RouterLink class="brand" to="/courses">
-        <span class="brand-mark">K</span>
-        <span><strong>KIS Learning</strong><small>Frappe LMS</small></span>
-      </RouterLink>
-      <nav>
-        <RouterLink to="/courses"><BookOpen :size="18" />Courses</RouterLink>
-        <RouterLink v-if="session.isHr" to="/admin"><SquarePen :size="18" />Course editor</RouterLink>
-      </nav>
-      <div class="sidebar-user">
-        <div><strong>{{ session.profile?.full_name }}</strong><small>{{ session.profile?.role }}</small></div>
-        <Button variant="subtle" @click="leave"><LogOut :size="16" /><span>Log out</span></Button>
-      </div>
-    </aside>
-    <main class="main"><RouterView /></main>
-  </div>
+	<router-view v-if="route.meta.public" />
+	<FrappeUIProvider v-else>
+		<Layout class="isolate text-p-base"><router-view /></Layout>
+		<NotificationPanel />
+		<Dialogs />
+	</FrappeUIProvider>
 </template>
 
 <script setup>
-import { BookOpen, LogOut, SquarePen } from 'lucide-vue-next'
-import Button from '@frappe/Button'
-import { useRoute, useRouter } from 'vue-router'
-import { useSessionStore } from './stores/session'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { FrappeUIProvider } from 'frappe-ui'
+import { Dialogs } from '@/utils/dialogs'
+import { useScreenSize } from '@/utils/composables'
+import DesktopLayout from '@/components/Layouts/DesktopLayout.vue'
+import MobileLayout from '@/components/Layouts/MobileLayout.vue'
+import NoSidebarLayout from '@/components/Layouts/NoSidebarLayout.vue'
+import NotificationPanel from '@/components/Notifications/NotificationPanel.vue'
 
-const session = useSessionStore()
 const route = useRoute()
-const router = useRouter()
-async function leave() { await session.signOut(); router.replace('/login') }
+const { isMobile } = useScreenSize()
+const Layout = computed(() => route.query.fromLesson ? NoSidebarLayout : isMobile.value ? MobileLayout : DesktopLayout)
 </script>

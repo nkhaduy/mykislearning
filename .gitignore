@@ -12,6 +12,7 @@ node_modules/
 test-results/
 playwright-report/
 .playwright-cli/
+.upstream/
 dist-frappe/
 output/
 supabase/.temp/

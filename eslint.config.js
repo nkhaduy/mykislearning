@@ -11,6 +11,7 @@ const unusedVariables = ["warn", {
 
 const browserEvaluationScripts = [
   "scripts/check-timeline.mjs",
+  "scripts/e2e-public-shell.mjs",
   "scripts/measure-route-bundles.mjs",
   "scripts/repro-auth-employee.mjs",
 ];
@@ -23,7 +24,9 @@ export default [
       ".codex/**",
       ".wrangler/**",
       ".wrangler-dry/**",
+      ".upstream/**",
       "dist/**",
+      "dist-frappe/**",
       "node_modules/**",
       "test-results/**",
       "vendor/**",
@@ -40,6 +43,31 @@ export default [
     ...config,
     files: ["legacy/typescript/**/*.ts"],
   })),
+  {
+    files: ["frontend/**/*.{js,ts}"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        ...globals["shared-node-browser"],
+        __: "readonly",
+        EventListener: "readonly",
+        FrameRequestCallback: "readonly",
+      },
+    },
+    rules: {
+      // The vendored frontend follows the upstream Frappe lint configuration.
+      "no-unused-vars": "off",
+      "no-useless-escape": "off",
+      "no-unexpected-multiline": "off",
+    },
+  },
+  {
+    files: ["frontend/**/*.ts", "frontend/**/*.d.ts"],
+    languageOptions: {
+      parser: tseslint.parser,
+    },
+  },
   {
     files: ["app.js", "lib/**/*.js", "src/**/*.js"],
     languageOptions: {
